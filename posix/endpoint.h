@@ -142,12 +142,53 @@ static void c_endpoint_set_port(struct sockaddr* saddr, socklen_t len, uint16_t 
 }
 
 /**
+ * request from DNS the first IP address of specified hostname,
+ * and return it as vector1
+ * where vector1 contains four elements:
+ *   the address family, as an integer
+ *   the resolved IP address, converted to a Scheme string
+ *   override_port, or if override_port is zero, then servicename_or_port, as an integer
+ *   a C sockaddr containing all the above, wrapped in a Scheme bytevector
+ * On error, return Sinteger(EAI_*)
+ */
+static ptr c_hostname_to_endpoint(const char* hostname,
+                                  int         preferred_family,
+                                  const char* servicename_or_port,
+                                  uint16_t    override_port) {
+  int err = 0;
+  if (!hostname) {
+    c_errno_set(EINVAL);
+    err = EAI_SYSTEM;
+  } else {
+    struct addrinfo  hints = {};
+    struct addrinfo* list  = NULL;
+    hints.ai_family        = preferred_family;
+    if ((err = getaddrinfo(hostname, servicename_or_port, &hints, &list)) == 0) {
+      struct addrinfo* info = list;
+      ptr              ret  = Sfalse;
+      override_port         = htons(override_port);
+      if (info) {
+        struct sockaddr* saddr = info->ai_addr;
+        socklen_t        len   = info->ai_addrlen;
+        if (override_port) {
+          c_endpoint_set_port(saddr, len, override_port);
+        }
+        ret = c_endpoint_to_vector(saddr, len);
+      }
+      freeaddrinfo(list);
+      return ret;
+    }
+  }
+  return Sinteger(err);
+}
+
+/**
  * request from DNS the IP addresses of specified hostname,
  * and return them as a list (vector1 vector2 ...)
  * where each vector contains four elements:
  *   the address family, as an integer
  *   the resolved IP address, converted to a Scheme string
- *   override_port
+ *   override_port, or if override_port is zero, then servicename_or_port, as an integer
  *   a C sockaddr containing all the above, wrapped in a Scheme bytevector
  * On error, return Sinteger(EAI_*)
  */

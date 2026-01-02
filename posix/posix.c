@@ -2210,6 +2210,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_endpoint_inet6", &c_endpoint_inet6);
   Sregister_symbol("c_endpoint_unix", &c_endpoint_unix);
   Sregister_symbol("c_endpoint_unix_path_max", &c_endpoint_unix_path_max);
+  Sregister_symbol("c_hostname_to_endpoint", &c_hostname_to_endpoint);
   Sregister_symbol("c_hostname_to_endpoint_list", &c_hostname_to_endpoint_list);
   Sregister_symbol("c_hostname_error_to_string", &c_hostname_error_to_string);
   Sregister_symbol("c_socket_accept", &c_socket_accept);

@@ -21,6 +21,7 @@
     (only (scheme2k bootstrap)             assert* check-interrupts raise-assert* raise-errorf)
     (only (scheme2k conversions)           bytevector->bytevector0 text->bytevector text->bytevector0 text->string)
     (only (scheme2k containers bytevector) bytevector-index)
+    (only (scheme2k containers bytespan)   bytevector->bytespan*)
     (only (scheme2k containers hashtable)  alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k containers utf8b)      utf8b->string)
     (only (scheme2k posix fd)              raise-c-errno))
@@ -74,30 +75,54 @@
         c-who c-args c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
 
 
+(define c-hostname->endpoint      (foreign-procedure "c_hostname_to_endpoint"      (u8* int u8* unsigned-16) ptr))
 (define c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr))
 
-;; resolve specified hostname to IPv4 and/or IPv6 addresses.
-;; hostname must be a bytevector, string, bytespan or charspan.
+(define (%vector->endpoint v)
+  (let ((family (socket-family-number->name (vector-ref v 0))))
+    (make-endpoint family (vector-ref v 1) (vector-ref v 2) (vector-ref v 3))))
+
+;; resolve specified hostname and service to IPv4 and/or IPv6 endpoint.
+;; both hostname and service must be bytevector, string, bytespan or charspan.
+;; service may also be #f
+;;
+;; Return an endpoint
+;; On errors, raise condition
+(define hostname->endpoint
+  (case-lambda
+    ((hostname service)
+      (let* ((hostname0 (text->bytevector0 hostname))
+             (service0  (and service (text->bytevector0 service)))
+             (item      (c-hostname->endpoint hostname0 0 service0 0)))
+        (unless (vector? item)
+          (raise-c-hostname-error 'hostname->endpoint 'getaddrinfo item
+                                  (text->string hostname) (and service (text->string service))))
+        (%vector->endpoint item)))
+    ((hostname)
+      (hostname->endpoint-list hostname #f))))
+
+;; resolve specified hostname and service to list of IPv4 and/or IPv6 addresses.
+;; both hostname and service must be bytevector, string, bytespan or charspan.
+;; service may also be #f
 ;;
 ;; Return a list of endpoints
 ;; On errors, raise condition
 (define hostname->endpoint-list
   (case-lambda
-    ((hostname port)
+    ((hostname service)
       (let* ((hostname0 (text->bytevector0 hostname))
-             (l         (c-hostname->endpoint-list hostname0 0 #f port)))
+             (service0  (and service (text->bytevector0 service)))
+             (l         (c-hostname->endpoint-list hostname0 0 service0 0)))
         (unless (or (null? l) (pair? l))
-          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname port))
+          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l
+                                  (text->string hostname) (and service (text->string service))))
         (let %endpoint-list ((tail l) (ret '()))
           (if (null? tail)
             ret
-            (let* ((item (car tail))
-                   (family (socket-family-number->name (vector-ref item 0)))
-                   (endpoint
-                     (make-endpoint family (vector-ref item 1) (vector-ref item 2) (vector-ref item 3))))
-              (%endpoint-list (cdr tail) (cons endpoint ret)))))))
+            ;; unreverse list returned by C
+            (%endpoint-list (cdr tail) (cons (%vector->endpoint (car tail)) ret))))))
     ((hostname)
-      (hostname->endpoint-list hostname 0))))
+      (hostname->endpoint-list hostname #f))))
 
 ;; convert URL to endpoint, possibly resolving the hostname contained in the URL
 (define (url->endpoint url)
@@ -106,37 +131,53 @@
     (let-values (((protocol-start protocol-end) (parse-url-protocol url len)))
       (let-values (((host-start host-end)       (parse-url-hostname url protocol-end len)))
         (let-values (((port-start port-end)     (parse-url-port     url host-end len)))
-          (list
-            protocol-start protocol-end 
-            host-start host-end
-            port-start port-end))))))
+          (hostname->endpoint
+            (bytevector->bytespan* url host-start host-end)
+            (cond
+              ((fx<? port-start port-end)
+                (bytevector->bytespan* url port-start port-end))
+              ((fx<? protocol-start protocol-end)
+                (bytevector->bytespan* url protocol-start protocol-end))
+              (else
+                #f))))))))
 
 (define (parse-url-protocol bv len)
-  (values 0 (or (bytevector-index bv 58) len)))
+  (values 0 (or (bytevector-index bv 58) 0)))
 
 (define (parse-url-hostname bv start end)
   (if (fx>=? start end)
     (values start end)
-    (case (bytevector-u8-ref bv start)
-      ((47 58) ; #\/ #\:
-        (parse-url-hostname bv (fx1+ start) end))
-      (else
-        (let* ((start (fx1+ start))
-               (slash (bytevector-index bv start end 47))  ; #\/
-               (colon (bytevector-index bv start end 58))  ; #\:
-               (bra   (bytevector-index bv start end 91))  ; #\[
-               (ket   (bytevector-index bv start end 93))) ; #\]
-          (if (and bra ket (fx=? start bra) (fx<? bra ket (or slash end)))
-            (values (fx1+ bra) ket) ;; IPv6 address in brackets
-            (values start (if (and colon slash) (fxmin colon slash) (or colon slash end)))))))))
+    (let* ((start
+             (if (fx=? 58 (bytevector-u8-ref bv start))
+               (fx1+ start) ; skip ":"
+               start))
+           (start
+             (if (and (fx<? (fx1+ start) end)
+                      (fx=? 47 (bytevector-u8-ref bv start))
+                      (fx=? 47 (bytevector-u8-ref bv (fx1+ start))))
+               (fx+ start 2) ; skip "//"
+               start))
+           (slash (bytevector-index bv start end 47))  ; #\/
+           (colon (bytevector-index bv start end 58))  ; #\:
+           (bra   (bytevector-index bv start end 91))  ; #\[
+           (ket   (bytevector-index bv start end 93))) ; #\]
+      (if (and bra ket (fx=? start bra) (fx<? bra ket (or slash end)))
+        (values (fx1+ bra) ket) ;; IPv6 address in brackets
+        (values start (if (and slash colon) (fxmin slash colon) (or slash colon end)))))))
 
 (define (parse-url-port bv start end)
   (if (fx>=? start end)
     (values start end)
-    (let* ((slash (bytevector-index bv start end 47)) ; #\/
-           (colon (bytevector-index bv start end 58)) ; #\:
-           (end   (or slash end)))
-      (values (if colon (fx1+ colon) end) end))))
+    (let* ((start (if (fx=? 93 (bytevector-u8-ref bv start))
+                    (fx1+ start) ; skip "]"
+                    start))
+           (start (if (and (fx<? start end)
+                           (fx=? 58 (bytevector-u8-ref bv start)))
+                    (fx1+ start) ; skip ":"
+                    start))
+           (slash (bytevector-index bv start end 47))  ; #\/
+           (quest (bytevector-index bv start end 63))) ; #\?
+      (values start (if (and slash quest) (fxmin slash quest) (or slash quest end))))))
      
 
 
