@@ -144,19 +144,18 @@
 (define (parse-url-protocol bv len)
   (values 0 (or (bytevector-index bv 58) 0)))
 
+(define (skip-prefix/u8 bv start end u8)
+  (if (and (fx<? start end)
+           (fx=? u8 (bytevector-u8-ref bv start)))
+    (fx1+ start) ; skip u8
+    start))
+
 (define (parse-url-hostname bv start end)
   (if (fx>=? start end)
     (values start end)
-    (let* ((start
-             (if (fx=? 58 (bytevector-u8-ref bv start))
-               (fx1+ start) ; skip ":"
-               start))
-           (start
-             (if (and (fx<? (fx1+ start) end)
-                      (fx=? 47 (bytevector-u8-ref bv start))
-                      (fx=? 47 (bytevector-u8-ref bv (fx1+ start))))
-               (fx+ start 2) ; skip "//"
-               start))
+    (let* ((start (skip-prefix/u8 bv start end 58)) ; skip ":"
+           (start (skip-prefix/u8 bv start end 47)) ; skip "/"
+           (start (skip-prefix/u8 bv start end 47)) ; skip "/"
            (slash (bytevector-index bv start end 47))  ; #\/
            (colon (bytevector-index bv start end 58))  ; #\:
            (bra   (bytevector-index bv start end 91))  ; #\[
@@ -168,13 +167,8 @@
 (define (parse-url-port bv start end)
   (if (fx>=? start end)
     (values start end)
-    (let* ((start (if (fx=? 93 (bytevector-u8-ref bv start))
-                    (fx1+ start) ; skip "]"
-                    start))
-           (start (if (and (fx<? start end)
-                           (fx=? 58 (bytevector-u8-ref bv start)))
-                    (fx1+ start) ; skip ":"
-                    start))
+    (let* ((start (skip-prefix/u8 bv start end 93)) ; skip "]"
+           (start (skip-prefix/u8 bv start end 58)) ; skip ":"
            (slash (bytevector-index bv start end 47))  ; #\/
            (quest (bytevector-index bv start end 63))) ; #\?
       (values start (if (and slash quest) (fxmin slash quest) (or slash quest end))))))
