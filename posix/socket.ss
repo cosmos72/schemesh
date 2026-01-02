@@ -11,7 +11,7 @@
   (export
     make-endpoint endpoint-type endpoint endpoint?
     endpoint-address endpoint-bytes endpoint-family endpoint-port endpoint-constructor
-    hostname->endpoint hostname->endpoint-list url->endpoint
+    hostname->endpoint hostname->endpoint-list url->endpoint url->endpoint-list url-split
     socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
     socketpair-fds)
   (import
@@ -19,7 +19,7 @@
     (only (chezscheme)                     bytevector->immutable-bytevector foreign-procedure procedure-arity-mask
                                            fx1+ record-writer string->immutable-string void)
     (only (scheme2k bootstrap)             assert* check-interrupts raise-assert* raise-errorf)
-    (only (scheme2k conversions)           bytevector->bytevector0 text->bytevector text->bytevector0 text->string)
+    (only (scheme2k conversions)           bytevector->bytevector0 text->bytevector text? text->bytevector0 text->string)
     (only (scheme2k containers bytevector) bytevector-index)
     (only (scheme2k containers bytespan)   bytevector->bytespan*)
     (only (scheme2k containers hashtable)  alist->eqv-hashtable eq-hashtable hashtable-transpose)
@@ -70,17 +70,20 @@
 
 (define raise-c-hostname-error
   (let ((c-hostname-error->string (foreign-procedure "c_hostname_error_to_string" (int) ptr)))
-    (lambda (who c-who c-error . c-args)
+    (lambda (who c-who c-error hostname service)
       (raise-errorf who "C function ~s~s failed with error ~s: ~a"
-        c-who c-args c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
+        c-who (list (if (text? hostname) (text->string hostname) hostname)
+                    (if (text? service)  (text->string service) service))
+        c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
 
 
-(define c-hostname->endpoint      (foreign-procedure "c_hostname_to_endpoint"      (u8* int u8* unsigned-16) ptr))
-(define c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr))
+(define c-hostname->endpoint      (foreign-procedure "c_hostname_to_endpoint"      (ptr int ptr) ptr))
+(define c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (ptr int ptr) ptr))
 
 (define (%vector->endpoint v)
   (let ((family (socket-family-number->name (vector-ref v 0))))
     (make-endpoint family (vector-ref v 1) (vector-ref v 2) (vector-ref v 3))))
+
 
 ;; resolve specified hostname and service to a single IPv4 or IPv6 endpoint.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
@@ -90,16 +93,19 @@
 ;; On errors, raise condition
 (define hostname->endpoint
   (case-lambda
-    ((hostname service)
-      (let* ((hostname0 (text->bytevector0 hostname))
-             (service0  (and service (text->bytevector0 service)))
-             (item      (c-hostname->endpoint hostname0 0 service0 0)))
+    ((hostname service preferred-socket-family)
+      (let* ((hostname0  (text->bytevector0 hostname))
+             (service0   (if (text? service) (text->bytevector0 service) service))
+             (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
+             (item       (c-hostname->endpoint hostname0 family-int service0)))
         (unless (vector? item)
-          (raise-c-hostname-error 'hostname->endpoint 'getaddrinfo item
-                                  (text->string hostname) (and service (text->string service))))
+          (raise-c-hostname-error 'hostname->endpoint 'getaddrinfo item hostname service))
         (%vector->endpoint item)))
+    ((hostname service)
+      (hostname->endpoint hostname service #f))
     ((hostname)
-      (hostname->endpoint hostname #f))))
+      (hostname->endpoint hostname #f #f))))
+
 
 ;; resolve specified hostname and service to list of IPv4 and/or IPv6 endpoints.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
@@ -109,29 +115,52 @@
 ;; On errors, raise condition
 (define hostname->endpoint-list
   (case-lambda
-    ((hostname service)
-      (let* ((hostname0 (text->bytevector0 hostname))
-             (service0  (and service (text->bytevector0 service)))
-             (l         (c-hostname->endpoint-list hostname0 0 service0 0)))
+    ((hostname service preferred-socket-family)
+      (let* ((hostname0  (text->bytevector0 hostname))
+             (service0   (if (text? service) (text->bytevector0 service) service))
+             (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
+             (l          (c-hostname->endpoint-list hostname0 family-int service0)))
         (unless (or (null? l) (pair? l))
-          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l
-                                  (text->string hostname) (and service (text->string service))))
+          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname service))
         (let %endpoint-list ((tail l) (ret '()))
           (if (null? tail)
             ret
             ;; unreverse list returned by C
             (%endpoint-list (cdr tail) (cons (%vector->endpoint (car tail)) ret))))))
+    ((hostname service)
+      (hostname->endpoint-list hostname service #f))
     ((hostname)
-      (hostname->endpoint-list hostname #f))))
+      (hostname->endpoint-list hostname #f #f))))
+
 
 ;; convert URL to endpoint, possibly resolving the hostname contained in the URL
-(define (url->endpoint url)
+(define url->endpoint
+  (case-lambda
+    ((url preferred-socket-family)
+      (let-values (((hostname service) (url-split url)))
+        (hostname->endpoint hostname service preferred-socket-family)))
+    ((url)
+      (url->endpoint url #f))))
+
+
+;; convert URL to endpoint list, possibly resolving the hostname contained in the URL
+(define url->endpoint-list
+  (case-lambda
+    ((url preferred-socket-family)
+      (let-values (((hostname service) (url-split url)))
+        (hostname->endpoint-list hostname service preferred-socket-family)))
+    ((url)
+      (url->endpoint-list url #f))))
+
+
+;; common implementation of (url->endpoint) and (url->endpoint-list)
+(define (url-split url)
   (let* ((url (text->bytevector url))
          (len (bytevector-length url)))
     (let-values (((protocol-start protocol-end) (parse-url-protocol url len)))
       (let-values (((host-start host-end)       (parse-url-hostname url protocol-end len)))
         (let-values (((port-start port-end)     (parse-url-port     url host-end len)))
-          (hostname->endpoint
+          (values
             (bytevector->bytespan* url host-start host-end)
             (cond
               ((fx<? port-start port-end)

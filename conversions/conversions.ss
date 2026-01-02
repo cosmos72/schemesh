@@ -11,7 +11,7 @@
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector text->string
-    any->bytevector0 bytevector->bytevector0 text->bytevector0
+    any->bytevector0 bytevector->bytevector0 text? text->bytevector0
     any->string argv->list list->argv string-hashtable->argv transcoder-utf8
 
     ;; unicode.ss
@@ -152,6 +152,13 @@
             ret))))
     ((bv)
       (bytevector->bytevector0 bv 0 (bytevector-length bv)))))
+
+
+;; return #t if x is a bytevector, bytespan, string or charspan,
+;; otherwise return #f
+(define (text? x)
+  (or (bytevector? x) (string? x) (bytespan? x) (charspan? x)))
+
 
 ;; convert a bytevector, bytespan, string or charspan to bytevector, then appends a byte 0.
 ;; uses UTF-8b to convert characters to bytes.

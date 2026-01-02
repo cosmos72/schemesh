@@ -141,6 +141,77 @@ static void c_endpoint_set_port(struct sockaddr* saddr, socklen_t len, uint16_t 
   }
 }
 
+static int is_uint16(ptr obj) {
+  if (Sfixnump(obj)) {
+    iptr val = Sfixnum_value(obj);
+    return val == (val & 65535);
+  }
+  return 0;
+}
+
+static int is_bytevector0(ptr obj) {
+  iptr len;
+  return Sbytevectorp(obj) && (len = Sbytevector_length(obj)) > 0 &&
+         Sbytevector_u8_ref(obj, len - 1) == '\0';
+}
+
+/**
+ * common implementation of c_hostname_to_endpoint() and c_hostname_to_endpoint_list()
+ */
+static ptr
+c_hostname_to_endpoint_impl(ptr hostname, int preferred_family, ptr service_or_port, int as_list) {
+  const char* hostname0        = NULL;
+  const char* service_or_port0 = NULL;
+  uint16_t    override_port    = 0;
+  if (is_bytevector0(hostname)) {
+    hostname0 = (const char*)Sbytevector_data(hostname);
+  } else {
+    c_errno_set(EINVAL);
+    return Sinteger(EAI_SYSTEM);
+  }
+  if (is_bytevector0(service_or_port)) {
+    service_or_port0 = (const char*)Sbytevector_data(service_or_port);
+  } else if (is_uint16(service_or_port)) {
+    override_port = Sfixnum_value(service_or_port) & 65535;
+  } else {
+    c_errno_set(EINVAL);
+    return Sinteger(EAI_SYSTEM);
+  }
+  {
+    struct addrinfo  hints = {};
+    struct addrinfo* list  = NULL;
+    int              err;
+    hints.ai_family = preferred_family;
+    if ((err = getaddrinfo(hostname0, service_or_port0, &hints, &list)) == 0) {
+      struct addrinfo* info     = list;
+      ptr              ret      = Snil;
+      struct sockaddr* prev     = NULL;
+      socklen_t        prev_len = 0;
+      override_port             = htons(override_port);
+      while (info) {
+        struct sockaddr* saddr = info->ai_addr;
+        socklen_t        len   = info->ai_addrlen;
+        if (override_port) {
+          c_endpoint_set_port(saddr, len, override_port);
+        }
+        if (!as_list) {
+          ret = c_endpoint_to_vector(saddr, len);
+          break;
+        } else if (!prev || prev_len != len || memcmp(prev, saddr, len) != 0) {
+          /* only add non-duplicate sockaddr. Shall we also check for non-consecutive duplicates? */
+          prev     = saddr;
+          prev_len = len;
+          ret      = Scons(c_endpoint_to_vector(saddr, len), ret);
+        }
+        info = info->ai_next;
+      }
+      freeaddrinfo(list);
+      return ret; /* return the list in reverse order. Scheme will unreverse it */
+    }
+    return Sinteger(err);
+  }
+}
+
 /**
  * request from DNS the first IP address of specified hostname,
  * and return it as vector1
@@ -151,35 +222,8 @@ static void c_endpoint_set_port(struct sockaddr* saddr, socklen_t len, uint16_t 
  *   a C sockaddr containing all the above, wrapped in a Scheme bytevector
  * On error, return Sinteger(EAI_*)
  */
-static ptr c_hostname_to_endpoint(const char* hostname,
-                                  int         preferred_family,
-                                  const char* servicename_or_port,
-                                  uint16_t    override_port) {
-  int err = 0;
-  if (!hostname) {
-    c_errno_set(EINVAL);
-    err = EAI_SYSTEM;
-  } else {
-    struct addrinfo  hints = {};
-    struct addrinfo* list  = NULL;
-    hints.ai_family        = preferred_family;
-    if ((err = getaddrinfo(hostname, servicename_or_port, &hints, &list)) == 0) {
-      struct addrinfo* info = list;
-      ptr              ret  = Sfalse;
-      override_port         = htons(override_port);
-      if (info) {
-        struct sockaddr* saddr = info->ai_addr;
-        socklen_t        len   = info->ai_addrlen;
-        if (override_port) {
-          c_endpoint_set_port(saddr, len, override_port);
-        }
-        ret = c_endpoint_to_vector(saddr, len);
-      }
-      freeaddrinfo(list);
-      return ret;
-    }
-  }
-  return Sinteger(err);
+static ptr c_hostname_to_endpoint(ptr hostname, int preferred_family, ptr service_or_port) {
+  return c_hostname_to_endpoint_impl(hostname, preferred_family, service_or_port, 0);
 }
 
 /**
@@ -192,43 +236,8 @@ static ptr c_hostname_to_endpoint(const char* hostname,
  *   a C sockaddr containing all the above, wrapped in a Scheme bytevector
  * On error, return Sinteger(EAI_*)
  */
-static ptr c_hostname_to_endpoint_list(const char* hostname,
-                                       int         preferred_family,
-                                       const char* servicename_or_port,
-                                       uint16_t    override_port) {
-  int err = 0;
-  if (!hostname) {
-    c_errno_set(EINVAL);
-    err = EAI_SYSTEM;
-  } else {
-    struct addrinfo  hints = {};
-    struct addrinfo* list  = NULL;
-    hints.ai_family        = preferred_family;
-    if ((err = getaddrinfo(hostname, servicename_or_port, &hints, &list)) == 0) {
-      struct addrinfo* info     = list;
-      ptr              ret      = Snil;
-      struct sockaddr* prev     = NULL;
-      socklen_t        prev_len = 0;
-      override_port             = htons(override_port);
-      while (info) {
-        struct sockaddr* saddr = info->ai_addr;
-        socklen_t        len   = info->ai_addrlen;
-        if (override_port) {
-          c_endpoint_set_port(saddr, len, override_port);
-        }
-        /* only add non-duplicate sockaddr. Shall we also check for non-consecutive duplicates? */
-        if (!prev || prev_len != len || memcmp(prev, saddr, len) != 0) {
-          prev     = saddr;
-          prev_len = len;
-          ret      = Scons(c_endpoint_to_vector(saddr, len), ret);
-        }
-        info = info->ai_next;
-      }
-      freeaddrinfo(list);
-      return ret; /* return the list in reverse order. Scheme will unreverse it */
-    }
-  }
-  return Sinteger(err);
+static ptr c_hostname_to_endpoint_list(ptr hostname, int preferred_family, ptr service_or_port) {
+  return c_hostname_to_endpoint_impl(hostname, preferred_family, service_or_port, 1);
 }
 
 static ptr c_hostname_error_to_string(int err) {
