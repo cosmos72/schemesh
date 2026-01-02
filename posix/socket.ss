@@ -82,7 +82,7 @@
   (let ((family (socket-family-number->name (vector-ref v 0))))
     (make-endpoint family (vector-ref v 1) (vector-ref v 2) (vector-ref v 3))))
 
-;; resolve specified hostname and service to IPv4 and/or IPv6 endpoint.
+;; resolve specified hostname and service to a single IPv4 or IPv6 endpoint.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
 ;; service may also be #f
 ;;
@@ -101,7 +101,7 @@
     ((hostname)
       (hostname->endpoint hostname #f))))
 
-;; resolve specified hostname and service to list of IPv4 and/or IPv6 addresses.
+;; resolve specified hostname and service to list of IPv4 and/or IPv6 endpoints.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
 ;; service may also be #f
 ;;
