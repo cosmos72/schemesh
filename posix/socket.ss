@@ -11,7 +11,7 @@
   (export
     make-endpoint endpoint-type endpoint endpoint?
     endpoint-address endpoint-bytes endpoint-family endpoint-port endpoint-constructor
-    hostname->endpoint-list url->endpoint
+    hostname->endpoint hostname->endpoint-list url->endpoint
     socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
     socketpair-fds)
   (import
@@ -99,7 +99,7 @@
                                   (text->string hostname) (and service (text->string service))))
         (%vector->endpoint item)))
     ((hostname)
-      (hostname->endpoint-list hostname #f))))
+      (hostname->endpoint hostname #f))))
 
 ;; resolve specified hostname and service to list of IPv4 and/or IPv6 addresses.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
