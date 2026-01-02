@@ -173,7 +173,7 @@ c_hostname_to_endpoint_impl(ptr hostname, int preferred_family, ptr service_or_p
     service_or_port0 = (const char*)Sbytevector_data(service_or_port);
   } else if (is_uint16(service_or_port)) {
     override_port = Sfixnum_value(service_or_port) & 65535;
-  } else {
+  } else if (service_or_port != Sfalse) {
     c_errno_set(EINVAL);
     return Sinteger(EAI_SYSTEM);
   }

@@ -70,9 +70,10 @@
 
 (define raise-c-hostname-error
   (let ((c-hostname-error->string (foreign-procedure "c_hostname_error_to_string" (int) ptr)))
-    (lambda (who c-who c-error hostname service)
+    (lambda (who c-who c-error hostname family service)
       (raise-errorf who "C function ~s~s failed with error ~s: ~a"
         c-who (list (if (text? hostname) (text->string hostname) hostname)
+                    family
                     (if (text? service)  (text->string service) service))
         c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
 
@@ -99,7 +100,7 @@
              (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
              (item       (c-hostname->endpoint hostname0 family-int service0)))
         (unless (vector? item)
-          (raise-c-hostname-error 'hostname->endpoint 'getaddrinfo item hostname service))
+          (raise-c-hostname-error 'hostname->endpoint 'getaddrinfo item hostname preferred-socket-family service))
         (%vector->endpoint item)))
     ((hostname service)
       (hostname->endpoint hostname service #f))
@@ -121,7 +122,7 @@
              (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
              (l          (c-hostname->endpoint-list hostname0 family-int service0)))
         (unless (or (null? l) (pair? l))
-          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname service))
+          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname preferred-socket-family service))
         (let %endpoint-list ((tail l) (ret '()))
           (if (null? tail)
             ret
