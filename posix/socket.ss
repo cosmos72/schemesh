@@ -86,15 +86,24 @@
     (make-endpoint family (vector-ref v 1) (vector-ref v 2) (vector-ref v 3))))
 
 
+(define (uint16? obj)
+  (and (fixnum? obj) (fx<=? 0 obj 65535)))
+
+
 ;; resolve specified hostname and service to a single IPv4 or IPv6 endpoint.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
-;; service may also be #f
+;; service may also be #f or a fixnum in 0 ... 65535
 ;;
 ;; Return an endpoint
 ;; On errors, raise condition
 (define hostname->endpoint
   (case-lambda
     ((hostname service preferred-socket-family)
+      (assert* 'hostname->endpoint (text? hostname))
+      (when (and service (not (uint16? service)))
+        (assert* 'hostname->endpoint (text? service)))
+      (when preferred-socket-family
+        (assert* 'hostname->endpoint (symbol? preferred-socket-family)))
       (let* ((hostname0  (text->bytevector0 hostname))
              (service0   (if (text? service) (text->bytevector0 service) service))
              (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
@@ -110,13 +119,18 @@
 
 ;; resolve specified hostname and service to list of IPv4 and/or IPv6 endpoints.
 ;; both hostname and service must be bytevector, string, bytespan or charspan.
-;; service may also be #f
+;; service may also be #f or a fixnum in 0 ... 65535
 ;;
 ;; Return a list of endpoints
 ;; On errors, raise condition
 (define hostname->endpoint-list
   (case-lambda
     ((hostname service preferred-socket-family)
+      (assert* 'hostname->endpoint-list (text? hostname))
+      (when (and service (not (uint16? service)))
+        (assert* 'hostname->endpoint-list (text? service)))
+      (when preferred-socket-family
+        (assert* 'hostname->endpoint-list (symbol? preferred-socket-family)))
       (let* ((hostname0  (text->bytevector0 hostname))
              (service0   (if (text? service) (text->bytevector0 service) service))
              (family-int (hashtable-ref table-socket-family-name->number preferred-socket-family 0))
