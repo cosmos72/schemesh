@@ -14,6 +14,7 @@
           (scheme2k containers bytevector)
           (scheme2k containers cf32span)
           (scheme2k containers charspan)
+          (scheme2k containers f32span)
           (scheme2k containers flvector)
           (scheme2k containers fxvector)
           (scheme2k containers in)
