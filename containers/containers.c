@@ -655,6 +655,15 @@ c_fxvector_compare(ptr src1, iptr src1_start, ptr src2, iptr src2_start, iptr co
   return 0;
 }
 
+static ptr c_fxvector_equal(ptr src1, iptr src1_start, ptr src2, iptr src2_start, iptr count) {
+  if (count <= 0 || memcmp(&Sfxvector_ref(src1, src1_start),
+                           &Sfxvector_ref(src2, src2_start),
+                           count * sizeof(ptr)) == 0) {
+    return Strue;
+  }
+  return Sfalse;
+}
+
 void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
@@ -674,4 +683,5 @@ void scheme2k_register_c_functions_containers(void) {
 #endif
   Sregister_symbol("c_fxvector_copy", &c_fxvector_copy);
   Sregister_symbol("c_fxvector_compare", &c_fxvector_compare);
+  Sregister_symbol("c_fxvector_equal", &c_fxvector_equal);
 }
