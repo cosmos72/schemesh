@@ -76,7 +76,7 @@
       (lines->port lines (current-output-port) 'any #f))))
 
 
-;; return a list whose elements are produced by calling proc on in until it produces eof.
+;; return a list whose elements are produced by calling (proc in) until it produces eof.
 ;;
 ;; proc defaults to read, and in defaults to (current-input-port)
 ;;

@@ -17,26 +17,27 @@
     cf32span->bytevector cf32span->bytevector*!
     cf32span cf32span? cf32span-length cf32span-empty? cf32span-clear!
     cf32span-capacity cf32span-capacity-left cf32span-capacity-right
-    cf32span-ref cf32span-ref-right cf32span-set!
+    cf32span-ref cf32span-ref/real cf32span-ref/imag cf32span-ref-right cf32span-set!
     cf32span-fill! cf32span-copy cf32span-copy! cf32span=?
     cf32span-reserve-left! cf32span-reserve-right! cf32span-resize-left! cf32span-resize-right!
     cf32span-insert-left! cf32span-insert-right!
     cf32span-insert-left/cf32span! cf32span-insert-right/cf32span!
     cf32span-delete-left! cf32span-delete-right!
     in-cf32span cf32span-iterate
-    cf32span-peek-beg cf32span-peek-end cf32span-peek-data)
+    cf32span-peek-beg cf32span-peek-end cf32span-peek-data
+    port->cf32span cf32span->port)
   (import
     (rnrs)
-    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part cflonum?
-                               fl-make-rectangular fx1+ fx1- record-writer void)
+    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part cflonum? exact->inexact
+                               fl-make-rectangular fx1+ fx1- read-token record-writer void)
     (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
 
 (define-record-type (%cf32span %make-cf32span cf32span?)
   (fields
-     (mutable beg cf32span-beg cf32span-beg-set!)  ;; cf32 index
-     (mutable end cf32span-end cf32span-end-set!)  ;; cf32 index
+     (mutable beg cf32span-beg cf32span-beg-set!)  ;; unsigned fixnum, min offset in cf32 elements
+     (mutable end cf32span-end cf32span-end-set!)  ;; unsigned fixnum, max offset in cf32 elements
      (mutable vec cf32span-vec cf32span-vec-set!)) ;; bytevector
   (nongenerative %cf32span-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
@@ -105,11 +106,11 @@
 (define (cf32span . numbers)
   (list->cf32span numbers))
 
-;; return current number of elements
+;; return current number of elements in specified cf32span
 (define (cf32span-length sp)
   (fx- (cf32span-end sp) (cf32span-beg sp)))
 
-;; return maximum number of elements that can be stored without reallocating
+;; return maximum number of elements that can be stored in specified cf32span without reallocating 
 (define (cf32span-capacity sp)
   (cf32pos (bytevector-length (cf32span-vec sp))))
 
@@ -130,18 +131,40 @@
       (bytevector-ieee-single-native-ref bv pos)
       (bytevector-ieee-single-native-ref bv (bytepos+imag pos)))))
 
+;; return real part of i-th element of cf32span
+(define (cf32span-ref/real sp idx)
+  (assert* 'cf32span-ref/real (fx<? -1 idx (cf32span-length sp)))
+  (let ((bv  (cf32span-vec sp))
+        (pos (bytepos (fx+ idx (cf32span-beg sp)))))
+    (bytevector-ieee-single-native-ref bv pos)))
+
+;; return imaginary part of i-th element of cf32span
+(define (cf32span-ref/imag sp idx)
+  (assert* 'cf32span-ref/imag (fx<? -1 idx (cf32span-length sp)))
+  (let ((bv  (cf32span-vec sp))
+        (pos (bytepos (fx+ idx (cf32span-beg sp)))))
+    (bytevector-ieee-single-native-ref bv (bytepos+imag pos))))
+
+
 (define (cf32span-ref-right sp)
   (assert* 'cf32span-ref-right (not (cf32span-empty? sp)))
   (cf32span-ref sp (fx1- (cf32span-length sp))))
 
-;; set i-th element of cf32span to cfloat, which must be a cflonum
-(define (cf32span-set! sp idx cfloat)
-  (assert* 'cf32span-set! (fx<? -1 idx (cf32span-length sp)))
-  (assert* 'cf32span-set! (cflonum? cfloat))
-  (let ((bv  (cf32span-vec sp))
-        (pos (bytepos (fx+ idx (cf32span-beg sp)))))
-    (bytevector-ieee-single-native-set! bv pos                (cfl-real-part cfloat))
-    (bytevector-ieee-single-native-set! bv (bytepos+imag pos) (cfl-imag-part cfloat))))
+;; set i-th element of cf32span to cfloat - which must be a cflonum -
+;; or to fl-real and fl-imag, that must be both flonum
+(define cf32span-set!
+  (case-lambda
+    ((sp idx fl-real fl-imag)
+      (assert* 'cf32span-set! (fx<? -1 idx (cf32span-length sp)))
+      (assert* 'cf32span-set! (flonum? fl-real))
+      (assert* 'cf32span-set! (flonum? fl-imag))
+      (let ((bv  (cf32span-vec sp))
+            (pos (bytepos (fx+ idx (cf32span-beg sp)))))
+        (bytevector-ieee-single-native-set! bv pos                fl-real)
+        (bytevector-ieee-single-native-set! bv (bytepos+imag pos) fl-imag)))
+    ((sp idx cfloat)
+      (assert* 'cf32span-set! (cflonum? cfloat))
+      (cf32span-set! sp idx (cfl-real-part cfloat) (cfl-imag-part cfloat)))))
 
 ;; set all cf32span elements in range [start...end) to fill, which must be a cflonum
 (define cf32span-fill!
@@ -361,6 +384,34 @@
     ((or (fx>=? i len) (not (proc i (cf32span-ref sp i))))
      (fx>=? i len))))
 
+(define port->cf32span
+  (case-lambda
+    ((in)
+      (let %loop ((in in) (ret (make-cf32span 0)))
+        (let-values (((_a real _b _c) (read-token in)))
+          (if (eof-object? real)
+            ret
+            (let-values (((_d imag _e _f) (read-token in)))
+              (if (eof-object? imag)
+                ret
+                (begin
+                  (cf32span-insert-right! ret (fl-make-rectangular (exact->inexact real) (exact->inexact imag)))
+                  (%loop in ret))))))))
+    (()
+      (port->cf32span (current-input-port)))))
+
+(define cf32span->port
+  (case-lambda
+    ((sp out)
+      (do ((i 0 (fx1+ i))
+           (n (cf32span-length sp)))
+          ((fx>=? i n))
+        (write (cf32span-ref/real sp i) out)
+        (display #\space out)
+        (write (cf32span-ref/imag sp i) out)
+        (newline out)))
+    ((sp)
+      (cf32span->port sp (current-output-port)))))
 
 ;; customize how "cf32span" objects are printed
 (record-writer (record-type-descriptor %cf32span)
