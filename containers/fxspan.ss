@@ -18,7 +18,8 @@
     fxspan fxspan? fxspan-length fxspan-empty? fxspan-clear!
     fxspan-capacity fxspan-capacity-left fxspan-capacity-right
     fxspan-ref fxspan-ref-right fxspan-set!
-    fxspan-fill! fxspan-copy fxspan-copy! fxspan=?
+    fxspan-fill! fxspan-copy fxspan-copy!
+    fxspan<? fxspan<=? fxspan>? fxspan>=? fxspan=? fxspan-compare
     fxspan-reserve-left! fxspan-reserve-right! fxspan-resize-left! fxspan-resize-right!
     fxspan-insert-left! fxspan-insert-right!
     fxspan-insert-left/fxspan! fxspan-insert-right/fxspan!
@@ -144,6 +145,27 @@
   (assert* 'fxspan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (fxspan-length dst)))
   (fxvector-copy! (fxspan-vec src) (fx+ src-start (fxspan-beg src))
                   (fxspan-vec dst) (fx+ dst-start (fxspan-beg dst)) n))
+
+(define (fxspan-compare left right)
+  (let* ((n1  (fxspan-length left))
+         (n2  (fxspan-length right))
+         (cmp (fxvector-compare (fxspan-vec left)  (fxspan-beg left)
+                                (fxspan-vec right) (fxspan-beg right) (fxmin n1 n2))))
+    (if (fxzero? cmp)
+      (fxsign (fx- n1 n2))
+      cmp)))
+
+(define (fxspan<? left right)
+  (fx<? (fxspan-compare left right) 0))
+
+(define (fxspan<=? left right)
+  (fx<=? (fxspan-compare left right) 0))
+
+(define (fxspan>? left right)
+  (fx>? (fxspan-compare left right) 0))
+
+(define (fxspan>=? left right)
+  (fx>=? (fxspan-compare left right) 0))
 
 (define (fxspan=? left right)
   (or

@@ -9,7 +9,7 @@
 
 (library (scheme2k containers fxvector (0 9 3))
   (export
-    fxsign fxvector<? fxvector<=? fxvector>? fxvector>=? fxvector=? fxvector-copy! for-fxvector in-fxvector)
+    fxsign fxvector<? fxvector<=? fxvector>? fxvector>=? fxvector=? fxvector-compare fxvector-copy! for-fxvector in-fxvector)
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure
@@ -87,12 +87,12 @@
           0
           (c-fxvector-compare vec1 start1 vec2 start2 n)))
       ((vec1 vec2)
-        (let ((n1 (fxvector-length vec1))
-              (n2 (fxvector-length vec2)))
-          (let ((cmp (fxvector-compare vec1 0 vec2 0 (fxmin n1 n2))))
-            (if (fxzero? cmp)
-              (fxsign (fx- n1 n2))
-              cmp)))))))
+        (let* ((n1  (fxvector-length vec1))
+               (n2  (fxvector-length vec2))
+               (cmp (fxvector-compare vec1 0 vec2 0 (fxmin n1 n2))))
+          (if (fxzero? cmp)
+            (fxsign (fx- n1 n2))
+            cmp))))))
 
 
 (define (fxvector<? vec1 vec2)
