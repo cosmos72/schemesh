@@ -629,25 +629,30 @@ static void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr 
 /**************************** fxvector functions ******************************/
 /******************************************************************************/
 
-static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
-#if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
-  if (Sfxvectorp(src) && Sfixnump(src_start) && Sfxvectorp(dst) && Sfixnump(dst_start) &&
-      Sfixnump(n))
-#endif
-  {
-    iptr src_i = Sfixnum_value(src_start);
-    iptr dst_i = Sfixnum_value(dst_start);
-    iptr n     = Sfixnum_value(count);
-#if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
-    if (src_offset >= 0 && dst_offset >= 0 && n > 0)
-#endif
-    {
-      const ptr* src_addr = &Sfxvector_ref(src, src_i);
-      ptr*       dst_addr = &Sfxvector_ref(dst, dst_i);
+static void c_fxvector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr count) {
+  const ptr* src_addr = &Sfxvector_ref(src, src_start);
+  ptr*       dst_addr = &Sfxvector_ref(dst, dst_start);
+  if (count > 0) {
+    memmove(dst_addr, src_addr, count * sizeof(ptr));
+  }
+}
 
-      memmove(dst_addr, src_addr, n * sizeof(ptr));
+static signed char
+c_fxvector_compare(ptr src1, iptr src1_start, ptr src2, iptr src2_start, iptr count) {
+  const ptr* src1_addr = &Sfxvector_ref(src1, src1_start);
+  const ptr* src2_addr = &Sfxvector_ref(src2, src2_start);
+  iptr       i;
+  /* cannot use memcmp() on LITTLE ENDIAN architectures because it compares LSB bytes first */
+  for (i = 0; i < count; i++) {
+    iptr left  = Sfixnum_value(src1_addr[i]);
+    iptr right = Sfixnum_value(src2_addr[i]);
+    if (left < right) {
+      return -1;
+    } else if (left > right) {
+      return 1;
     }
   }
+  return 0;
 }
 
 void scheme2k_register_c_functions_containers(void) {
@@ -668,4 +673,5 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_flvector_copy", &c_flvector_copy);
 #endif
   Sregister_symbol("c_fxvector_copy", &c_fxvector_copy);
+  Sregister_symbol("c_fxvector_compare", &c_fxvector_compare);
 }

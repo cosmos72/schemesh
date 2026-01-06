@@ -9,7 +9,7 @@
 
 (library (scheme2k containers fxvector (0 9 3))
   (export
-    fxvector-copy! for-fxvector in-fxvector)
+    fxvector=? fxvector-copy! for-fxvector in-fxvector)
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure
@@ -35,9 +35,9 @@
     (define fxvector-copy!   chez:fxvector-copy!))
 
   (else
-    ;; fxvector is a different type, cannot reuse (vector-copy!)
+    ;; fxvector and vector are different types, cannot reuse (vector-copy!)
     (define fxvector-copy!
-      (let ((c-fxvector-copy! (foreign-procedure "c_fxvector_copy" (ptr ptr ptr ptr ptr) void)))
+      (let ((c-fxvector-copy! (foreign-procedure "c_fxvector_copy" (ptr fixnum ptr fixnum fixnum) void)))
         (lambda (src src-start dst dst-start n)
           (case n
             ((3)
@@ -65,6 +65,33 @@
               (unless (fxzero? n)
                 (c-fxvector-copy! src src-start dst dst-start n)))))))))
 
+
+;; compare portions of two fxvectors.
+;; return 0 if they are equal, -1 if first one is smaller, +1 if first one is larger.
+(define fxvector-compare
+  (let ((c-fxvector-compare (foreign-procedure "c_fxvector_compare" (ptr fixnum ptr fixnum fixnum) integer-8)))
+    (case-lambda
+      ((src1 start1 src2 start2 n)
+        (assert* 'fxvector-compare (fxvector? src1))
+        (assert* 'fxvector-compare (fxvector? src2))
+        (assert* 'fxvector-compare (fx<=?* 0 start1 (fx+ start1 n) (fxvector-length src1)))
+        (assert* 'fxvector-compare (fx<=?* 0 start2 (fx+ start2 n) (fxvector-length src2)))
+        (if (or (fxzero? n) (and (eq? src1 src2) (fx=? start1 start2)))
+          0
+          (c-fxvector-compare src1 start1 src2 start2 n))))))
+
+
+;; compare portions of two fxvectors.
+;; return #t if they are equal, otherwise return #f
+(define fxvector=?
+  (case-lambda
+    ((src1 start1 src2 start2 n)
+      (fxzero? (fxvector-compare src1 start1 src2 start2 n)))
+    ((src1 src2)
+      (let ((n1 (fxvector-length src1))
+            (n2 (fxvector-length src2)))
+        (and (fx=? n1 n2)
+             (fxzero? (fxvector-compare src1 0 src2 0 n1)))))))
 
 ;; Iterate in parallel on elements of given fxvector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest fxvector is exhausted,
@@ -116,7 +143,5 @@
       (in-fxvector v start end 1))
     ((v)
       (in-fxvector v 0 (fxvector-length v) 1))))
-
-
 
 ) ; close library
