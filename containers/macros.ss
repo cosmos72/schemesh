@@ -9,7 +9,7 @@
 
 (library (scheme2k containers macros (0 9 3))
   (export
-    begin^ for for* if^ lambda^ let^ let-pairs let-values^ unless^ when^)
+    begin^ for for* if^ lambda^ let^ let-pairs let-values^ unless^ void^ when^)
   (import
     (rnrs)
     (only (chezscheme) void)
@@ -52,6 +52,17 @@
     ((_ expr)          (begin expr (void)))
     ((_ expr body ...) (if expr (begin^ body ...) (void)))))
 
+;; extended (void) that accepts arbitrary arguments, ignores them and returns (void)
+(define void^
+  (case-lambda
+    (() (void))
+    ((a) (void))
+    ((a b) (void))
+    ((a b c) (void))
+    ((a b c d) (void))
+    ((a b c d e) (void))
+    ((a b c d e f) (void))
+    ((a b c d e f . more) (void))))
 
 ;; extended (let ((var expr) ...) body ...) that also accepts empty body
 (define-syntax let^

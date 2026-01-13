@@ -10,7 +10,7 @@
 (library (scheme2k bootstrap (0 9 3))
   (export
       ;; bootstrap.ss
-      ==> ;; _ is already exported by (rnrs)
+      || ==> ;; _ is already exported by (rnrs)
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       with-locked-objects while until with-while-until
@@ -434,6 +434,16 @@
       ((xname . args)
         (datum->syntax #'xname (expand==> (syntax->datum #'args)))))))
 
+
+;; Scheme procedures pipelining
+(define-syntax ||
+  (syntax-rules ()
+    ((_)
+      (void))
+    ((_ (func1 arg1 ...))
+      (func1 arg1 ... (lambda (obj) (void))))
+    ((_ (func1 arg1 ...) (func2 arg2 ...) form3 ...)
+      (func1 arg1 ... (lambda (obj) (|| (func2 arg2 ... obj) form3 ...))))))
 
 
 #|
