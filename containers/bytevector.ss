@@ -12,7 +12,7 @@
 
     bytevector-compare subbytevector-fill! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
-    
+
     subbytevector-compare subbytevector=? subbytevector<? subbytevector<=? subbytevector>? subbytevector>=?
 
     bytevector-sint-ref* bytevector-sint-set*!

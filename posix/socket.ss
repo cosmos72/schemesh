@@ -216,7 +216,7 @@
            (slash (bytevector-index bv start end 47))  ; #\/
            (quest (bytevector-index bv start end 63))) ; #\?
       (values start (if (and slash quest) (fxmin slash quest) (or slash quest end))))))
-     
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

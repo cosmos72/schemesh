@@ -24,7 +24,9 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number)
+      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number
+
+      void1 void^)
   (import
     (rnrs)
     (only (chezscheme) $primitive console-error-port eval format gensym import make-continuation-condition
@@ -134,6 +136,24 @@
 
 (define (generate-pretty-temporaries l)
   (map generate-pretty-temporary l))
+
+
+;; extended (void) that accepts one argument, ignores it and returns (void)
+(define (void1 arg)
+  (void))
+
+;; extended (void) that accepts arbitrary arguments, ignores them and returns (void)
+(define void^
+  (case-lambda
+    (() (void))
+    ((a) (void))
+    ((a b) (void))
+    ((a b c) (void))
+    ((a b c d) (void))
+    ((a b c d e) (void))
+    ((a b c d e f) (void))
+    ((a b c d e f . more) (void))))
+
 
 
 ;; Raise a condition describing an assertion violation.

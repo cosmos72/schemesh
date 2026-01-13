@@ -24,10 +24,16 @@
      (plus 3 4 5))                                 12
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
+
   (==> + 1 2 => / 4)                               4/3
   (==> + 2 3 => / _ 4)                             5/4
   (==> and 1 2 ?=> or _ 3)                         2
   (==> and 1 #f ?=> (error 'test-arrow))           #f
+
+  (expand '(|| a b || c _ d || e f))               ,@(a b (lambda (arg)
+                                                            (c arg d (lambda (arg)
+                                                                       (e f arg (lambda (arg)
+                                                                                  (($primitive 2 void))))))))
   (let ((x 10))
     (forever (set! x (fx1- x)) until (fxzero? x))
     x)                                             0
@@ -251,46 +257,46 @@
               "1152921504606846976 -98765432109753186420 69875967826075676715087643098984 "
 
   ;; ------------------------- cf32span ----------------------------------------
-  (make-cf32span 3 0.5+1.5i)               ,(cf32span 0.5+1.5i 0.5+1.5i 0.5+1.5i)
+  (make-cf32span 3 0.5+1.5i)                ,(cf32span 0.5+1.5i 0.5+1.5i 0.5+1.5i)
 
   (let ((sp (cf32span)))
     (for-list ((e '(0 1 1.5+2i -7-3/8i)))
       (cf32span-insert-right! sp (exact->inexact e)))
-    (cf32span-copy sp))                    ,(cf32span 0.0+0.0i 1.0+0.0i 1.5+2.0i -7.0-0.375i)
+    (cf32span-copy sp))                     ,(cf32span 0.0+0.0i 1.0+0.0i 1.5+2.0i -7.0-0.375i)
 
   ;; ------------------------- span --------------------------------------------
-  (span 1 2 3)                             ,(span 1 2 3)
-  (list->span '(foo bar baz))              ,(span foo bar baz)
-  (span-length (span 1 2 3))               3
-  (span-capacity-left (span 1 2 3))       3
+  (span 1 2 3)                              ,(span 1 2 3)
+  (list->span '(foo bar baz))               ,(span foo bar baz)
+  (span-length (span 1 2 3))                3
+  (span-capacity-left (span 1 2 3))         3
   (span-capacity-right  (span 1 2 3))       3
-  (span-empty? (span))                     #t
-  (span-empty? (span 'x))                  #f
-  (span-ref-right (span 'x 'y))                 y
-  (span-ref (span 'a 'b 'c) 1)             b
+  (span-empty? (span))                      #t
+  (span-empty? (span 'x))                   #f
+  (span-ref-right (span 'x 'y))             y
+  (span-ref (span 'a 'b 'c) 1)              b
   (let* ((v  (vector 1 2 3))
          (sp (vector->span v)))
      ;; set! does NOT propagate to the span
-     (vector-set! v 1 7) sp)               ,(span 1 2 3)
+     (vector-set! v 1 7) sp)                ,(span 1 2 3)
   (let* ((v  (vector 1 2 3))
          (sp (vector->span* v)))
      ;; set! propagates to the span
-     (vector-set! v 1 7) sp)               ,(span 1 7 3)
+     (vector-set! v 1 7) sp)                ,(span 1 7 3)
   (let ((sp (span 'p 'q 'r)))
-    (span-insert-left! sp 'i 'j) sp)      ,(span i j p q r)
+    (span-insert-left! sp 'i 'j) sp)        ,(span i j p q r)
   (let ((sp (span 'foo)))
     (span-insert-right! sp 'bar 'qux) sp)   ,(span foo bar qux)
   (let ((sp (span 1 2 3))
         (sp2 (span -1 0)))
     (span-insert-left/span! sp sp2 0 2)
-    sp)                                    ,(span -1 0 1 2 3)
+    sp)                                     ,(span -1 0 1 2 3)
   (let ((sp (span 1 2 3))
         (sp2 (span -1 0)))
     (span-insert-right/span! sp sp2) sp)    ,(span 1 2 3 -1 0)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-delete-left! sp 3) sp)           ,(span d)
+    (span-delete-left! sp 3) sp)            ,(span d)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-delete-right! sp 1) sp)            ,(span a b c)
+    (span-delete-right! sp 1) sp)           ,(span a b c)
   (let ((sp (span 'a 'b 'c 'd)))
     (span-index sp 0 999
       (lambda (elem) (eq? 'c elem))))     2

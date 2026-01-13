@@ -5,14 +5,13 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
-#!r6rs
 
 (library (scheme2k bootstrap (0 9 3))
   (export
       ;; bootstrap.ss
       || ==> ;; _ is already exported by (rnrs)
       assert* assert-not* catch check check-not define-macro debugf debugf-port
-      first-value first-value-or-void forever let-macro raise-assert* repeat second-value
+      first-value first-value-or-void forever let1 let-macro raise-assert* repeat second-value
       with-locked-objects while until with-while-until
       throws? trace-call trace-define try list->values values->list
 
@@ -26,7 +25,9 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number)
+      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number
+
+      void1 void^)
   (import
     (rnrs)
     (rnrs exceptions)
@@ -324,6 +325,12 @@
                            (with-while-until
                              body ... (%until)))))))
 
+(define-syntax let1
+  (syntax-rules ()
+    ((_ var expr body ...)
+      (let ((var expr))
+        body ...))))
+
 
 (define-syntax try
   (syntax-rules (catch)
@@ -435,16 +442,35 @@
         (datum->syntax #'xname (expand==> (syntax->datum #'args)))))))
 
 
+;; implementation of macro ||
 ;; Scheme procedures pipelining
 (define-syntax ||
-  (syntax-rules ()
-    ((_)
-      (void))
-    ((_ (func1 arg1 ...))
-      (func1 arg1 ... (lambda (obj) (void))))
-    ((_ (func1 arg1 ...) (func2 arg2 ...) form3 ...)
-      (func1 arg1 ... (lambda (obj) (|| (func2 arg2 ... obj) form3 ...))))))
-
+  (lambda (stx)
+    (letrec ((scan-pipe (lambda (l)
+               (do ((i    0 (fx1+ i))
+                    (tail l (cdr tail)))
+                   ((or (null? tail) (eq? '|| (car tail)))
+                    (if (null? tail) #f i)))))
+             (replace_ (lambda (l item)
+               (let %replace_ ((l l) (item item) (ret '()))
+                  (cond
+                    ((null? l)
+                      (reverse! (cons item ret)))
+                    ((eq? '_ (car l))
+                      (append (reverse! (cons item ret)) (cdr l)))
+                    (else
+                      (%replace_ (cdr l) item (cons (car l) ret)))))))
+             (expand-pipe (lambda (l)
+               (if (null? l)
+                 '(void)
+                 (let ((pos (scan-pipe l))
+                       (arg (gensym "arg")))
+                   (if pos
+                     `(,@(list-head l pos) (lambda (,arg) ,(expand-pipe (replace_ (list-tail l (fx1+ pos)) arg))))
+                     `(,@ l (lambda (,arg) (void)))))))))
+      (syntax-case stx ()
+        ((xname . args)
+          (datum->syntax #'xname (expand-pipe (syntax->datum #'args))))))))
 
 #|
 ;; redefine obj as a local macro, simplifying repeated calls to verbose functions
