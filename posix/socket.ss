@@ -328,7 +328,7 @@
 ;; Return an integer file descriptor
 ;; On errors, raise condition
 (define socket-fd
-  (let ((c_socket_fd (foreign-procedure "c_socket_fd" (int int int ptr) int)))
+  (let ((c-socket-fd (foreign-procedure "c_socket_fd" (int int int ptr) int)))
     (case-lambda
       ((family type protocol close-on-exec?)
         (let ((family-int (hashtable-ref table-socket-family-name->number family #f))
@@ -336,10 +336,10 @@
           (assert* 'socket-fd family-int)
           (assert* 'socket-fd type-int)
           (assert* 'socket-fd (eq? protocol 'default))
-        (let ((ret (c_socket_fd family-int type-int 0 close-on-exec?)))
+        (let ((ret (c-socket-fd family-int type-int 0 close-on-exec?)))
           (if (>= ret 0)
             ret
-            (raise-c-errno 'socket-fd 'socket ret)))))
+            (raise-c-errno 'socket-fd 'socket ret family type protocol close-on-exec?)))))
       ((family type protocol)
         (socket-fd family type protocol 'close-on-exec))
       ((family type)

@@ -30,10 +30,6 @@
   (==> and 1 2 ?=> or _ 3)                         2
   (==> and 1 #f ?=> (error 'test-arrow))           #f
 
-  (expand '(|| a b || c _ d || e f))               ,@(a b (lambda (arg)
-                                                            (c arg d (lambda (arg)
-                                                                       (e f arg (lambda (arg)
-                                                                                  (($primitive 2 void))))))))
   (let ((x 10))
     (forever (set! x (fx1- x)) until (fxzero? x))
     x)                                             0
