@@ -21,9 +21,10 @@
     hashtable-transpose)
   (import
     (rnrs)
-    (only (chezscheme)                 $primitive fx1+ fx/ include meta record-writer)
+    (only (chezscheme)                 $primitive format fx1+ fx1- fx/ include meta record-writer)
     (only (scheme2k bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
-    (only (scheme2k containers list)   for-list for-plist)
+    (only (scheme2k containers list)   for-alist for-plist)
+    (only (scheme2k containers string) string-prefix? string-suffix?)
     (only (scheme2k containers vector) vector-index))
 
 
@@ -343,8 +344,8 @@
 ;; Returns the new hashtable.
 (define (alist->eq-hashtable l)
   (let ((dst (make-eq-hashtable (length l))))
-    (for-list ((cell l))
-      (hashtable-set! dst (car cell) (cdr cell)))
+    (for-alist ((key value l))
+      (hashtable-set! dst key value))
     dst))
 
 
@@ -355,8 +356,8 @@
 ;; Returns the new hashtable.
 (define (alist->eqv-hashtable l)
   (let ((dst (make-eqv-hashtable (length l))))
-    (for-list ((cell l))
-      (hashtable-set! dst (car cell) (cdr cell)))
+    (for-alist ((key value l))
+      (hashtable-set! dst key value))
     dst))
 
 ;; iterate on all (key . value) elements of alist l,
@@ -366,8 +367,8 @@
 ;; Returns the created hashtable.
 (define (alist->hashtable hash-proc eq-proc l)
   (let ((dst (make-hashtable hash-proc eq-proc (length l))))
-    (for-list ((cell l))
-      (hashtable-set! dst (car cell) (cdr cell)))
+    (for-alist ((key value l))
+      (hashtable-set! dst key value))
     dst))
 
 
@@ -433,9 +434,57 @@
   (plist->hashtable hash-proc eq-proc plist))
 
 
+(define (display-hashtable-content htable out writer)
+  (for-hash ((key val htable))
+    (display #\space out)
+    (writer key out)
+    (display #\space out)
+    (writer val out)))
+
+
+;; try to extract and display name of a procedure object
+(define (display-procedure-name proc out)
+  (if (procedure? proc)
+    (let* ((str (format #f "~a" proc))
+           (len (string-length str)))
+      (if (and (fx>? len 13)
+               (string-prefix? str "#<procedure ")
+               (string-suffix? str ">"))
+        (display (substring str 12 (fx1- len)) out)
+        (display proc out)))
+    (display proc out)))
+
+
 ;; customize how "hash-iterator" objects are printed
 (record-writer (record-type-descriptor %hash-iterator)
-  (lambda (iter port writer)
-    (display "#<hash-iterator>" port)))
+  (lambda (iter out writer)
+    (display "#<hash-iterator>" out)))
+
+
+;; customize how eq-hashtable objects are printed
+(record-writer %eq-hashtable-rtd
+  (lambda (htable out writer)
+    (display "(eq-hashtable" out)
+    (display-hashtable-content htable out writer)
+    (display ")" out)))
+
+
+;; customize how eqv-hashtable objects are printed
+(record-writer %eqv-hashtable-rtd
+  (lambda (htable out writer)
+    (display "(eqv-hashtable" out)
+    (display-hashtable-content htable out writer)
+    (display ")" out)))
+
+
+;; customize how hashtable objects are printed
+(record-writer %gen-hashtable-rtd
+  (lambda (htable out writer)
+    (display "(hashtable " out)
+    (display-procedure-name (hashtable-hash-function htable) out)
+    (display #\space out)
+    (display-procedure-name (hashtable-equivalence-function htable) out)
+    (display-hashtable-content htable out writer)
+    (display ")" out)))
 
 ) ; close library

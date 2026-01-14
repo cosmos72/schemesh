@@ -23,15 +23,15 @@
   (or (record-accessor-byname rtd name)
       (record-accessor-byname/recursive (record-type-parent rtd) name)))
 
+(define %eq-hashtable-rtd  (record-rtd (make-eq-hashtable)))
+(define %eqv-hashtable-rtd (record-rtd (make-eqv-hashtable)))
+(define %gen-hashtable-rtd (record-rtd (make-hashtable equal-hash equal?)))
 
 (define %eqv-hashtable->eq-hashtable
-  (let ((%eqv-hashtable-rtd (record-rtd (make-eqv-hashtable))))
-    (record-accessor-byname %eqv-hashtable-rtd 'eqht)))
+    (record-accessor-byname %eqv-hashtable-rtd 'eqht))
 
 (define %eqv-hashtable->gen-hashtable
-  (let ((%eqv-hashtable-rtd (record-rtd (make-eqv-hashtable))))
-    (record-accessor-byname %eqv-hashtable-rtd 'genht)))
+  (record-accessor-byname %eqv-hashtable-rtd 'genht))
 
 (define %hashtable->vector
-  (let ((%gen-hashtable-rtd (record-rtd (make-hashtable equal-hash equal?))))
-    (record-accessor-byname/recursive %gen-hashtable-rtd 'vec)))
+  (record-accessor-byname/recursive %gen-hashtable-rtd 'vec))
