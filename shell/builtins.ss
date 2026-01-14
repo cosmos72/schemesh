@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@
             (bytespan-insert-right/u8! wbuf (if (eq? l version) 32 46))
             (bytespan-display-right/fixnum! wbuf (car l))))
         (bytespan-insert-right/string! wbuf "
-Copyright (C) 2023-2025 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+Copyright (C) 2023-2026 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
 
   schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.
   This is free software, and you are welcome to redistribute it
@@ -391,7 +391,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
     (hashtable-set! t "copyright" (string->utf8 "
 
 schemesh, a fusion between interactive Unix shell and Chez Scheme REPL.
-Copyright (C) 2023-2025 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+Copyright (C) 2023-2026 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
