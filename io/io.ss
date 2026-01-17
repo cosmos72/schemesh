@@ -10,7 +10,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (scheme2k port (0 9 3))
+(library (scheme2k io (0 9 3))
   (export port->list port->string port->bytes port->lines port->bytes-lines
           byte-lines->port lines->port read-line read-bytes-line
           read-bytes-insert-right!
@@ -29,9 +29,9 @@
     (only (chezscheme)         get-bytevector-some!)
     (only (scheme2k bootstrap) assert* check-interrupts)
     (scheme2k containers       bytespan)
-    (scheme2k port http)
-    (scheme2k port redir)
-    (scheme2k port stdio))
+    (scheme2k io http)
+    (scheme2k io redir)
+    (scheme2k io stdio))
 
 
 ;; Given a list of bytevectors, write each one to port out, appending a newline after each bytevector.

@@ -10,7 +10,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (scheme2k port stdio (0 9 3))
+(library (scheme2k io stdio (0 9 3))
   (export
           sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import

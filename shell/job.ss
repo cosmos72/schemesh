@@ -104,8 +104,8 @@
     (scheme2k conversions)
     (scheme2k posix)
     (only (scheme2k posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
-    (scheme2k port redir)
-    (scheme2k port stdio)
+    (scheme2k io redir)
+    (scheme2k io stdio)
     (only (scheme2k vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
     (only (scheme2k lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
                                        lineedit-display-table lineedit-flush lineedit-undraw)

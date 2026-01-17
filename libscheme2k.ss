@@ -56,10 +56,10 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "port/http.ss")
-  (include "port/redir.ss")
-  (include "port/stdio.ss")
-  (include "port/port.ss")
+  (include "io/http.ss")
+  (include "io/redir.ss")
+  (include "io/stdio.ss")
+  (include "io/io.ss")
 
   (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
   (meta-cond
@@ -110,7 +110,7 @@
       (scheme2k conversions)
       (scheme2k ipc)
       (scheme2k lineedit)
-      (scheme2k port)
+      (scheme2k io)
       (scheme2k posix)
       (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
       (scheme2k vscreen)

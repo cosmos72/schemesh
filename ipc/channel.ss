@@ -24,7 +24,7 @@
     (scheme2k posix fd)
     (only (scheme2k posix socket) socketpair-fds)
     (scheme2k wire)
-    (only (scheme2k port)         read-bytes-insert-right!))
+    (only (scheme2k io)         read-bytes-insert-right!))
 
 
 (define-record-type channel

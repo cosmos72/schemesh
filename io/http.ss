@@ -9,7 +9,7 @@
 
 ;; scheme wrapper around libcurl
 
-(library (scheme2k port http (0 9 3))
+(library (scheme2k io http (0 9 3))
   (export
     http-init http-open http-error-string http-read http-close http->port http-url->port)
   (import

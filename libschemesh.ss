@@ -53,10 +53,10 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "port/http.ss")
-  (include "port/redir.ss")
-  (include "port/stdio.ss")
-  (include "port/port.ss")
+  (include "io/http.ss")
+  (include "io/redir.ss")
+  (include "io/stdio.ss")
+  (include "io/io.ss")
 
   (include "vscreen/all.ss")
 

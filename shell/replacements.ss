@@ -33,7 +33,7 @@
       (only (chezscheme) put-bytevector-some current-input-port current-output-port)
       chez:)
 
-    (scheme2k port stdio)
+    (scheme2k io stdio)
     (only (scheme2k posix io)     file->port)
     (only (schemesh shell job)    sh-env-set! sh-env-visibility-ref)
     (only (schemesh shell macros) with-parameterized-resource))

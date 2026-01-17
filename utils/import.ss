@@ -48,7 +48,7 @@
     (scheme2k conversions)
     (scheme2k ipc)
     (scheme2k lineedit)
-    (scheme2k port)
+    (scheme2k io)
     (scheme2k posix)
     (scheme2k vscreen)
     (scheme2k wire)
