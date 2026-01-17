@@ -69,6 +69,7 @@
              ((= e 114) (%parse-string p (cons #\return chars)))
              ((= e 116) (%parse-string p (cons #\tab chars)))
              ((= e 117) ;; \uXXXX
+              ;; FIXME: handle surrogate pairs \uXXXX\uYYYY
               (let %loop ((i 0) (v 0))
                 (if (= i 4)
                     (%parse-string p (cons (integer->char v) chars))
@@ -79,6 +80,7 @@
                              (+ (* v 16) (hex-value h)))))))
              (else (error 'json "invalid escape")))))
         (else
+          ;; FIXME: combine UTF-8 bytes into chars
           (%parse-string p (cons (integer->char b) chars)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -87,6 +89,7 @@
 (define (parse-number p first)
   (let %loop ((chars (list (integer->char first))))
     (let ((b (lookahead-u8 p)))
+      ;; FIXME validate json number syntax
       (if (and (not (eof-object? b))
                (or (digit? b)
                    (= b 46) (= b 101) (= b 69)

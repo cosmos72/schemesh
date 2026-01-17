@@ -13,8 +13,9 @@
   (export json-next-token make-json-pull-parser)
   (import
     (rnrs)
-    (only (chezscheme) fx<=? fx=? fx1+ fxarithmetic-shift-left fxior)
-    (only (scheme2k containers charspan) charspan charspan-insert-right! charspan->string*! make-charspan))
+    (only (chezscheme)                   fx<=? fx=? fx1+ fxarithmetic-shift-left fxior)
+    (only (scheme2k containers bytespan) bytespan bytespan-insert-right/u8! make-bytespan)
+    (only (scheme2k containers utf8b)    bytespan-insert-right/char! utf8b-bytespan->string))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -49,52 +50,51 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; String parsing
 
-(define chars-append! charspan-insert-right!)
+(define bytes-append! bytespan-insert-right/u8!)
 
 (define (parse-string p)
   ;; opening quote already consumed
-  (let %parse-string ((p p) (chars (make-charspan 0)))
+  (let %parse-string ((p p) (bytes (make-bytespan 0)))
     (let ((b (get-u8 p)))
       (cond
         ((not (fixnum? b))
           (error 'json "unexpected EOF in json string"))
         ((fx=? b 34) ;; closing quote
-          (charspan->string*! chars))
+          (utf8b-bytespan->string bytes))
         ((fx=? b 92) ;; escape
           (let ((e (get-u8 p)))
             (cond
               ((not (fixnum? e))
                 (error 'json "unexpected EOF in json string"))
-              ((fx=? e 34)  (chars-append! chars #\")         (%parse-string p chars))
-              ((fx=? e 92)  (chars-append! chars #\\)         (%parse-string p chars))
-              ((fx=? e 47)  (chars-append! chars #\/)         (%parse-string p chars))
-              ((fx=? e 98)  (chars-append! chars #\backspace) (%parse-string p chars))
-              ((fx=? e 102) (chars-append! chars #\page)      (%parse-string p chars))
-              ((fx=? e 110) (chars-append! chars #\newline)   (%parse-string p chars))
-              ((fx=? e 114) (chars-append! chars #\return)    (%parse-string p chars))
-              ((fx=? e 116) (chars-append! chars #\tab)       (%parse-string p chars))
+              ((fx=? e 34)  (bytes-append! bytes e)  (%parse-string p bytes))
+              ((fx=? e 92)  (bytes-append! bytes e)  (%parse-string p bytes))
+              ((fx=? e 47)  (bytes-append! bytes e)  (%parse-string p bytes))
+              ((fx=? e 98)  (bytes-append! bytes 8)  (%parse-string p bytes))
+              ((fx=? e 102) (bytes-append! bytes 12) (%parse-string p bytes))
+              ((fx=? e 110) (bytes-append! bytes 10) (%parse-string p bytes))
+              ((fx=? e 114) (bytes-append! bytes 13) (%parse-string p bytes))
+              ((fx=? e 116) (bytes-append! bytes 9)  (%parse-string p bytes))
               ((fx=? e 117) ;; \uXXXX
                 ;; FIXME: handle surrogate pairs \uXXXX\uYYYY
                 (let %loop ((i 0) (v 0))
                   (if (fx=? i 4)
                     (begin
-                      (chars-append! chars (integer->char v))
-                      (%parse-string p chars))
+                      (bytespan-insert-right/char! bytes (integer->char v))
+                      (%parse-string p bytes))
                     (let ((h (get-u8 p)))
                       (unless (hex-digit? h)
                         (error 'json "invalid \\u escape"))
                       (%loop (fx1+ i) (fxior (fxarithmetic-shift-left v 4) (hex-value h)))))))
               (else (error 'json "invalid escape")))))
         (else
-          ;; FIXME: combine UTF-8 bytes into chars
-          (chars-append! chars (integer->char b))
-          (%parse-string p chars))))))
+          (bytes-append! bytes b)
+          (%parse-string p bytes))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Number parsing
 
 (define (parse-number p first)
-  (let %loop ((p p) (chars (charspan (integer->char first))))
+  (let %loop ((p p) (bytes (bytespan first)))
     (let ((b (lookahead-u8 p)))
       ;; FIXME validate json number syntax
       (if (and (fixnum? b)
@@ -103,9 +103,9 @@
                    (fx=? b 43) (fx=? b 45)))
         (begin
           (get-u8 p)
-          (chars-append! chars (integer->char b))
-          (%loop p chars))
-        (string->number (charspan->string*! chars))))))
+          (bytes-append! bytes b)
+          (%loop p bytes))
+        (string->number (utf8b-bytespan->string bytes))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing

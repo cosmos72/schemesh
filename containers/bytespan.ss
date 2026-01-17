@@ -274,7 +274,7 @@
         (bytespan-resize-right! sp (fx+ pos 3))
         (bytespan-set/u8! sp pos u8a)
         (bytespan-set/u8! sp (fx1+ pos) u8b)
-        (bytespan-set/u8! sp (fx+ pos 2) u8c)))
+        (bytespan-set/u8! sp (fx+ 2 pos) u8c)))
     ((sp . u8vals)
       (unless (null? u8vals)
         (let* ((pos (bytespan-length sp))
