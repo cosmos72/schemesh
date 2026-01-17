@@ -14,6 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme)                   fx<=? fx=? fx1+ fxarithmetic-shift-left fxior)
+    (only (scheme2k bootstrap)           raise-errorf)
     (only (scheme2k containers bytespan) bytespan bytespan-insert-right/u8! make-bytespan)
     (only (scheme2k containers utf8b)    bytespan-insert-right/char! utf8b-bytespan->string))
 
@@ -58,14 +59,14 @@
     (let ((b (get-u8 p)))
       (cond
         ((not (fixnum? b))
-          (error 'json "unexpected EOF in json string"))
+          (raise-errorf 'json "unexpected EOF in json string"))
         ((fx=? b 34) ;; closing quote
           (utf8b-bytespan->string bytes))
         ((fx=? b 92) ;; escape
           (let ((e (get-u8 p)))
             (cond
               ((not (fixnum? e))
-                (error 'json "unexpected EOF in json string"))
+                (raise-errorf 'json "unexpected EOF in json string"))
               ((fx=? e 34)  (bytes-append! bytes e)  (%parse-string p bytes))
               ((fx=? e 92)  (bytes-append! bytes e)  (%parse-string p bytes))
               ((fx=? e 47)  (bytes-append! bytes e)  (%parse-string p bytes))
@@ -83,9 +84,9 @@
                       (%parse-string p bytes))
                     (let ((h (get-u8 p)))
                       (unless (hex-digit? h)
-                        (error 'json "invalid \\u escape"))
+                        (raise-errorf 'json "invalid \\u escape"))
                       (%loop (fx1+ i) (fxior (fxarithmetic-shift-left v 4) (hex-value h)))))))
-              (else (error 'json "invalid escape")))))
+              (else (raise-errorf 'json "invalid escape")))))
         (else
           (bytes-append! bytes b)
           (%parse-string p bytes))))))
@@ -114,7 +115,7 @@
   (for-each
     (lambda (b)
       (unless (eqv? b (get-u8 p))
-        (error 'json "invalid literal")))
+        (raise-errorf 'json "invalid literal")))
     bytes))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,7 +139,7 @@
       ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false
       ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; nil
       (else
-        (error 'json "unexpected byte")))))
+        (raise-errorf 'json "unexpected byte")))))
 
 
 (define (make-json-pull-parser p)
@@ -173,7 +174,7 @@
 
     (define (next-token)
       (when finished?
-        (error 'json "token requested after eof"))
+        (raise-errorf 'json "token requested after eof"))
 
       (let ((t (json-next-token p)))
           (case (state)
@@ -183,14 +184,14 @@
             ((top)
              (cond
                ((equal? t 'eof)
-                (error 'json "empty input"))
+                (raise-errorf 'json "empty input"))
                ((value-start-token? t)
                 (pop)
                 (accept-value-start t)
                 (push 'done)
                 t)
                (else
-                (error 'json "invalid top-level token" t))))
+                (raise-errorf 'json "invalid top-level token" t))))
 
             ;; =====================================================
             ;; Done (only EOF allowed)
@@ -199,7 +200,7 @@
                  (begin
                    (set! finished? #t)
                    t)
-                 (error 'json "trailing data after JSON value" t)))
+                 (raise-errorf 'json "trailing data after JSON value" t)))
 
             ;; =====================================================
             ;; Array
@@ -214,7 +215,7 @@
                 (push 'array-after-value)
                 t)
                (else
-                (error 'json "expected value or ']'" t))))
+                (raise-errorf 'json "expected value or ']'" t))))
 
             ((array-after-value)
              (cond
@@ -226,7 +227,7 @@
                 (pop)
                 t)
                (else
-                (error 'json "expected ',' or ']'" t))))
+                (raise-errorf 'json "expected ',' or ']'" t))))
 
             ;; =====================================================
             ;; Object
@@ -240,7 +241,7 @@
                 (push 'object-expect-colon)
                 t)
                (else
-                (error 'json "expected string key or '}'" t))))
+                (raise-errorf 'json "expected string key or '}'" t))))
 
             ((object-expect-colon)
              (if (equal? t 'colon)
@@ -248,7 +249,7 @@
                    (pop)
                    (push 'object-expect-value)
                    t)
-                 (error 'json "expected ':'" t)))
+                 (raise-errorf 'json "expected ':'" t)))
 
             ((object-expect-value)
              (if (value-start-token? t)
@@ -257,7 +258,7 @@
                    (accept-value-start t)
                    (push 'object-after-value)
                    t)
-                 (error 'json "expected value" t)))
+                 (raise-errorf 'json "expected value" t)))
 
             ((object-after-value)
              (cond
@@ -269,10 +270,10 @@
                 (pop)
                 t)
                (else
-                (error 'json "expected ',' or '}'" t))))
+                (raise-errorf 'json "expected ',' or '}'" t))))
 
             (else
-             (error 'json "invalid parser state" state)))))
+             (raise-errorf 'json "invalid parser state" state)))))
 
     next-token))
 
