@@ -171,7 +171,7 @@ SCHEME2K_HTTP_C_SO=libscheme2k_http_c_0.9.3.so
 
 scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
 
-$(SCHEME2K_HTTP_C_SO): port/http.c
+$(SCHEME2K_HTTP_C_SO): io/http.c
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
 install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) install_scheme2k_dirs

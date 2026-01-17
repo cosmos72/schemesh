@@ -11,12 +11,16 @@
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
 (library (scheme2k io (0 9 3))
-  (export port->list port->string port->bytes port->lines port->bytes-lines
-          byte-lines->port lines->port read-line read-bytes-line
-          read-bytes-insert-right!
+  (export ;; json/pull.ss
+          json-next-token make-json-pull-parser
 
           ;; http.ss
           http-init http-open http-error-string http-read http-close http->port http-url->port
+
+          ;; io.ss
+          port->list port->string port->bytes port->lines port->bytes-lines
+          byte-lines->port lines->port read-line read-bytes-line
+          read-bytes-insert-right!
 
           ;; redir.ss
           binary-port-lambda->port textual-port-lambda->port
@@ -29,6 +33,7 @@
     (only (chezscheme)         get-bytevector-some!)
     (only (scheme2k bootstrap) assert* check-interrupts)
     (scheme2k containers       bytespan)
+    (scheme2k io json pull)
     (scheme2k io http)
     (scheme2k io redir)
     (scheme2k io stdio))
