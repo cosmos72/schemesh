@@ -13,11 +13,11 @@
   (export json-read-token make-json-reader)
   (import
     (rename (rnrs)                         (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                     fx1+ record-writer void)
+    (only (chezscheme)                     fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap)             assert* raise-errorf)
     (rename
       (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
-                                           bytespan-ref-right/u8)
+                                           bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
                                            (bytespan-insert-right/u8! bytes-append!))
     (only (scheme2k containers utf8b)      bytespan-insert-right/char! utf8b-bytespan->string))
 
@@ -274,6 +274,10 @@
 (define (pop r)
   (bytespan-delete-right! (json-reader-stack r) 1))
 
+(define (change r state)
+  (let* ((st (json-reader-stack r)))
+    (bytespan-set/u8! st (fx1- (bytespan-length st)) state)))
+
 (define (state r)
   (bytespan-ref-right/u8 (json-reader-stack r)))
 
@@ -298,8 +302,7 @@
     ((eof-object? tok)
       (raise-errorf 'json "empty json input"))
     ((value-start-token? tok)
-      (pop r)
-      (push r $done)
+      (change r $done)
       (accept-value-start r tok))
     (else
       (raise-errorf 'json "invalid json top-level token" tok))))
@@ -316,8 +319,7 @@
     ((eqv? tok #\])
       (pop r))
     ((value-start-token? tok)
-      (pop r)
-      (push r $array-after-value)
+      (change r $array-after-value)
       (accept-value-start r tok))
     (else
      (raise-errorf 'json "expecting value or ']' in json array, found ~s" tok))))
@@ -326,8 +328,7 @@
 (define (validate-array-after-value r tok)
   (case tok
     ((#\,)
-      (pop r)
-      (push r $array-expect-value))
+      (change r $array-expect-value))
     ((#\])
       (pop r))
     (else
@@ -339,8 +340,7 @@
     ((eqv? tok #\})
       (pop r))
     ((string? tok)
-      (pop r)
-      (push r $object-expect-colon))
+      (change r $object-expect-colon))
     (else
       (raise-errorf 'json "expecting string key or '}' in json object, found ~s" tok))))
 
@@ -348,23 +348,20 @@
 (define (validate-object-expect-colon r tok)
   (unless (eqv? tok #\:)
     (raise-errorf 'json "expecting ':' after json object key, found ~s" tok))
-  (pop r)
-  (push r $object-expect-value))
+  (change r $object-expect-value))
 
 
 (define (validate-object-expect-value r tok)
   (unless (value-start-token? tok)
     (raise-errorf 'json "expecting value in json object, found ~s" tok))
-  (pop r)
-  (push r $object-after-value)
+  (change r $object-after-value)
   (accept-value-start r tok))
 
 
 (define (validate-object-after-value r tok)
   (case tok
     ((#\,)
-      (pop r)
-      (push r $object-expect-key))
+      (change r $object-expect-key))
     ((#\})
       (pop r))
     (else
