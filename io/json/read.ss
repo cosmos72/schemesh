@@ -13,8 +13,8 @@
   (export json-read-token make-json-reader)
   (import
     (rename (rnrs)                         (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                     fx1+)
-    (only (scheme2k bootstrap)             raise-errorf)
+    (only (chezscheme)                     fx1+ record-writer void)
+    (only (scheme2k bootstrap)             assert* raise-errorf)
     (rename
       (only (scheme2k containers bytespan) bytespan bytespan->bytevector*! bytespan-insert-right/u8!)
                                            (bytespan-insert-right/u8! bytes-append!))
@@ -212,9 +212,9 @@
     bytes))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Main tokenizer
+;; Raw tokenizer. Validates grammar, does not validate syntax
 
-(define (json-read-token p)
+(define (read-token p)
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
@@ -234,178 +234,169 @@
       (else
         (raise-errorf 'json "unexpected byte")))))
 
+(define-record-type (json-reader %make-json-reader json-reader?)
+  (fields
+    port            ; binary input port
+    (mutable stack) ; list of states
+    (mutable eof?)) ; boolean
+  (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 (define (make-json-reader p)
-  (let ((state-stack '(top))
-        (finished? #f))
+  (assert* 'make-json-reader (binary-port? p))
+  (assert* 'make-json-reader (input-port? p))
+  (%make-json-reader p '(top) #f))
 
-    (define (push s)
-      (set! state-stack (cons s state-stack)))
 
-    (define (pop)
-      (set! state-stack (cdr state-stack)))
+(define (push r state)
+  (json-reader-stack-set! r (cons state (json-reader-stack r))))
 
-    (define (state)
-      (car state-stack))
+(define (pop r)
+  (json-reader-stack-set! r (cdr (json-reader-stack r))))
 
-    (define (atomic-value-token? t)
-      (not (or (char? t) (eof-object? t))))
+(define (state r)
+  (car (json-reader-stack r)))
 
-    (define (value-start-token? t)
-      (or (atomic-value-token? t) (eqv? t #\{) (eqv? t #\[)))
+(define (atomic-value-token? tok)
+  (not (or (char? tok) (eof-object? tok))))
 
-    (define (accept-value-start t)
-      (case t
-        ((#\{)
-         (push 'object-expect-key))
-        ((#\[)
-         (push 'array-expect-value))
+(define (value-start-token? tok)
+  (or (atomic-value-token? tok) (eqv? tok #\{) (eqv? tok #\[)))
+
+(define (accept-value-start r tok)
+  (case tok
+    ((#\{)
+      (push r 'object-expect-key))
+    ((#\[)
+      (push r 'array-expect-value))
+    (else ;; atomic value: nothing to push
+      (void))))
+
+
+(define (validate-top r tok)
+  (cond
+    ((eof-object? tok)
+      (raise-errorf 'json "empty json input"))
+    ((value-start-token? tok)
+      (pop r)
+      (push r 'done)
+      (accept-value-start r tok))
+    (else
+      (raise-errorf 'json "invalid json top-level token" tok))))
+
+
+(define (validate-done r tok)
+  (if (eof-object? tok)
+    (json-reader-eof?-set! r #t)
+    (raise-errorf 'json "trailing data after top-level value" tok)))
+
+
+(define (validate-array-expect-value r tok)
+  (cond
+    ((eqv? tok #\])
+      (pop r))
+    ((value-start-token? tok)
+      (pop r)
+      (push r 'array-after-value)
+      (accept-value-start r tok))
+    (else
+     (raise-errorf 'json "expecting value or ']' in json array, found ~s" tok))))
+
+
+(define (validate-array-after-value r tok)
+  (case tok
+    ((#\,)
+      (pop r)
+      (push r 'array-expect-value))
+    ((#\])
+      (pop r))
+    (else
+      (raise-errorf 'json "expecting ',' or ']' in json array, found ~s" tok))))
+
+
+(define (validate-object-expect-key r tok)
+  (cond
+    ((eqv? tok #\})
+      (pop r))
+    ((string? tok)
+      (pop r)
+      (push r 'object-expect-colon))
+    (else
+      (raise-errorf 'json "expecting string key or '}' in json object, found ~s" tok))))
+
+
+(define (validate-object-expect-colon r tok)
+  (unless (eqv? tok #\:)
+    (raise-errorf 'json "expected ':'" tok))
+  (pop r)
+  (push r 'object-expect-value))
+
+
+(define (validate-object-expect-value r tok)
+  (unless (value-start-token? tok)
+    (raise-errorf 'json "expecting value in json object, found ~s" tok))
+  (pop r)
+  (push r 'object-after-value)
+  (accept-value-start r tok))
+
+
+(define (validate-object-after-value r tok)
+  (case tok
+    ((#\,)
+      (pop r)
+      (push r 'object-expect-key))
+    ((#\})
+      (pop r))
+    (else
+       (raise-errorf 'json "expecting ',' or '}' in json object, found ~s" tok))))
+
+
+(define (json-read-token r)
+  (if (json-reader-eof? r)
+    (eof-object)
+    (let ((tok (read-token (json-reader-port r))))
+      (case (state r)
+        ((top)
+          (validate-top r tok))
+        ((done)
+          (validate-done r tok))
+        ((array-expect-value)
+          (validate-array-expect-value r tok))
+        ((array-after-value)
+          (validate-array-after-value r tok))
+        ((object-expect-key)
+         (validate-object-expect-key r tok))
+        ((object-expect-colon)
+         (validate-object-expect-colon r tok))
+        ((object-expect-value)
+         (validate-object-expect-value r tok))
+        ((object-after-value)
+         (validate-object-after-value r tok))
         (else
-         ;; atomic value: nothing to push
-         #f)))
-
-    (define (next-token-proc)
-      (when finished?
-        (raise-errorf 'json "token requested after EOF"))
-
-      (let ((t (json-read-token p)))
-          (case (state)
-
-            ;; =====================================================
-            ;; Top level
-            ((top)
-             (cond
-               ((eof-object? t)
-                (raise-errorf 'json "empty input"))
-               ((value-start-token? t)
-                (pop)
-                (accept-value-start t)
-                (push 'done)
-                t)
-               (else
-                (raise-errorf 'json "invalid top-level token" t))))
-
-            ;; =====================================================
-            ;; Done (only EOF allowed)
-            ((done)
-             (if (eof-object? t)
-                 (begin
-                   (set! finished? #t)
-                   t)
-                 (raise-errorf 'json "trailing data after JSON value" t)))
-
-            ;; =====================================================
-            ;; Array
-            ((array-expect-value)
-             (cond
-               ((eqv? t #\])
-                (pop)
-                t)
-               ((value-start-token? t)
-                (pop)
-                (accept-value-start t)
-                (push 'array-after-value)
-                t)
-               (else
-                (raise-errorf 'json "expected value or ']'" t))))
-
-            ((array-after-value)
-             (cond
-               ((eqv? t #\,)
-                (pop)
-                (push 'array-expect-value)
-                t)
-               ((eqv? t #\])
-                (pop)
-                t)
-               (else
-                (raise-errorf 'json "expected ',' or ']'" t))))
-
-            ;; =====================================================
-            ;; Object
-            ((object-expect-key)
-             (cond
-               ((eqv? t #\})
-                (pop)
-                t)
-               ((string? t)
-                (pop)
-                (push 'object-expect-colon)
-                t)
-               (else
-                (raise-errorf 'json "expected string key or '}'" t))))
-
-            ((object-expect-colon)
-             (if (eqv? t #\:)
-                 (begin
-                   (pop)
-                   (push 'object-expect-value)
-                   t)
-                 (raise-errorf 'json "expected ':'" t)))
-
-            ((object-expect-value)
-             (if (value-start-token? t)
-                 (begin
-                   (pop)
-                   (accept-value-start t)
-                   (push 'object-after-value)
-                   t)
-                 (raise-errorf 'json "expected value" t)))
-
-            ((object-after-value)
-             (cond
-               ((eqv? t #\,)
-                (pop)
-                (push 'object-expect-key)
-                t)
-               ((eqv? t #\})
-                (pop)
-                t)
-               (else
-                (raise-errorf 'json "expected ',' or '}'" t))))
-
-            (else
-             (raise-errorf 'json "invalid parser state" state)))))
-
-    next-token-proc))
+         (raise-errorf 'json "invalid json-reader state: ~s" (state r))))
+      tok)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (json-read-token)
-;;
-#|
-(define p (open-bytevector-input-port
-             (string->utf8 "{\"a\": [1, true]}")))
-
-(define (json-read-all p)
-  (let ((tok (json-read-token p)))
-    (unless (eof-object? tok)
-      (if (char? tok)
-        (display tok)
-        (write tok))
-      (json-read-all p))))
-
-(json-read-all p)
-|#
+(record-writer (record-type-descriptor json-reader)
+  (lambda (r out writer)
+    (display "#<json-reader>" out)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example usage for (make-json-reader)
 ;;
 #|
-(define proc
-  (make-json-reader
-    (open-bytevector-input-port
-     (string->utf8 "{\"a\": [1, true]}"))))
+(define (json-read-all p)
+  (let loop ((r (make-json-reader p)))
+    (let ((tok (json-read-token r)))
+      (unless (eof-object? tok)
+        (if (char? tok)
+          (display tok)
+          (write tok))
+        (loop r)))))
 
-(define (json-parse-all proc)
-  (let ((tok (proc)))
-    (unless (eof-object? tok)
-      (if (char? tok)
-        (display tok)
-        (write tok))
-      (json-parse-all p))))
-
-(json-parse-all proc)
+(json-read-all
+  (open-bytevector-input-port
+    (string->utf8 "{\"a\": [1, true]}")))
 |#
 
 ) ; close library
