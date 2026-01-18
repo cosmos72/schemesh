@@ -16,9 +16,12 @@
     (only (chezscheme)                     fx1+ record-writer void)
     (only (scheme2k bootstrap)             assert* raise-errorf)
     (rename
-      (only (scheme2k containers bytespan) bytespan bytespan->bytevector*! bytespan-insert-right/u8!)
+      (only (scheme2k containers bytespan) bytespan bytespan-delete-right! bytespan-insert-right/u8! bytespan-ref-right/u8)
                                            (bytespan-insert-right/u8! bytes-append!))
-    (only (scheme2k containers utf8b)      bytespan-insert-right/char!))
+    (rename
+      (only (scheme2k containers utf8b)    bytespan-insert-right/char! utf8b-bytespan->string)
+                                           ;; bytespan->string should accept only valid utf8 - currently not checked.
+                                           (utf8b-bytespan->string bytes->string)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -54,10 +57,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; String parsing
-
-(define (bytes->string bytes)
-  ;; bytespan must contain valid utf8
-  (utf8->string (bytespan->bytevector*! bytes)))
 
 (define (parse-string p bytes)
   ;; opening quote already consumed
@@ -234,28 +233,37 @@
       (else
         (raise-errorf 'json "unexpected byte")))))
 
+;; parser states
+(define $top                 0)
+(define $done                1)
+(define $array-expect-value  2)
+(define $array-after-value   3)
+(define $object-expect-key   4)
+(define $object-expect-colon 5)
+(define $object-expect-value 6)
+(define $object-after-value  7)
+
 (define-record-type (json-reader %make-json-reader json-reader?)
   (fields
     port            ; binary input port
-    (mutable stack) ; list of states
+    stack           ; bytespan contaning stack of states
     (mutable eof?)) ; boolean
   (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
 
 (define (make-json-reader p)
   (assert* 'make-json-reader (binary-port? p))
   (assert* 'make-json-reader (input-port? p))
-  (%make-json-reader p '(top) #f))
+  (%make-json-reader p (bytespan $top) #f))
 
 
 (define (push r state)
-  (json-reader-stack-set! r (cons state (json-reader-stack r))))
+  (bytes-append! (json-reader-stack r) state))
 
 (define (pop r)
-  (json-reader-stack-set! r (cdr (json-reader-stack r))))
+  (bytespan-delete-right! (json-reader-stack r) 1))
 
 (define (state r)
-  (car (json-reader-stack r)))
+  (bytespan-ref-right/u8 (json-reader-stack r)))
 
 (define (atomic-value-token? tok)
   (not (or (char? tok) (eof-object? tok))))
@@ -266,9 +274,9 @@
 (define (accept-value-start r tok)
   (case tok
     ((#\{)
-      (push r 'object-expect-key))
+      (push r $object-expect-key))
     ((#\[)
-      (push r 'array-expect-value))
+      (push r $array-expect-value))
     (else ;; atomic value: nothing to push
       (void))))
 
@@ -279,7 +287,7 @@
       (raise-errorf 'json "empty json input"))
     ((value-start-token? tok)
       (pop r)
-      (push r 'done)
+      (push r $done)
       (accept-value-start r tok))
     (else
       (raise-errorf 'json "invalid json top-level token" tok))))
@@ -297,7 +305,7 @@
       (pop r))
     ((value-start-token? tok)
       (pop r)
-      (push r 'array-after-value)
+      (push r $array-after-value)
       (accept-value-start r tok))
     (else
      (raise-errorf 'json "expecting value or ']' in json array, found ~s" tok))))
@@ -307,7 +315,7 @@
   (case tok
     ((#\,)
       (pop r)
-      (push r 'array-expect-value))
+      (push r $array-expect-value))
     ((#\])
       (pop r))
     (else
@@ -320,23 +328,23 @@
       (pop r))
     ((string? tok)
       (pop r)
-      (push r 'object-expect-colon))
+      (push r $object-expect-colon))
     (else
       (raise-errorf 'json "expecting string key or '}' in json object, found ~s" tok))))
 
 
 (define (validate-object-expect-colon r tok)
   (unless (eqv? tok #\:)
-    (raise-errorf 'json "expected ':'" tok))
+    (raise-errorf 'json "expecting ':' after json object key, found ~s" tok))
   (pop r)
-  (push r 'object-expect-value))
+  (push r $object-expect-value))
 
 
 (define (validate-object-expect-value r tok)
   (unless (value-start-token? tok)
     (raise-errorf 'json "expecting value in json object, found ~s" tok))
   (pop r)
-  (push r 'object-after-value)
+  (push r $object-after-value)
   (accept-value-start r tok))
 
 
@@ -344,7 +352,7 @@
   (case tok
     ((#\,)
       (pop r)
-      (push r 'object-expect-key))
+      (push r $object-expect-key))
     ((#\})
       (pop r))
     (else
@@ -354,23 +362,24 @@
 (define (json-read-token r)
   (if (json-reader-eof? r)
     (eof-object)
-    (let ((tok (read-token (json-reader-port r))))
-      (case (state r)
-        ((top)
+    (let ((tok (read-token (json-reader-port r)))
+          (st  (state r)))
+      (cond
+        ((fx=? st $top)
           (validate-top r tok))
-        ((done)
+        ((fx=? st $done)
           (validate-done r tok))
-        ((array-expect-value)
+        ((fx=? st $array-expect-value)
           (validate-array-expect-value r tok))
-        ((array-after-value)
+        ((fx=? st $array-after-value)
           (validate-array-after-value r tok))
-        ((object-expect-key)
+        ((fx=? st $object-expect-key)
          (validate-object-expect-key r tok))
-        ((object-expect-colon)
+        ((fx=? st $object-expect-colon)
          (validate-object-expect-colon r tok))
-        ((object-expect-value)
+        ((fx=? st $object-expect-value)
          (validate-object-expect-value r tok))
-        ((object-after-value)
+        ((fx=? st $object-after-value)
          (validate-object-after-value r tok))
         (else
          (raise-errorf 'json "invalid json-reader state: ~s" (state r))))
