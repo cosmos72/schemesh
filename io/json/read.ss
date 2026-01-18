@@ -16,12 +16,10 @@
     (only (chezscheme)                     fx1+ record-writer void)
     (only (scheme2k bootstrap)             assert* raise-errorf)
     (rename
-      (only (scheme2k containers bytespan) bytespan bytespan-delete-right! bytespan-insert-right/u8! bytespan-ref-right/u8)
+      (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
+                                           bytespan-ref-right/u8)
                                            (bytespan-insert-right/u8! bytes-append!))
-    (rename
-      (only (scheme2k containers utf8b)    bytespan-insert-right/char! utf8b-bytespan->string)
-                                           ;; bytespan->string should accept only valid utf8 - currently not checked.
-                                           (utf8b-bytespan->string bytes->string)))
+    (only (scheme2k containers utf8b)      bytespan-insert-right/char! utf8b-bytespan->string))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,6 +56,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; String parsing
 
+
+;; bytes->string should accept only valid utf8 - currently not checked.
+(define (bytes->string! bytes)
+  (let ((str (utf8b-bytespan->string bytes)))
+    (bytespan-clear! bytes)
+    str))
+
+
 (define (parse-string p bytes)
   ;; opening quote already consumed
   (let ((b (get-u8 p)))
@@ -65,7 +71,7 @@
       ((not (fixnum? b))
         (raise-errorf 'json "unexpected EOF in json string"))
       ((fx=? b 34) ;; closing quote
-        (bytes->string bytes))
+        (bytes->string! bytes))
       ((fx=? b 92) ;; backslash, starts escape sequence
         (let ((e (get-u8 p)))
           (cond
@@ -190,7 +196,7 @@
 
 
 (define (bytes->number bytes)
-  (string->number (bytes->string bytes)))
+  (string->number (bytes->string! bytes)))
 
 (define (raise-invalid-digit b)
   (if (fixnum? b)
@@ -213,7 +219,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Raw tokenizer. Validates grammar, does not validate syntax
 
-(define (read-token p)
+(define (read-token p buf)
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
@@ -224,14 +230,17 @@
       ((fx=? b 93)  #\])
       ((fx=? b 58)  #\:)
       ((fx=? b 44)  #\,)
-      ((fx=? b 34)  (parse-string p (bytespan)))
+      ((fx=? b 34)  (parse-string p buf))
       ((or (digit? b) (fx=? b 45))
-        (parse-number p (bytespan) b))
+        (parse-number p buf b))
       ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)    ; true
       ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false
       ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; nil
       (else
         (raise-errorf 'json "unexpected byte")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Validating parser
 
 ;; parser states
 (define $top                 0)
@@ -243,17 +252,20 @@
 (define $object-expect-value 6)
 (define $object-after-value  7)
 
+
 (define-record-type (json-reader %make-json-reader json-reader?)
   (fields
     port            ; binary input port
     stack           ; bytespan contaning stack of states
+    buffer          ; bytespan buffer for parsing strings and numbers
     (mutable eof?)) ; boolean
   (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 (define (make-json-reader p)
   (assert* 'make-json-reader (binary-port? p))
   (assert* 'make-json-reader (input-port? p))
-  (%make-json-reader p (bytespan $top) #f))
+  (%make-json-reader p (bytespan $top) (bytespan) #f))
 
 
 (define (push r state)
@@ -362,7 +374,7 @@
 (define (json-read-token r)
   (if (json-reader-eof? r)
     (eof-object)
-    (let ((tok (read-token (json-reader-port r)))
+    (let ((tok (read-token (json-reader-port r) (json-reader-buffer r)))
           (st  (state r)))
       (cond
         ((fx=? st $top)
