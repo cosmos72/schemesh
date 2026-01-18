@@ -135,18 +135,112 @@
 ;; Number parsing
 
 (define (parse-number p first)
-  (let %loop ((p p) (bytes (bytespan first)))
-    (let ((b (lookahead-u8 p)))
-      ;; FIXME validate json number syntax
-      (if (and (fixnum? b)
-               (or (digit? b)
-                   (fx=? b 46) (fx=? b 101) (fx=? b 69)
-                   (fx=? b 43) (fx=? b 45)))
-        (begin
-          (get-u8 p)
-          (bytes-append! bytes b)
-          (%loop p bytes))
-        (string->number (bytes->string bytes))))))
+  (let ((bytes (bytespan first)))
+    (if (fx=? first 48) ; #\0
+      (%parse-after-zero p bytes))
+      (%parse-unsigned p bytes)))
+
+
+(define (%parse-after-zero p bytes)
+  ;; json number starting with 0 can only be followed by one of:
+  ;; #\, #\] #\} #\space #\. #\e #\E #\newline #\return #\tab
+  (let ((b (lookahead-u8 p)))
+    (case b
+      ((9 10 13 32 44 46 69 93 101 125)
+        (%parse-maybe-empty-number p bytes))
+      (else
+        (if (eof-object? b)
+          (bytes->number bytes)
+          (raise-errorf 'json "invalid byte ~s after 0 in json number" b))))))
+
+
+(define (%parse-unsigned p bytes)
+  (let ((b (lookahead-u8 p)))
+    (cond
+      ((not (fixnum? b))
+        (raise-errorf 'json "unexpected EOF in json number"))
+      ((fx=? b 48) ; #\0
+        (bytes-append! bytes b)
+        (get-u8 p)
+        (%parse-after-zero p bytes))
+      ((digit19? b) ; #\1 ... #\9
+        (bytes-append! bytes b)
+        (get-u8 p)
+        (%parse-maybe-empty-number p bytes))
+      (else
+        (raise-errorf 'json "invalid byte ~s in json number integral digits" b)))))
+
+
+(define (%parse-maybe-empty-number p bytes)
+  (%parse-zero-or-more-decimal-digits p bytes)
+  (let ((b (lookahead-u8 p)))
+    (case b
+      ((9 10 13 32 44 93 125) ;; end of number
+        (bytes->number bytes))
+      ((46) ; #\.
+        (bytes-append! bytes b)
+        (get-u8 p)
+        (%parse-fraction p bytes))
+      ((69 101) ; #\E #\e
+        (bytes-append! bytes b)
+        (get-u8 p)
+        (%parse-exponent p bytes))
+      (else
+        (if (eof-object? b)
+          (bytes->number bytes)
+          (raise-errorf 'json "invalid byte ~s after json number integral digits" b))))))
+
+
+;; parse json number after #\.
+(define (%parse-fraction p bytes)
+  (let ((b (lookahead-u8 p)))
+    (unless (digit? b)
+      (if (fixnum? b)
+        (raise-errorf 'json "invalid byte ~s in json number fractional digits" b)
+        (raise-errorf 'json "unexpected EOF in json number fractional digits"))))
+  (%parse-zero-or-more-decimal-digits p bytes)
+  (let ((b (lookahead-u8 p)))
+    (case b
+      ((9 10 13 32 44 93 125) ;; end of number
+        (bytes->number bytes))
+      ((69 101) ; #\E #\e
+        (bytes-append! bytes b)
+        (get-u8 p)
+        (%parse-exponent p bytes))
+      (else
+        (if (eof-object? b)
+          (bytes->number bytes)
+          (raise-errorf 'json "invalid byte ~s after json number fractional digits" b))))))
+
+
+;; parse json number after #\E or #\e
+(define (%parse-exponent p bytes)
+  (let ((b (lookahead-u8 p)))
+    (case b
+      ((43 45) ; #\+ #\-
+        (bytes-append! bytes b)
+        (get-u8 p))))
+  (let ((b (lookahead-u8 p)))
+    (unless (digit? b)
+      (if (fixnum? b)
+        (raise-errorf 'json "invalid byte ~s in json number exponent" b)
+        (raise-errorf 'json "unexpected EOF in json number exponent")))
+    (bytes-append! bytes b)
+    (get-u8 p)
+    (%parse-zero-or-more-decimal-digits p bytes)
+    (bytes->number bytes)))
+
+
+(define (%parse-zero-or-more-decimal-digits p bytes)
+  (let ((b (lookahead-u8 p)))
+    (when (digit? b)
+      (bytes-append! bytes b)
+      (get-u8 p)
+      (%parse-zero-or-more-decimal-digits p bytes))))
+  
+
+(define (bytes->number bytes)
+  (string->number (bytes->string bytes)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing
