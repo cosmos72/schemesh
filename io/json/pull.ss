@@ -165,13 +165,13 @@
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
-      ((not (fixnum? b)) 'eof)
-      ((fx=? b 123) 'lbrace)
-      ((fx=? b 125) 'rbrace)
-      ((fx=? b 91)  'lbracket)
-      ((fx=? b 93)  'rbracket)
-      ((fx=? b 58)  'colon)
-      ((fx=? b 44)  'comma)
+      ((not (fixnum? b)) (eof-object))
+      ((fx=? b 123) #\{)
+      ((fx=? b 125) #\})
+      ((fx=? b 91)  #\[)
+      ((fx=? b 93)  #\])
+      ((fx=? b 58)  #\:)
+      ((fx=? b 44)  #\,)
       ((fx=? b 34)  (parse-string p))
       ((or (digit? b) (fx=? b 45))
         (parse-number p b))
@@ -196,25 +196,24 @@
       (car state-stack))
 
     (define (atomic-value-token? t)
-      (or (boolean? t) (null? t) (number? t) (string? t)))
+      (not (or (char? t) (eof-object? t))))
 
     (define (value-start-token? t)
-      (or (atomic-value-token? t)
-          (memq t '(lbrace lbracket))))
+      (or (atomic-value-token? t) (eqv? t #\{) (eqv? t #\[)))
 
     (define (accept-value-start t)
       (case t
-        ((lbrace)
+        ((#\{)
          (push 'object-expect-key))
-        ((lbracket)
+        ((#\[)
          (push 'array-expect-value))
         (else
          ;; atomic value: nothing to push
          #f)))
 
-    (define (next-token)
+    (define (next-token-proc)
       (when finished?
-        (raise-errorf 'json "token requested after eof"))
+        (raise-errorf 'json "token requested after EOF"))
 
       (let ((t (json-next-token p)))
           (case (state)
@@ -223,7 +222,7 @@
             ;; Top level
             ((top)
              (cond
-               ((equal? t 'eof)
+               ((eof-object? t)
                 (raise-errorf 'json "empty input"))
                ((value-start-token? t)
                 (pop)
@@ -236,7 +235,7 @@
             ;; =====================================================
             ;; Done (only EOF allowed)
             ((done)
-             (if (equal? t 'eof)
+             (if (eof-object? t)
                  (begin
                    (set! finished? #t)
                    t)
@@ -246,7 +245,7 @@
             ;; Array
             ((array-expect-value)
              (cond
-               ((equal? t 'rbracket)
+               ((eqv? t #\])
                 (pop)
                 t)
                ((value-start-token? t)
@@ -259,11 +258,11 @@
 
             ((array-after-value)
              (cond
-               ((equal? t 'comma)
+               ((eqv? t #\,)
                 (pop)
                 (push 'array-expect-value)
                 t)
-               ((equal? t 'rbracket)
+               ((eqv? t #\])
                 (pop)
                 t)
                (else
@@ -273,10 +272,10 @@
             ;; Object
             ((object-expect-key)
              (cond
-               ((equal? t 'rbrace)
+               ((eqv? t #\})
                 (pop)
                 t)
-               ((eq? (car t) 'string)
+               ((string? t)
                 (pop)
                 (push 'object-expect-colon)
                 t)
@@ -284,7 +283,7 @@
                 (raise-errorf 'json "expected string key or '}'" t))))
 
             ((object-expect-colon)
-             (if (equal? t 'colon)
+             (if (eqv? t #\:)
                  (begin
                    (pop)
                    (push 'object-expect-value)
@@ -302,11 +301,11 @@
 
             ((object-after-value)
              (cond
-               ((equal? t 'comma)
+               ((eqv? t #\,)
                 (pop)
                 (push 'object-expect-key)
                 t)
-               ((equal? t 'rbrace)
+               ((eqv? t #\})
                 (pop)
                 t)
                (else
@@ -315,32 +314,45 @@
             (else
              (raise-errorf 'json "invalid parser state" state)))))
 
-    next-token))
+    next-token-proc))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example usage for (json-next-token)
 ;;
-;; (define p (open-bytevector-input-port
-;;            (string->utf8 "{\"a\": [1, true]}")))
-;; (let %loop ()
-;;   (let ((t (json-next-token p)))
-;;     (display t) (newline)
-;;     (unless (equal? t 'eof) (%loop))))
+#|
+(define p (open-bytevector-input-port
+             (string->utf8 "{\"a\": [1, true]}")))
+
+(define (json-read-all p)
+  (let ((tok (json-next-token p)))
+    (unless (eof-object? tok)
+      (if (char? tok)
+        (display tok)
+        (write tok))
+      (json-read-all p))))
+
+(json-read-all p)
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example usage for (make-json-parser)
 ;;
-;; (define parser
-;;   (make-json-parser
-;;     (open-bytevector-input-port
-;;      (string->utf8 "{\"a\": [1, true]}"))))
-;;
-;; (let %loop ()
-;;   (let ((t (parser)))
-;;     (display t) (newline)
-;;     (unless (equal? t 'eof)
-;;       (%loop))))
+#|
+(define proc
+  (make-json-parser
+    (open-bytevector-input-port
+     (string->utf8 "{\"a\": [1, true]}"))))
 
+(define (json-parse-all proc)
+  (let ((tok (proc)))
+    (unless (eof-object? tok)
+      (if (char? tok)
+        (display tok)
+        (write tok))
+      (json-parse-all p))))
+
+(json-parse-all proc)
+|#
 
 ) ; close library
