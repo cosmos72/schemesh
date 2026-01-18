@@ -12,21 +12,27 @@
 (library (scheme2k io json pull (0 9 3))
   (export json-next-token make-json-pull-parser)
   (import
-    (rnrs)
-    (only (chezscheme)                   fx<=? fx=? fx1+ fxarithmetic-shift-left fxior)
-    (only (scheme2k bootstrap)           raise-errorf)
-    (only (scheme2k containers bytespan) bytespan bytespan-insert-right/u8! make-bytespan)
-    (only (scheme2k containers utf8b)    bytespan-insert-right/char! utf8b-bytespan->string))
+    (rename (rnrs)                         (fxarithmetic-shift-left fx<<))
+    (only (chezscheme)                     fx1+)
+    (only (scheme2k bootstrap)             raise-errorf)
+    (rename
+      (only (scheme2k containers bytespan) bytespan bytespan->bytevector*! bytespan-insert-right/u8!)
+                                           (bytespan-insert-right/u8! bytes-append!))
+    (only (scheme2k containers utf8b)      bytespan-insert-right/char!))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
 
 (define (whitespace? b)
-  (or (fx=? b 32) (fx=? b 9) (fx=? b 10) (fx=? b 13)))
+  (and (fixnum? b)
+       (or (fx=? b 32) (fx=? b 9) (fx=? b 10) (fx=? b 13))))
 
 (define (digit? b)
   (and (fixnum? b) (fx<=? 48 b 57))) ; 0 ... 9
+
+(define (digit19? b)
+  (and (fixnum? b) (fx<=? 49 b 57))) ; 1 ... 9
 
 (define (hex-digit? b)
   (and (fixnum? b)
@@ -35,61 +41,95 @@
            (fx<=? 97 b 102)))) ; a ... f
 
 (define (hex-value b)
-  (cond ((digit? b) (- b 48))
-        ((>= b 97) (+ 10 (- b 97)))
-        (else (+ 10 (- b 65)))))
+  (cond ((fx<=? b 57) (fx- b 48))
+        ((fx<=? b 70) (fx- b 55))
+        (else         (fx- b 87))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Reader helpers
 
 (define (skip-ws p)
   (let ((b (lookahead-u8 p)))
-    (when (and (not (eof-object? b)) (whitespace? b))
+    (when (whitespace? b)
       (get-u8 p)
       (skip-ws p))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; String parsing
 
-(define bytes-append! bytespan-insert-right/u8!)
+(define (bytes->string bytes)
+  ;; bytespan must contain valid utf8
+  (utf8->string (bytespan->bytevector*! bytes)))
 
 (define (parse-string p)
   ;; opening quote already consumed
-  (let %parse-string ((p p) (bytes (make-bytespan 0)))
+  (let %parse-string ((p p) (bytes (bytespan)))
     (let ((b (get-u8 p)))
       (cond
         ((not (fixnum? b))
           (raise-errorf 'json "unexpected EOF in json string"))
         ((fx=? b 34) ;; closing quote
-          (utf8b-bytespan->string bytes))
-        ((fx=? b 92) ;; escape
+          (bytes->string bytes))
+        ((fx=? b 92) ;; backslash, starts escape sequence
           (let ((e (get-u8 p)))
             (cond
-              ((not (fixnum? e))
-                (raise-errorf 'json "unexpected EOF in json string"))
+              ((not (fixnum? e)) (raise-errorf 'json "unexpected EOF in json string"))
               ((fx=? e 34)  (bytes-append! bytes e)  (%parse-string p bytes))
-              ((fx=? e 92)  (bytes-append! bytes e)  (%parse-string p bytes))
               ((fx=? e 47)  (bytes-append! bytes e)  (%parse-string p bytes))
+              ((fx=? e 92)  (bytes-append! bytes e)  (%parse-string p bytes))
               ((fx=? e 98)  (bytes-append! bytes 8)  (%parse-string p bytes))
               ((fx=? e 102) (bytes-append! bytes 12) (%parse-string p bytes))
               ((fx=? e 110) (bytes-append! bytes 10) (%parse-string p bytes))
               ((fx=? e 114) (bytes-append! bytes 13) (%parse-string p bytes))
               ((fx=? e 116) (bytes-append! bytes 9)  (%parse-string p bytes))
               ((fx=? e 117) ;; \uXXXX
-                ;; FIXME: handle surrogate pairs \uXXXX\uYYYY
-                (let %loop ((i 0) (v 0))
-                  (if (fx=? i 4)
-                    (begin
-                      (bytespan-insert-right/char! bytes (integer->char v))
-                      (%parse-string p bytes))
-                    (let ((h (get-u8 p)))
-                      (unless (hex-digit? h)
-                        (raise-errorf 'json "invalid \\u escape"))
-                      (%loop (fx1+ i) (fxior (fxarithmetic-shift-left v 4) (hex-value h)))))))
-              (else (raise-errorf 'json "invalid escape")))))
+                (let* ((u16 (parse-string-hex4 p))
+                       (codepoint
+                         (cond
+                           ((fx<=? #xD800 u16 #xDBFF)
+                             (let ((low16 (parse-string-low-surrogate p)))
+                               (fx+ (fx<< (fx- u16 #xD800) 10)
+                                    (fx+ low16 (fx- #x10000 #xDC00)))))
+                           ((fx<=? #xDC00 u16 #xDFFF)
+                             (raise-errorf 'json
+                               "unpaired low surrogate \\u~4,'0X in json string escape" u16))
+                           (else
+                             u16))))
+                  (bytespan-insert-right/char! bytes (integer->char codepoint)))
+                (%parse-string p bytes))
+              (else (raise-errorf 'json "invalid byte ~s in json string escape" e)))))
         (else
+          (when (fx<? b 32)
+            (raise-errorf 'json "invalid control byte ~s in json string" b))
           (bytes-append! bytes b)
           (%parse-string p bytes))))))
+
+
+;; parse the four hexadecimal digits after \u
+;; and return them as a fixnum in 0 ... #xFFFF
+(define (parse-string-hex4 p)
+  (let %loop ((i 0) (u16 0))
+    (if (fx=? i 4)
+      u16
+      (let ((h (get-u8 p)))
+        (unless (hex-digit? h)
+          (raise-errorf 'json "invalid hexadecimal digit after \\u in json string escape"))
+        (%loop (fx1+ i)
+               (fxior (fx<< u16 4) (hex-value h)))))))
+
+
+;; parse an Unicode low surrogate
+;; i.e. an escape sequence \uXXXX containing a fixnum in #xDC00 ... #xDFFF
+(define (parse-string-low-surrogate p)
+  (unless (and (eqv? (get-u8 p) 92)
+               (eqv? (get-u8 p) 117))
+    (raise-errorf 'json "missing low surrogate \\uXXXX after high surrogate in json string"))
+  (let ((u16 (parse-string-hex4 p)))
+    (unless (fx<=? #xDC00 u16 #xDFFF)
+      (raise-errorf 'json "out-of-range low surrogate \\u~4,'0X after high surrogate in json string" u16))
+    u16))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Number parsing
@@ -106,7 +146,7 @@
           (get-u8 p)
           (bytes-append! bytes b)
           (%loop p bytes))
-        (string->number (utf8b-bytespan->string bytes))))))
+        (string->number (bytes->string bytes))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing
