@@ -31,9 +31,6 @@
 (define (digit? b)
   (and (fixnum? b) (fx<=? 48 b 57))) ; 0 ... 9
 
-(define (digit19? b)
-  (and (fixnum? b) (fx<=? 49 b 57))) ; 1 ... 9
-
 (define (hex-digit? b)
   (and (fixnum? b)
        (or (fx<=? 48 b 57)     ; 0 ... 9
@@ -111,11 +108,11 @@
   (let %loop ((i 0) (u16 0))
     (if (fx=? i 4)
       u16
-      (let ((h (get-u8 p)))
-        (unless (hex-digit? h)
-          (raise-errorf 'json "invalid hexadecimal digit after \\u in json string escape"))
+      (let ((b (get-u8 p)))
+        (unless (hex-digit? b)
+          (raise-errorf 'json "invalid byte ~s in json string escape \\u" b))
         (%loop (fx1+ i)
-               (fxior (fx<< u16 4) (hex-value h)))))))
+               (fxior (fx<< u16 4) (hex-value b)))))))
 
 
 ;; parse an Unicode low surrogate
@@ -238,7 +235,7 @@
         (raise-errorf 'json "unexpected byte")))))
 
 
-(define (make-json-pull-parser p)
+(define (make-json-reader p)
   (let ((state-stack '(top))
         (finished? #f))
 
