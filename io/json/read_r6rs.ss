@@ -9,8 +9,8 @@
 
 ;;; JSON pull parser, uses only standard R6RS without external libraries
 ;;;
-(library (scheme2k io json pull (0 9 3))
-  (export json-next-token make-json-pull-parser)
+(library (scheme2k io json read (0 9 3))
+  (export json-read-token make-json-reader)
   (import (rnrs))
 
 
@@ -113,7 +113,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main pull tokenizer
 
-(define (json-next-token p)
+(define (json-read-token p)
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
@@ -134,7 +134,7 @@
         (error 'json "unexpected byte")))))
 
 
-(define (make-json-pull-parser p)
+(define (make-json-reader p)
   (let ((state-stack '(top))
         (finished? #f))
 
@@ -168,7 +168,7 @@
       (when finished?
         (error 'json "token requested after eof"))
 
-      (let ((t (json-next-token p)))
+      (let ((t (json-read-token p)))
         (let ((kind (car t)))
           (case (state)
 
@@ -272,20 +272,20 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (json-next-token)
+;; Example usage for (json-read-token)
 ;;
 ;; (define p (open-bytevector-input-port
 ;;            (string->utf8 "{\"a\": [1, true]}")))
 ;; (let %loop ()
-;;   (let ((t (json-next-token p)))
+;;   (let ((t (json-read-token p)))
 ;;     (display t) (newline)
 ;;     (unless (equal? t 'eof) (%loop))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (make-json-parser)
+;; Example usage for (make-json-reader)
 ;;
 ;; (define parser
-;;   (make-json-parser
+;;   (make-json-reader
 ;;     (open-bytevector-input-port
 ;;      (string->utf8 "{\"a\": [1, true]}"))))
 ;;

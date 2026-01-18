@@ -53,7 +53,7 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "io/json/pull.ss")
+  (include "io/json/read.ss")
   (include "io/http.ss")
   (include "io/redir.ss")
   (include "io/stdio.ss")
