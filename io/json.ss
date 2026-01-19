@@ -42,5 +42,6 @@
 
 (json-copy-all
   (open-bytevector-input-port
-    (string->utf8 "{\"a\": [1, true]}")))
+    (string->utf8 "{\"a\": [1, true]}"))
+  (current-output-port))
 |#

@@ -100,9 +100,13 @@
 (define (tport-write p str start n)
   (if (and (string? str) (fixnum? start) (fixnum? n)
            (fx<? -1 start (fx+ start n) (fx1+ (string-length str))))
-    (begin
-      (bytespan-insert-right/string! (tport-bspan p) str start (fx+ start n))
-      (tport-maybe-flush p)
+    (let ((chunk-max (tport-buffer-size p)))
+      (let %write-loop ((start start) (n n))
+        (let ((chunk-n (fxmin n chunk-max)))
+          (bytespan-insert-right/string! (tport-bspan p) str start (fx+ start chunk-n))
+          (tport-maybe-overflow p)
+          (unless (fx=? chunk-n n)
+            (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
       n)
     0))
 
@@ -110,7 +114,7 @@
 (define (tport-write-char p ch)
   (when (char? ch)
     (bytespan-insert-right/char! (tport-bspan p) ch)
-    (tport-maybe-flush p)))
+    (tport-maybe-overflow p)))
 
 
 (define (tport-maybe-flush p)
@@ -119,13 +123,22 @@
 
 
 (define (tport-flush p)
+  (tport-overflow p)
+  (flush-output-port (tport-bin-port p)))
+
+
+(define (tport-maybe-overflow p)
+  (when (fx>=? (tport-bspan-length p) (tport-buffer-size p))
+    (tport-overflow p)))
+
+
+(define (tport-overflow p)
   (let* ((bin-port (tport-bin-port p))
          (bsp (tport-bspan p))
          (blen (bytespan-length bsp)))
     (unless (fxzero? blen)
       (put-bytevector bin-port (bytespan-peek-data bsp) (bytespan-peek-beg bsp) blen)
-      (bytespan-clear! bsp))
-    (flush-output-port bin-port)))
+      (bytespan-clear! bsp))))
 
 
 ;; called only if input buffer is empty.
@@ -206,8 +219,7 @@
       (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
   (unless (fxzero? n)
     (set-port-bol! p (char=? (string-ref str (fx1- n)) #\newline)))
-  (tport-write tport str start n)
-  (tport-flush tport))
+  (tport-write tport str start n))
 
 
 (define (utf8b-port-flush p tport)
