@@ -12,7 +12,7 @@
 ;;;
 (library (scheme2k io (0 9 3))
   (export ;; json/read.ss
-          json-read-token make-json-reader
+          json-read-token json-skip-token json-write-token make-json-reader
 
           ;; http.ss
           http-init http-open http-error-string http-read http-close http->port http-url->port
@@ -33,7 +33,7 @@
     (only (chezscheme)         get-bytevector-some!)
     (only (scheme2k bootstrap) assert* check-interrupts)
     (scheme2k containers       bytespan)
-    (scheme2k io json read)
+    (scheme2k io json)
     (scheme2k io http)
     (scheme2k io redir)
     (scheme2k io stdio))

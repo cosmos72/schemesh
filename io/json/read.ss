@@ -7,19 +7,10 @@
 
 #!r6rs
 
+;; this file should be included only by file io/json.ss
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; JSON pull parser
-;;;
-(library (scheme2k io json read (0 9 3))
-  (export json-read-token make-json-reader)
-  (import
-    (rename (rnrs)                         (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                     fx1+ fx1- record-writer void)
-    (only (scheme2k bootstrap)             assert* raise-errorf)
-    (rename
-      (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
-                                           bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
-                                           (bytespan-insert-right/u8! bytes-append!))
-    (only (scheme2k containers utf8b)      bytespan-insert-right/char! utf8b-bytespan->string))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -43,6 +34,20 @@
         ((fx<=? b 70) (fx- b 55))
         (else         (fx- b 87))))
 
+(define raise-json
+  (case-lambda
+    ((str)
+      (raise-errorf 'json-read-token str))
+    ((fmt arg)
+      (raise-errorf 'json-read-token fmt arg))))
+
+(define (raise-eof-in-number)
+  (raise-json "unexpected EOF in json number"))
+
+(define (raise-invalid-digit b)
+  (if (fixnum? b)
+    (raise-json "invalid byte ~s in json number digits" b)
+    (raise-eof-in-number)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Reader helpers
@@ -57,11 +62,16 @@
 ;; String parsing
 
 
+(define (bytes-append! bytes b)
+  (when bytes
+    (bytespan-insert-right/u8! bytes b)))
+
+
 ;; bytes->string should accept only valid utf8 - currently not checked.
-(define (bytes->string! bytes)
-  (let ((str (utf8b-bytespan->string bytes)))
-    (bytespan-clear! bytes)
-    str))
+(define (bytes->string bytes)
+  (if bytes
+    (utf8b-bytespan->string bytes)
+    ""))
 
 
 (define (parse-string p bytes)
@@ -69,13 +79,13 @@
   (let ((b (get-u8 p)))
     (cond
       ((not (fixnum? b))
-        (raise-errorf 'json "unexpected EOF in json string"))
+        (raise-json "unexpected EOF in json string"))
       ((fx=? b 34) ;; closing quote
-        (bytes->string! bytes))
+        (bytes->string bytes))
       ((fx=? b 92) ;; backslash, starts escape sequence
         (let ((e (get-u8 p)))
           (cond
-            ((not (fixnum? e)) (raise-errorf 'json "unexpected EOF in json string"))
+            ((not (fixnum? e)) (raise-json "unexpected EOF in json string"))
             ((fx=? e 34)  (bytes-append! bytes e)  (parse-string p bytes))
             ((fx=? e 47)  (bytes-append! bytes e)  (parse-string p bytes))
             ((fx=? e 92)  (bytes-append! bytes e)  (parse-string p bytes))
@@ -86,23 +96,26 @@
             ((fx=? e 116) (bytes-append! bytes 9)  (parse-string p bytes))
             ((fx=? e 117) ;; \uXXXX
               (let* ((u16 (parse-string-hex4 p))
-                     (codepoint
-                       (cond
-                         ((fx<=? #xD800 u16 #xDBFF)
-                           (let ((low16 (parse-string-low-surrogate p)))
-                             (fx+ (fx<< (fx- u16 #xD800) 10)
-                                  (fx+ low16 (fx- #x10000 #xDC00)))))
-                         ((fx<=? #xDC00 u16 #xDFFF)
-                           (raise-errorf 'json
-                             "unpaired low surrogate \\u~4,'0X in json string escape" u16))
-                         (else
-                           u16))))
-                (bytespan-insert-right/char! bytes (integer->char codepoint)))
+                     (ch
+                       (integer->char
+                         (cond
+                           ((fx<=? #xD800 u16 #xDBFF)
+                             (let ((low16 (parse-string-low-surrogate p)))
+                               (fx+ (fx<< (fx- u16 #xD800) 10)
+                                    (fx+ low16 (fx- #x10000 #xDC00)))))
+                           ((fx<=? #xDC00 u16 #xDFFF)
+                             (raise-errorf 'json
+                               "unpaired low surrogate \\u~4,'0X in json string escape" u16))
+                           (else
+                             u16)))))
+                (when bytes
+                  (bytespan-insert-right/char! bytes ch)))
               (parse-string p bytes))
-            (else (raise-errorf 'json "invalid byte ~s in json string escape" e)))))
+            (else
+              (raise-json "invalid byte ~s in json string escape" e)))))
       (else
         (when (fx<? b 32)
-          (raise-errorf 'json "invalid control byte ~s in json string" b))
+          (raise-json "invalid control byte ~s in json string" b))
         (bytes-append! bytes b)
         (parse-string p bytes)))))
 
@@ -115,7 +128,7 @@
       u16
       (let ((b (get-u8 p)))
         (unless (hex-digit? b)
-          (raise-errorf 'json "invalid byte ~s in json string escape \\u" b))
+          (raise-json "invalid byte ~s in json string escape \\u" b))
         (%loop (fx1+ i)
                (fxior (fx<< u16 4) (hex-value b)))))))
 
@@ -125,10 +138,10 @@
 (define (parse-string-low-surrogate p)
   (unless (and (eqv? (get-u8 p) 92)
                (eqv? (get-u8 p) 117))
-    (raise-errorf 'json "missing low surrogate \\uXXXX after high surrogate in json string"))
+    (raise-json "missing low surrogate \\uXXXX after high surrogate in json string"))
   (let ((u16 (parse-string-hex4 p)))
     (unless (fx<=? #xDC00 u16 #xDFFF)
-      (raise-errorf 'json "out-of-range low surrogate \\u~4,'0X after high surrogate in json string" u16))
+      (raise-json "out-of-range low surrogate \\u~4,'0X after high surrogate in json string" u16))
     u16))
 
 
@@ -196,15 +209,9 @@
 
 
 (define (bytes->number bytes)
-  (string->number (bytes->string! bytes)))
-
-(define (raise-invalid-digit b)
-  (if (fixnum? b)
-    (raise-errorf 'json "invalid byte ~s in json number digits" b)
-    (raise-eof-in-number)))
-
-(define (raise-eof-in-number)
-  (raise-errorf 'json "unexpected EOF in json number"))
+  (if bytes
+    (string->number (bytes->string bytes))
+    0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing
@@ -213,7 +220,7 @@
   (for-each
     (lambda (b)
       (unless (eqv? b (get-u8 p))
-        (raise-errorf 'json "invalid literal")))
+        (raise-json "invalid literal")))
     bytes))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -230,14 +237,19 @@
       ((fx=? b 93)  #\])
       ((fx=? b 58)  #\:)
       ((fx=? b 44)  #\,)
-      ((fx=? b 34)  (parse-string p buf))
+      ((fx=? b 34)
+        (when buf
+          (bytespan-clear! buf))
+        (parse-string p buf))
       ((or (digit? b) (fx=? b 45))
+        (when buf
+          (bytespan-clear! buf))
         (parse-number p buf b))
       ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)    ; true
       ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false
       ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; nil
       (else
-        (raise-errorf 'json "unexpected byte")))))
+        (raise-json "unexpected byte")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Validating parser
@@ -300,18 +312,17 @@
 (define (validate-top r tok)
   (cond
     ((eof-object? tok)
-      (raise-errorf 'json "empty json input"))
+      (raise-json "empty json input"))
     ((value-start-token? tok)
       (change r $done)
       (accept-value-start r tok))
     (else
-      (raise-errorf 'json "invalid json top-level token" tok))))
+      (raise-json "invalid json top-level token" tok))))
 
 
 (define (validate-done r tok)
-  (if (eof-object? tok)
-    (json-reader-eof?-set! r #t)
-    (raise-errorf 'json "trailing data after top-level value" tok)))
+  (unless (eof-object? tok)
+    (raise-json "trailing data after top-level value" tok)))
 
 
 (define (validate-array-expect-value r tok)
@@ -322,7 +333,7 @@
       (change r $array-after-value)
       (accept-value-start r tok))
     (else
-     (raise-errorf 'json "expecting value or ']' in json array, found ~s" tok))))
+     (raise-json "expecting value or ']' in json array, found ~s" tok))))
 
 
 (define (validate-array-after-value r tok)
@@ -332,7 +343,7 @@
     ((#\])
       (pop r))
     (else
-      (raise-errorf 'json "expecting ',' or ']' in json array, found ~s" tok))))
+      (raise-json "expecting ',' or ']' in json array, found ~s" tok))))
 
 
 (define (validate-object-expect-key r tok)
@@ -342,18 +353,18 @@
     ((string? tok)
       (change r $object-expect-colon))
     (else
-      (raise-errorf 'json "expecting string key or '}' in json object, found ~s" tok))))
+      (raise-json "expecting string key or '}' in json object, found ~s" tok))))
 
 
 (define (validate-object-expect-colon r tok)
   (unless (eqv? tok #\:)
-    (raise-errorf 'json "expecting ':' after json object key, found ~s" tok))
+    (raise-json "expecting ':' after json object key, found ~s" tok))
   (change r $object-expect-value))
 
 
 (define (validate-object-expect-value r tok)
   (unless (value-start-token? tok)
-    (raise-errorf 'json "expecting value in json object, found ~s" tok))
+    (raise-json "expecting value in json object, found ~s" tok))
   (change r $object-after-value)
   (accept-value-start r tok))
 
@@ -365,14 +376,16 @@
     ((#\})
       (pop r))
     (else
-       (raise-errorf 'json "expecting ',' or '}' in json object, found ~s" tok))))
+       (raise-json "expecting ',' or '}' in json object, found ~s" tok))))
 
 
-(define (json-read-token r)
+(define (json-read-token* r buf)
   (if (json-reader-eof? r)
     (eof-object)
-    (let ((tok (read-token (json-reader-port r) (json-reader-buffer r)))
+    (let ((tok (read-token (json-reader-port r) buf))
           (st  (state r)))
+      (when (eof-object? tok)
+        (json-reader-eof?-set! r #t))
       (cond
         ((fx=? st $top)
           (validate-top r tok))
@@ -383,38 +396,22 @@
         ((fx=? st $array-after-value)
           (validate-array-after-value r tok))
         ((fx=? st $object-expect-key)
-         (validate-object-expect-key r tok))
+          (validate-object-expect-key r tok))
         ((fx=? st $object-expect-colon)
-         (validate-object-expect-colon r tok))
+          (validate-object-expect-colon r tok))
         ((fx=? st $object-expect-value)
-         (validate-object-expect-value r tok))
+          (validate-object-expect-value r tok))
         ((fx=? st $object-after-value)
-         (validate-object-after-value r tok))
+          (validate-object-after-value r tok))
         (else
-         (raise-errorf 'json "invalid json-reader state: ~s" (state r))))
+          (raise-json "inconsistent json-reader state: ~s" st)))
       tok)))
 
 
-(record-writer (record-type-descriptor json-reader)
-  (lambda (r out writer)
-    (display "#<json-reader>" out)))
+(define (json-read-token r)
+  (json-read-token* r (json-reader-buffer r)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (make-json-reader)
-;;
-#|
-(define (json-read-all p)
-  (let loop ((r (make-json-reader p)))
-    (let ((tok (json-read-token r)))
-      (unless (eof-object? tok)
-        (if (char? tok)
-          (display tok)
-          (write tok))
-        (loop r)))))
 
-(json-read-all
-  (open-bytevector-input-port
-    (string->utf8 "{\"a\": [1, true]}")))
-|#
+(define (json-skip-token r)
+  (json-read-token* r #f))
 
-) ; close library

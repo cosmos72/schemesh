@@ -9,7 +9,7 @@
 
 ;;; JSON pull parser, uses only standard R6RS without external libraries
 ;;;
-(library (scheme2k io json read (0 9 3))
+(library (scheme2k io json (0 9 3))
   (export json-read-token make-json-reader)
   (import (rnrs))
 
