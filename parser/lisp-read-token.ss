@@ -134,9 +134,36 @@
       ((#\tab #\vtab #\space)
         (skip-intraline-whitespace-newline-intraline-whitespace ctx flavor))
       (else
-        (if (eof-object? ch)
-          (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string")
-          (syntax-errorf ctx (caller-for flavor) "invalid string character ~s" ch))))))
+        (cond
+          ((not (char? ch))
+            (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string"))
+          ((and (eq? flavor 'scheme) (char=? ch #\'))
+            ch)
+          ((and (eq? flavor 'scheme) (char<=? #\0 ch #\7))
+            (read-lisp-string-octal-sequence ch ctx flavor))
+          (else
+            (syntax-errorf ctx (caller-for flavor) "invalid string character ~s" ch)))))))
+
+
+;; read an octal escape sequence after "\" inside a string literal,
+;; and return the corresponding character.
+;;
+;; either returns a character or raises an exception.
+(define (read-lisp-string-octal-sequence ch ctx flavor)
+  (let %next ((val (%octal-digit->fixnum ch ctx flavor))
+              (parsed 1))
+    (if (fx=? parsed 3)
+      (integer->char val)
+      (let ((n (%octal-digit->fixnum (parsectx-read-char ctx) ctx flavor)))
+        (%next (fxior n (fxarithmetic-shift-left val 3)) (fx1+ parsed))))))
+
+
+(define (%octal-digit->fixnum ch ctx flavor)
+  (unless (char? ch)
+    (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string hex escape"))
+  (if (char<=? #\0 ch #\7)
+    (fx- (char->integer ch) 48)
+    (syntax-errorf ctx (caller-for flavor) "invalid character ~s in string octal escape" ch)))
 
 
 ;; read an hexadecimal escape sequence after "\x" inside a string literal,
