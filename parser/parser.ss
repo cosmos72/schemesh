@@ -9,26 +9,26 @@
 
 (library (schemesh parser (0 9 3))
   (export
-    ; lisp.ss
-    lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token
-
-    ; parser.ss
+    ;; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
     parsectx-skip-whitespace parsectx-unread-char parsectx-try-read-directive
     get-parser to-parser make-parser parser? parser-name
     parser-parse-forms parser-parse-paren
 
-    ; r6rs.ss
+    ;; lisp.ss
+    lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token
+
+    ;; r6rs.ss
     lex-r6rs parse-r6rs-forms parser-r6rs
 
-    ; scheme.ss
+    ;; scheme.ss
     lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme
 
-    ; shell.ss
+    ;; shell.ss
     read-shell-char lex-shell parse-shell-word parse-shell-form1
     parse-shell-forms parser-shell
 
-    ; parser.ss
+    ;; parser.ss
     parse-forms parse-forms1
     parse-paren string->paren make-parenmatcher
     parsers)

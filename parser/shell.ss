@@ -13,7 +13,7 @@
     parse-shell-forms parser-shell)
   (import
     (rnrs)
-    (only (chezscheme) append! fx1+ fx1- include inspect reverse! unread-char void)
+    (only (chezscheme) append! fx1+ fx1- include inspect reverse! void)
     (only (scheme2k bootstrap) assert* debugf until warnf while)
     (only (scheme2k containers string) string-is-unsigned-base10-integer?)
     (scheme2k containers charspan)
