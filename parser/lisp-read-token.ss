@@ -29,15 +29,17 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (read-lisp-token ctx flavor)
+(define (lex-token ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines) ; in case caller is not (lex-lisp)
   (case (parsectx-peek-char ctx)
     ((#\")
-      (read-lisp-string ctx flavor))
+      (lex-string ctx flavor))
     ((#\#)
-      (read-lisp-sharp ctx flavor))
+      (lex-sharp ctx flavor))
+    ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+      (lex-number ctx flavor #f 10 '()))
     (else
-      (let-values (((value type) (%read-token ctx)))
+      (let-values (((value type) (lex-token-chezscheme ctx)))
         (if (eq? 'atomic type)
           (case value
             ;; replace (values '{ 'atomic) with (values #f 'lbrace)
@@ -52,11 +54,13 @@
             ;;    $(string-append "/home" "/user")
             ;; is equivalent to
             ;;    (shell-expr (string-append "/home" "/user"))
-            ((\x7B;)  ;  '{
+            ((\x7B;   ;  '{
+                   )
                   (values #f 'lbrace))
-            ((\x7D;)  ;  '}
+            ((\x7D;   ;  '}
+                   )
                   (values #f 'rbrace))
-            (($)  (values 'shell-expr 'quote ))
+            (($)  (values 'shell-expr 'quote))
             (else (values value type)))
           (values value type))))))
 
@@ -66,9 +70,9 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (%read-token ctx)
+(define (lex-token-chezscheme ctx)
   (let-values (((type value start end) (read-token (parsectx-in ctx))))
-    ;; (debugf "%read-token type=~s value=~s start=~s end=~s" type value start end)
+    ;; (debugf "lex-token-chezscheme type=~s value=~s start=~s end=~s" type value start end)
     (values value type)))
 
 
@@ -81,11 +85,11 @@
 ;; returns two values:
 ;;   token value: the unescaped string
 ;;   token type: 'atomic
-(define (read-lisp-string ctx flavor)
-  (assert* 'read-lisp-string (eqv? #\" (parsectx-read-char ctx)))
+(define (lex-string ctx flavor)
+  (assert* 'lex-string (eqv? #\" (parsectx-read-char ctx)))
   (let ((csp (charspan)))
     (let %again ()
-      (let ((ch (read-lisp-string-chars ctx flavor)))
+      (let ((ch (lex-string-chars ctx flavor)))
         (when (char? ch)
           (charspan-insert-right! csp ch))
         (when ch
@@ -99,11 +103,11 @@
 ;;
 ;; if it should be called again, returns #t or the converted character.
 ;; otherwise returns #f.
-(define (read-lisp-string-chars ctx flavor)
+(define (lex-string-chars ctx flavor)
   (let ((ch (parsectx-read-char ctx)))
     (case ch
       ((#\\)
-        (read-lisp-string-chars-after-backslash ctx flavor))
+        (lex-string-chars-after-backslash ctx flavor))
       ((#\")
         #f)
       (else
@@ -116,7 +120,7 @@
 ;; interpreting escape sequences, and return the corresponding character.
 ;;
 ;; returns #t or the converted character.
-(define (read-lisp-string-chars-after-backslash ctx flavor)
+(define (lex-string-chars-after-backslash ctx flavor)
   (let ((ch (parsectx-read-char ctx)))
     (case ch
       ((#\" #\\) ch)
@@ -128,7 +132,7 @@
       ((#\t) #\tab)
       ((#\v) #\vtab)
       ((#\x)
-        (read-lisp-string-hex-sequence ctx flavor))
+        (lex-string-hex-sequence ctx flavor))
       ((#\newline #\linefeed #\page #\return)
         (skip-intraline-whitespace ctx))
       ((#\tab #\vtab #\space)
@@ -170,7 +174,7 @@
 ;; and return the corresponding character.
 ;;
 ;; either returns a character or raises an exception.
-(define (read-lisp-string-hex-sequence ctx flavor)
+(define (lex-string-hex-sequence ctx flavor)
   (let %next ((ret 0))
     (let* ((ch (parsectx-peek-char ctx))
            (n  (%hex-digit->fixnum ch)))
@@ -214,31 +218,320 @@
   #t)
 
 
+;; return #t if ch is a scheme separator i.e. ends a token
+(define (separator? ch)
+  (or (not (char? ch))
+      (case ch
+        ((#\( #\) #\[ #\] #\{ #\} #\# #\' #\" #\` #\, #\;)
+          #t)
+        (else
+          (char<=? ch #\space)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; read a lisp token starting with "#"
 ;;
 ;; returns two values:
-;;   token value: the character value
-;;   token type: 'atomic
-(define (read-lisp-sharp ctx flavor)
-  (assert* 'read-lisp-sharp (eqv? #\# (parsectx-read-char ctx)))
-  (case (parsectx-peek-char ctx)
-    ((#\\)
-      (read-lisp-character ctx flavor))
+;;   token value
+;;   token type
+(define (lex-sharp ctx flavor)
+  (assert* 'lex-sharp (eqv? #\# (parsectx-read-char ctx)))
+  (let ((ch (parsectx-read-char ctx)))
+    (case ch
+      ((#\@)
+        (values #f 'fasl))
+      ((#\\)
+        (lex-character ctx flavor))
+      ((#\&)
+        (values #f 'box))
+      ((#\')
+        (values 'syntax 'quote))
+      ((#\`)
+        (values 'quasisyntax 'quote))
+      ((#\,)
+        (lex-unsyntax ctx flavor))
+      ((#\;)
+        (values 'datum-comment 'quote))
+      ((#\:)
+        ;; handle #:pretty-name
+        (lex-gensym-short ctx flavor))
+      ((#\%)
+        (lex-primitive ctx flavor 0))
+      ((#\()                    #| ) |# ; help vscode
+        (values #f 'vparen))
+      ((#\[)
+        (values #f 'record-brack))
+      ((#\{)
+        ;; handle #{pretty-name unique}
+        (lex-gensym-full ctx flavor))
+      ((#\|)
+        (lex-skip-block-comment ctx flavor)
+        (lex-token ctx flavor))
+      ((#\B #\b)
+        (lex-number ctx flavor #f 2 (list ch #\#)))
+      ((#\D #\d)
+        (lex-number ctx flavor #f 10 (list ch #\#)))
+      ((#\E #\e)
+        (lex-number ctx flavor 'exact #f (list ch #\#)))
+      ((#\F #\f)
+        (lex-boolean ctx flavor #f))
+      ((#\I #\i)
+        (lex-number ctx flavor 'inexact #f (list ch #\#)))
+      ((#\O #\o)
+        (lex-number ctx flavor #f 8 (list ch #\#)))
+      ((#\T #\t)
+        (lex-boolean ctx flavor #t))
+      ((#\v)
+        (lex-vector ctx flavor))
+      ((#\X #\x)
+        (lex-number ctx flavor #f 16 (list ch #\#)))
+      (else
+        (unless (char? ch)
+          (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after #"))
+        (unless (char<=? #\0 ch #\9)
+          (syntax-errorf ctx (caller-for flavor) "invalid sharp-sign prefix #~a" ch))
+        (lex-sharp-number ctx flavor ch)))))
+
+
+;; read next char after #,
+;;
+;; returns two values:
+;;   either (values 'unsyntax-splicing 'quote)
+;;   or     (values 'unsyntax          'quote)
+(define (lex-unsyntax ctx flavor)
+  (cond
+    ((eqv? #\@ (parsectx-peek-char ctx))
+      (parsectx-read-char ctx)
+      (values 'unsyntax-splicing 'quote))
     (else
-      (parsectx-unread-char/port ctx #\#)
-      (%read-token ctx))))
+      (values 'unsyntax 'quote))))
 
 
-;; read a lisp character literal starting with "#\"
+;; read an identifier after #:
+;; and return two values:
+;;   token value: a symbol generated by calling (gensym identifier)
+;;   token type: 'atomic
+(define (lex-gensym-short ctx flavor)
+  (let ((name (lex-identifier-or-raise ctx flavor "invalid identifier ~s reading gensym syntax #:")))
+    (values
+      (gensym (symbol->string name))
+      'atomic)))
+
+;; read two identifiers and } after #{
+;; and return two values:
+;;   token value: a symbol generated by calling (gensym identifier1 identifier2)
+;;   token type: 'atomic
+(define (lex-gensym-full ctx flavor)
+  (let* ((name   (lex-identifier-or-raise ctx flavor "invalid identifier ~s reading gensym syntax #{"))
+         (value2 (lex-identifier-or-raise ctx flavor "invalid identifier ~s reading gensym syntax #{"))
+         (unique (if (eq? value2 '\x7d;)
+                   (string->symbol "")
+                   (let ((value3 (lex-identifier-or-raise ctx flavor "invalid identifier ~s reading gensym syntax #{")))
+                     (unless (eq? value3 '\x7d;)
+                       (syntax-errorf ctx (caller-for flavor) "found ~s instead of } reading gensym syntax #{" value3))
+                      value2))))
+    (values
+      (gensym (symbol->string name) (symbol->string unique))
+      'atomic)))
+
+
+;; read an identifier after #% or #N%
+;; and return two values:
+;;   token value: a list ($primitive opt-level identifier)
+;;   token type: 'atomic
+(define (lex-primitive ctx flavor opt-level)
+  (let ((identifier (lex-identifier-or-raise ctx flavor "invalid identifier ~s reading $primitive syntax #%")))
+    (values
+      (list '$primitive opt-level identifier)
+      'atomic)))
+    
+
+;; read an identifier and return it.
+;; raise condition if next token is not an identifier
+(define (lex-identifier-or-raise ctx flavor error-fmt)
+  (let-values (((type value) (lex-token-chezscheme ctx)))
+    (unless (and (eq? 'atomic type) (symbol? value))
+      (syntax-errorf ctx (caller-for flavor) error-fmt value))
+    value))
+  
+
+;; read a lisp block comment starting with #| and ending with |#
+;; note: block comments can be nested!
+;;
+;; return unspecified value
+(define (lex-skip-block-comment ctx flavor)
+  (let ((ch (parsectx-read-char ctx)))
+    (unless (char? ch)
+      (raise-eof-in-block-comment ctx flavor))
+    (case ch
+      ((#\|)
+        (let ((ch2 (parsectx-read-char ctx)))
+          (unless (char? ch)
+            (raise-eof-in-block-comment ctx flavor))
+          (unless (eqv? #\# ch)
+            (lex-skip-block-comment ctx flavor)))) ; iterate, unless we found |#
+      ((#\#)
+        (let ((ch2 (parsectx-read-char ctx)))
+          (unless (char? ch)
+            (raise-eof-in-block-comment ctx flavor))
+          (when (eqv? #\| ch)
+            (lex-skip-block-comment ctx flavor)) ; recurse, read a nested block comment
+          (lex-skip-block-comment ctx flavor)))  ; iterate
+      (else
+        (lex-skip-block-comment ctx flavor)))))  ; iterate
+
+
+(define (raise-eof-in-block-comment ctx flavor)
+  (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading block comment"))
+
+
+;; read one of: #f #t #true #false (case-insensitive)
+;;
+;; return two values:
+;;   token value: either #t or #f
+;;   token type:  'atomic
+(define (lex-boolean ctx flavor value)
+  (let ((ch (parsectx-peek-char ctx)))
+    (if (separator? ch)
+      (values value 'atomic) ; also allow end-of-file after boolean
+      (lex-boolean-longform ctx flavor value))))
+
+
+;; read one of: #true #false (case-insensitive)
+;;
+;; return two values:
+;;   token value: either #t or #f
+;;   token type:  'atomic
+(define (lex-boolean-longform ctx flavor value)
+  (let %loop ((i 1)
+              (n  (if value 4 5))
+              (lo (if value "true" "false"))
+              (up (if value "TRUE" "FALSE")))
+    (let* ((ch (parsectx-peek-char ctx))
+           (sep? (separator? ch)))
+      (unless (eq? sep? (fx=? i n))
+        (raise-invalid-boolean ctx flavor ch))
+      (if sep?
+        (values value 'atomic)
+        (begin
+          (unless (or (eqv? ch (string-ref lo i))
+                      (eqv? ch (string-ref up i)))
+            (raise-invalid-boolean ctx flavor ch))
+          (parsectx-read-char ctx)
+          (%loop (fx1+ i) n lo up))))))
+  
+
+(define (raise-invalid-boolean ctx flavor ch)
+  (syntax-errorf ctx (caller-for flavor) "invalid delimiter ~a for boolean"))
+
+
+;; read a number in specified radix (which defaults to 10),
+;; then optionally convert it to exact or inexact
+;;
+;; returns two values:
+;;   token value: the number
+;;   token type: 'atomic
+(trace-define (lex-number ctx flavor exact-opt radix prefix)
+  (let %loop ((prefix prefix) (buf (charspan)) (exact-opt exact-opt) (radix radix))
+    (let ((ch (parsectx-peek-char ctx)))
+      (cond
+        ((separator? ch)
+          (when (charspan-empty? buf)
+            (raise-invalid-number ctx flavor prefix buf ch))
+          (let ((num (string->number (charspan->string*! buf) (or radix 10))))
+            (values
+              (case exact-opt ((exact)   (exact num))
+                              ((inexact) (inexact num))
+                              (else      num))
+              'atomic)))
+
+        ((eqv? #\# ch)
+          (when (null? prefix)
+            ;; number starts with a digit, cannot have options
+            (raise-invalid-number ctx flavor prefix buf ch))
+          (parsectx-read-char ctx)
+          (let* ((prefix (cons ch prefix))
+                 (ch     (parsectx-read-char ctx)))
+            (cond
+              ((separator? ch)
+                (raise-invalid-number ctx flavor prefix buf ch))
+
+              ((or (eqv? #\E ch) (eqv? #\I ch) (eqv? #\e ch) (eqv? #\i ch))
+                (when exact-opt ;; multiple #i and/or #e
+                  (raise-invalid-number ctx flavor prefix buf ch))
+                (let ((prefix (cons ch prefix))
+                      (exact-opt (if (or (eqv? #\E ch) (eqv? #\e ch))
+                                   'exact
+                                   'inexact)))
+                  (%loop prefix buf exact-opt radix)))
+
+              ((char<=? #\0 ch #\9)
+                ;; #NNNr is a Chez Scheme extension to specify radix
+                (when (or radix (not (eq? 'scheme flavor)))
+                  (raise-invalid-number ctx flavor prefix buf ch))
+                (let* ((radix (lex-unsigned-decimal ctx flavor (fx- (char->integer ch) 48)))
+                       (prefix (cons radix prefix))
+                       (ch (parsectx-read-char ctx)))
+                  (unless (and (fx<=? 2 radix 36)
+                               (or (eqv? #\R ch) (eqv? #\r ch)))
+                    (raise-invalid-number ctx flavor prefix buf ch))
+                  (%loop (cons ch prefix) buf exact-opt radix)))
+
+              (else
+                (raise-invalid-number ctx flavor prefix buf ch)))))
+
+        ((or (char<=? #\0 ch #\9) (char<=? #\A ch #\Z) (char<=? #\a ch #\z)
+             (eqv? #\. ch) (eqv? #\+ ch) (eqv? #\- ch))
+          (charspan-insert-right! buf ch)
+          (%loop prefix buf exact-opt radix))
+
+        (else
+          (raise-invalid-number ctx flavor prefix buf ch))))))
+
+
+;; parse zero or more decimal digits and return the corresponding decimal number
+(define (lex-unsigned-decimal ctx flavor value)
+  (let ((ch (parsectx-peek-char ctx)))
+    (cond
+      ((and (char? ch) (char<=? #\0 ch #\9))
+        (parsectx-read-char ctx)
+        (lex-unsigned-decimal ctx flavor (+ (* value 10) (fx- (char->integer ch) 48))))
+      (else
+        value))))
+
+
+(define (raise-invalid-number ctx flavor prefix buf ch)
+  (charspan-insert-right! buf ch)
+  (for-list ((obj prefix))
+    (cond
+      ((char? obj)   (charspan-insert-left! buf obj))
+      ((number? obj) (charspan-insert-left/string! buf (number->string obj)))))
+  (syntax-errorf ctx (caller-for flavor) "invalid number syntax ~a" (charspan->string*! buf)))
+
+
+;; parse #vu8( #vfl( #vfx( #vs(
+;;
+;; note: #v is already parsed
+(define (lex-vector ctx flavor)
+  ;; TODO: implement
+  (values #f 'vu8paren))
+
+
+;; parse #N= #N# #Nr #nR #N( #Nvfl( #Nvfx( #Nvu8(
+;;
+;; note: # and ch are already parsed
+(define (lex-sharp-number ctx flavor ch)
+  ;; TODO: implement
+  (values #f 'vu8paren))
+
+
+;; read a lisp character literal starting with #\
 ;; also supports character literals #\x... representing valid UTF-8b codepoints
 ;;
 ;; returns two values:
 ;;   token value: the character value
 ;;   token type: 'atomic
-(define (read-lisp-character ctx flavor)
-  (assert* 'read-lisp-character (eqv? #\\ (parsectx-read-char ctx)))
+(define (lex-character ctx flavor)
   (let* ((ch (parsectx-peek-char ctx))
          (ret (if (parsectx-is-simple-identifier-char? ch)
                 (let ((name (parsectx-read-simple-identifier ctx)))

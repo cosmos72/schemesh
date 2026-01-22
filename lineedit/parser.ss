@@ -315,7 +315,7 @@
   (void))
 
 
-;; read a simple identifier and return it as a string
+;; read a simple identifier and return it as a string.
 (define (parsectx-read-simple-identifier pctx)
   (let ((csp (charspan)))
     (charspan-reserve-right! csp 10)

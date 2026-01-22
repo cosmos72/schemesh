@@ -18,308 +18,163 @@
 
 
 
-(define (tport-bspan-length p)
-  (bytespan-length (tport-bspan p)))
+(define (tport-bspan-length t)
+  (bytespan-length (tport-bspan t)))
 
 
-(define (tport-read-refill p n)
-  (let* ((bsp   (tport-bspan p))
+(define (tport-read-refill t n)
+  (let* ((bsp   (tport-bspan t))
          (len   (bytespan-length bsp))
          (delta (fxmax 0 (fx- n len))))
     (bytespan-reserve-right! bsp (fx+ len delta))
     ;; return as soon as 1 or more bytes have been read:
     ;; do NOT wait until delta bytes have been read.
-    (let ((got (get-bytevector-some! (tport-bin-port p) (bytespan-peek-data bsp)
+    (let ((got (get-bytevector-some! (tport-bin-port t) (bytespan-peek-data bsp)
                                      (bytespan-peek-end bsp) delta)))
       (if (and (fixnum? got) (fx>? got 0))
         (bytespan-resize-right! bsp (fx+ len got))
-        (tport-eof?-set! p #t)))))
+        (tport-eof?-set! t #t)))))
 
 
-(define (tport-read-consume p str start n)
-  (let ((bsp (tport-bspan p)))
+(define (tport-read-consume t str start n)
+  (let ((bsp (tport-bspan t)))
     (let-values (((byte-n char-n)
                     (utf8b->string-copy!
                        (bytespan-peek-data bsp) (bytespan-peek-beg bsp) (bytespan-peek-end bsp)
-                       str start (fx+ start n) (tport-eof? p))))
+                       str start (fx+ start n) (tport-eof? t))))
       (bytespan-delete-left! bsp byte-n)
       ;; port may be redirected, or current job may finish,
       ;; and next time it may not be at EOF
-      (tport-eof?-set! p #f)
+      (tport-eof?-set! t #f)
       char-n)))
 
 
 ;; may read fewer characters than requested, but at least one because zero means EOF
 ;; returns number of characters actually read.
-(define (tport-read-some p str start n)
+(define (tport-read-some t str start n)
   (if (and (string? str) (fixnum? start) (fixnum? n)
            (< -1 start (+ start n) (fx1+ (string-length str))))
-    (let ((blen (tport-bspan-length p)))
-      (when (and (fx<? blen n) (not (tport-eof? p)))
-        (tport-read-refill p n))
-      (tport-read-consume p str start n))
+    (let ((blen (tport-bspan-length t)))
+      (when (and (fx<? blen n) (not (tport-eof? t)))
+        (tport-read-refill t n))
+      (tport-read-consume t str start n))
     0))
 
 
-(define (tport-read-char p)
-  (let ((n 4))
-    (when (and (fx<? (tport-bspan-length p) n) (not (tport-eof? p)))
-      (tport-read-refill p n)))
-  (let ((bsp (tport-bspan p)))
-    (let-values (((ch n) (bytespan-ref/char bsp 0)))
-      (cond
-        ((char? ch)
-          (bytespan-delete-left! bsp n)
-          ch)
-        ((bytespan-empty? bsp)
-          (eof-object))
-        (else
-          ;; invalid or incomplete UTF-8 sequence at EOF, encode as UTF-8b
-          (let ((ch (integer->char* (fxior #xdc80 (bytespan-ref/u8 bsp 0)))))
-            (bytespan-delete-left! bsp 1)
-            ch))))))
-
-
-(define (tport-peek-char p)
-  (let ((n 4))
-    (when (and (fx<? (tport-bspan-length p) n) (not (tport-eof? p)))
-      (tport-read-refill p n)))
-  (let ((bsp (tport-bspan p)))
-    (let-values (((ch n) (bytespan-ref/char bsp 0)))
-      (cond
-        ((char? ch)
-          ch)
-        ((fxzero? (bytespan-length bsp))
-          (eof-object))
-        (else
-          ;; invalid or incomplete UTF-8 sequence at EOF, encode as UTF-8b
-          (integer->char* (fxior #xdc80 (bytespan-ref/u8 bsp 0))))))))
-
-
 ;; always writes exactly n characters
-(define (tport-write p str start n)
+(define (tport-write t str start n)
   (if (and (string? str) (fixnum? start) (fixnum? n)
            (fx<? -1 start (fx+ start n) (fx1+ (string-length str))))
-    (let ((chunk-max (tport-buffer-size p)))
+    (let ((chunk-max (tport-buffer-size t)))
       (let %write-loop ((start start) (n n))
         (let ((chunk-n (fxmin n chunk-max)))
-          (bytespan-insert-right/string! (tport-bspan p) str start (fx+ start chunk-n))
-          (tport-maybe-overflow p)
+          (bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
+          (tport-maybe-overflow t)
           (unless (fx=? chunk-n n)
             (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
       n)
     0))
 
-
-(define (tport-write-char p ch)
-  (when (char? ch)
-    (bytespan-insert-right/char! (tport-bspan p) ch)
-    (tport-maybe-overflow p)))
+(define (tport-flush t)
+  (tport-overflow t)
+  (flush-output-port (tport-bin-port t)))
 
 
-(define (tport-maybe-flush p)
-  (when (fx>=? (tport-bspan-length p) (tport-buffer-size p))
-    (tport-flush p)))
+(define (tport-maybe-overflow t)
+  (when (fx>=? (tport-bspan-length t) (tport-buffer-size t))
+    (tport-overflow t)))
 
 
-(define (tport-flush p)
-  (tport-overflow p)
-  (flush-output-port (tport-bin-port p)))
-
-
-(define (tport-maybe-overflow p)
-  (when (fx>=? (tport-bspan-length p) (tport-buffer-size p))
-    (tport-overflow p)))
-
-
-(define (tport-overflow p)
-  (let* ((bin-port (tport-bin-port p))
-         (bsp (tport-bspan p))
+(define (tport-overflow t)
+  (let* ((bin-port (tport-bin-port t))
+         (bsp (tport-bspan t))
          (blen (bytespan-length bsp)))
     (unless (fxzero? blen)
       (put-bytevector bin-port (bytespan-peek-data bsp) (bytespan-peek-beg bsp) blen)
       (bytespan-clear! bsp))))
 
 
-;; called only if input buffer is empty.
-(define (utf8b-port-peek-char p tport)
-  (assert* 'utfb-port-peek-char tport)
-  (let* ((buf (textual-port-input-buffer p))
-         (cap (string-length buf)))
-    (cond
-      ((fxzero? cap)
-        (tport-peek-char tport))
-      (else
-        (let ((n (tport-read-some tport buf 0 cap)))
-          (set-textual-port-input-index! p 0)
-          (set-textual-port-input-size! p n)
-          (if (fxzero? n)
-            (eof-object)
-            (string-ref buf 0)))))))
-
-
-;; called only if input buffer is empty.
-(define (utf8b-port-read-char p tport)
-  (assert* 'utfb-port-read-char tport)
-  (let* ((buf (textual-port-input-buffer p))
-         (cap (string-length buf)))
-    (cond
-      ((fxzero? cap)
-        (tport-read-char tport))
-      (else
-        (let ((n (tport-read-some tport buf 0 cap)))
-          (set-textual-port-input-size! p n)
-          (cond
-            ((fxzero? n)
-              (set-textual-port-input-index! p 0)
-              (eof-object))
-            (else
-              (set-textual-port-input-index! p 1)
-              (string-ref buf 0))))))))
-
-
-;; called only if input buffer is empty.
-(define (utf8b-port-block-read p tport str start len)
-  (assert* 'utfb-port-block-read tport)
-  (let ((n (tport-read-some tport str start len)))
-    (if (and (fxzero? n) (not (fxzero? len)))
-      (eof-object)
-      n)))
-
-
-;; called only if output buffer is full.
-(define (utf8b-port-write-char p tport ch)
-  (assert* 'utfb-port-write-char tport)
-  (let ((len (textual-port-output-size p)))
-    ;; (debugf "utfb-port-write-char port=~s idx=~s len=~s cap=~s" (port-name p) (textual-port-output-index p) len (string-length (textual-port-output-buffer p)))
-    (if (fxzero? len)
-      (tport-write-char tport ch)
-      (let ((buf (textual-port-output-buffer p))
-            (idx (textual-port-output-index p)))
-        (when (fx=? idx len)
-          (tport-write tport buf 0 idx)
-          (set-textual-port-output-index! p 0)
-          (set! idx 0))
-        (string-set! buf idx ch)
-        (set-textual-port-output-index! p (fx1+ idx)))))
-  (set-port-bol! p (char=? ch #\newline)))
-
-
-;; Comply with Chez Scheme documentation for (block-write), that states:
-;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
-;; In any case, the contents of string are written immediately, without passing through the buffer.
-(define (utf8b-port-block-write p tport str start n)
-  (assert* 'utf8b-port-block-write tport)
-  (let ((buf (textual-port-output-buffer p))
-        (idx (textual-port-output-index  p)))
-    ;; (debugf "utfb-port-block-write port=~s idx=~s len=~s cap=~s string-to-write=~s" (port-name p) idx  (textual-port-output-size p) (string-length buf) (substring str start (fx+ start n)))
-    (unless (fxzero? idx)
-      (tport-write tport buf 0 idx)
-      (set-textual-port-output-index! p 0)
-      (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
-  (unless (fxzero? n)
-    (set-port-bol! p (char=? (string-ref str (fx1- n)) #\newline)))
-  (tport-write tport str start n))
-
-
-(define (utf8b-port-flush p tport)
-  (assert* 'utfb-port-flush tport)
-  (let ((buf (textual-port-output-buffer p))
-        (idx (textual-port-output-index  p)))
-    ;; (debugf "utfb-port-flush port=~s idx=~s len=~s cap=~s" (port-name p) idx (textual-port-output-size p) (string-length buf))
-    (unless (fxzero? idx)
-      (tport-write tport buf 0 idx)
-      (set-textual-port-output-index! p 0)
-      (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
-  (tport-flush tport))
-
-
-(define (raise-bad-msg msg)
-  (assertion-violationf 'utfb-port "operation ~s not handled" msg))
-
-
-;; create and return a textual input port handler that reads/writes from/to an underlying binary port
+;; create and return a textual input port that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
-(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size options)
-  (let ((name   (port-name (or in-port out-port)))
-        (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
-        (tport2 (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f))))
-    ;; return a closure
-    (case-lambda
-      ((msg p)
-        ;; (debugf "utf8b port handler for ~s: (~s ~s)" (or in-port out-port) msg p)
-        (case msg
-          ((char-ready?)
-            (assert* 'utfb-port-char-ready? in-port)
-            (or (fx>? (textual-port-output-index p) 0)
-                (fx>? (tport-bspan-length tport1) 0)
-                (input-port-ready? in-port)))
-          ((clear-input-port)
-            (assert* 'utfb-port-clear-input-port in-port)
-            (clear-input-port in-port))
-          ((clear-output-port)
-            (assert* 'utfb-port-clear-output-port out-port)
-            (set-textual-port-output-index! p 0)
-            (clear-output-port out-port))
-          ((close-port)
-            (when (and tport2 (not (port-closed? p)))
-              (utf8b-port-flush p tport2))
-            (when (plist-ref options 'close? #t)
-              (mark-port-closed! p)
-              (when (plist-ref options 'close-inner? #t)
-                (when in-port
-                  (close-port in-port))
-                (when out-port
-                  (close-port out-port)))))
-          ((flush-output-port)
-            (utf8b-port-flush p tport2))
-          ((file-position)
-            (port-position (or in-port out-port)))
-          ((file-length)
-            (port-length (or in-port out-port)))
-          ((peek-char)
-            (utf8b-port-peek-char p tport1))
-          ((port-name)
-            name)
-          ((read-char)
-            (utf8b-port-read-char p tport1))
-          (else
-            (raise-bad-msg msg))))
-      ((msg c p)
-        ;; (debugf "utf8b port handler for ~s: (~s ~s ~s)" (or in-port out-port) msg c p)
-        (case msg
-          ((file-position)
-            (when in-port
-              (set-port-position! in-port p))
-            (when (and out-port (not (eq? in-port out-port)))
-              (set-port-position! out-port p)))
-          ((unread-char)
-            (assert* 'utfb-port-unread-char in-port)
-            (bytespan-insert-left/char! (tport-bspan in-port) c))
-          ((write-char)
-            (utf8b-port-write-char p tport2 c))
-          (else
-            (raise-bad-msg msg))))
-      ((msg p str len)
-        ;; (debugf "utf8b port handler for ~s: (~s ~s ~s ~s)" (or in-port out-port) msg p str len)
-        (case msg
-          ((block-read)
-            (utf8b-port-block-read p tport1 str 0 len))
-          ((block-write)
-            (utf8b-port-block-write p tport2 str 0 len))
-          (else
-            (raise-bad-msg msg)))))))
 
-
-
-
-
-;; create and return a textual input and/or output port that reads/writes from/to an underlying binary port
+;; create and return a textual input port that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
-;;
-;; options must be a plist containing zero or more of:
-;;   'close? BOOL       - if BOOL is #f (default is #t), attempts to close the returned port are ignored
-;;   'close-inner? BOOL - if BOOL is #f (default is #t), closing the returned port does not close the underlying binary port
+(define (make-utf8b-port in-port input-buffer-size out-port output-buffer-size options)
+  (when in-port
+    (assert* 'make-utf8b-port  (port? in-port))
+    (assert* 'make-utf8b-port  (binary-port? in-port))
+    (assert* 'make-utf8b-port  (input-port? in-port)))
+  (when out-port
+    (assert* 'make-utf8b-port  (port? out-port))
+    (assert* 'make-utf8b-port  (binary-port? out-port))
+    (assert* 'make-utf8b-port  (output-port? out-port)))
+  (let* ((name       (port-name (or in-port out-port)))
+         (tport1     (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
+         (tport2     (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f)))
+         (read-proc  (and tport1
+                          (lambda (str start n)
+                            (tport-read-some tport1 str start n))))
+         (write-proc (and tport2
+                          (lambda (str start n) 
+                            (let ((written (tport-write tport2 str start n)))
+                              (tport-flush tport2)
+                              written))))
+         (close-proc (and (plist-ref options 'close? #t)
+                          (lambda ()
+                             (when in-port
+                               (close-port in-port))
+                             (when out-port
+                               (unless (eq? in-port out-port)
+                                 (close-port out-port)))))))
+    (cond
+      ((and in-port out-port)
+        (make-custom-textual-input/output-port
+          name
+          read-proc
+          write-proc
+          ;; position-proc
+          (and (eq? in-port out-port) (port-has-port-position? in-port)
+               (lambda ()
+                 (port-position in-port)))
+          ;; set-position-proc
+          (and (eq? in-port out-port) (port-has-set-port-position!? in-port)
+               (lambda (pos)
+                 (set-port-position! in-port pos)))
+          close-proc))
+
+      (in-port
+        (make-custom-textual-input-port
+          name
+          read-proc
+          ;; position-proc
+          (and (port-has-port-position? in-port)
+               (lambda ()
+                 (port-position in-port)))
+          ;; set-position-proc
+          (and (port-has-set-port-position!? in-port)
+               (lambda (pos)
+                 (set-port-position! in-port pos)))
+          close-proc))
+
+      (out-port
+        (make-custom-textual-output-port
+          name
+          write-proc
+          ;; position-proc
+          (and (port-has-port-position? out-port)
+               (lambda ()
+                 (port-position out-port)))
+          ;; set-position-proc
+          (and (port-has-set-port-position!? out-port)
+               (lambda (pos)
+                 (set-port-position! out-port pos)))
+          close-proc))
+          
+      (else
+        (raise-errorf 'make-utf8b-port "both in-port and out-port are #f")))))
+
+
+
 (define port->utf8b-port
   (case-lambda
     ((bin-port dir b-mode options)
@@ -328,27 +183,15 @@
       (assert* 'port->utf8b-port (plist? options))
       (case dir
         ((read)
-          (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
-                 (p (make-input-port
-                      (make-utfb-port-handler bin-port in-buffer-size #f 0 options)
-                      (make-string in-buffer-size))))
-            (set-textual-port-input-index! p in-buffer-size)
-            p))
+          (let ((in-buffer-size (b-mode->input-buffer-size b-mode)))
+            (make-utf8b-port bin-port in-buffer-size #f 0 options)))
         ((rw)
-          (let* ((in-buffer-size  (b-mode->input-buffer-size b-mode))
-                 (out-buffer-size (b-mode->output-buffer-size b-mode))
-                 (p (make-input/output-port
-                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size options)
-                      (make-string in-buffer-size)
-                      (make-string out-buffer-size))))
-            (set-textual-port-input-index! p in-buffer-size)
-            p))
+          (let ((in-buffer-size  (b-mode->input-buffer-size b-mode))
+                (out-buffer-size (b-mode->output-buffer-size b-mode)))
+            (make-utf8b-port bin-port in-buffer-size bin-port out-buffer-size options)))
         ((write)
-          (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
-                 (p (make-output-port
-                      (make-utfb-port-handler #f 0 bin-port out-buffer-size options)
-                      (make-string out-buffer-size))))
-            p))
+          (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
+            (make-utf8b-port #f 0 bin-port out-buffer-size options)))
         (else
           (assert* 'port->utf8b-port (memq dir '(read write rw))))))
     ((bin-port dir b-mode)
@@ -370,3 +213,6 @@
   (port->utf8b-port
      (fd->binary-port fd dir b-mode name proc-on-close)
      dir b-mode))
+
+
+

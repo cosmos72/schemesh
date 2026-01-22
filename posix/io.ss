@@ -9,7 +9,7 @@
 
 (library (scheme2k posix io (0 9 3))
   (export
-    port->utf8b-port fd->port file->port)
+    fd->port file->port port->utf8b-port)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -26,7 +26,7 @@
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
-    (only (scheme2k bootstrap)              assert* trace-define)
+    (only (scheme2k bootstrap)              assert* raise-errorf)
     (scheme2k containers bytespan)
     (only (scheme2k containers list)        plist? plist-ref)
     (only (scheme2k containers string)      substring-move!)
