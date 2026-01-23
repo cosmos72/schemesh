@@ -18,7 +18,7 @@
           http-init http-open http-error-string http-read http-close http->port http-url->port
 
           ;; io.ss
-          port->list port->string port->bytes port->lines port->bytes-lines
+          peek-char2 port->list port->string port->bytes port->lines port->bytes-lines
           byte-lines->port lines->port read-line read-bytes-line
           read-bytes-insert-right!
 
@@ -30,13 +30,96 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         get-bytevector-some!)
-    (only (scheme2k bootstrap) assert* check-interrupts)
+    (rnrs mutable-strings)
+    (only (chezscheme)                 fx/ fx1+ fx1- get-bytevector-some!
+                                       set-textual-port-input-buffer! set-textual-port-input-index! set-textual-port-input-size!
+                                       string-copy!
+                                       textual-port-input-buffer textual-port-input-index textual-port-input-size)
+    (only (scheme2k bootstrap)         assert* assert-not* check-interrupts fx<=?* raise-errorf)
     (scheme2k containers       bytespan)
     (scheme2k io json)
     (scheme2k io http)
     (scheme2k io redir)
     (scheme2k io stdio))
+
+
+;; Peek the next next character from textual input port and return it,
+;; without consuming any character.
+;;
+;; This is needed by (parsectx-try-read-directive) and by (lex-sharp)
+;; and implementing it is messy: we must fiddle with port's input buffer.
+;;
+;; optional argument temp must be #f or a string with length > 0 and <= half port's input buffer length
+(define peek-char2
+  (case-lambda
+    ((in)
+      (%peek-char2 in 3 #f))
+    ((in temp)
+      (%peek-char2 in 3 temp))))
+
+
+;; implementation of (peek-char2)
+(define (%peek-char2 in retry-n temp)
+  (cond
+    ((port-eof? in)
+      (eof-object))
+    ((fxzero? retry-n)
+      (raise-errorf 'peek-char2 "failed peeking two characters forward in ~s" in))
+    (else
+      (let* ((pos  (textual-port-input-index in))
+             (size (textual-port-input-size in))
+             (buf  (textual-port-input-buffer in))
+             (cap  (string-length buf)))
+        (assert* 'peek-char2 (fx<=?* 0 pos size cap)) ; sanity check
+        (assert* 'peek-char2 (fx>=? cap 2)) ; we need at least a 2 char buffer
+        (when temp
+          (assert-not* 'peek-char2 (eq? buf temp)))
+        (case (fx- size pos)
+          ((0)
+            (peek-char in)           ; read more characters
+            (%peek-char2 in (fx1- retry-n) temp)) ; then retry
+          ((1)
+            ;; this is the messy case: we must read more characters, without consuming the buffered one
+            (let* ((ch0  (read-char in))
+                   (temp (if (and (string? temp) (fx<=? 1 (string-length temp) (fx/ cap 2)))
+                           (begin
+                             ;; (debugf "peek-char2 messy step 0 using caller-provided temp string")
+                             temp)
+                           (make-string (fx/ cap 2))))
+                   (half (string-length temp)))
+              ;; (debugf "peek-char2 messy step A pos ~s, size ~s, cap ~s, ch0 ~s, buf ~s" pos size cap ch0 buf)
+              (set-textual-port-input-buffer! in temp) ; guaranteed to set index = 0 and size = half
+              (set-textual-port-input-size!   in half) ; guaranteed to set index = 0
+              (set-textual-port-input-index!  in half)
+              (let* ((ch1 (peek-char in))
+                     ;; got the char we wanted.
+                     ;; reload everything, in case something changed
+                     (pos  (textual-port-input-index in))
+                     (size (textual-port-input-size in))
+                     (temp (textual-port-input-buffer in))
+                     (tcap (string-length temp)))
+                (assert-not* 'peek-char2-cleanup (eq? buf temp))
+                (assert* 'peek-char2-cleanup (fx<=?* 0 pos size tcap))
+                (when (fx<? pos size)
+                  (assert* 'peek-char2-cleanup (eqv? ch1 (string-ref temp pos))))
+                ;; (debugf "peek-char2 messy step B pos ~s, size ~s, tcap ~s, ch0 ~s, ch1 ~s, temp ~s" pos size tcap ch0 ch1 temp)
+                (let* ((avail   (fx- size pos))
+                       (new-pos (fx- cap avail)))
+                  ;; copy buffered data to end of buf
+                  (string-copy! temp pos buf new-pos avail)
+                  ;; copy back ch0
+                  (string-set! buf (fx1- new-pos) ch0)
+                  ;; restore buffer, size and index
+                  (set-textual-port-input-buffer! in buf) ; guaranteed to set index = 0 and size = cap
+                  (set-textual-port-input-size!   in cap) ; guaranteed to set index = 0
+                  (set-textual-port-input-index!  in (fx1- new-pos))
+                  (assert* 'peek-char2-cleanup (eqv? ch0 (peek-char in)))
+                  ;; (debugf "peek-char2 messy step C ch0 ~s, ch1 ~s, buf ~s" ch0 ch1 buf)
+                  )
+                ch1)))
+          (else
+            ;; enough characters are already buffered
+            (string-ref buf (fx1+ pos))))))))
 
 
 ;; Given a list of bytevectors, write each one to port out, appending a newline after each bytevector.

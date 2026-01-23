@@ -142,6 +142,8 @@
     (parsers)) 'shell)                                 ((shell "true" "-foo" >& "log.txt"))
   ;; character { switches to shell parser
   ;; directive #!shell switches to shell parser
+  ;;
+  ;; also test parsing { immediately after a line comment
   {echo bar >> log.txt}                                ,@"(sh-cmd* \"echo\" \"bar\" 1 '>> \"log.txt\")"
   '(9 #!shell echo baz <> log.txt)                     (9 (shell "echo" "baz" <> "log.txt"))
   '(#!shell echo charlie >> log.txt)                   (shell "echo" "charlie" >> "log.txt")

@@ -169,7 +169,7 @@
                (lambda (pos)
                  (set-port-position! out-port pos)))
           close-proc))
-          
+
       (else
         (raise-errorf 'make-utf8b-port "both in-port and out-port are #f")))))
 
