@@ -43,13 +43,14 @@
     (scheme2k io stdio))
 
 
-;; Peek the next next character from textual input port and return it,
-;; without consuming any character.
+;; Peek the next-next character (i.e. the character after (peek-char))
+;; from textual input port and return it, without consuming any character.
 ;;
 ;; This is needed by (parsectx-try-read-directive) and by (lex-sharp)
 ;; and implementing it is messy: we must fiddle with port's input buffer.
 ;;
-;; optional argument temp must be #f or a string with length > 0 and <= half port's input buffer length
+;; if optional argument temp is a string with length > 0 and <= half port's input buffer length,
+;; it is used as a temporary read buffer instead of allocating a string
 (define peek-char2
   (case-lambda
     ((in)
