@@ -421,7 +421,7 @@
             (make-irritants-condition
              (append format-args
                (list (fx1+ (cdr (parsectx-pos pctx)))
-                     (car (parsectx-pos pctx))
+                     (fx1+ (car (parsectx-pos pctx)))
                      (parsectx-in pctx)))))
           (condition
             (make-lexical-violation)
