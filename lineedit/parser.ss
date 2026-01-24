@@ -16,7 +16,7 @@
     parser-name parser-parse-forms parser-parse-paren
     get-parser-or-false get-parser to-parser
 
-    parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-unread-char/port
+    parsectx-peek-char parsectx-peek-char2 parsectx-read-char parsectx-unread-char
     parsectx-skip-whitespace parsectx-skip-line parsectx-skip-until-char
     parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
     parsectx-is-simple-identifier-char?
@@ -25,12 +25,13 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) format fx1+ fx1- make-continuation-condition
-                       make-format-condition record-writer unread-char void)
-    (only (scheme2k bootstrap) assert* until while)
+    (only (chezscheme)          format fx1+ fx1- fx/ make-continuation-condition make-format-condition
+                                record-writer textual-port-input-buffer unread-char void)
+    (only (scheme2k bootstrap)            assert* until while)
     (only (scheme2k containers hashtable) for-hash)
     (scheme2k containers span)
-    (scheme2k containers charspan))
+    (scheme2k containers charspan)
+    (only (scheme2k io)         peek-char2))
 
 
 ;; parser is an object containing two procedures:
@@ -99,15 +100,16 @@
 ;;     see (parsers) in parser/parser.ss
 (define-record-type (parsectx %make-parsectx parsectx?)
   (fields
-    in           ; textual input port to read from
-    width        ; fixnum, screen width
-    prompt-end-x ; fixnum, column where prompt ends
+    in                ; textual input port to read from
+    (mutable in-buf)  ; #f or string used as temporary buffer for (peek-char2)
+    width             ; fixnum, screen width
+    prompt-end-x      ; fixnum, column where prompt ends
     (mutable next-ch) ; next character to consume, or #f to read from in
     pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
     prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
     pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
-  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; create a new parsectx. Arguments are
@@ -145,7 +147,7 @@
     (for-hash ((name parser enabled-parsers))
       (assert* 'make-parsectx* (symbol? name))
       (assert* 'make-parsectx* (parser? parser))))
-  (%make-parsectx in width prompt-end-x #f (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
+  (%make-parsectx in #f width prompt-end-x #f (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -229,11 +231,29 @@
       (set-cdr! pprev -1))))
 
 
-;; Peek a character from textual input port (parsectx-in pctx)
+;; Peek next character from textual input port (parsectx-in pctx),
+;; without consuming it
 (define (parsectx-peek-char pctx)
   (assert* 'parsectx-peek-char (parsectx? pctx))
   (or (parsectx-next-ch pctx)
       (peek-char (parsectx-in pctx))))
+
+
+;; Peek next-next character from textual input port (parsectx-in pctx),
+;; without consuming it
+(define (parsectx-peek-char2 pctx)
+  (assert* 'parsectx-peek-char2 (parsectx? pctx))
+  (if (parsectx-next-ch pctx)
+    (peek-char (parsectx-in pctx))
+    (let* ((in   (parsectx-in pctx))
+           (half (fx/ (string-length (textual-port-input-buffer in)) 2))
+           (temp (parsectx-in-buf pctx))
+           (buf  (if (and (string? temp) (fx<=? 1 (string-length temp) half))
+                   temp
+                   (make-string half))))
+      (unless (eq? temp buf)
+        (parsectx-in-buf-set! pctx buf))
+      (peek-char2 in buf))))
 
 
 ;; Read a character from textual input port (parsectx-in pctx)
@@ -258,20 +278,6 @@
   (assert* 'parsectx-unread-char (not (parsectx-next-ch pctx)))
   (parsectx-next-ch-set! pctx ch)
   (parsectx-decrement-pos pctx ch))
-
-
-;; Unread a character from textual input port (parsectx-in pctx)
-;;
-;; Raise condition if parsectx-next-ch is set,
-;; or if Chez Scheme (unread-char ch in) fails:
-;; it will happen ch is different from last character read from input port,
-;; or if attempting to unread multiple characters without reading them back first.
-(define (parsectx-unread-char/port pctx ch)
-  (assert* 'parsectx-unread-char/port (not (parsectx-next-ch pctx)))
-  (let ((in (parsectx-in pctx)))
-    (unread-char ch in)
-    (assert* 'parsectx-unread-char (eqv? ch (peek-char in)))
-    (parsectx-decrement-pos pctx ch)))
 
 
 ;; return #t if ch is a character and is <= ' '.
@@ -315,7 +321,7 @@
   (void))
 
 
-;; read a simple identifier and return it as a string
+;; read a simple identifier and return it as a string.
 (define (parsectx-read-simple-identifier pctx)
   (let ((csp (charspan)))
     (charspan-reserve-right! csp 10)
@@ -332,9 +338,9 @@
 ;; Otherwise return #f
 (define (parsectx-is-simple-identifier-char? ch)
   (and (char? ch)
-       (or (and (char>=? ch #\0) (char<=? ch #\9))
-           (and (char>=? ch #\A) (char<=? ch #\Z))
-           (and (char>=? ch #\a) (char<=? ch #\z))
+       (or (char<=? #\0 ch #\9)
+           (char<=? #\A ch #\Z)
+           (char<=? #\a ch #\z)
            (char=? ch #\_))))
 
 
@@ -351,15 +357,12 @@
 ;;
 ;; Otherwise do nothing and return #f i.e. do not consume any character or part of it.
 (define (parsectx-try-read-directive pctx)
-  (if (eqv? #\# (parsectx-peek-char pctx))
+  (if (and (eqv? #\# (parsectx-peek-char pctx))
+           (eqv? #\! (parsectx-peek-char2 pctx)))
     (begin
-      (parsectx-read-char pctx)
-      (if (eqv? #\! (parsectx-peek-char pctx))
-        (begin
-          (parsectx-read-char pctx)
-          (parsectx-read-directive pctx))
-        ; #\# not followed by #\! : unread everything and return #f
-        (parsectx-unread-char/port pctx #\#)))
+      (parsectx-read-char pctx) ; skip #\#
+      (parsectx-read-char pctx) ; skip #\!
+      (parsectx-read-directive pctx))
     #f))
 
 

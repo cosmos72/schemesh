@@ -29,36 +29,29 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (read-lisp-token ctx flavor)
+(define (lex-token ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines) ; in case caller is not (lex-lisp)
   (case (parsectx-peek-char ctx)
     ((#\")
-      (read-lisp-string ctx flavor))
+      (lex-string ctx flavor))
     ((#\#)
-      (read-lisp-sharp ctx flavor))
+      (lex-sharp ctx flavor))
+    ((#\$)
+      (parsectx-read-char ctx)
+      (values 'shell-expr 'quote))
+    ((#\;)
+      ;; handle line comments ourselves, because they may be followed
+      ;; by a token not supported by (lex-token-chezscheme)
+      (parsectx-skip-line ctx)
+      (lex-token ctx flavor))
+    ((#\{)
+      (parsectx-read-char ctx)
+      (values #f 'lbrace))
+    ((#\})
+      (parsectx-read-char ctx)
+      (values #f 'rbrace))
     (else
-      (let-values (((value type) (%read-token ctx)))
-        (if (eq? 'atomic type)
-          (case value
-            ;; replace (values '{ 'atomic) with (values #f 'lbrace)
-            ;; and replace (values '} 'atomic) with (values #f 'rbrace)
-            ;; because we use them to switch to shell parser. For example,
-            ;;    {ls -l > log.txt}
-            ;; is equivalent to
-            ;;    (#!shell ls -l > log.txt)
-            ;;
-            ;; also, replace (values '$ 'atomic) with (values 'quote 'shell-expr)
-            ;; because we want to allow $(expr ...) also in Scheme syntax. For example,
-            ;;    $(string-append "/home" "/user")
-            ;; is equivalent to
-            ;;    (shell-expr (string-append "/home" "/user"))
-            ((\x7B;)  ;  '{
-                  (values #f 'lbrace))
-            ((\x7D;)  ;  '}
-                  (values #f 'rbrace))
-            (($)  (values 'shell-expr 'quote ))
-            (else (values value type)))
-          (values value type))))))
+      (lex-token-chezscheme ctx))))
 
 
 ;; minimal wrapper around Chez Scheme (read-token)
@@ -66,9 +59,9 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (%read-token ctx)
+(define (lex-token-chezscheme ctx)
   (let-values (((type value start end) (read-token (parsectx-in ctx))))
-    ;; (debugf "%read-token type=~s value=~s start=~s end=~s" type value start end)
+    ;; (debugf "lex-token-chezscheme type=~s value=~s start=~s end=~s" type value start end)
     (values value type)))
 
 
@@ -81,11 +74,11 @@
 ;; returns two values:
 ;;   token value: the unescaped string
 ;;   token type: 'atomic
-(define (read-lisp-string ctx flavor)
-  (assert* 'read-lisp-string (eqv? #\" (parsectx-read-char ctx)))
+(define (lex-string ctx flavor)
+  (assert* 'lex-string (eqv? #\" (parsectx-read-char ctx)))
   (let ((csp (charspan)))
     (let %again ()
-      (let ((ch (read-lisp-string-chars ctx flavor)))
+      (let ((ch (lex-string-chars ctx flavor)))
         (when (char? ch)
           (charspan-insert-right! csp ch))
         (when ch
@@ -99,11 +92,11 @@
 ;;
 ;; if it should be called again, returns #t or the converted character.
 ;; otherwise returns #f.
-(define (read-lisp-string-chars ctx flavor)
+(define (lex-string-chars ctx flavor)
   (let ((ch (parsectx-read-char ctx)))
     (case ch
       ((#\\)
-        (read-lisp-string-chars-after-backslash ctx flavor))
+        (lex-string-chars-after-backslash ctx flavor))
       ((#\")
         #f)
       (else
@@ -116,7 +109,7 @@
 ;; interpreting escape sequences, and return the corresponding character.
 ;;
 ;; returns #t or the converted character.
-(define (read-lisp-string-chars-after-backslash ctx flavor)
+(define (lex-string-chars-after-backslash ctx flavor)
   (let ((ch (parsectx-read-char ctx)))
     (case ch
       ((#\" #\\) ch)
@@ -128,7 +121,7 @@
       ((#\t) #\tab)
       ((#\v) #\vtab)
       ((#\x)
-        (read-lisp-string-hex-sequence ctx flavor))
+        (lex-string-hex-sequence ctx flavor))
       ((#\newline #\linefeed #\page #\return)
         (skip-intraline-whitespace ctx))
       ((#\tab #\vtab #\space)
@@ -170,7 +163,7 @@
 ;; and return the corresponding character.
 ;;
 ;; either returns a character or raises an exception.
-(define (read-lisp-string-hex-sequence ctx flavor)
+(define (lex-string-hex-sequence ctx flavor)
   (let %next ((ret 0))
     (let* ((ch (parsectx-peek-char ctx))
            (n  (%hex-digit->fixnum ch)))
@@ -214,31 +207,81 @@
   #t)
 
 
+;; return #t if ch is a scheme separator i.e. ends a token
+(define (separator? ch)
+  (or (not (char? ch))
+      (case ch
+        ((#\( #\) #\[ #\] #\{ #\} #\# #\' #\" #\` #\, #\;)
+          #t)
+        (else
+          (char<=? ch #\space)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; read a lisp token starting with "#"
 ;;
 ;; returns two values:
-;;   token value: the character value
-;;   token type: 'atomic
-(define (read-lisp-sharp ctx flavor)
-  (assert* 'read-lisp-sharp (eqv? #\# (parsectx-read-char ctx)))
-  (case (parsectx-peek-char ctx)
-    ((#\\)
-      (read-lisp-character ctx flavor))
-    (else
-      (parsectx-unread-char/port ctx #\#)
-      (%read-token ctx))))
+;;   token value
+;;   token type
+(define (lex-sharp ctx flavor)
+  (assert* 'lex-sharp (eqv? #\# (parsectx-peek-char ctx)))
+  (let ((ch (parsectx-peek-char2 ctx)))
+    (cond
+      ((not (char? ch))
+        (parsectx-read-char ctx)
+        (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after #"))
+      ((eqv? #\\ ch)
+        (lex-character ctx flavor))
+      ((eqv? #\| ch)
+        ;; handle block comments #| ... |# ourselves, because they may be followed
+        ;; by a token not supported by (lex-token-chezscheme)
+        (parsectx-read-char ctx) ; skip #\#
+        (parsectx-read-char ctx) ; skip #\|
+        (lex-skip-block-comment ctx flavor)
+        (lex-token ctx flavor))
+      (else
+        (lex-token-chezscheme ctx)))))
 
 
-;; read a lisp character literal starting with "#\"
+;; read a lisp block comment starting with #| and ending with |#
+;; note: block comments can be nested!
+;;
+;; return unspecified value
+(define (lex-skip-block-comment ctx flavor)
+  (let ((ch (parsectx-read-char ctx)))
+    (unless (char? ch)
+      (raise-eof-in-block-comment ctx flavor))
+    (case ch
+      ((#\#)
+        (let ((ch2 (parsectx-read-char ctx)))
+          (unless (char? ch)
+            (raise-eof-in-block-comment ctx flavor))
+          (when (eqv? #\| ch2)
+            (lex-skip-block-comment ctx flavor)) ; recurse, read a nested block comment
+          (lex-skip-block-comment ctx flavor)))  ; iterate
+      ((#\|)
+        (let ((ch2 (parsectx-read-char ctx)))
+          (unless (char? ch2)
+            (raise-eof-in-block-comment ctx flavor))
+          (unless (eqv? #\# ch2)
+            (lex-skip-block-comment ctx flavor)))) ; iterate, unless we found |#
+      (else
+        (lex-skip-block-comment ctx flavor)))))  ; iterate
+
+
+(define (raise-eof-in-block-comment ctx flavor)
+  (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading block comment"))  
+
+
+;; read a lisp character literal starting with #\
 ;; also supports character literals #\x... representing valid UTF-8b codepoints
 ;;
 ;; returns two values:
 ;;   token value: the character value
 ;;   token type: 'atomic
-(define (read-lisp-character ctx flavor)
-  (assert* 'read-lisp-character (eqv? #\\ (parsectx-read-char ctx)))
+(define (lex-character ctx flavor)
+  (assert* 'lex-character (eqv? #\# (parsectx-read-char ctx)))
+  (assert* 'lex-character (eqv? #\\ (parsectx-read-char ctx)))
   (let* ((ch (parsectx-peek-char ctx))
          (ret (if (parsectx-is-simple-identifier-char? ch)
                 (let ((name (parsectx-read-simple-identifier ctx)))

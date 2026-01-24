@@ -12,17 +12,18 @@
 ;;;
 (library (schemesh parser lisp (0 9 3))
   (export
-    lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token)
+    lex-lisp parse-lisp-forms parse-lisp-paren lex-token)
   (import
     (rnrs)
     (only (chezscheme)
-      append! box bytevector char-name fx1+ fx1- fxvector fxvector-set! include
-      make-fxvector read-token reverse! top-level-value void)
+      append! box bytevector char-name fx1+ fx1- fxvector fxvector-set!
+      gensym include make-fxvector read-token reverse! top-level-value void)
     (only (scheme2k bootstrap)            assert* debugf while until)
     (scheme2k containers flvector)
-    (only (scheme2k containers charspan)  charspan charspan-insert-right! charspan->string*!)
+    (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
+                                          charspan-insert-left/string! charspan-insert-right! charspan->string*!)
     (only (scheme2k containers hashtable) hashtable)
-    (only (scheme2k containers list)      list-reverse*!)
+    (only (scheme2k containers list)      for-list list-reverse*!)
     (only (scheme2k containers string)    string-iterate)
     (only (scheme2k containers utf8b)     integer->char*)
     (scheme2k lineedit paren)
@@ -49,15 +50,15 @@
         (values (eof-object) 'eof)
         ;; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ;; read a single token with (read-lisp-token)
-      (read-lisp-token ctx flavor))))
+      ;; read a single token with (lex-token)
+      (lex-token ctx flavor))))
 
 
 ;; Return the symbol, converted to string,
-;; of most token types returned by (read-lisp-token),
+;; of most token types returned by (lex-token),
 ;;
 ;; Also recognizes and converts to string the additional types
-;; 'lbrace and 'rbrace introduced by (read-lisp-token)
+;; 'lbrace and 'rbrace introduced by (lex-token)
 (define (lex-type->string type)
   (case type
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")
