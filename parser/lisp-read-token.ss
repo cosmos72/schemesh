@@ -50,11 +50,23 @@
           (parsectx-read-char ctx)
           (values 'unquote-splicing 'quote))
         (values 'unquote 'quote)))
+    ((#\()               #| ) |#  ; help vscode
+      (parsectx-read-char ctx)
+      (values #f 'lparen))
+    ((#\))               #| ( |#  ; help vscode
+      (parsectx-read-char ctx)
+      (values #f 'rparen))
     ((#\;)
       ;; handle line comments ourselves, because they may be followed
       ;; by a token not supported by (lex-token-chezscheme)
       (parsectx-skip-line ctx)
       (lex-token ctx flavor))
+    ((#\[)
+      (parsectx-read-char ctx)
+      (values #f 'lbrack))
+    ((#\])
+      (parsectx-read-char ctx)
+      (values #f 'rbrack))
     ((#\`)
       (parsectx-read-char ctx)
       (values 'quasiquote 'quote))
@@ -83,6 +95,18 @@
           ;; (debugf "lex-token-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
           (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
       (values value type))))
+
+
+(define (lex-token-chezscheme/wrap-exception ctx)
+  (try
+    (lex-token-chezscheme ctx)
+    (catch (ex)
+      (let ((l (condition-irritants ex)))
+        (syntax-errorf ctx 'lex-token-chezscheme "~a" (condition-message ex))
+
+        (if (and (string? (car l)) (pair? (cdr l)) (pair? (cadr l)))
+          (syntax-errorf ctx 'lex-token-chezscheme "~a ~s" (car l) (cadr l))
+          (syntax-errorf ctx 'lex-token-chezscheme "~a ~s" (condition-message ex) l))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -246,13 +270,25 @@
 (define (lex-sharp ctx flavor)
   (assert* 'lex-sharp (eqv? #\# (parsectx-peek-char ctx)))
   (let ((ch (parsectx-peek-char2 ctx)))
-    (cond
-      ((not (char? ch))
+    (unless (char? ch)
+      (parsectx-read-char ctx)
+      (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after #"))
+    (case ch
+      ((#\&)
         (parsectx-read-char ctx)
-        (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after #"))
-      ((eqv? #\\ ch)
+        (parsectx-read-char ctx)
+        (values #f 'box))
+      ((#\()                   #|  )  |# ; help vscode
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values #f 'vparen))
+      ((#\[)
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values #f 'record-brack))
+      ((#\\)
         (lex-character ctx flavor))
-      ((eqv? #\| ch)
+      ((#\|)
         ;; handle block comments #| ... |# ourselves, because they may be followed
         ;; by a token not supported by (lex-token-chezscheme)
         (parsectx-read-char ctx) ; skip #\#

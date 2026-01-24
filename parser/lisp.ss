@@ -18,7 +18,7 @@
     (only (chezscheme)
       append! box bytevector char-name fx1+ fx1- fxvector fxvector-set!
       gensym include make-fxvector read-token reverse! top-level-value void)
-    (only (scheme2k bootstrap)            assert* debugf while until)
+    (only (scheme2k bootstrap)            assert* catch try until while)
     (scheme2k containers flvector)
     (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
                                           charspan-insert-left/string! charspan-insert-right! charspan->string*!)
