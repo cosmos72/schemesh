@@ -89,7 +89,7 @@
 
 
 (library (scheme2k wire (0 9 3))
-  (export datum->wire wire->datum wire-get wire-length wire-put
+  (export datum->wire wire->datum datum->wire-length wire-get wire-put
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           (rename (len/any wire-inner-len)
@@ -835,7 +835,7 @@
 
 ;; recursively traverse obj and return the number of bytes needed to serialize it.
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
-(define (wire-length obj)
+(define (datum->wire-length obj)
   (if (eq? (void) obj)
     (vlen+ 0 0)
     (let ((pos (len/any 0 obj)))
@@ -866,7 +866,7 @@
               message-wire-len))
           #f)))
     ((bsp obj)
-      (wire-put bsp obj (wire-length obj)))))
+      (wire-put bsp obj (datum->wire-length obj)))))
 
 ;; recursively traverse obj, serialize it and return bytevector containing serialized bytes,
 ;; or #f on errors
