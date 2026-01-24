@@ -226,7 +226,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Raw tokenizer. Validates grammar, does not validate syntax
 
-(define (read-token p buf)
+(define (next-token p buf)
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
@@ -382,7 +382,7 @@
 (define (json-read-token* r buf)
   (if (json-reader-eof? r)
     (eof-object)
-    (let ((tok (read-token (json-reader-port r) buf))
+    (let ((tok (next-token (json-reader-port r) buf))
           (st  (state r)))
       (when (eof-object? tok)
         (json-reader-eof?-set! r #t))

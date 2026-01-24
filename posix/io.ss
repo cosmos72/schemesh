@@ -170,7 +170,7 @@
 ;;
 ;; Arguments:
 ;;   mandatory path           must be a string, bytevector, bytespan or charspan.
-;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
+;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'read
 ;;   optional flags           must be a list containing zero or more: 'create 'truncate 'append
 ;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
@@ -188,7 +188,7 @@
     ((path dir)
       (file->port path dir '() 'textual (buffer-mode block)))
     ((path)
-      (file->port path 'rw '() 'textual (buffer-mode block)))))
+      (file->port path 'read '() 'textual (buffer-mode block)))))
 
 
 ;; customize how "tport" objects are printed

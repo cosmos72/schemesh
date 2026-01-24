@@ -10,11 +10,12 @@
 ;; transcoder between UTF-8b textual port and binary port.
 (define-record-type tport
   (fields
-    bin-port    ; binary port
-    bspan       ; bytespan buffer
-    buffer-size ; max bytespan length
+    bin-port      ; binary port
+    bspan         ; bytespan buffer
+    buffer-size   ; max bytespan length
+    (mutable pos) ; position i.e. number of characters read or written
     (mutable eof?))
-  (nongenerative tport-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative tport-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 
@@ -46,6 +47,7 @@
       ;; port may be redirected, or current job may finish,
       ;; and next time it may not be at EOF
       (tport-eof?-set! t #f)
+      (tport-pos-set! t (fx+ char-n (tport-pos t)))
       char-n)))
 
 
@@ -72,6 +74,7 @@
           (tport-maybe-overflow t)
           (unless (fx=? chunk-n n)
             (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
+      (tport-pos-set! t (fx+ n (tport-pos t)))
       n)
     0))
 
@@ -104,70 +107,71 @@
     (assert* 'make-utf8b-port  (port? bport-out))
     (assert* 'make-utf8b-port  (binary-port? bport-out))
     (assert* 'make-utf8b-port  (output-port? bport-out)))
-  (let* ((name       (port-name (or bport-in bport-out)))
-         (tport-in   (and bport-in  (make-tport bport-in  (make-bytespan 0) input-buffer-size #f)))
-         (tport2     (and bport-out (make-tport bport-out (make-bytespan 0) output-buffer-size #f)))
-         (read-proc  (and tport-in
-                          (lambda (str start n)
-                            (tport-read-some tport-in str start n))))
-         (write-proc (and tport2
-                          (lambda (str start n) 
-                            (let ((written (tport-write tport2 str start n)))
-                              (tport-flush tport2)
-                              written))))
-         (close-proc (and (plist-ref options 'close? #t)
-                          (lambda ()
-                             (when bport-in
-                               (close-port bport-in))
-                             (when bport-out
-                               (unless (eq? bport-in bport-out)
-                                 (close-port bport-out)))))))
-    (cond
-      ((and bport-in bport-out)
-        (make-custom-textual-input/output-port
-          name
-          read-proc
-          write-proc
-          ;; position-proc. inaccurate, neglects data buffered in tport-in
-          (and (eq? bport-in bport-out) (port-has-port-position? bport-in)
-               (lambda ()
-                 (port-position bport-in)))
-          ;; set-position-proc. inaccurate, neglects data buffered in tport-in
-          (and (eq? bport-in bport-out) (port-has-set-port-position!? bport-in)
-               (lambda (pos)
-                 (set-port-position! bport-in pos)))
-          close-proc))
+  (letrec* ((name       (port-name (or bport-in bport-out)))
+            (tport1     (and bport-in  (make-tport bport-in  (make-bytespan 0) input-buffer-size 0 #f)))
+            (tport2     (and bport-out (make-tport bport-out (make-bytespan 0) output-buffer-size 0 #f)))
+            (read-proc  (and tport1
+                             (lambda (str start n)
+                               (tport-read-some tport1 str start n))))
+            (write-proc (and tport2
+                             (lambda (str start n) 
+                               (let ((written (tport-write tport2 str start n)))
+                                 (tport-flush tport2)
+                                 written))))
+            (close-proc (and (plist-ref options 'close? #t)
+                             (lambda ()
+                                (when bport-in
+                                  (close-port bport-in))
+                                (when bport-out
+                                  (unless (eq? bport-in bport-out)
+                                    (close-port bport-out))))))
+            (position-in-proc (and bport-in
+                                   (lambda (p)
+                                     (let ((rx-n  (tport-pos tport1))
+                                           (index (textual-port-input-index p))
+                                           (size  (textual-port-input-size p)))
+                                       (fxmax 0 (fx- rx-n (fxmax 0 (fx- size index))))))))
+            (position-out-proc (and bport-out
+                                   (lambda (p)
+                                     (let ((tx-n  (tport-pos tport2))
+                                           (index (textual-port-output-index p)))
+                                       (fx+ tx-n (fxmax 0 index))))))
+            (p
+              (cond
+                ((and bport-in bport-out)
+                  (make-custom-textual-input/output-port
+                    name
+                    read-proc
+                    write-proc
+                    ;; position-proc
+                    (lambda () (position-in-proc p))
+                    ;; set-position-proc
+                    #f
+                    close-proc))
 
-      (bport-in
-        (make-custom-textual-input-port
-          name
-          read-proc
-          ;; position-proc. inaccurate, neglects data buffered in tport-in
-          (and (port-has-port-position? bport-in)
-               (lambda ()
-                 (port-position bport-in)))
-          ;; set-position-proc. inaccurate, neglects data buffered in tport-in
-          (and (port-has-set-port-position!? bport-in)
-               (lambda (pos)
-                 (set-port-position! bport-in pos)))
-          close-proc))
+                (bport-in
+                  (make-custom-textual-input-port
+                    name
+                    read-proc
+                    ;; position-proc
+                    (lambda () (position-in-proc p))
+                    ;; set-position-proc
+                    #f
+                    close-proc))
 
-      (bport-out
-        (make-custom-textual-output-port
-          name
-          write-proc
-          ;; position-proc. inaccurate, neglects data buffered in tport-out
-          (and (port-has-port-position? bport-out)
-               (lambda ()
-                 (port-position bport-out)))
-          ;; set-position-proc. inaccurate, neglects data buffered in tport-out
-          (and (port-has-set-port-position!? bport-out)
-               (lambda (pos)
-                 (set-port-position! bport-out pos)))
-          close-proc))
+                (bport-out
+                  (make-custom-textual-output-port
+                    name
+                    write-proc
+                    ;; position-proc
+                    (lambda () (position-out-proc p))
+                    ;; set-position-proc
+                    #f
+                    close-proc))
 
-      (else
-        (raise-errorf 'make-utf8b-port "both bport-in and bport-out are #f")))))
+                (else
+                  (raise-errorf 'make-utf8b-port "both bport-in and bport-out are #f")))))
+      p))
 
 
 (define (%set-textual-buffer-size! port input-buffer-size output-buffer-size)
@@ -179,7 +183,7 @@
   (when (output-port? port)
     (let ((cap (fxmax 0 output-buffer-size)))
       (set-textual-port-output-buffer! port (make-string cap))
-      (set-textual-port-output-size!   port (fxmax 0 (fx1- cap))) ; leave 1 byte for (put-char)
+      (set-textual-port-output-size!   port cap)
       (set-textual-port-output-index!  port 0)))
   port)
 

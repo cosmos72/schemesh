@@ -85,7 +85,7 @@
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
-                                      (error-handling-mode raise)))))
+                                      (error-handling-mode ignore)))))
       port)))
 |#
 

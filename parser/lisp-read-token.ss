@@ -74,11 +74,15 @@
 ;;   token value
 ;;   token type
 (define (lex-token-chezscheme ctx)
-  (let-values (((type value start end) (read-token (parsectx-in ctx))))
-    (when (fixnum? end)
-      (parsectx-increment-pos/n ctx end))
-    ;; (debugf "lex-token-chezscheme type=~s value=~s start=~s end=~s" type value start end))
-    (values value type)))
+  (let* ((in   (parsectx-in ctx))
+         (pos0 (and (port-has-port-position? in) (port-position in))))
+    (let-values (((type value start end) (read-token in)))
+      ;; start, end are usually #f
+      (let ((pos1 (and (fixnum? pos0) (port-position in))))
+        (when (and (fixnum? pos1) (fx>? pos1 pos0))
+          ;; (debugf "lex-token-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
+          (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
+      (values value type))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
