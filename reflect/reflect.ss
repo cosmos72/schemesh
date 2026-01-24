@@ -20,9 +20,6 @@
     (only (scheme2k containers flvector) flvector? flvector-length flvector-native? flvector-ref))
 
 
-(define missing (cons #f #f))
-
-
 (define (cache-record-accessors ht rtd namevec)
   (let* ((len (vector-length namevec))
          (accessors (make-eqv-hashtable (fx* 2 len))))
@@ -34,7 +31,7 @@
         (hashtable-set! accessors (vector-ref namevec i) accessor)))))
 
 
-(define (reflect-record-field-uncached obj field rtd namevec)
+(define (reflect-record-field-uncached obj field default rtd namevec)
   (let ((i (cond
              ((fixnum? field)
                (and (fx<? -1 field (vector-length namevec)) field))
@@ -51,14 +48,14 @@
                #f))))
     (if i
      ((record-accessor rtd i) obj)
-     missing)))
+     default)))
 
 
 
 
 ;; implementation of (reflect-field) for record types.
-;; returns value of field in obj, or missing
-(define (reflect-record-field obj field rtd-cache)
+;; returns value of field in obj, or default
+(define (reflect-record-field obj field default rtd-cache)
   (let ((rtd (record-rtd obj)))
     (if rtd
       (let* ((accessors (and rtd-cache (hashtable-ref rtd-cache rtd #f)))
@@ -68,7 +65,7 @@
             (accessor obj))
           (accessors
             ;; all fields of rtd are present in cached accessors => requested field is not present
-            missing)
+            default)
           (else
             ;; no cached accessors, list them manually
             (let ((namevec (record-type-field-names rtd)))
@@ -78,65 +75,57 @@
                        (accessor  (hashtable-ref accessors field #f)))
                   (if accessor
                     (accessor obj)
-                    missing))
+                    default))
                 ;; work without a cache
-                (reflect-record-field-uncached obj field rtd namevec))))))
+                (reflect-record-field-uncached obj field default rtd namevec))))))
 
       ;; cannot retrieve rtd of object => cannot access its fields
-      missing)))
+      default)))
 
 
 ;; find the value of specified field in obj.
 ;; obj must be a record, flvector, fxvector, hashtable, plist or vector.
 ;; field must be a symbol or an unsigned fixnum.
 ;;
-;; return two values:
-;;   the value of specified field, or unspecified if not found
-;;   #t if field was found, otherwise #f
+;; return the value of specified field, or default if not found
 (define reflect-field
-  (case-lambda
-    ((obj field rtd-cache)
-      (cond
-        ;; in Chez Scheme hashtable is a record => must checked for (hashtable?) before (record?)
-        ((hashtable? obj)
-          ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
-          ;; do not allow field's type and raise a condition
-          (let ((value (hashtable-ref obj field missing)))
-            (if (eq? value missing)
-              (values #f #f)
-              (values value #t))))
-        ((record? obj)
-          (let ((value (reflect-record-field obj field rtd-cache)))
-            (if (eq? value missing)
-              (values #f #f)
-              (values value #t))))
-        ((vector? obj)
-          (if (and (fixnum? field)
-                   (fx<? -1 field (vector-length obj)))
-            (values (vector-ref obj field) #t)
-            (values #f #f)))
-        ((fxvector? obj)
-          (if (and (fixnum? field)
-                   (fx<? -1 field (fxvector-length obj)))
-            (values (fxvector-ref obj field) #t)
-            (values #f #f)))
-        ((meta-cond (flvector-native? (flvector? obj))
-                    (else             #f))
-          (if (and (fixnum? field)
-                   (fx<? -1 field (flvector-length obj)))
-            (values (flvector-ref obj field) #t)
-            (values #f #f)))
-        ((null? obj)
-          (values #f #f))
-        ((plist? obj)
-          (let ((value (plist-ref obj field missing)))
-            (if (eq? value missing)
-              (values #f #f)
-              (values value #t))))
-        (else            
-          (values #f #f))))
-  ((obj field)
-    (reflect-field obj field #f))))
+  (let ((missing (cons #f #f)))
+    (case-lambda
+      ((obj field default rtd-cache)
+        (cond
+          ;; in Chez Scheme hashtable is a record => must checked for (hashtable?) before (record?)
+          ((hashtable? obj)
+            ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
+            ;; do not allow field's type and raise a condition
+            (let ((value (hashtable-ref obj field missing)))
+              (if (eq? value missing) default value)))
+          ((record? obj)
+            (reflect-record-field obj field default rtd-cache))
+          ((vector? obj)
+            (if (and (fixnum? field)
+                     (fx<? -1 field (vector-length obj)))
+              (vector-ref obj field)
+              default))
+          ((fxvector? obj)
+            (if (and (fixnum? field)
+                     (fx<? -1 field (fxvector-length obj)))
+              (fxvector-ref obj field)
+              default))
+          ((meta-cond (flvector-native? (flvector? obj))
+                      (else             #f))
+            (if (and (fixnum? field)
+                     (fx<? -1 field (flvector-length obj)))
+              (flvector-ref obj field)
+              default))
+          ((null? obj)
+            default)
+          ((plist? obj)
+            (let ((value (plist-ref obj field missing)))
+              (if (eq? value missing) default value)))
+          (else
+            default)))
+    ((obj field default)
+      (reflect-field obj field default #f)))))
 
 
 
