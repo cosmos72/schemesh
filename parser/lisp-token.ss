@@ -432,22 +432,22 @@
    "space" #\space "tab" #\tab "vtab" #\vtab))
 
 
-;; if flavor is 'scheme and name contains exactly three octal digits in the range 000 ... 377,
+;; if name contains exactly three octal digits in the range 000 ... 377,
 ;; the convert them to a number and return (integer->char) of such number.
-(define (%chezscheme-octal-char flavor name)
-  (and (eq? flavor 'scheme)
-       (fx=? 3 (string-length name))
+;;
+;; This is a Chez Scheme extension and should be enabled only in #!scheme syntax.
+(define (%chezscheme-octal-char name)
+  (and (fx=? 3 (string-length name))
        (char<=? #\0 (string-ref name 0) #\3)
        (char<=? #\0 (string-ref name 1) #\7)
        (char<=? #\0 (string-ref name 2) #\7)
        (integer->char (string->number name 8))))
 
 
-;; if flavor is 'scheme then search and return
-;; non-standard character names allowed by Chez Scheme (char-name)
-(define (%chezscheme-char-name flavor name)
-  (and (eq? flavor 'scheme)
-       (char-name (string->symbol name))))
+;; convert character name stored in string
+;; to non-standard character allowed by Chez Scheme (char-name)
+(define (%chezscheme-char-name name)
+  (char-name (string->symbol name)))
 
 
 ;; convert a character name into a character
@@ -461,10 +461,19 @@
         ;; which are a superset of valid UTF-8 codepoints.
         (integer->char* (%hex-digits->fixnum name 1 (string-length name))))
       (else
-        (or (hashtable-ref %char-names name #f)
-            (%chezscheme-octal-char flavor name)
-            (%chezscheme-char-name flavor name)
-            (syntax-errorf ctx (caller-for flavor) "invalid character ~s" name))))))
+        (let* ((ret (hashtable-ref %char-names name #f))
+               (ext (or ret
+                        (%chezscheme-octal-char name)
+                        (%chezscheme-char-name name))))
+          (cond
+            (ret ret)
+            (ext
+              (unless (eq? 'scheme flavor)
+                (syntax-errorf ctx (caller-for flavor)
+                  "character name #\\~a is not allowed in #!r6rs syntax, requires #!scheme syntax" name))
+              ext)
+            (else
+              (syntax-errorf ctx (caller-for flavor) "invalid character name #\\~a" name))))))))
 
 
 ;; parse characters in range [start, end) of string str
