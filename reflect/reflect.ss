@@ -21,6 +21,7 @@
 
 
 (define (cache-record-accessors ht rtd namevec)
+  ;; TODO: also cache accessors of parents record-type-descriptors
   (let* ((len (vector-length namevec))
          (accessors (make-eqv-hashtable (fx* 2 len))))
     (hashtable-set! ht rtd accessors)
@@ -32,6 +33,7 @@
 
 
 (define (reflect-record-field-uncached obj field default rtd namevec)
+  ;; TODO: also search in parents record-type-descriptors
   (let ((i (cond
              ((fixnum? field)
                (and (fx<? -1 field (vector-length namevec)) field))
