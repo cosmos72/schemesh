@@ -348,4 +348,6 @@
     (or (string=? str "(hashtable equal-hash equal? 1 a 2 b)")
         (string=? str "(hashtable equal-hash equal? 2 b 1 a)")))        #t
 
-)
+) #!eof
+
+this text should be ignored if #!eof above works as expected

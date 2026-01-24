@@ -16,7 +16,7 @@
     parser-parse-forms parser-parse-paren
 
     ;; lisp.ss
-    lisp-lex parse-lisp-forms parse-lisp-paren lisp-lex-token
+    lex-lisp parse-lisp-forms parse-lisp-paren
 
     ;; r6rs.ss
     lex-r6rs parse-r6rs-forms parser-r6rs

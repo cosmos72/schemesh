@@ -12,19 +12,18 @@
 ;;;
 (library (schemesh parser lisp (0 9 3))
   (export
-    lisp-lex parse-lisp-forms parse-lisp-paren lisp-lex-token)
+    lex-lisp parse-lisp-forms parse-lisp-paren)
   (import
     (rnrs)
-    (only (chezscheme)
-      append! box bytevector char-name fx1+ fx1- fxvector fxvector-set!
-      gensym include make-fxvector read-token reverse! top-level-value void)
+    (only (chezscheme)                    append! box bytevector char-name format-condition? fx1+ fx1- fxvector fxvector-set!
+                                          gensym include make-fxvector read-token reverse! top-level-value void)
     (only (scheme2k bootstrap)            assert* catch trace-define try until while)
     (scheme2k containers flvector)
     (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
                                           charspan-insert-left/string! charspan-insert-right! charspan->string*!)
     (only (scheme2k containers hashtable) hashtable)
     (only (scheme2k containers list)      for-list list-reverse*!)
-    (only (scheme2k containers string)    string-iterate)
+    (only (scheme2k containers string)    string-index string-iterate)
     (only (scheme2k containers utf8b)     integer->char*)
     (scheme2k lineedit paren)
     (scheme2k lineedit parser))
@@ -35,30 +34,11 @@
 
 
 
-;; Read a single r6rs or Chez Scheme token from textual input port 'in.
-;;
-;; Return two values: token value and its type.
-(define (lisp-lex ctx flavor)
-  (parsectx-skip-whitespace ctx 'also-skip-newlines)
-  (let ((value (parsectx-try-read-directive ctx)))
-    (if (symbol? value)
-      (if (eq? 'eof value)
-        ;; yes, #!eof is an allowed directive:
-        ;; it injects (eof-object) in token stream, with type 'eof
-        ;; simulating an actual end-of-file in input port.
-        ;; Reason: traditionally used to disable the rest of a file, to help debugging
-        (values (eof-object) 'eof)
-        ;; cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ;; read a single token with (lisp-lex-token)
-      (lisp-lex-token ctx flavor))))
-
-
 ;; Return the symbol, converted to string,
-;; of most token types returned by (lisp-lex-token),
+;; of most token types returned by (lex-lisp),
 ;;
 ;; Also recognizes and converts to string the additional types
-;; 'lbrace and 'rbrace introduced by (lisp-lex-token)
+;; 'lbrace and 'rbrace introduced by (lex-lisp)
 (define (lex-type->string type)
   (case type
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")
@@ -72,19 +52,19 @@
 
 
 ;; Read Scheme tokens from textual input port 'in'
-;; by repeatedly calling (lisp-lex) and construct a Scheme form.
+;; by repeatedly calling (lex-lisp) and construct a Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return parsed form, or new parser to use.
 ;;
 ;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp ctx flavor)
-  (let-values (((value type) (lisp-lex ctx flavor)))
+  (let-values (((value type) (lex-lisp ctx flavor)))
     (parse-lisp-impl ctx value type flavor)))
 
 
 ;; Read Scheme tokens from textual input port 'in', assuming value (and its type) was just read,
-;; repeatedly call (lisp-lex) to read further tokens, and construct a single Scheme form.
+;; repeatedly call (lex-lisp) to read further tokens, and construct a single Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return a single parsed form, or new parser to use, or (eof-object) if end-of-file is reached
@@ -97,7 +77,7 @@
     ((box)
       (unless (eq? 'scheme flavor)
         (syntax-errorf ctx (caller-for flavor)
-          "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
+          "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax"
           (lex-type->string type)))
       (list 'box  (parse-lisp ctx flavor)))
     ;; if type = 'quote, value can be one of:
@@ -118,7 +98,7 @@
     ((lbrace)
       (when (eq? flavor 'r6rs)
         (syntax-errorf ctx (caller-for flavor)
-          "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a" #\{))
+          "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax" #\{))
       ; switch to shell parser until corresponding }
       (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
         (let-values (((other-forms _) (other-parse-forms ctx type)))
@@ -129,7 +109,7 @@
     ((vflnparen vflparen vfxnparen vfxparen vnparen vu8nparen)
       (unless (eq? 'scheme flavor)
         (syntax-errorf ctx (caller-for flavor)
-          "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
+          "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax"
           (lex-type->string type)))
       (parse-vector ctx type value flavor))
     ;; TODO implement types: record-brack fasl insert mark
@@ -180,7 +160,7 @@
            (set! reverse? #f))))
     ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
     (while again?
-      (let-values (((value type) (lisp-lex ctx flavor)))
+      (let-values (((value type) (lex-lisp ctx flavor)))
         ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
@@ -210,7 +190,7 @@
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'
-            (let-values (((value type) (lisp-lex ctx flavor)))
+            (let-values (((value type) (lex-lisp ctx flavor)))
               (assert-list-end-type type)))
           (else
             ;; parse a single form and append it

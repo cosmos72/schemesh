@@ -16,22 +16,28 @@
     'parse-scheme-forms))
 
 
-;; Wrapper around Chez Scheme (read-token), recognizes the following extensions:
-;;   $ as (values 'shell-expr 'quote)
-;;   { as (values #f 'lbrace)
-;;   } as (values #f 'rbrace)
+;; Read a single r6rs or Chez Scheme token from parsectx
+;;
+;; Return two values: token value and its type.
+;;
+;; Compared to Chez Scheme (read-token), recognizes the following extensions:
+;;   #!parser_name  as (values parser_object 'parser)
+;;   #!...          treated as line comment
+;;   $              as (values 'shell-expr 'quote)
+;;   {              as (values #f 'lbrace)
+;;   }              as (values #f 'rbrace)
 ;;   character literals #\x... representing valid UTF-8b codepoints
 ;;   string literals "..." also containing hexadecimal escape sequences \x...;
 ;;     representing valid UTF-8b codepoints
 ;;
-;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
-;; in pure R6RS.
+;; For simplicity, internally calls Chez Scheme (read-token) in several cases,
+;; but could be reimplemented in pure R6RS.
 ;;
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (lisp-lex-token ctx flavor)
-  (parsectx-skip-whitespace ctx 'also-skip-newlines) ; in case caller is not (lisp-lex)
+(define (lex-lisp ctx flavor)
+  (parsectx-skip-whitespace ctx 'also-skip-newlines)
   (let ((ch (parsectx-peek-char ctx)))
     (case ch
       ((#\")
@@ -59,9 +65,9 @@
           (values 'unquote 'quote)))
       ((#\;)
         ;; handle line comments ourselves, because they may be followed
-        ;; by a token not supported by (lisp-lex-token-chezscheme)
+        ;; by a token not supported by (lex-lisp-chezscheme)
         (parsectx-skip-line ctx)
-        (lisp-lex ctx flavor))
+        (lex-lisp ctx flavor))
       ((#\[)
         (parsectx-read-char ctx)
         (values #f 'lbrack))
@@ -80,7 +86,7 @@
       (else
         (if (eof-object? ch)
           (values ch 'eof)
-          (lisp-lex-token-chezscheme ctx))))))
+          (lex-lisp-chezscheme ctx flavor))))))
 
 
 ;; minimal wrapper around Chez Scheme (read-token)
@@ -88,28 +94,28 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (lisp-lex-token-chezscheme ctx)
-  (let* ((in   (parsectx-in ctx))
-         (pos0 (and (port-has-port-position? in) (port-position in))))
-    (let-values (((type value start end) (read-token in)))
-      ;; start, end are usually #f
-      (let ((pos1 (and (fixnum? pos0) (port-position in))))
-        (when (and (fixnum? pos1) (fx>? pos1 pos0))
-          ;; (debugf "lisp-lex-token-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
-          (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
-      (values value type))))
-
-
-(define (lisp-lex-token-chezscheme/wrap-exception ctx)
+(define (lex-lisp-chezscheme ctx flavor)
   (try
-    (lisp-lex-token-chezscheme ctx)
+    (let* ((in   (parsectx-in ctx))
+           (pos0 (and (port-has-port-position? in) (port-position in))))
+      (let-values (((type value start end) (read-token in)))
+        ;; start, end are usually #f
+        (let ((pos1 (and (fixnum? pos0) (port-position in))))
+          (when (and (fixnum? pos1) (fx>? pos1 pos0))
+            ;; (debugf "lex-lisp-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
+            (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
+        (values value type)))
+
     (catch (ex)
       (let ((l (condition-irritants ex)))
-        (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a" (condition-message ex))
-
-        (if (and (string? (car l)) (pair? (cdr l)) (pair? (cadr l)))
-          (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a ~s" (car l) (cadr l))
-          (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a ~s" (condition-message ex) l))))))
+        (cond
+          ((and (string? (car l)) (pair? (cdr l)) (pair? (cadr l))
+                (string-index (car l) #\~))
+            (syntax-errorf ctx (caller-for flavor) (car l) (caadr l)))
+          ((format-condition? ex)
+            (apply syntax-errorf ctx (caller-for flavor) (condition-message ex) l))
+          (else
+            (syntax-errorf ctx (caller-for flavor) "~a ~s" (condition-message ex) l)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -280,8 +286,20 @@
       ((#\!)
         (parsectx-read-char ctx) ; skip #\#
         (parsectx-read-char ctx) ; skip #\!
-        (parsectx-read-directive ctx) ; FIXME: why we ignore directive?
-        (lisp-lex ctx flavor))
+        (let ((value (parsectx-read-directive ctx)))
+          (if (symbol? value)
+            (if (eq? 'eof value)
+              ;; yes, #!eof is an allowed directive:
+              ;; it injects (eof-object) in token stream, with type 'eof
+              ;; simulating an actual end-of-file in input port.
+              ;; Reason: traditionally used to disable the rest of a file, to help debugging
+              (values (eof-object) 'eof)
+              ;; cannot switch to other parser here: just return it and let caller switch
+              (values (get-parser ctx value (caller-for flavor)) 'parser))
+
+            ;; (parsectx-read-directive) skipped a whole line.
+            ;; read again by calling (lex-lisp)
+            (lex-lisp ctx flavor))))
       ((#\&)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
@@ -322,15 +340,24 @@
         (values 'quasisyntax 'quote))
       ((#\|)
         ;; handle block comments #| ... |# ourselves, because they may be followed
-        ;; by a token not supported by (lisp-lex-token-chezscheme)
+        ;; by a token not supported by (lex-lisp-chezscheme)
         (parsectx-read-char ctx) ; skip #\#
         (parsectx-read-char ctx) ; skip #\|
         (lex-skip-block-comment ctx flavor)
-        (lisp-lex ctx flavor))
+        (lex-lisp ctx flavor))
       ((#\% #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\F #\T #\d #\e #\f #\i #\o #\t #\v #\x #\{)
-        ;; #%foo      expands to value ($primitive foo)
+        ;; #%foo      expands to value '($primitive foo)
+        ;; #0... to #9... expand to one of:
+        ;;              a sized vector type:
+        ;;                 'vnparen       if parsing #NNN(
+        ;;                 'vfxnparen     if parsing #NNNvfx(
+        ;;                 'vflnparen     if parsing #NNNvfl(
+        ;;                 'vsnparen      if parsing #NNNvs(
+        ;;              a number value in user-specified radix,        if parsing #NNNrMMM
+        ;;              type 'mark i.e. a graph mark,                  if parsing #NNN=
+        ;;              type 'insert i.e. a graph reference,           if parsing #NNN#
+        ;;              a value '($primitive optimize-level some-name) if parsing #2%... or #3%...
         ;; #:foo      expands to a gensym value
-        ;; #{foo bar} expands to a gensym value
         ;; #F...      expands to the #f value
         ;; #T...      expands to the #t value
         ;; #d...      expands to a decimal number value
@@ -341,9 +368,11 @@
         ;; #t...      expands to the #t value
         ;; #vfl(      expands to type 'vflparen
         ;; #vfx(      expands to type 'vfxparen
+        ;; #vs(       expands to type 'vsparen
         ;; #vu8(      expands to type 'vu8paren
         ;; #x...      expands to an hexadecimal number value
-        (lisp-lex-token-chezscheme ctx))
+        ;; #{foo bar} expands to a gensym value
+        (lex-lisp-chezscheme ctx flavor))
       (else
         (syntax-errorf ctx (caller-for flavor) "invalid sharp-sign prefix #~a" ch)))))
 

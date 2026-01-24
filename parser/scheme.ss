@@ -22,7 +22,7 @@
 ;;
 ;; Return two values: token value and its type.
 (define (lex-scheme ctx)
-  (lisp-lex ctx 'scheme))
+  (lex-lisp ctx 'scheme))
 
 
 ;; Read Chez Scheme tokens from textual input port 'in'
