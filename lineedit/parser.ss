@@ -222,7 +222,7 @@
           (parsectx-pos-set! pctx (fx+ x n) y))))))
 
 
-;; update parsectx position (x . y) after reading a character from textual input port
+;; update parsectx position (x . y) after reading characters from textual input port
 (define (parsectx-pos-set! pctx x y)
   (let ((pos  (parsectx-pos pctx))
         (prev (parsectx-prev-pos pctx))
@@ -420,8 +420,11 @@
             (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
             (make-irritants-condition
              (append format-args
-               (list (fx1+ (cdr (parsectx-pos pctx)))
-                     (fx1+ (car (parsectx-pos pctx)))
+               ;; (parsectx-pos ctx) returns the position *after* the syntax error.
+               ;; we would prefer the position *before* the syntax error,
+               ;; but this is better than nothing
+               (list (fx1+ (cdr (parsectx-prev-pos pctx)))
+                     (fx1+ (car (parsectx-prev-pos pctx)))
                      (parsectx-in pctx)))))
           (condition
             (make-lexical-violation)
