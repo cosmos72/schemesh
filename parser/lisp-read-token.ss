@@ -17,8 +17,9 @@
 
 
 ;; Wrapper around Chez Scheme (read-token), recognizes the following extensions:
-;;   { as (values 'lbrace f ...)
-;;   } as (values 'rbrace f ...)
+;;   $ as (values 'shell-expr 'quote)
+;;   { as (values #f 'lbrace)
+;;   } as (values #f 'rbrace)
 ;;   character literals #\x... representing valid UTF-8b codepoints
 ;;   string literals "..." also containing hexadecimal escape sequences \x...;
 ;;     representing valid UTF-8b codepoints
@@ -39,11 +40,24 @@
     ((#\$)
       (parsectx-read-char ctx)
       (values 'shell-expr 'quote))
+    ((#\')
+      (parsectx-read-char ctx)
+      (values 'quote 'quote))
+    ((#\,)
+      (parsectx-read-char ctx)
+      (if (eqv? #\@ (parsectx-peek-char ctx))
+        (begin
+          (parsectx-read-char ctx)
+          (values 'unquote-splicing 'quote))
+        (values 'unquote 'quote)))
     ((#\;)
       ;; handle line comments ourselves, because they may be followed
       ;; by a token not supported by (lex-token-chezscheme)
       (parsectx-skip-line ctx)
       (lex-token ctx flavor))
+    ((#\`)
+      (parsectx-read-char ctx)
+      (values 'quasiquote 'quote))
     ((#\{)
       (parsectx-read-char ctx)
       (values #f 'lbrace))
@@ -61,7 +75,9 @@
 ;;   token type
 (define (lex-token-chezscheme ctx)
   (let-values (((type value start end) (read-token (parsectx-in ctx))))
-    ;; (debugf "lex-token-chezscheme type=~s value=~s start=~s end=~s" type value start end)
+    (when (fixnum? end)
+      (parsectx-increment-pos/n ctx end))
+    ;; (debugf "lex-token-chezscheme type=~s value=~s start=~s end=~s" type value start end))
     (values value type)))
 
 

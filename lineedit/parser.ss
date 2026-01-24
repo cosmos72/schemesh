@@ -20,6 +20,7 @@
     parsectx-skip-whitespace parsectx-skip-line parsectx-skip-until-char
     parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
     parsectx-is-simple-identifier-char?
+    parsectx-increment-pos/char parsectx-increment-pos/n
 
     syntax-errorf)
   (import
@@ -187,7 +188,7 @@
       width)))
 
 ;; update parsectx position (x . y) after reading ch from textual input port
-(define (parsectx-increment-pos pctx ch)
+(define (parsectx-increment-pos/char pctx ch)
   (when (char? ch) ; do not advance after reading #!eof
     (let* ((pos (parsectx-pos pctx))
            (x   (car pos))
@@ -196,12 +197,29 @@
         ((or (char=? ch #\newline)
              (fx>=? (fx+ (fx1+ x) (if (fxzero? y) (parsectx-prompt-end-x pctx) 0))
                     (parsectx-width pctx)))
-          ; newline or screen width wraparound -> set x to 0, increment y
-          (parsectx-pos-set! pctx 0 (fx1+ y))
-          (set-car! pos 0)
-          (set-cdr! pos (fx1+ y)))
+          ;; newline or screen width wraparound -> set x to 0, increment y
+          (parsectx-pos-set! pctx 0 (fx1+ y)))
         (else
           (parsectx-pos-set! pctx (fx1+ x) y))))))
+
+
+;; update parsectx position (x . y) after reading n chars that do not contain #\newline
+;; from textual input port
+(define (parsectx-increment-pos/n pctx n)
+  (when (fx>? n 0)
+    (let* ((pos     (parsectx-pos pctx))
+           (x       (car pos))
+           (y       (cdr pos))
+           (width   (parsectx-width pctx))
+           (width-y (fx- width (if (fxzero? y) (parsectx-prompt-end-x pctx) 0))))
+      (cond
+        ((fx>=? (fx+ x n) width-y)
+          ;; screen width wraparound
+          (let-values (((dy new-x) (fxdiv-and-mod (fx- (fx+ x n) width-y) width)))
+            (let ((new-y (fx+ (fx1+ y) dy)))
+              (parsectx-pos-set! pctx new-x new-y))))
+        (else
+          (parsectx-pos-set! pctx (fx+ x n) y))))))
 
 
 ;; update parsectx position (x . y) after reading a character from textual input port
@@ -267,7 +285,7 @@
                   (parsectx-next-ch-set! pctx #f)
                   ch1)
                 (read-char (parsectx-in pctx)))))
-    (parsectx-increment-pos pctx ch)
+    (parsectx-increment-pos/char pctx ch)
     ch))
 
 
