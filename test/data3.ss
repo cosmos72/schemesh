@@ -154,7 +154,10 @@
                '(if-no-match? string-list))            ("_does_not_exist_")
   ;; was bugged up to commit c683bae3f0520dccb58f9fc9f2482851004171f4
   ;; fixed in commit 067bc0cf5f76b04483f2c0989d3d955868fb554f before releasing v0.9.2
-  (let ((username (sh-env-ref #f "USER")))
+  ;;
+  ;; ideally we do not want to try and access root's directory,
+  ;; but "root" username exists almost everywhere
+  (let ((username (sh-env-ref #f "USER" "root")))
     (string=?
       (car (wildcard1+ #t '~ username "/_does_not_exist_"))
       (string-append (sh-username->homedir username)
