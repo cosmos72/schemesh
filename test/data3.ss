@@ -53,9 +53,9 @@
   (file-type "." '(catch))                             dir
   (file-type "parser/parser.ss" '(catch))              file
   (directory-sort!
-    (directory-list "parser" '(types)))      (("." . dir) (".." . dir) ("lisp-read-token.ss" . file)
+    (directory-list "parser" '(types)))      (("." . dir) (".." . dir) ("lisp-token.ss" . file)
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
-                                              ("scheme.ss" . file) ("shell-read-token.ss" . file) ("shell.ss" . file))
+                                              ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
   ;; ------------------------ channel -------------------------------------
   (let-values (((rchan wchan) (channel-pipe-pair)))

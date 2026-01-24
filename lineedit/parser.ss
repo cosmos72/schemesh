@@ -306,7 +306,7 @@
 
 
 ;; read and discard all initial whitespace in textual input port (parsectx-in pctx)
-;; characters are considered whitespace if they are <= ' '
+;; characters are considered whitespace if they are <= #\space
 ;;
 ;; also updates (parsectx-pos pctx)
 (define (parsectx-skip-whitespace pctx newline-is-whitespace?)

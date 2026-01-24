@@ -12,13 +12,13 @@
 ;;;
 (library (schemesh parser lisp (0 9 3))
   (export
-    lex-lisp parse-lisp-forms parse-lisp-paren lex-token)
+    lisp-lex parse-lisp-forms parse-lisp-paren lisp-lex-token)
   (import
     (rnrs)
     (only (chezscheme)
       append! box bytevector char-name fx1+ fx1- fxvector fxvector-set!
       gensym include make-fxvector read-token reverse! top-level-value void)
-    (only (scheme2k bootstrap)            assert* catch try until while)
+    (only (scheme2k bootstrap)            assert* catch trace-define try until while)
     (scheme2k containers flvector)
     (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
                                           charspan-insert-left/string! charspan-insert-right! charspan->string*!)
@@ -30,7 +30,7 @@
     (scheme2k lineedit parser))
 
 
-(include "parser/lisp-read-token.ss")
+(include "parser/lisp-token.ss")
 
 
 
@@ -38,7 +38,7 @@
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
 ;;
 ;; Return two values: token value and its type.
-(define (lex-lisp ctx flavor)
+(define (lisp-lex ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
   (let ((value (parsectx-try-read-directive ctx)))
     (if (symbol? value)
@@ -50,15 +50,15 @@
         (values (eof-object) 'eof)
         ;; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ;; read a single token with (lex-token)
-      (lex-token ctx flavor))))
+      ;; read a single token with (lisp-lex-token)
+      (lisp-lex-token ctx flavor))))
 
 
 ;; Return the symbol, converted to string,
-;; of most token types returned by (lex-token),
+;; of most token types returned by (lisp-lex-token),
 ;;
 ;; Also recognizes and converts to string the additional types
-;; 'lbrace and 'rbrace introduced by (lex-token)
+;; 'lbrace and 'rbrace introduced by (lisp-lex-token)
 (define (lex-type->string type)
   (case type
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")
@@ -72,19 +72,19 @@
 
 
 ;; Read Scheme tokens from textual input port 'in'
-;; by repeatedly calling (lex-lisp) and construct a Scheme form.
+;; by repeatedly calling (lisp-lex) and construct a Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return parsed form, or new parser to use.
 ;;
 ;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp ctx flavor)
-  (let-values (((value type) (lex-lisp ctx flavor)))
+  (let-values (((value type) (lisp-lex ctx flavor)))
     (parse-lisp-impl ctx value type flavor)))
 
 
 ;; Read Scheme tokens from textual input port 'in', assuming value (and its type) was just read,
-;; repeatedly call (lex-lisp) to read further tokens, and construct a single Scheme form.
+;; repeatedly call (lisp-lex) to read further tokens, and construct a single Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return a single parsed form, or new parser to use, or (eof-object) if end-of-file is reached
@@ -180,7 +180,7 @@
            (set! reverse? #f))))
     ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
     (while again?
-      (let-values (((value type) (lex-lisp ctx flavor)))
+      (let-values (((value type) (lisp-lex ctx flavor)))
         ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
@@ -210,7 +210,7 @@
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'
-            (let-values (((value type) (lex-lisp ctx flavor)))
+            (let-values (((value type) (lisp-lex ctx flavor)))
               (assert-list-end-type type)))
           (else
             ;; parse a single form and append it
@@ -269,7 +269,8 @@
 
 ;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it as a char.
 ;; also recognize and return parser directives #!... and return them as a symbol.
-(define (scan-lisp-paren-or-directive ctx)
+;; used to build paren objects
+(define (lex-paren-or-directive ctx)
   ;; yes, #!eof is an allowed directive:
   ;; it injects (eof-object) in token stream, with type 'eof
   ;; thus simulating an actual end-of-file in input port.
@@ -281,26 +282,28 @@
       (let ((ch (parsectx-read-char ctx)))
         (case ch
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
-          ((#\#)  (set! ret (scan-lisp-sharp ctx)))
-          ((#\\)  (scan-lisp-backslash ctx))
+          ((#\#)  (set! ret (lex-paren-sharp ctx)))
+          ((#\\)  (lex-paren-backslash ctx))
           ((#\;)  (parsectx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
 
 ;; recognize scheme syntax after backslash: either a single character, or x...;
-(define (scan-lisp-backslash ctx)
+;; used to build paren objects
+(define (lex-paren-backslash ctx)
   (when (eqv? #\x (parsectx-read-char ctx))
     (while (let ((ch (parsectx-read-char ctx)))
               (and (char? ch) (not (char=? ch #\;)))))))
 
 
 ;; scan a token after # (the # character was already consumed) and return it
-(define (scan-lisp-sharp ctx)
+;; used to build paren objects
+(define (lex-paren-sharp ctx)
   (let ((ch (parsectx-read-char ctx)))
     (case ch
       ((#\\) (parsectx-read-char ctx) #f) ; consume one char after #\
       ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
-      ((#\|) #\#) ; found start of block comment #| thus return #
+      ((#\|) #\#)        ; found start of block comment #| thus return #
       ((#\!)        (parsectx-read-directive ctx)) ; found parser directive
       (else #f))))
 
@@ -370,7 +373,7 @@
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
-      (let ((token (scan-lisp-paren-or-directive ctx)))
+      (let ((token (lex-paren-or-directive ctx)))
         ; (debugf "... parse-lisp-paren token=~s paren=~s" token paren)
         (cond
           ((not token) ; not a grouping token

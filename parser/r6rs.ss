@@ -22,7 +22,7 @@
 ;
 ;; Return two values: token value and its type.
 (define (lex-r6rs ctx)
-  (lex-lisp ctx 'r6rs))
+  (lisp-lex ctx 'r6rs))
 
 
 

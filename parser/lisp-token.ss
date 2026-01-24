@@ -30,54 +30,57 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (lex-token ctx flavor)
-  (parsectx-skip-whitespace ctx 'also-skip-newlines) ; in case caller is not (lex-lisp)
-  (case (parsectx-peek-char ctx)
-    ((#\")
-      (lex-string ctx flavor))
-    ((#\#)
-      (lex-sharp ctx flavor))
-    ((#\$)
-      (parsectx-read-char ctx)
-      (values 'shell-expr 'quote))
-    ((#\')
-      (parsectx-read-char ctx)
-      (values 'quote 'quote))
-    ((#\,)
-      (parsectx-read-char ctx)
-      (if (eqv? #\@ (parsectx-peek-char ctx))
-        (begin
-          (parsectx-read-char ctx)
-          (values 'unquote-splicing 'quote))
-        (values 'unquote 'quote)))
-    ((#\()               #| ) |#  ; help vscode
-      (parsectx-read-char ctx)
-      (values #f 'lparen))
-    ((#\))               #| ( |#  ; help vscode
-      (parsectx-read-char ctx)
-      (values #f 'rparen))
-    ((#\;)
-      ;; handle line comments ourselves, because they may be followed
-      ;; by a token not supported by (lex-token-chezscheme)
-      (parsectx-skip-line ctx)
-      (lex-token ctx flavor))
-    ((#\[)
-      (parsectx-read-char ctx)
-      (values #f 'lbrack))
-    ((#\])
-      (parsectx-read-char ctx)
-      (values #f 'rbrack))
-    ((#\`)
-      (parsectx-read-char ctx)
-      (values 'quasiquote 'quote))
-    ((#\{)
-      (parsectx-read-char ctx)
-      (values #f 'lbrace))
-    ((#\})
-      (parsectx-read-char ctx)
-      (values #f 'rbrace))
-    (else
-      (lex-token-chezscheme ctx))))
+(define (lisp-lex-token ctx flavor)
+  (parsectx-skip-whitespace ctx 'also-skip-newlines) ; in case caller is not (lisp-lex)
+  (let ((ch (parsectx-peek-char ctx)))
+    (case ch
+      ((#\")
+        (lex-string ctx flavor))
+      ((#\#)
+        (lex-sharp ctx flavor))
+      ((#\$)
+        (parsectx-read-char ctx)
+        (values 'shell-expr 'quote))
+      ((#\')
+        (parsectx-read-char ctx)
+        (values 'quote 'quote))
+      ((#\()               #| ) |#  ; help vscode
+        (parsectx-read-char ctx)
+        (values #f 'lparen))
+      ((#\))               #| ( |#  ; help vscode
+        (parsectx-read-char ctx)
+        (values #f 'rparen))
+      ((#\,)
+        (parsectx-read-char ctx)
+        (if (eqv? #\@ (parsectx-peek-char ctx))
+          (begin
+            (parsectx-read-char ctx)
+            (values 'unquote-splicing 'quote))
+          (values 'unquote 'quote)))
+      ((#\;)
+        ;; handle line comments ourselves, because they may be followed
+        ;; by a token not supported by (lisp-lex-token-chezscheme)
+        (parsectx-skip-line ctx)
+        (lisp-lex ctx flavor))
+      ((#\[)
+        (parsectx-read-char ctx)
+        (values #f 'lbrack))
+      ((#\])
+        (parsectx-read-char ctx)
+        (values #f 'rbrack))
+      ((#\`)
+        (parsectx-read-char ctx)
+        (values 'quasiquote 'quote))
+      ((#\{)
+        (parsectx-read-char ctx)
+        (values #f 'lbrace))
+      ((#\})
+        (parsectx-read-char ctx)
+        (values #f 'rbrace))
+      (else
+        (if (eof-object? ch)
+          (values ch 'eof)
+          (lisp-lex-token-chezscheme ctx))))))
 
 
 ;; minimal wrapper around Chez Scheme (read-token)
@@ -85,28 +88,28 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
-(define (lex-token-chezscheme ctx)
+(define (lisp-lex-token-chezscheme ctx)
   (let* ((in   (parsectx-in ctx))
          (pos0 (and (port-has-port-position? in) (port-position in))))
     (let-values (((type value start end) (read-token in)))
       ;; start, end are usually #f
       (let ((pos1 (and (fixnum? pos0) (port-position in))))
         (when (and (fixnum? pos1) (fx>? pos1 pos0))
-          ;; (debugf "lex-token-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
+          ;; (debugf "lisp-lex-token-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
           (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
       (values value type))))
 
 
-(define (lex-token-chezscheme/wrap-exception ctx)
+(define (lisp-lex-token-chezscheme/wrap-exception ctx)
   (try
-    (lex-token-chezscheme ctx)
+    (lisp-lex-token-chezscheme ctx)
     (catch (ex)
       (let ((l (condition-irritants ex)))
-        (syntax-errorf ctx 'lex-token-chezscheme "~a" (condition-message ex))
+        (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a" (condition-message ex))
 
         (if (and (string? (car l)) (pair? (cdr l)) (pair? (cadr l)))
-          (syntax-errorf ctx 'lex-token-chezscheme "~a ~s" (car l) (cadr l))
-          (syntax-errorf ctx 'lex-token-chezscheme "~a ~s" (condition-message ex) l))))))
+          (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a ~s" (car l) (cadr l))
+          (syntax-errorf ctx 'lisp-lex-token-chezscheme "~a ~s" (condition-message ex) l))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -274,29 +277,75 @@
       (parsectx-read-char ctx)
       (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after #"))
     (case ch
+      ((#\!)
+        (parsectx-read-char ctx) ; skip #\#
+        (parsectx-read-char ctx) ; skip #\!
+        (parsectx-read-directive ctx) ; FIXME: why we ignore directive?
+        (lisp-lex ctx flavor))
       ((#\&)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
         (values #f 'box))
+      ((#\')
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values 'syntax 'quote))
       ((#\()                   #|  )  |# ; help vscode
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
         (values #f 'vparen))
+      ((#\,)
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (if (eqv? #\@ (parsectx-peek-char ctx))
+          (begin
+            (parsectx-read-char ctx)
+            (values 'unsyntax-splicing 'quote))
+          (values 'unsyntax 'quote)))
+      ((#\;)
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values 'datum-comment 'quote))
+      ((#\@)
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values #f 'fasl))
       ((#\[)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
         (values #f 'record-brack))
       ((#\\)
         (lex-character ctx flavor))
+      ((#\`)
+        (parsectx-read-char ctx)
+        (parsectx-read-char ctx)
+        (values 'quasisyntax 'quote))
       ((#\|)
         ;; handle block comments #| ... |# ourselves, because they may be followed
-        ;; by a token not supported by (lex-token-chezscheme)
+        ;; by a token not supported by (lisp-lex-token-chezscheme)
         (parsectx-read-char ctx) ; skip #\#
         (parsectx-read-char ctx) ; skip #\|
         (lex-skip-block-comment ctx flavor)
-        (lex-token ctx flavor))
+        (lisp-lex ctx flavor))
+      ((#\% #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\F #\T #\d #\e #\f #\i #\o #\t #\v #\x #\{)
+        ;; #%foo      expands to value ($primitive foo)
+        ;; #:foo      expands to a gensym value
+        ;; #{foo bar} expands to a gensym value
+        ;; #F...      expands to the #f value
+        ;; #T...      expands to the #t value
+        ;; #d...      expands to a decimal number value
+        ;; #e...      expands to an exact number value
+        ;; #f...      expands to the #f value
+        ;; #i...      expands to an inexact number value
+        ;; #o...      expands to an octal number value
+        ;; #t...      expands to the #t value
+        ;; #vfl(      expands to type 'vflparen
+        ;; #vfx(      expands to type 'vfxparen
+        ;; #vu8(      expands to type 'vu8paren
+        ;; #x...      expands to an hexadecimal number value
+        (lisp-lex-token-chezscheme ctx))
       (else
-        (lex-token-chezscheme ctx)))))
+        (syntax-errorf ctx (caller-for flavor) "invalid sharp-sign prefix #~a" ch)))))
 
 
 ;; read a lisp block comment starting with #| and ending with |#
@@ -326,7 +375,7 @@
 
 
 (define (raise-eof-in-block-comment ctx flavor)
-  (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading block comment"))  
+  (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading block comment"))
 
 
 ;; read a lisp character literal starting with #\

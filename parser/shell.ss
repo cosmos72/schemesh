@@ -21,7 +21,7 @@
     (scheme2k lineedit parser))
 
 
-(include "parser/shell-read-token.ss")
+(include "parser/shell-token.ss")
 
 
 ;; Read a word, possibly containing single or double quotes, assignment operator =
