@@ -71,7 +71,7 @@
   (let ((port #f))
     (dynamic-wind
       (lambda () ; before body
-        (set! port (file->port path 'read '() 'utf8b)))
+        (set! port (file->port path 'read)))
       (lambda () ; body
         (sh-read-port* port initial-parser enabled-parsers))
       (lambda () ; after body

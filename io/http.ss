@@ -116,7 +116,7 @@
 
 
 (define validate-transcoder-sym
-  (let ((allowed-transcoder-syms '(binary text utf8b)))
+  (let ((allowed-transcoder-syms '(binary textual utf8b)))
     (lambda (who transcoder-sym)
       (assert* who (memq transcoder-sym allowed-transcoder-syms)))))
 
@@ -138,7 +138,7 @@
           p
           (port->utf8b-port p))))
     ((ctx)
-      (http->port ctx 'text))))
+      (http->port ctx 'textual))))
 
 
 ;; create and return a binary or textual input port that connects to specified HTTP or HTTPS url and reads from it.
@@ -146,14 +146,14 @@
 ;;
 ;; Arguments:
 ;;   mandatory url            must be a bytevector, string, bytespan or charspan
-;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
+;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 (define http-url->port
   (case-lambda
     ((url transcoder-sym)
       (validate-transcoder-sym 'http-url->port transcoder-sym)
       (http->port (http-open url) transcoder-sym))
     ((url)
-      (http-url->port url 'text))))
+      (http-url->port url 'textual))))
 
 
 (define (raise-http-condition who ctx)

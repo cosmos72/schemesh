@@ -55,14 +55,14 @@
 
 (define (%set-binary-buffer-mode! port b-mode)
   (when (input-port? port)
-    (let ((in-buffer-size (b-mode->input-buffer-size b-mode)))
-      (set-binary-port-input-buffer! port (make-bytevector in-buffer-size))
-      (set-binary-port-input-size!   port in-buffer-size)
-      (set-binary-port-input-index!  port in-buffer-size)))
+    (let ((cap (b-mode->input-buffer-size b-mode)))
+      (set-binary-port-input-buffer! port (make-bytevector cap))
+      (set-binary-port-input-size!   port cap)
+      (set-binary-port-input-index!  port cap)))
   (when (output-port? port)
-    (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
-      (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
-      (set-binary-port-output-size!   port (fxmax 0 (fx1- out-buffer-size))) ; leave 1 byte for (put-u8)
+    (let ((cap (b-mode->output-buffer-size b-mode)))
+      (set-binary-port-output-buffer! port (make-bytevector cap))
+      (set-binary-port-output-size!   port (fxmax 0 (fx1- cap))) ; leave 1 byte for (put-u8)
       (set-binary-port-output-index!  port 0)))
   port)
 
@@ -138,7 +138,7 @@
 ;; Arguments:
 ;;   mandatory fd             must be an unsigned fixnum corresponding to an open file descriptor.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
-;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
+;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
 ;;   optional name            must be a string and defaults to (string-append "fd " (number->string fd))
 ;;   optional proc-on-close   must be a #f or a procedure and defaults to #f
@@ -148,10 +148,10 @@
       (case transcoder-sym
         ((binary)
           (fd->binary-port fd dir b-mode name proc-on-close))
-        ((text utf8b)
+        ((textual utf8b)
           (fd->textual-port fd dir b-mode name proc-on-close))
         (else
-          (let ((allowed-transcoder-syms '(binary text utf8b)))
+          (let ((allowed-transcoder-syms '(binary textual utf8b)))
             (assert* 'fd->port (memq transcoder-sym allowed-transcoder-syms))))))
     ((fd dir transcoder-sym b-mode name)
       (fd->port fd dir transcoder-sym b-mode name #f))
@@ -160,9 +160,9 @@
     ((fd dir transcoder-sym)
       (fd->port fd dir transcoder-sym (buffer-mode block)))
     ((fd dir)
-      (fd->port fd dir 'text (buffer-mode block)))
+      (fd->port fd dir 'textual (buffer-mode block)))
     ((fd)
-      (fd->port fd 'rw 'text (buffer-mode block)))))
+      (fd->port fd 'rw 'textual (buffer-mode block)))))
 
 
 ;; create and return a binary or textual input and/or output port that reads from/writes to
@@ -172,23 +172,23 @@
 ;;   mandatory path           must be a string, bytevector, bytespan or charspan.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
 ;;   optional flags           must be a list containing zero or more: 'create 'truncate 'append
-;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
+;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
 (define file->port
   (case-lambda
     ((path dir flags transcoder-sym b-mode)
-      (assert* 'file->port (memq transcoder-sym '(binary text utf8b)))
+      (assert* 'file->port (memq transcoder-sym '(binary textual utf8b)))
       (assert* 'file->port (buffer-mode? b-mode))
       (let ((fd (file->fd path dir flags)))
         (fd->port fd dir transcoder-sym b-mode (text->string path) (lambda () (fd-close fd)))))
     ((path dir flags transcoder-sym)
       (file->port path dir flags transcoder-sym (buffer-mode block)))
     ((path dir flags)
-      (file->port path dir flags 'text (buffer-mode block)))
+      (file->port path dir flags 'textual (buffer-mode block)))
     ((path dir)
-      (file->port path dir '() 'text (buffer-mode block)))
+      (file->port path dir '() 'textual (buffer-mode block)))
     ((path)
-      (file->port path 'rw '() 'text (buffer-mode block)))))
+      (file->port path 'rw '() 'textual (buffer-mode block)))))
 
 
 ;; customize how "tport" objects are printed

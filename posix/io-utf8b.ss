@@ -94,26 +94,22 @@
       (bytespan-clear! bsp))))
 
 
-;; create and return a textual input port that reads/writes from/to an underlying binary port
-;; and transcodes between characters and UTF-8b byte sequences
-
-;; create and return a textual input port that reads/writes from/to an underlying binary port
-;; and transcodes between characters and UTF-8b byte sequences
-(define (make-utf8b-port in-port input-buffer-size out-port output-buffer-size options)
-  (when in-port
-    (assert* 'make-utf8b-port  (port? in-port))
-    (assert* 'make-utf8b-port  (binary-port? in-port))
-    (assert* 'make-utf8b-port  (input-port? in-port)))
-  (when out-port
-    (assert* 'make-utf8b-port  (port? out-port))
-    (assert* 'make-utf8b-port  (binary-port? out-port))
-    (assert* 'make-utf8b-port  (output-port? out-port)))
-  (let* ((name       (port-name (or in-port out-port)))
-         (tport1     (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
-         (tport2     (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f)))
-         (read-proc  (and tport1
+;; implementation of (make-utf8b-port)
+(define (%make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
+  (when bport-in
+    (assert* 'make-utf8b-port  (port? bport-in))
+    (assert* 'make-utf8b-port  (binary-port? bport-in))
+    (assert* 'make-utf8b-port  (input-port? bport-in)))
+  (when bport-out
+    (assert* 'make-utf8b-port  (port? bport-out))
+    (assert* 'make-utf8b-port  (binary-port? bport-out))
+    (assert* 'make-utf8b-port  (output-port? bport-out)))
+  (let* ((name       (port-name (or bport-in bport-out)))
+         (tport-in   (and bport-in  (make-tport bport-in  (make-bytespan 0) input-buffer-size #f)))
+         (tport2     (and bport-out (make-tport bport-out (make-bytespan 0) output-buffer-size #f)))
+         (read-proc  (and tport-in
                           (lambda (str start n)
-                            (tport-read-some tport1 str start n))))
+                            (tport-read-some tport-in str start n))))
          (write-proc (and tport2
                           (lambda (str start n) 
                             (let ((written (tport-write tport2 str start n)))
@@ -121,58 +117,80 @@
                               written))))
          (close-proc (and (plist-ref options 'close? #t)
                           (lambda ()
-                             (when in-port
-                               (close-port in-port))
-                             (when out-port
-                               (unless (eq? in-port out-port)
-                                 (close-port out-port)))))))
+                             (when bport-in
+                               (close-port bport-in))
+                             (when bport-out
+                               (unless (eq? bport-in bport-out)
+                                 (close-port bport-out)))))))
     (cond
-      ((and in-port out-port)
+      ((and bport-in bport-out)
         (make-custom-textual-input/output-port
           name
           read-proc
           write-proc
-          ;; position-proc
-          (and (eq? in-port out-port) (port-has-port-position? in-port)
+          ;; position-proc. inaccurate, neglects data buffered in tport-in
+          (and (eq? bport-in bport-out) (port-has-port-position? bport-in)
                (lambda ()
-                 (port-position in-port)))
-          ;; set-position-proc
-          (and (eq? in-port out-port) (port-has-set-port-position!? in-port)
+                 (port-position bport-in)))
+          ;; set-position-proc. inaccurate, neglects data buffered in tport-in
+          (and (eq? bport-in bport-out) (port-has-set-port-position!? bport-in)
                (lambda (pos)
-                 (set-port-position! in-port pos)))
+                 (set-port-position! bport-in pos)))
           close-proc))
 
-      (in-port
+      (bport-in
         (make-custom-textual-input-port
           name
           read-proc
-          ;; position-proc
-          (and (port-has-port-position? in-port)
+          ;; position-proc. inaccurate, neglects data buffered in tport-in
+          (and (port-has-port-position? bport-in)
                (lambda ()
-                 (port-position in-port)))
-          ;; set-position-proc
-          (and (port-has-set-port-position!? in-port)
+                 (port-position bport-in)))
+          ;; set-position-proc. inaccurate, neglects data buffered in tport-in
+          (and (port-has-set-port-position!? bport-in)
                (lambda (pos)
-                 (set-port-position! in-port pos)))
+                 (set-port-position! bport-in pos)))
           close-proc))
 
-      (out-port
+      (bport-out
         (make-custom-textual-output-port
           name
           write-proc
-          ;; position-proc
-          (and (port-has-port-position? out-port)
+          ;; position-proc. inaccurate, neglects data buffered in tport-out
+          (and (port-has-port-position? bport-out)
                (lambda ()
-                 (port-position out-port)))
-          ;; set-position-proc
-          (and (port-has-set-port-position!? out-port)
+                 (port-position bport-out)))
+          ;; set-position-proc. inaccurate, neglects data buffered in tport-out
+          (and (port-has-set-port-position!? bport-out)
                (lambda (pos)
-                 (set-port-position! out-port pos)))
+                 (set-port-position! bport-out pos)))
           close-proc))
 
       (else
-        (raise-errorf 'make-utf8b-port "both in-port and out-port are #f")))))
+        (raise-errorf 'make-utf8b-port "both bport-in and bport-out are #f")))))
 
+
+(define (%set-textual-buffer-size! port input-buffer-size output-buffer-size)
+  (when (input-port? port)
+    (let ((cap (fxmax 1 input-buffer-size)))
+      (set-textual-port-input-buffer! port (make-string cap))
+      (set-textual-port-input-size!   port cap)
+      (set-textual-port-input-index!  port cap)))
+  (when (output-port? port)
+    (let ((cap (fxmax 0 output-buffer-size)))
+      (set-textual-port-output-buffer! port (make-string cap))
+      (set-textual-port-output-size!   port (fxmax 0 (fx1- cap))) ; leave 1 byte for (put-char)
+      (set-textual-port-output-index!  port 0)))
+  port)
+
+
+;; create and return a textual input port that reads/writes from/to an underlying binary port
+;; and transcodes between characters and UTF-8b byte sequences
+(define (make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
+  (%set-textual-buffer-size! 
+    (%make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
+    input-buffer-size
+    output-buffer-size))
 
 
 (define port->utf8b-port
