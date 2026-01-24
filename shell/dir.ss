@@ -231,13 +231,16 @@
     (()
       (sh-env-ref #f "HOME" #f))
     ((username)
-      (let ((userhome (username->homedir (string->utf8b/0 username))))
+      (let ((userhome (sh-username->homedir username)))
         (if (string? userhome)
           userhome
           #f)))))
 
 
-(define username->homedir (foreign-procedure "c_get_userhome" (ptr) ptr))
+(define sh-username->homedir
+  (let ((c-get-userhome (foreign-procedure "c_get_userhome" (ptr) ptr)))
+    (lambda (username)
+      (c-get-userhome (text->bytevector0 username)))))
 
 
 ;; if subpath is specified, return (string-append (xdg-cache-home) "/" subpath)

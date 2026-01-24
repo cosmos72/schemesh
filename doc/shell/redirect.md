@@ -110,9 +110,9 @@ Optional arguments are:
      The function will return a list containing two elements: the write side of job's file descriptor `0`, converted to output port,
      and the socketpair connected to job's file descriptor `17`, converted to input/output port.
 
-* `transcoder-sym` must be one of: `'binary` `'text` or `'utf8b`.<br/>
+* `transcoder-sym` must be one of: `'binary` `'textual` or `'utf8b`.<br/>
   If `'binary`, returned ports will be binary.<br/>
-  In all other cases - not specified or one of `'text` `'utf8b` - returned ports will be textual
+  In all other cases - not specified or one of `'textual` `'utf8b` - returned ports will be textual
   and will use UTF-8b for converting between bytes and characters.
 
 * `buffer-mode` must be a valid port buffer-mode, i.e. one of `'block` `'line` or `'none`.<br/>
@@ -218,7 +218,7 @@ If you want OS-level file descriptors, there's also `(sh-fd 0)` `(sh-fd 1)` and 
 corresponding to file descriptor `fd` for specified `job-or-id`, or for current job if `job-or-id` is not specified or is `#f`.
 
 If `transcoder-sym` is `'binary`, the returned port is a binary port.
-In all other cases - not specified or one of `'text` `'utf8b` - the returned port is textual
+In all other cases - not specified or one of `'textual` `'utf8b` - the returned port is textual
 and uses UTF-8b for converting between bytes and characters.
 
 Ports returned by this function are always buffered - they use `(buffer-mode block)` -
@@ -227,17 +227,17 @@ and are closed automatically when the corresponding job finishes.
 ##### (current-input-port)
 If not set to a different value, `(current-input-port)` returns a wrapper port that reads from/writes to the textual port
 corresponding to file descriptor `0` for current job.
-It is logically equivalent to `(sh-port #f 0 'text)`, although it may return a different port.
+It is logically equivalent to `(sh-port #f 0)`, although it may return a different port.
 
 ##### (current-output-port)
 If not set to a different value, `(current-output-port)` returns a wrapper port that reads from/writes to the textual port
 corresponding to file descriptor `1` for current job.
-It is logically equivalent to `(sh-port #f 1 'text)`, although it may return a different port.
+It is logically equivalent to `(sh-port #f 1)`, although it may return a different port.
 
 ##### (current-error-port)
 If not set to a different value, `(current-error-port)` returns a wrapper port that reads from/writes to the textual port
 corresponding to file descriptor `2` for current job.
-It is logically equivalent to `(sh-port #f 2 'text)`, although it may return a different port.
+It is logically equivalent to `(sh-port #f 2)`, although it may return a different port.
 
 ##### (sh-stdin)
 `(sh-stdin)` returns the binary port corresponding to file descriptor `0` for current job.

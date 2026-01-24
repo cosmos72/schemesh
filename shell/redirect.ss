@@ -219,7 +219,7 @@
 ;;                            whose car is file-descriptor-to-redirect: a small fixnum, usually 0, 1 or 2
 ;;                            whose cdr is direction: a symbol, must be one of: '<& '>& '<>&
 ;;                            if not specified, defaults to '(0 <& 1 >& 2 >&)
-;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
+;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 ;;   optional b-mode          a buffer-mode, defaults to 'block
 ;;   optional job-options     a possibly empty list as described in (sh-options)
 ;;
@@ -260,9 +260,9 @@
     ((job redirections transcoder-sym)
       (sh-start/ports job redirections transcoder-sym 'block '()))
     ((job redirections)
-      (sh-start/ports job redirections 'text 'block '()))
+      (sh-start/ports job redirections 'textual 'block '()))
     ((job)
-      (sh-start/ports job '(0 <& 1 >& 2 >&) 'text 'block '()))))
+      (sh-start/ports job '(0 <& 1 >& 2 >&) 'textual 'block '()))))
 
 
 
@@ -771,15 +771,15 @@
         (case transcoder-sym
           ((binary)
             (job-remap-ensure-binary-port job fd))
-          ((text utf8b)
+          ((textual utf8b)
             (job-remap-ensure-textual-port job fd))
           (else
-            (let ((allowed-transcoder-syms '(binary text utf8b)))
+            (let ((allowed-transcoder-syms '(binary textual utf8b)))
               (assert* 'sh-port (memq transcoder-sym allowed-transcoder-syms)))))))
     ((job-or-id fd)
-      (sh-port job-or-id fd 'text))
+      (sh-port job-or-id fd 'textual))
     ((fd)
-      (sh-port #f fd 'text))))
+      (sh-port #f fd 'textual))))
 
 
 ;; flush current-...-port and corresponding per-job binary and textual ports if they have been created

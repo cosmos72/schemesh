@@ -137,24 +137,28 @@
     "abc.zzz.abc^abc")                                 #t
 
   ;; ------------------------- wildcard expansion -------------------------
-  (wildcard1+ #t "a" "bcd" "" "ef")                   ("abcdef")
-  (wildcard1+ #t '* "f" '*)                           ("Makefile" "default.nix" "srfi")
-  (wildcard->sh-patterns '(*))                      ,@(span (sh-pattern '*))
-  (wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
-  (wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
-  (wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (wildcard #t '* "/" '* ".c")                        ("containers/containers.c" "io/http.c" "posix/posix.c"
-                                                        "test/test.c" "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
-  (wildcard1+ #t "Makefile")                          ("Makefile")
-  (wildcard1+ #t "_does_not_exist_")                  ("_does_not_exist_")
-  (wildcard* #t '("_does_not_exist_"))                ()
+  (wildcard1+ #t "a" "bcd" "" "ef")                    ("abcdef")
+  (wildcard1+ #t '* "f" '*)                            ("Makefile" "default.nix" "srfi")
+  (wildcard->sh-patterns '(*))                       ,@(span (sh-pattern '*))
+  (wildcard->sh-patterns '("/" * ".so"))             ,@(span "/" (sh-pattern '* ".so"))
+  (wildcard->sh-patterns '("//abc//" "//def//"))     ,@(span "/" "abc/" "def/")
+  (wildcard->sh-patterns '("/foo/" * "/" "/bar"))    ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
+  (wildcard #t '* "/" '* ".c")                         ("containers/containers.c" "io/http.c" "posix/posix.c"
+                                                         "test/test.c" "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
+  (wildcard1+ #t "Makefile")                           ("Makefile")
+  (wildcard1+ #t "_does_not_exist_")                   ("_does_not_exist_")
+  (wildcard* #t '("_does_not_exist_"))                 ()
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string))                 "_does_not_exist_"
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
   ;; was bugged up to commit c683bae3f0520dccb58f9fc9f2482851004171f4
-  (string-contains
-    (car (wildcard1+ #t '~ "root/foo")) "~")             #f
+  ;; fixed in commit 067bc0cf5f76b04483f2c0989d3d955868fb554f before releasing v0.9.2
+  (let ((username (sh-env-ref #f "USER")))
+    (string=?
+      (car (wildcard1+ #t '~ username "/_does_not_exist_"))
+      (string-append (sh-username->homedir username)
+                     "/_does_not_exist_")))            #t
   (caddr (expand '{ls [ab]*}))                         ,@(sh-cmd* "ls" (lambda (job) (wildcard1+ job '% "ab" '*)))
   (caddr (expand '(shell-wildcard *)))                 ,@(lambda (job) (wildcard1+ job '*))
   (caddr (expand '(shell-wildcard ?)))                 ,@(lambda (job) (wildcard1+ job '?))

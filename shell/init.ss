@@ -54,9 +54,9 @@
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
   ;; and are ordered with (current-input-port) (current-output-port) (current-error-port)
-  (let ((port0 (sh-port #t 0 'text))
-        (port1 (sh-port #t 1 'text))
-        (port2 (sh-port #t 2 'text))
+  (let ((port0 (sh-port #t 0 'textual))
+        (port1 (sh-port #t 1 'textual))
+        (port2 (sh-port #t 2 'textual))
         (try-flush-port-lambda
           (lambda (port-lambda)
             (try
@@ -92,9 +92,9 @@
   ;; which requires eagerly creating textual i/o ports for each job: expensive both in RAM and CPU.
   ;;
   ;; sanity: ignore attempts to close (current-input-port) (current-output-port) (current-error-port)
-  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-port #f 0 'text)) 'rw #t))
-  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-port #f 1 'text)) 'rw #t))
-  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-port #f 2 'text)) 'rw #t))
+  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-port #f 0 'textual)) 'rw #t))
+  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-port #f 1 'textual)) 'rw #t))
+  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-port #f 2 'textual)) 'rw #t))
 
 
   (let ((bt (sh-builtins))
