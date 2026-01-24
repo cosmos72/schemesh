@@ -214,7 +214,7 @@
         (null? tail))))
 
 
-;; iterate on string-list l, and split each string after each #\nul
+;; iterate on string-list l, and split each string after each #\x0
 ;; return a string-list containing each produced fragment.
 (define (string-list-split-after-nuls l)
   (let ((ret '()))
@@ -224,7 +224,7 @@
     (reverse! ret)))
 
 
-;; split a string after each #\nul.
+;; split a string after each #\x0.
 ;; return as string-list containing each produced fragment.
 (define (string-split-after-nuls str)
   (reverse! (%string-split-after-nuls str '())))
@@ -237,12 +237,12 @@
     (substring str start end)))
 
 
-;; split a string at each #\nul, and cons each splitted fragment onto ret.
+;; split a string at each #\x0, and cons each splitted fragment onto ret.
 ;; return updated ret.
 (define (%string-split-after-nuls str ret)
   (let ((end (string-length str)))
     (let %loop ((start 0) (ret ret))
-      (let ((pos (string-index/char str #\nul start end)))
+      (let ((pos (string-index/char str #\x0 start end)))
         (if pos
           (%loop
             (fx1+ pos)
@@ -308,7 +308,7 @@
           (let ((elem (string-ref str start)))
             (set! start (fx+ start step))
             (values elem #t))
-          (values #\nul #f))))
+          (values #\x0 #f))))
     ((str start end)
       (in-string str start end 1))
     ((str)

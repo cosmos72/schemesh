@@ -76,7 +76,7 @@
 ;; save vline to specified binary output port.
 ;; return #t if successful, otherwise return #f
 (define (vline-save-to-port line port)
-  (put-bytevector port (string->utf8b (string-replace/char! (vline->string line) #\newline #\nul))))
+  (put-bytevector port (string->utf8b (string-replace/char! (vline->string line) #\newline #\x0))))
 
 
 ;; load vhistory from file (vhistory-path hist)

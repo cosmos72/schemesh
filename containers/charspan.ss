@@ -67,10 +67,10 @@
 
 ;; create a charspan containing n characters.
 ;; If char is specified, the charspan is filled with it.
-;; Otherwise it is filled with #\nul i.e. codepoint 0.
+;; Otherwise it is filled with #\x0 i.e. codepoint 0.
 (define make-charspan
   (case-lambda
-    ((n)      (%make-charspan 0 n (make-string n #\nul)))
+    ((n)      (%make-charspan 0 n (make-string n #\x0)))
     ((n char) (%make-charspan 0 n (make-string n char)))))
 
 
@@ -453,7 +453,7 @@
                   (let ((elem (charspan-ref sp start)))
                     (set! start (fx+ start step))
                     (values elem #t))
-                  (values #\nul #f)))))
+                  (values #\x0 #f)))))
         %in-charspan))
     ((sp start end)
       (in-charspan sp start end 1))

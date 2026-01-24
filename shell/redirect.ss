@@ -396,7 +396,7 @@
 
 ;; Start a job and wait for it to exit.
 ;; Reads job's standard output, converts it to UTF-8b string,
-;; splits such string after each #\nul character
+;; splits such string after each #\x0 character
 ;; and returns the list of strings produced by such splitting.
 ;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
@@ -552,7 +552,7 @@
               (if (bytevector? bv0)
                 (let* ((str (utf8b->string bv0))
                        (len (string-length str)))
-                  (when (and (not (fxzero? len)) (char=? #\nul (string-ref str (fx1- len))))
+                  (when (and (not (fxzero? len)) (char=? #\x0 (string-ref str (fx1- len))))
                     (string-truncate! str (fx1- n)))
                   str)))))))))
 

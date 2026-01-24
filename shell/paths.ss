@@ -25,7 +25,7 @@
 
 
 ;; a path is a charspan representing a relative or absolute directory.
-;; It cannot contain #\nul i.e. codepoint 0, because POSIX uses it as path terminator.
+;; It cannot contain #\x0 i.e. codepoint 0, because POSIX uses it as path terminator.
 ;; It is absolute if starts with "/", otherwise it is relative.
 ;; It contains zero or more components, separated by "/"
 ;; Each component can be an arbitrary string, including the empty string, "." or ".."
@@ -64,10 +64,10 @@
       result)))
 
 
-;; return #t if argument is a path i.e. a charspan that does not contain #\nul,
+;; return #t if argument is a path i.e. a charspan that does not contain #\x0,
 ;; otherwise return #f
 (define (sh-path? obj)
-  (and (charspan? obj) (not (charspan-index/char obj #\nul))))
+  (and (charspan? obj) (not (charspan-index/char obj #\x0))))
 
 
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f

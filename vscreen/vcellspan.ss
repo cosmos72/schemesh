@@ -35,7 +35,7 @@
 
 ;; create a vcellspan containing n cells.
 ;; If fill is specified, then vcellspan is filled with it.
-;; Otherwise it is filled with (vcell #\nul).
+;; Otherwise it is filled with (vcell #\x0).
 (define make-vcellspan
   (case-lambda
     ((n)
@@ -344,7 +344,7 @@
                   (let ((elem (vcellspan-ref csp start)))
                     (set! start (fx+ start step))
                     (values elem #t))
-                  (values #\nul #f)))))
+                  (values #\x0 #f)))))
         %in-vcellspan))
     ((csp start end)
       (in-vcellspan csp start end 1))

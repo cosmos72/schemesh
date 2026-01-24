@@ -265,7 +265,7 @@
                   (let ((elem (vline-ref line start)))
                     (set! start (fx+ start step))
                     (values elem #t))
-                  (values #\nul #f)))))
+                  (values #\x0 #f)))))
         %in-vline))
     ((line start end)
       (in-vline line start end 1))

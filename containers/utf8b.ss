@@ -130,7 +130,7 @@
 ;; and return bytevector containing the conversion result.
 (define (string->utf8b/0 str)
   (let* ((len (string-length str))
-         (zeropad-len (if (or (fxzero? len) (not (char=? #\nul (string-ref str (fx1- len)))))
+         (zeropad-len (if (or (fxzero? len) (not (char=? #\x0 (string-ref str (fx1- len)))))
                           1
                           0)))
     (string->utf8b str 0 len zeropad-len)))

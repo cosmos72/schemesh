@@ -69,15 +69,15 @@
 
 
 ;; implementation of "echo0" builtin, writes user-specified arguments to file descriptor 1
-;; separator between arguments is #\nul
-;; terminating character after arguments is #\nul
+;; separator between arguments is #\x0
+;; terminating character after arguments is #\x0
 (define (sh-echo0 . args)
   (let ((wbuf (make-bytespan 0))
         (fd   (sh-fd 1)))
     (do ((tail args (cdr tail)))
         ((null? tail))
       (bytespan-insert-right/string! wbuf (car tail))
-      (bytespan-insert-right/u8! wbuf 0) ; #\nul
+      (bytespan-insert-right/u8! wbuf 0) ; #\x0
       (when (fx>=? (bytespan-length wbuf) 4096)
         (fd-write/bytespan! fd wbuf)))
     (fd-write/bytespan! fd wbuf))
@@ -300,7 +300,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 
 
 ;; the "echo0" builtin: write arguments to (sh-fd 1)
-;; terminating each one with a #\nul
+;; terminating each one with a #\x0
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-echo0 job prog-and-args options)

@@ -640,7 +640,7 @@
 ;; return the number of bytes needed to serialize
 ;; the highest-numbered character in string: either 1, 2 or 3
 (define (bytes-per-char/string s n)
-  (let %again ((i 0) (max-ch #\nul))
+  (let %again ((i 0) (max-ch #\x0))
     (if (and (fx<? i n) (char<=? max-ch #\xFFFF))
       (%again (fx1+ i) (char-max max-ch (string-ref s i)))
       (char-len max-ch))))

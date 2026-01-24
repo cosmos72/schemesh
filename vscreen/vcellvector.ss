@@ -18,7 +18,7 @@
 
 ;; create a vcellvector containing n cells.
 ;; If vcell is specified, then vcellvector is filled with it.
-;; Otherwise it is filled with (vcell #\nul).
+;; Otherwise it is filled with (vcell #\x0).
 (define make-vcellvector
   (case-lambda
     ((n)
@@ -27,7 +27,7 @@
       (unless (vcell? fill)
         (assert* 'make-vcellvector (char? fill)))
       (let ((ret (make-vcellvector n)))
-        (unless (memv fill '(0 #\nul))
+        (unless (memv fill '(0 #\x0))
           (vcellvector-fill! ret 0 n fill))
         ret))))
 

@@ -322,7 +322,7 @@
 
 
 
-;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\nul
+;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\x0
 ;; then run whatever command, builtin or alias is at the first string of the command line.
 ;;
 ;; As all builtins do, must return job status.
@@ -331,7 +331,7 @@
   (if (null? (cdr prog-and-args))
     (write-builtin-error "split-at-0" "too few arguments")
     (let ((args (cons (cadr prog-and-args) ;; copy first argument as-is
-                       ;; split after each #\nul the second and subsequent arguments
+                       ;; split after each #\x0 the second and subsequent arguments
                       (string-list-split-after-nuls (cddr prog-and-args)))))
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 

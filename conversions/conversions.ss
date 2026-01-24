@@ -128,7 +128,7 @@
         ((string? e)     (put-string port e))
         ((eq? (void) e)  #f)
         (else            (display-any e port))))
-    (put-char port #\nul)
+    (put-char port #\x0)
     (get-bytevector)))
 
 ;; convert bytevector to 0-terminated bytevector
@@ -226,7 +226,7 @@
 ;; convert a list of strings, bytevectors, bytespans or charspans to vector-of-bytevector0
 ;; i.e. to a vector of 0-terminated UTF-8b bytevectors
 ;;
-;; Note: throws if a string, bytevector or charspan to be converted contains #\nul
+;; Note: throws if a string, bytevector or charspan to be converted contains #\x0
 (define (list->argv l)
   (let ((argv (list->vector l)))
     (do ((i 0 (fx1+ i)))
@@ -234,7 +234,7 @@
       (vector-set! argv i (text->bytevector0 (validate-c-arg (vector-ref argv i)))))))
 
 
-;; throws if string, bytevector or charspan x contains #\nul
+;; throws if string, bytevector or charspan x contains #\x0
 (define (validate-c-arg x)
   (let ((msg1 "string arguments for C functions must not contain embedded #\\nul\n\tFound: ")
         (msg2 "\n\tConsider using the builtin \"split-at-0\""))
@@ -243,10 +243,10 @@
         (when (bytevector-index x 0)
           (raise-assertf 'list->argv "~a(string->utf8b ~s)~a" msg1 (utf8b->string x) msg2)))
       ((string? x)
-        (when (string-index x #\nul)
+        (when (string-index x #\x0)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       ((charspan? x)
-        (when (charspan-index/char x #\nul)
+        (when (charspan-index/char x #\x0)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       (else
         (raise-assertf 'list->argv "~s is not bytevector, string or charspan" x)))
