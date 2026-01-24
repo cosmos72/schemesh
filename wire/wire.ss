@@ -113,7 +113,7 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (scheme2k bootstrap) assert* fx<=?*)
+    (only (scheme2k bootstrap) assert* bwp-object fx<=?*)
     (scheme2k containers))
 
 

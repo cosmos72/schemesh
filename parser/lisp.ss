@@ -17,7 +17,7 @@
     (rnrs)
     (only (chezscheme)                    append! box bytevector char-name format-condition? fx1+ fx1- fxvector fxvector-set!
                                           gensym include make-fxvector read-token reverse! top-level-value void)
-    (only (scheme2k bootstrap)            assert* catch trace-define try until while)
+    (only (scheme2k bootstrap)            assert* bwp-object catch try until while)
     (scheme2k containers flvector)
     (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
                                           charspan-insert-left/string! charspan-insert-right! charspan->string*!)

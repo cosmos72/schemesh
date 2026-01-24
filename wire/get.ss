@@ -9,8 +9,6 @@
 
 ;; this file should be included only by file wire/wire.ss
 
-(include "wire/bwp.ss")
-
 (define (get/exact-s8 bv pos end)
   ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
   (values (%get/s8 bv pos) (fx1+ pos)))

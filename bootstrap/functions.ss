@@ -15,7 +15,7 @@
 
 (library (scheme2k bootstrap functions (0 9 3))
   (export
-      check-interrupts eval-form fx<=?* nop parameter-swapper
+      bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -29,10 +29,12 @@
       void1 void^)
   (import
     (rnrs)
-    (only (chezscheme) $primitive console-error-port eval format gensym import make-continuation-condition
-                       make-format-condition meta-cond interaction-environment library-exports
-                       string->immutable-string top-level-bound? top-level-value void))
+    (only (chezscheme) $primitive console-error-port eval format gensym import include 
+                       make-continuation-condition make-format-condition meta-cond interaction-environment
+                       library-exports string->immutable-string top-level-bound? top-level-value void))
 
+
+(include "bootstrap/bwp.ss")
 
 ;; immediately check if an event occurred:
 ;; * an interrupt from the keyboard

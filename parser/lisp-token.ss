@@ -288,14 +288,23 @@
         (parsectx-read-char ctx) ; skip #\!
         (let ((value (parsectx-read-directive ctx)))
           (if (symbol? value)
-            (if (eq? 'eof value)
-              ;; yes, #!eof is an allowed directive:
-              ;; it injects (eof-object) in token stream, with type 'eof
-              ;; simulating an actual end-of-file in input port.
-              ;; Reason: traditionally used to disable the rest of a file, to help debugging
-              (values (eof-object) 'eof)
-              ;; cannot switch to other parser here: just return it and let caller switch
-              (values (get-parser ctx value (caller-for flavor)) 'parser))
+            (case value
+              ((bwp)
+                ;; #!bwp is an allowed directive only in #!scheme syntax:
+                ;; it injects (bwp-object) i.e. broken weak pair in token stream, with type 'atomic
+                (unless (eq? 'scheme flavor)
+                  (syntax-errorf ctx (caller-for flavor)
+                    "directive #!~a is not allowed in #!r6rs syntax, requires #!scheme syntax" value))
+                (values (bwp-object) 'atomic))
+              ((eof)
+                ;; #!eof is an allowed directive:
+                ;; it injects (eof-object) in token stream, with type 'eof
+                ;; simulating an actual end-of-file in input port.
+                ;; Reason: traditionally used to disable the rest of a file, to help debugging
+                (values (eof-object) 'eof))
+              (else
+                ;; cannot switch to other parser here: just return it and let caller switch
+                (values (get-parser ctx value (caller-for flavor)) 'parser)))
 
             ;; (parsectx-read-directive) skipped a whole line.
             ;; read again by calling (lex-lisp)
