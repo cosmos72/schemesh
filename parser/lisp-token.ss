@@ -289,19 +289,19 @@
         (let ((value (parsectx-read-directive ctx)))
           (if (symbol? value)
             (case value
-              ((bwp)
-                ;; #!bwp is an allowed directive only in #!scheme syntax:
-                ;; it injects (bwp-object) i.e. broken weak pair in token stream, with type 'atomic
+              ((bwp eof)
+                ;; #!bwp and #!eof are allowed directives only in #!scheme syntax:
+                ;;
+                ;; #!bwp injects (bwp-object) i.e. broken weak pair in token stream, with type 'atomic
+                ;;
+                ;; #!eof injects (eof-object) in token stream, with type 'eof simulating an actual end-of-file in input port.
+                ;; Reason: it is traditionally used to disable the rest of a file, to help debugging.
                 (unless (eq? 'scheme flavor)
                   (syntax-errorf ctx (caller-for flavor)
                     "directive #!~a is not allowed in #!r6rs syntax, requires #!scheme syntax" value))
-                (values (bwp-object) 'atomic))
-              ((eof)
-                ;; #!eof is an allowed directive:
-                ;; it injects (eof-object) in token stream, with type 'eof
-                ;; simulating an actual end-of-file in input port.
-                ;; Reason: traditionally used to disable the rest of a file, to help debugging
-                (values (eof-object) 'eof))
+                (if (eq? 'bwp value)
+                  (values (bwp-object) 'atomic)
+                  (values (eof-object) 'eof)))
               (else
                 ;; cannot switch to other parser here: just return it and let caller switch
                 (values (get-parser ctx value (caller-for flavor)) 'parser)))

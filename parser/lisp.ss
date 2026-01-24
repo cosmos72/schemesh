@@ -251,11 +251,6 @@
 ;; also recognize and return parser directives #!... and return them as a symbol.
 ;; used to build paren objects
 (define (lex-paren-or-directive ctx)
-  ;; yes, #!eof is an allowed directive:
-  ;; it injects (eof-object) in token stream, with type 'eof
-  ;; thus simulating an actual end-of-file in input port.
-  ;; Reason: historically used to disable the rest of a file, to help debugging
-  ;;
   (let ((ret #f))
     (until ret
       (parsectx-skip-whitespace ctx 'also-skip-newlines)
