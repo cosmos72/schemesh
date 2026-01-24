@@ -40,6 +40,8 @@
   (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")
 
+  (include "reflect/reflect.ss")
+
   (include "wire/wire.ss")
 
   (include "posix/fd.ss")
@@ -114,6 +116,7 @@
       (scheme2k io)
       (scheme2k posix)
       (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+      (scheme2k reflect)
       (scheme2k vscreen)
       (scheme2k wire)))
 

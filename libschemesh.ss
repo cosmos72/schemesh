@@ -37,6 +37,8 @@
   (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")
 
+  (include "reflect/reflect.ss")
+
   (include "wire/wire.ss")
 
   (include "posix/fd.ss")

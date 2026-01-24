@@ -50,6 +50,7 @@
     (scheme2k lineedit)
     (scheme2k io)
     (scheme2k posix)
+    (scheme2k reflect)
     (scheme2k vscreen)
     (scheme2k wire)
     (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
@@ -82,6 +83,8 @@
     (when (top-level-bound? 'pid-wait)
       (eval '(import (scheme2k posix)))
       (eval '(import (scheme2k posix replacements))))
+    (when (top-level-bound? 'reflect-field)
+      (eval '(import (scheme2k reflect))))
     (when (top-level-bound? 'sh-persistent-parameters)
       (eval '(import (schemesh shell)))
       (eval '(import (schemesh shell replacements))))
