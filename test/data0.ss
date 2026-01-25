@@ -295,7 +295,13 @@
     (span-delete-right! sp 1) sp)           ,(span a b c)
   (let ((sp (span 'a 'b 'c 'd)))
     (span-index sp 0 999
-      (lambda (elem) (eq? 'c elem))))     2
+      (lambda (elem) (eq? 'c elem))))       2
+  (let ((sp (span)))
+    (span-insert-left/vector!  sp '#(4 5 6))
+    (span-insert-left/vector!  sp '#(0 1 2 3))
+    (span-insert-right/vector! sp '#(7 8 9 10 11 12 13))
+    sp)                                                ,(span 0 1 2 3 4 5 6 7 8 9 10 11 12 13)
+
   ;; --------------------- list -------------------------------------------
   (let ((ret '()))
     (for-list ((elem '(a b c)))

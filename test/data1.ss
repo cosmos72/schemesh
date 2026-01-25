@@ -47,14 +47,6 @@
     (vcellspan-ref-right (vcellspan #\{ #\\)))       #\\
   (vcell->char
     (vcellspan-ref (vcellspan #\x #\y #\z) 2))       #\z
-  #|
-  (vcellspan-count=
-    (string->vcellspan "abcdef") 2
-    (string->vcellspan "1cde34") 1 4)               3
-  (vcellspan=?
-    (string->vcellspan "abcdef") 2
-    (string->vcellspan "1cde34") 1 3)               #t
-  |#
   (let ((sp (vcellspan #\A #\B)))
     (vcellspan-insert-left! sp #\{ #\~) sp)         ,(string->vcellspan "{~AB")
   (let ((sp (vcellspan #\4 #\5 #\6)))
@@ -223,6 +215,25 @@
       (vscreen-resize! screen 9 30)
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen 9 30 "abcdefgh0" "12\n" "qwerty"))
+
+  ;; ---------------------- reflect ---------------------------------------
+  ;; (field-names) and (field) accept record types
+  (field-names (make-vscreen))                         #(left right dirty-start-y dirty-end-y dirty? width height
+                                                         prompt-end-x prompt-end-y cursor-ix cursor-iy)
+  (let ((v (make-vscreen)))
+    (list (field v 'width) (field v 'height)))         (80 24)
+
+  ;; (field-names) and (field) accept plists
+  (field-names '(a 1 b 2 c 3))                         #(a b c)
+  (field       '(a 1 b 2 c 3) 'c)                      3
+
+  ;; (field) and (field) accept hashtables
+  (let ((v (field-names
+             (eq-hashtable 'x 1 '|| 2))))
+    (or (equal? v '#(x ||))
+        (equal? v '#(|| x))))                          #t
+  (field (eq-hashtable 'x 1 'y #\2 'z '(3)) 'z)        (3)
+
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)
   (datum->wire "\xFF;")                                #vu8(3 41 1 255)
@@ -283,6 +294,7 @@
         (string<? (car cell1) (car cell2)))
       (hashtable-cells ht)))                               #(("cd" . -1) ("ef" . -2))
 
+  ;; stress test (wire->datum) on random bytevectors
   (let* ((payload-len 512)
          (message-len (fx+ 4 payload-len))
          (bv (make-bytevector message-len)))

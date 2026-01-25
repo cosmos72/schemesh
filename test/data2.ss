@@ -10,6 +10,9 @@
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
   ;; ------------------------ parser scheme -------------------------------
+  ;; #| ... |# is a block comment
+  #| some invalid code |#
+
   ;; #; comments the next s-expr
   '((foo bar) #; (a b (c)) '(d [ef g] h))              ((foo bar) '(d (ef g) h))
   '(a (b c . d) . e)                                   (a (b c . d) . e)
@@ -462,16 +465,16 @@
                                                                 (sh-cmd "rm"  "DEL_ME"))
   (caddr (expand
     '(shell "echo" "abc" > "DEL_ME" &&
-            "cat" "DEL_ME" && "rm" "DEL_ME")))         ,(sh-and (sh-cmd* "echo" "abc" 1 '> "DEL_ME")
-                                                                (sh-cmd "cat" "DEL_ME")
-                                                                (sh-cmd "rm"  "DEL_ME"))
-  {echo abc > DEL_ME && cat DEL_ME && rm DEL_ME}       ,@"(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\") \
-                                                                (sh-cmd \"cat\" \"DEL_ME\") \
-                                                                (sh-cmd \"rm\" \"DEL_ME\"))"
+            "cat" "DEL_ME" && "rm" "DEL_ME")))        ,(sh-and (sh-cmd* "echo" "abc" 1 '> "DEL_ME")
+                                                               (sh-cmd "cat" "DEL_ME")
+                                                               (sh-cmd "rm"  "DEL_ME"))
+  {echo abc > DEL_ME && cat DEL_ME && rm DEL_ME}    ,@"(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\") \
+                                                               (sh-cmd \"cat\" \"DEL_ME\") \
+                                                               (sh-cmd \"rm\" \"DEL_ME\"))"
 
   (caddr (expand '(shell-expr a (b) c)))               (sh-expr (lambda () a (b) c) "(begin a (b) c)")
   (caddr (expand '$(foo x y z)))                       (sh-expr (lambda () (foo x y z)) "(foo x y z)")
-  $(+ a b c)                                           ,(sh-expr (lambda () (+ a b c)))
+  $(+ a b c)                                          ,(sh-expr (lambda () (+ a b c)))
 
   ;; test issue #20
   (caddr (expand
