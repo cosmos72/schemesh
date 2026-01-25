@@ -110,7 +110,7 @@
 (define (cf32span-length sp)
   (fx- (cf32span-end sp) (cf32span-beg sp)))
 
-;; return maximum number of elements that can be stored in specified cf32span without reallocating 
+;; return maximum number of elements that can be stored in specified cf32span without reallocating
 (define (cf32span-capacity sp)
   (cf32pos (bytevector-length (cf32span-vec sp))))
 

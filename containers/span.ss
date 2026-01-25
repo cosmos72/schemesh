@@ -18,6 +18,7 @@
     span-ref span-ref-right span-set! span-fill! subspan/shared span-copy span-copy!
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
+    span-insert-left/vector! span-insert-right/vector!
     span-delete-left! span-delete-right! span-index span-index-right
     for-span in-span span-iterate span-iterate-any
     span-peek-beg span-peek-end span-peek-data)
@@ -248,7 +249,7 @@
 (define span-insert-left/span!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert*     'span-insert-left/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
+      (assert*       'span-insert-left/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
@@ -266,7 +267,7 @@
 (define span-insert-right/span!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert*     'span-insert-right/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
+      (assert*       'span-insert-right/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
@@ -278,6 +279,46 @@
           (span-copy! sp-src src-start sp-dst pos src-n))))
     ((sp-dst sp-src)
       (span-insert-right/span! sp-dst sp-src 0 (span-length sp-src)))))
+
+
+;; prefix range [start, end) of a vector into this span
+(define span-insert-left/vector!
+  (case-lambda
+    ((sp vec start end)
+      (assert*       'span-insert-left/vector! (span? sp))
+      (assert*       'span-insert-left/vector! (fx<=?* 0 start end (vector-length vec)))
+      (when (fx<? start end)
+        ;; check for (not (eq? dst vec)) only if vec is non-empty,
+        ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-left/vector! (eq? (span-peek-data sp) vec))
+        (let ((len (span-length sp))
+              (n   (fx- end start)))
+          (span-resize-left! sp (fx+ len n))
+          (vector-copy! vec start
+                        (span-peek-data sp) (span-peek-beg sp)
+                        n))))
+    ((sp vec)
+      (span-insert-left/vector! sp vec 0 (vector-length vec)))))
+
+
+;; append a portion of a vector to this span
+(define span-insert-right/vector!
+  (case-lambda
+    ((sp vec start end)
+      (assert*       'span-insert-right/vector! (span? sp))
+      (assert*       'span-insert-right/vector! (fx<=?* 0 start end (vector-length vec)))
+      (when (fx<? start end)
+        ;; check for (not (eq? dst vec)) only if vec is non-empty,
+        ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-right/vector! (eq? (span-peek-data sp) vec))
+        (let ((pos   (span-length sp))
+              (n     (fx- end start)))
+          (span-resize-right! sp (fx+ pos n))
+          (vector-copy! vec start
+                        (span-peek-data sp) (fx- (span-end sp) n)
+                        n))))
+    ((sp vec)
+      (span-insert-right/vector! sp vec 0 (vector-length vec)))))
 
 
 ;; erase n elements at the left (front) of span

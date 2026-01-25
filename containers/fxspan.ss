@@ -95,7 +95,7 @@
 (define (fxspan-length sp)
   (fx- (fxspan-end sp) (fxspan-beg sp)))
 
-;; return maximum number of elements that can be stored in specified fxspan without reallocating 
+;; return maximum number of elements that can be stored in specified fxspan without reallocating
 (define (fxspan-capacity sp)
   (fxvector-length (fxspan-vec sp)))
 

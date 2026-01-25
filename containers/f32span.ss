@@ -106,7 +106,7 @@
 (define (f32span-length sp)
   (fx- (f32span-end sp) (f32span-beg sp)))
 
-;; return maximum number of elements that can be stored in specified f32span without reallocating 
+;; return maximum number of elements that can be stored in specified f32span without reallocating
 (define (f32span-capacity sp)
   (f32pos (bytevector-length (f32span-vec sp))))
 

@@ -114,7 +114,7 @@
                              (lambda (str start n)
                                (tport-read-some tport1 str start n))))
             (write-proc (and tport2
-                             (lambda (str start n) 
+                             (lambda (str start n)
                                (let ((written (tport-write tport2 str start n)))
                                  (tport-flush tport2)
                                  written))))
@@ -191,7 +191,7 @@
 ;; create and return a textual input port that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
 (define (make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
-  (%set-textual-buffer-size! 
+  (%set-textual-buffer-size!
     (%make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
     input-buffer-size
     output-buffer-size))
