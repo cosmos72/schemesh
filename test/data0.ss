@@ -37,7 +37,7 @@
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
 
-  ;; ----------------- containers/bytevector ------------------------------------
+  ;; ----------------- containers bytevector ------------------------------------
   (subvector '#(aa bb cc dd) 1 3)                  #(bb cc)
   (subbytevector #vu8(44 55 66 77) 2 3)            #vu8(66)
   (bytevector-compare #vu8(44 55) #vu8(44 55))     0
@@ -110,7 +110,7 @@
         (assert* 'test-bytevector-sint-h (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n))))))    #t
 
 
-  ;; ----------------- containers/string ------------------------------------
+  ;; ----------------- containers string ------------------------------------
   (string-replace-all "abcdbacdabcd" "ab" "0")     "0cdbacd0cd"
   (string-split "" #\:)                            ("")
   (string-split ":" #\:)                           ("" "")
@@ -131,11 +131,11 @@
       (unless (throws? (integer->char* i))
         (error 'integer->char* "should throw" i)))) #t
   (substring<? "abcdef" 1 5 "_abxyef" 2 4)       #t
-  ;; ----------------- containers/sort ------------------------------------
+  ;; ----------------- containers sort ------------------------------------
   (let ((v (vector 9 8 7 6 5 4 3 2 1 0)))
     (subvector-sort! fx<? v 1 9)
     v)                                              #(9 1 2 3 4 5 6 7 8 0)
-  ;; ----------------- bytevector/utf8 ------------------------------------
+  ;; ----------------- bytevector utf8 ------------------------------------
   (values->list (bytevector-char-ref #vu8()))               (#t      0)   ; incomplete UTF-8
   (values->list (bytevector-char-ref #vu8(1)))              (#\x01   1)
   (values->list (bytevector-char-ref #vu8(33)))             (#\!     1)
@@ -320,6 +320,7 @@
   (let ((i (in-alist '((1 . a) (2 . b) (3 . c) (4 . d)))))
     (let*-values ((a (i)) (b (i)) (c (i)) (d (i)) (e (i)))
       (list a b c d e)))                               ((1 a #t) (2 b #t) (3 c #t) (4 d #t) (#f #f #f))
+
   ;; ------------------------ hashtable -----------------------------------
   (vector-sort
     (lambda (cell1 cell2) (< (car cell1) (car cell2)))
@@ -352,7 +353,13 @@
           (format #f "~a"
             (hashtable equal-hash equal? 1 'a 2 'b))))
     (or (string=? str "(hashtable equal-hash equal? 1 a 2 b)")
-        (string=? str "(hashtable equal-hash equal? 2 b 1 a)")))        #t
+        (string=? str "(hashtable equal-hash equal? 2 b 1 a)")))
+                                                       #t
+
+  ;; ---------------------------- vector ---------------------------------------
+  (vector-every (lambda (e) e) '#(1 2 3))              3
+  (vector-every fx+ '#(1 2 3 4) '#(7 8 9))             12
+  (vector-every fx<? '#(1 2 3) '#(2 3) '#(2))          #f
 
 ) #!eof
 

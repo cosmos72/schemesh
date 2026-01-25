@@ -9,8 +9,8 @@
 
 (library (scheme2k containers vector (0 9 3))
   (export
-    for-vector in-vector vector-any vector-copy!
-    subvector subvector-fill!
+    for-vector in-vector subvector subvector-fill!
+    vector-any vector-copy! vector-every
     vector-index vector-iterate vector->hashtable! subvector->list)
   (import
     (rnrs)
@@ -28,6 +28,8 @@
 
 ;; copy a portion of vector src into dst.
 ;; works even if src are the same vector and the two ranges overlap.
+;;
+;; NOTE: arguments order is different from SRFI 43 function with the same name
 (define (vector-copy! src src-start dst dst-start n)
   (if (and (eq? src dst) (fx<? src-start dst-start))
     ; copy backward
@@ -141,6 +143,8 @@
 ;;
 ;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
+;;
+;; Conforms to SRFI 43 Vector Library
 (define vector-any
   (case-lambda
     ((proc vec)
@@ -180,6 +184,63 @@
 
 
 ;; apply proc element-wise to the elements of the vectors,
+;; stop at the first #f value returned by (proc elem ...) and return #f.
+;;
+;; If all calls to (proc elem ...) return truish, then return the last of such values.
+;;
+;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
+;; Proc must accept as many elements as there are lists, and must return a single value.
+;;
+;; Conforms to SRFI 43 Vector Library
+(define vector-every
+  (case-lambda
+    ((proc vec)
+      (let %vector-every ((i 0) (n (vector-length vec)) (proc proc) (vec vec) (lastval #t))
+        (if (fx>=? i n)
+          lastval
+          (let ((val (proc (vector-ref vec i))))
+            (if val
+              (%vector-every (fx1+ i) n proc vec val)
+              #f)))))
+    ((proc vec1 vec2)
+      (let %vector-every ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2)))
+                          (proc proc) (vec1 vec1) (vec2 vec2) (lastval #t))
+        (if (fx>=? i n)
+          lastval
+          (let ((val (proc (vector-ref vec1 i) (vector-ref vec2 i))))
+            (if val
+              (%vector-every (fx1+ i) n proc vec1 vec2 val)
+              #f)))))
+    ((proc vec1 vec2 vec3)
+      (let %vector-every ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3)))
+                          (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3) (lastval #t))
+        (if (fx>=? i n)
+          lastval
+          (let ((val (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i))))
+            (if val
+              (%vector-every (fx1+ i) n proc vec1 vec2 vec3 val)
+              #f)))))
+    ((proc vec1 vec2 vec3 vec4)
+      (let %vector-every ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3) (vector-length vec4)))
+                                (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3) (vec4 vec4) (lastval #t))
+        (if (fx>=? i n)
+          lastval
+          (let ((val (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i) (vector-ref vec4 i))))
+            (if val
+              (%vector-every (fx1+ i) n proc vec1 vec2 vec3 vec4 val)
+              #f)))))
+    ((proc vec1 . vecs)
+      (let %vector-every ((i 0) (n (apply fxmin (map vector-length (cons vec1 vecs))))
+                          (proc proc) (vecs (cons vec1 vecs)) (lastval #t))
+        (if (fx>=? i n)
+          lastval
+          (let ((val (%apply-proc proc i vecs)))
+            (if val
+              (%vector-every (fx1+ i) n proc vecs val)
+              #f)))))))
+
+
+;; apply proc element-wise to the elements of the vectors,
 ;; stop at the first truish value returned by (proc elem ...) and return the index of such elements.
 ;;
 ;; If all calls to (proc elem ...) return #f, then return #f.
@@ -189,6 +250,8 @@
 ;;
 ;; Extension: if only one vector is specified and proc is not a procedure,
 ;; search for first element eqv? to proc.
+;;
+;; Conforms to SRFI 43 Vector Library
 (define vector-index
   (case-lambda
     ((proc vec)
@@ -237,7 +300,7 @@
 
 
 ;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,
-;; which must be cons cells, and inserts them into hashtable htable:
+;; which must be cons cells, and inserts them into caller-provided hashtable htable:
 ;; (car cell) is used as key, and (cdr cell) is used ad value.
 ;
 ;; Returns htable.

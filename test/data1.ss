@@ -227,11 +227,9 @@
   (field-names '(a 1 b 2 c 3))                         #(a b c)
   (field       '(a 1 b 2 c 3) 'c)                      3
 
-  ;; (field) and (field) accept hashtables
-  (let ((v (field-names
-             (eq-hashtable 'x 1 '|| 2))))
-    (or (equal? v '#(x ||))
-        (equal? v '#(|| x))))                          #t
+  ;; (field-names) and (field) accept hashtables
+  ;; (field-names) sorts the returned hashtable keys if they all are symbols
+  (field-names (eq-hashtable 'x 1 '|| 2))              #(|| x)
   (field (eq-hashtable 'x 1 'y #\2 'z '(3)) 'z)        (3)
 
   ;; ------------------------ wire ----------------------------------------

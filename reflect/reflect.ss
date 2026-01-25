@@ -14,9 +14,10 @@
   (export field field-names)
   (import
     (rnrs)
-    (only (chezscheme)                fx1+ fx/ void)
-    (only (scheme2k containers list)  plist? plist-ref)
-    (only (scheme2k containers span)  span span-insert-left/vector! span->vector))
+    (only (chezscheme)                 fx1+ fx/ void)
+    (only (scheme2k containers list)   plist? plist-ref)
+    (only (scheme2k containers span)   span span-insert-left/vector! span->vector)
+    (only (scheme2k containers vector) vector-every))
 
 
 ;; find first element in vector that is eq? to key,
@@ -134,7 +135,10 @@
   (cond
     ;; in Chez Scheme hashtable is a record => must checked for (hashtable?) before (record?)
     ((hashtable? obj)
-      (hashtable-keys obj))
+      (let ((v (hashtable-keys obj)))
+        (when (vector-every symbol? v)
+          (vector-sort! (lambda (sym1 sym2) (string<? (symbol->string sym1) (symbol->string sym2))) v))
+        v))
     ((record? obj)
       (let %loop-record-field-names ((sp (span)) (rtd (record-rtd obj)))
         (if rtd
