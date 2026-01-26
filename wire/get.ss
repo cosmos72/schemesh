@@ -398,8 +398,8 @@
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
 ;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
-(define (wire-get bv start end)
-  (assert* 'wire-get (fx<=?* 0 start end (bytevector-length bv)))
+(define (wire-get-from-bytevector bv start end)
+  (assert* 'wire-get-from-bytevector (fx<=?* 0 start end (bytevector-length bv)))
   (let-values (((len pos) (get/vlen bv start end)))
     (cond
       ((and len pos)
@@ -439,16 +439,16 @@
   (case-lambda
     ((src)
       (if (bytevector? src)
-        (wire-get src 0 (bytevector-length src))
-        (wire-get (bytespan-peek-data src) (bytespan-peek-beg src) (bytespan-peek-end src))))
+        (wire-get-from-bytevector src 0 (bytevector-length src))
+        (wire-get-from-bytevector (bytespan-peek-data src) (bytespan-peek-beg src) (bytespan-peek-end src))))
     ((src start end)
       (if (bytevector? src)
         (let ((len (bytevector-length src)))
           (assert* 'wire->datum (fx<=?* 0 start end len))
-          (wire-get src start end))
+          (wire-get-from-bytevector src start end))
         (begin
           (assert* 'wire->datum (bytespan? src))
           (let ((len (bytevector-length src))
                 (offset (bytespan-peek-beg src)))
             (assert* 'wire->datum (fx<=?* 0 start end len))
-            (wire-get (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))))))))
+            (wire-get-from-bytevector (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))))))))

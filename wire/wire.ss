@@ -82,14 +82,14 @@
 ;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;;      54     UNUSED
 ;;       55 ... 88  => datum is a known symbol
-;;;      89 ... 241 => datum is a user-registered record type
-;;;     242 ... 253 => datum is a pre-registered record type
+;;;      89 ... 240 => datum is a user-registered record type
+;;;     241 ... 253 => datum is a pre-registered record type
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
 
 
 (library (scheme2k wire (0 9 3))
-  (export datum->wire wire->datum datum->wire-length wire-get wire-put
+  (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-put-to-bytevector
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           (rename (len/any wire-inner-len)
@@ -102,7 +102,8 @@
                        bytevector-ieee-double-ref bytevector-ieee-double-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ cflonum? current-time enum-set? fl-make-rectangular
+                       cfl= cfl+ cflonum? current-time date-year date-month date-day date-hour date-minute
+                       date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
                        fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
                        include integer-length logbit? make-fxvector make-time meta-cond
                        reverse! procedure-arity-mask
@@ -319,6 +320,13 @@
 (define (%get/s32 bv pos) (bytevector-s32-ref bv pos endian))
 ;; read 4 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
 (define (%get/u32 bv pos) (bytevector-u32-ref bv pos endian))
+
+
+(define (get/u8 bv pos end)
+  (if (and (fixnum? pos) (fx<? pos end))
+    (values (%get/u8 bv pos) (fx1+ pos))
+    (values #f #f)))
+
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
 ;; raise exception on errors.
@@ -845,7 +853,7 @@
 
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
 ;; return number of written bytes, or #f on errors.
-(define wire-put
+(define wire-put-to-bytevector
   (case-lambda
     ((bsp obj message-wire-len)
       (assert* 'wire-put (bytespan? bsp))
@@ -867,13 +875,13 @@
               message-wire-len))
           #f)))
     ((bsp obj)
-      (wire-put bsp obj (datum->wire-length obj)))))
+      (wire-put-to-bytevector bsp obj (datum->wire-length obj)))))
 
 ;; recursively traverse obj, serialize it and return bytevector containing serialized bytes,
 ;; or #f on errors
 (define (datum->wire obj)
   (let ((bsp (bytespan)))
-    (if (wire-put bsp obj)
+    (if (wire-put-to-bytevector bsp obj)
       (bytespan->bytevector*! bsp)
       #f)))
 
@@ -882,11 +890,12 @@
 (include "wire/misc.ss")
 
 (begin
-  (wire-register-rtd (record-rtd (duration 0 0)) tag-time          len/time        get/time          put/time)
-  (wire-register-rtd (record-rtd (span))         tag-span          len/span        get/span          put/span)
-  (wire-register-rtd (record-rtd (gbuffer))      tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
-  (wire-register-rtd (record-rtd (bytespan))     tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
-  (wire-register-rtd (record-rtd (charspan))     tag-charspan24    len/charspan    get/charspan24    put/charspan)
+  (wire-register-rtd (record-rtd (duration 0 0))     tag-time         len/time       get/time         put/time)
+  (wire-register-rtd (record-rtd (date 1970 1 1 +0)) tag-date         len/date       get/date         put/date)
+  (wire-register-rtd (record-rtd (span))             tag-span         len/span       get/span         put/span)
+  (wire-register-rtd (record-rtd (gbuffer))          tag-gbuffer      len/gbuffer    get/gbuffer      put/gbuffer)
+  (wire-register-rtd (record-rtd (bytespan))         tag-bytespan     len/bytespan   get/bytespan     put/bytespan)
+  (wire-register-rtd (record-rtd (charspan))         tag-charspan24   len/charspan   get/charspan24   put/charspan)
 
   (vector-set! known-tag tag-charspan8     get/charspan8)
   (vector-set! known-tag tag-charspan16    get/charspan16)

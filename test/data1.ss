@@ -246,7 +246,9 @@
   (datum->wire
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(22 39 6 31 97 31 255 32 255 255 33 255 255 16 41 3 98 99 100 44 2 15 1)
   (datum->wire
-    (make-time 'time-utc 999999999 #x80000000))        #vu8(14 242 88 19 255 201 154 59 20 5 0 0 0 128 0)
+    (date 1901 12 31  23 59 59 999999999 +3600))       #vu8(17 241 17 109 7 12 31 23 59 59 19 255 201 154 59 17 16 14)
+  (datum->wire
+    (make-time-utc #x80000000 999999999))              #vu8(14 242 88 20 5 0 0 0 128 0 19 255 201 154 59)
   (datum->wire
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (datum->wire
@@ -265,8 +267,10 @@
   (values->list (wire->datum  #vu8(3 248 1 64)))       ,((string->charspan* "@") 4)
   (values->list (wire->datum  #vu8(4 249 1 65 0)))     ,((string->charspan* "A") 5)
   (values->list (wire->datum  #vu8(5 250 1 66 0 0)))   ,((string->charspan* "B") 6)
-  (values->list (wire->datum  #vu8(14 242 88 19
-      255 201 154 59 20 5 255 255 255 255 0)))         ,((make-time-utc 4294967295 999999999) 15)
+  (values->list (wire->datum  #vu8(17 241 17 109 7
+      12 31 23 59 59 19 255 201 154 59 17 16 14)))     ,@"((date 1901 12 31  23 59 59  999999999 +3600) 18)"
+  (values->list (wire->datum  #vu8(14 242 88 20
+      5 255 255 255 255 0 19 255 201 154 59)))         ,((make-time-utc 4294967295 999999999) 15)
 
   (datum->wire (vector
     (bitwise-arithmetic-shift 1 64)

@@ -135,7 +135,7 @@
 (define (channel-put c datum)
   (let* ((out          (channel-out c))
          (wbuf         (channel-wbuf c))
-         (serialized-n (and out wbuf (wire-put wbuf datum))))
+         (serialized-n (and out wbuf (wire-put-to-bytevector wbuf datum))))
     (if serialized-n
       (begin
         (%out-write-all out wbuf)
@@ -174,9 +174,10 @@
 
 ;; implementation of (channel-get)
 (define (%channel-get c in rbuf)
-  (let-values (((datum pos) (wire-get (bytespan-peek-data rbuf)
-                                      (bytespan-peek-beg  rbuf)
-                                      (bytespan-peek-end  rbuf))))
+  (let-values (((datum pos) (wire-get-from-bytevector
+                              (bytespan-peek-data rbuf)
+                              (bytespan-peek-beg  rbuf)
+                              (bytespan-peek-end  rbuf))))
     (cond
       ((not (fixnum? pos))
         (raise-errorf 'channel-get "failed parsing wire-serialized data read from ~s ~s" in))
