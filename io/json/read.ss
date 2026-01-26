@@ -231,12 +231,12 @@
   (let ((b (get-u8 p)))
     (cond
       ((not (fixnum? b)) (eof-object))
-      ((fx=? b 123) #\{)
-      ((fx=? b 125) #\})
+      ((fx=? b 44)  #\,)
+      ((fx=? b 58)  #\:)
       ((fx=? b 91)  #\[)
       ((fx=? b 93)  #\])
-      ((fx=? b 58)  #\:)
-      ((fx=? b 44)  #\,)
+      ((fx=? b 123) #\{)
+      ((fx=? b 125) #\})
       ((fx=? b 34)
         (when buf
           (bytespan-clear! buf))
@@ -245,11 +245,11 @@
         (when buf
           (bytespan-clear! buf))
         (parse-number p buf b))
-      ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)    ; true
-      ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false
-      ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; nil
+      ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false -> #f
+      ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; null  -> '()
+      ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)    ; true  -> #t
       (else
-        (raise-json "unexpected byte")))))
+        (raise-json "unexpected byte ~s" b)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Validating parser
@@ -279,6 +279,9 @@
   (assert* 'make-json-reader (input-port? p))
   (%make-json-reader p (bytespan $top) (bytespan) #f))
 
+
+(define (json-reader-depth r)
+  (fx1- (bytespan-length (json-reader-stack r))))
 
 (define (push r state)
   (bytes-append! (json-reader-stack r) state))
@@ -317,12 +320,12 @@
       (change r $done)
       (accept-value-start r tok))
     (else
-      (raise-json "invalid json top-level token" tok))))
+      (raise-json "invalid json top-level token ~s" tok))))
 
 
 (define (validate-done r tok)
   (unless (eof-object? tok)
-    (raise-json "trailing data after top-level value" tok)))
+    (raise-json "trailing token ~s after top-level value" tok)))
 
 
 (define (validate-array-expect-value r tok)
@@ -408,10 +411,62 @@
       tok)))
 
 
+;; read and return next token, which can be one of:
+;;   #!eof   i.e. the (eof-object)
+;;   '()     i.e. null
+;;   #t      i.e. true
+;;   #f      i.e. false
+;;   an exact or inexact real number
+;;   a string
+;;   a character among:
+;;     #\{   i.e. left  brace
+;;     #\}   i.e. right brace
+;;     #\[   i.e. left  bracket
+;;     #\]   i.e. right bracket
+;;     #\,   i.e. comma
+;;     #\:   i.e. colon
 (define (json-read-token r)
   (json-read-token* r (json-reader-buffer r)))
 
 
+;; skip next token and return its kind, which can be one of:
+;;   #!eof   i.e. the (eof-object)
+;;   '()     i.e. null
+;;   #t      i.e. true
+;;   #f      i.e. false
+;;   0       i.e. a number was skipped
+;;   ""      i.e. a string was skipped
+;;   a character among:
+;;     #\{   i.e. left  brace
+;;     #\}   i.e. right brace
+;;     #\[   i.e. left  bracket
+;;     #\]   i.e. right bracket
+;;     #\,   i.e. comma
+;;     #\:   i.e. colon
 (define (json-skip-token r)
   (json-read-token* r #f))
 
+
+;; skip next value and return its kind, which can be one of:
+;;   #!eof   i.e. the (eof-object)
+;;   '()     i.e. null
+;;   #t      i.e. true
+;;   #f      i.e. false
+;;   0       i.e. a number was skipped
+;;   ""      i.e. a string was skipped
+;;   'array  i.e. an array [ ... ] was skipped
+;;   'object i.e. an object { ... } was skipped
+;;   a character among:
+;;     #\}   i.e. right brace
+;;     #\]   i.e. right bracket
+;;     #\,   i.e. comma
+;;     #\:   i.e. colon
+(define (json-skip-value r)
+  (let ((tok0 (json-skip-token r)))
+    (if (or (eqv? tok0 #\[) (eqv? tok0 #\{))
+      (let %skip-value ((r r) (depth0 (json-reader-depth r)))
+        (let ((tok (json-skip-token r)))
+          (if (or (eof-object? tok) (fx<? (json-reader-depth r) depth0))
+            (if (eqv? tok0 #\[) 'array 'object)
+            (%skip-value r depth0))))
+      tok0)))

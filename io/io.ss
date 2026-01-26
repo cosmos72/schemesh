@@ -12,7 +12,8 @@
 ;;;
 (library (scheme2k io (0 9 3))
   (export ;; json/read.ss
-          json-read-token json-skip-token json-write-token make-json-reader
+          json-reader json-reader-depth json-read-token json-skip-token json-skip-value
+          json-write-token make-json-reader
 
           ;; http.ss
           http-init http-open http-error-string http-read http-close http->port http-url->port

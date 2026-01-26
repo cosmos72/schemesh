@@ -8,7 +8,8 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export json-reader json-read-token json-skip-token json-write-token make-json-reader)
+  (export json-reader json-reader-depth json-read-token json-skip-token json-skip-value
+          json-write-token make-json-reader)
   (import
     (rename (rnrs)                         (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                     fx1+ fx1- include record-writer void)
