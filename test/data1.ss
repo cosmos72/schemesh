@@ -266,7 +266,7 @@
   (values->list (wire->datum  #vu8(4 249 1 65 0)))     ,((string->charspan* "A") 5)
   (values->list (wire->datum  #vu8(5 250 1 66 0 0)))   ,((string->charspan* "B") 6)
   (values->list (wire->datum  #vu8(14 242 88 19
-      255 201 154 59 20 5 255 255 255 255 0)))         ,@"(#<time-utc 4294967295.999999999> 15)"
+      255 201 154 59 20 5 255 255 255 255 0)))         ,((make-time-utc 4294967295 999999999) 15)
 
   (datum->wire (vector
     (bitwise-arithmetic-shift 1 64)

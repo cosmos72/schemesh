@@ -1,5 +1,28 @@
 ## RECENT CHANGES
 
+### TO DO
+
+* add type `json-object` ? Maybe use a more general name? It would be an eq-hashtable that remembers keys insertion order
+  and extend `json` library with new function `(json-read-object)` that returns a `json-object` ?
+  In alternative, `(json-read-object)` could accept an argument for choosing whether it returns a plist or an eq-hashtable.
+* add function `(json-skip-value)`
+
+* extend `reflect` library with new functions `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
+  that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
+
+* extend `wire` library to support `date` (and `json-object` if it gets defined)
+* rename functions `(wire-get)` -> `(wire-read/bytevector)` and `(wire-put)` -> `(wire-write/bytevector)`
+* add functions `(wire-read)` and `(wire-write)` that read/write from binary input ports
+
+* remove function `(parsectx-unread-char)` and update functions that use it
+
+### git main branch
+
+* add type `json-reader` and its functions `(json-read-token)` `(json-skip-token)` `(json-write-token)` `(make-json-reader)`
+  in new library `(scheme2k io json)`
+* add functions `(field)` `(field-names)` in new library `(scheme2k reflect)`
+* pretty-print types `time` and `date` and add convenience functions to create them
+
 ### release v0.9.3, 2025-12-26
 
 * change license GPLv2+ -> LGPLv2+ in all sources except `parser/*` `shell/*` `repl/*` `main.c` `test/*`

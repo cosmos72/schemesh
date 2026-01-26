@@ -186,9 +186,10 @@
 ;; (define tag-...        54) UNUSED
 
 (define min-tag-to-allocate   89)
-(define next-tag-to-allocate 241)
+(define next-tag-to-allocate 240)
 (define max-tag-to-allocate  253)
 
+(define tag-date          241)
 (define tag-time          242)
 (define tag-status        243) ; implemented in posix/wire-status.ss
 (define tag-span          244) ; n encoded as vlen, followed by n elements each encoded as tag+datum
@@ -881,7 +882,7 @@
 (include "wire/misc.ss")
 
 (begin
-  (wire-register-rtd (record-rtd (current-time)) tag-time          len/time        get/time          put/time)
+  (wire-register-rtd (record-rtd (duration 0 0)) tag-time          len/time        get/time          put/time)
   (wire-register-rtd (record-rtd (span))         tag-span          len/span        get/span          put/span)
   (wire-register-rtd (record-rtd (gbuffer))      tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
   (wire-register-rtd (record-rtd (bytespan))     tag-bytespan      len/bytespan    get/bytespan      put/bytespan)

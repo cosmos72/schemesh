@@ -16,9 +16,11 @@
   (include "containers/bytevector.ss")
   (include "containers/flvector.ss")
   (include "containers/fxvector.ss")
+  (include "containers/date.ss")
   (include "containers/in.ss")
   (include "containers/list.ss")
   (include "containers/string.ss")
+  (include "containers/time.ss")
   (include "containers/vector.ss")
   (include "containers/hashtable.ss")   ; requires containers/list.ss  containers/string.ss  containers/vector.ss
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss

@@ -332,8 +332,9 @@
               (library-exports library-name)))))
     (lambda (stx)
       (syntax-case stx (import)
-        ((k name (import . imported-library-names))
+        ((k name (import . imported-library-names) body ...)
           (let ((export-list (apply append (map library-exports-with-excepts (datum imported-library-names)))))
             #`(library name
-              (export . #,(datum->syntax (syntax k) export-list))
-              (import . imported-library-names))))))))
+                (export . #,(datum->syntax (syntax k) export-list))
+                (import . imported-library-names)
+                body ...)))))))
