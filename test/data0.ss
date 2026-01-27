@@ -371,6 +371,11 @@
     (ordered-hash-entries
       (ordered-hash string-hash string=?
         "a" 1 "B" 2 "+" 3)))                           (#("a" "B" "+") #(1 2 3))
+
+  (ordered-hash-copy
+    (plist->ordered-hash symbol-hash symbol=?
+      '(foo 1 bar 2 baz 3)))                          ,(ordered-hash symbol-hash symbol=? foo 1 bar 2 baz 3)
+
   (let ((ret '()))
     (for-ordered-hash-cells
         ((cell (alist->eqv-ordered-hash
