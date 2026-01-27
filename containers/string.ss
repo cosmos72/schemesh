@@ -18,13 +18,15 @@
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
     string-split string-split-after-nuls string-suffix? string-suffix/char?
     string-trim-split-at-blanks
-    substring=? substring<? substring-move!)
+    substring=? substring<? substring-move!
+
+    display-procedure-name)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! void)
-    (only (scheme2k bootstrap) assert* fx<=?* while)
+    (only (chezscheme)               format fx1+ fx1- reverse! string-copy! string-truncate! void)
+    (only (scheme2k bootstrap)       assert* fx<=?* while)
     (only (scheme2k containers list) for-list list-copy*))
 
 
@@ -725,5 +727,18 @@
       (string-copy! new-suffix 0 dst head-len new-len)
       dst)
     str))
+
+
+;; try to extract and display name of a procedure object
+(define (display-procedure-name proc out)
+  (if (procedure? proc)
+    (let* ((str (format #f "~a" proc))
+           (len (string-length str)))
+      (if (and (fx>? len 13)
+               (string-prefix? str "#<procedure ")
+               (string-suffix? str ">"))
+        (display (substring str 12 (fx1- len)) out)
+        (display proc out)))
+    (display proc out)))
 
 ) ; close library

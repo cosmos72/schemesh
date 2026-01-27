@@ -23,6 +23,7 @@
   (include "containers/time.ss")
   (include "containers/vector.ss")
   (include "containers/hashtable.ss")   ; requires containers/list.ss  containers/string.ss  containers/vector.ss
+  (include "containers/ordered-hash.ss")
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/cf32span.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/f32span.ss")     ; requires containers/bytevector.ss containers/list.ss
