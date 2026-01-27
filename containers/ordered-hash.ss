@@ -20,6 +20,7 @@
      ordered-hash-for-each ordered-hash-cells ordered-hash-keys ordered-hash-values ordered-hash-entries
 
      for-ordered-hash for-ordered-hash-cells for-ordered-hash-keys for-ordered-hash-values
+     in-ordered-hash  in-ordered-hash-cells  in-ordered-hash-keys  in-ordered-hash-values
 
      ordered-hash-iterator (rename (iterator ordered-hash-iterator?))
      ordered-hash-iterator-cell ordered-hash-iterator-next!) 
@@ -318,6 +319,72 @@
       #f)))
 
 
+
+;; create and return a closure that iterates on elements of hashtable t.
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
+(define (in-ordered-hash ohtable)
+  (let ((node (ord-hash-head ohtable)))
+    (lambda ()
+      (if node
+        (let ((cell (node-cell node)))
+          (set! node (node-next node))
+          (values (car cell) (cdr cell) #t))
+        (values #f #f #f)))))
+
+
+;; create and return a closure that iterates on each pair containing (key . value) of ohtable.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values pair #t) i.e. the next pair containing (key . value) in hashtable and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+;;
+;; Assigning the (cdr) of a pair propagates to the hashtable,
+;; i.e. changes the value associated to key in hashtable.
+;;
+;; Do NOT modify the (car) of any pair!
+(define (in-ordered-hash-cells ohtable)
+  (let ((node (ord-hash-head ohtable)))
+     (lambda ()
+      (if node
+        (let ((cell (node-cell node)))
+          (set! node (node-next node))
+          (values cell #t))
+        (values #f #f)))))
+
+
+;; create and return a closure that iterates on keys of ordered-hash.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values key #t) i.e. the next key in hashtable and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+(define (in-ordered-hash-keys ohtable)
+  (let ((node (ord-hash-head ohtable)))
+     (lambda ()
+      (if node
+        (let ((cell (node-cell node)))
+          (set! node (node-next node))
+          (values (car cell) #t))
+        (values #f #f)))))
+
+
+;; create and return a closure that iterates on values of hashtable t.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values key #t) i.e. the next key in hashtable t and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+(define (in-ordered-hash-values ohtable)
+  (let ((node (ord-hash-head ohtable)))
+     (lambda ()
+      (if node
+        (let ((cell (node-cell node)))
+          (set! node (node-next node))
+          (values (cdr cell) #t))
+        (values #f #f)))))
+         
+
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
@@ -353,9 +420,9 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((cell htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (ordered-hash-iterator htable)) ...)
+      ((_ ((cell ohtable) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
               (let %for-hash-cells ((cell (ordered-hash-iterator-next! iter)) ...)
                 (when (and cell ...)
                   (with-while-until
@@ -371,10 +438,10 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((key htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (ordered-hash-iterator htable)) ...)
+      ((_ ((key ohtable) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
               (let %for-hash-keys ((cell (ordered-hash-iterator-next! iter)) ...)
                 (when (and cell ...)
                   (let ((key (car cell)) ...)
@@ -391,10 +458,10 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((val htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (ordered-hash-iterator htable)) ...)
+      ((_ ((val ohtable) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
               (let %for-hash-keys ((cell (ordered-hash-iterator-next! iter)) ...)
                 (when (and cell ...)
                   (let ((val (cdr cell)) ...)

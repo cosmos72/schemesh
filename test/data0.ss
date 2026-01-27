@@ -360,23 +360,23 @@
   (ordered-hash equal-hash equal?
      1 'a 2 'b 3.0 'c 0+4i 'd)                        ,(ordered-hash equal-hash equal? 1 a 2 b 3.0 c 0+4i d)
   (ordered-hash-cells (eq-ordered-hash
-     3 'C 2 'B 1 'A))                                 #((3 . C) (2 . B) (1 . A))
+     3 'C 2 'B 1 'A))                                  #((3 . C) (2 . B) (1 . A))
   (ordered-hash-cells (alist->eqv-ordered-hash
-    '((1.0 . A) (2.1 . B) (3 . C))))                  #((1.0 . A) (2.1 . B) (3 . C))
+    '((1.0 . A) (2.1 . B) (3 . C))))                   #((1.0 . A) (2.1 . B) (3 . C))
   (let ((h (eqv-ordered-hash
               3.1 'C 2 'B 1 'A)))
     (list (ordered-hash-keys h)
-          (ordered-hash-values h)))                   (#(3.1 2 1) #(C B A))
+          (ordered-hash-values h)))                    (#(3.1 2 1) #(C B A))
   (values->list
     (ordered-hash-entries
       (ordered-hash string-hash string=?
-        "a" 1 "B" 2 "+" 3)))                          (#("a" "B" "+") #(1 2 3))
+        "a" 1 "B" 2 "+" 3)))                           (#("a" "B" "+") #(1 2 3))
   (let ((ret '()))
     (for-ordered-hash-cells
         ((cell (alist->eqv-ordered-hash
                  '((1.0 . A) (2.1 . B) (3 . C)))))
       (set! ret (cons cell ret)))
-    ret)                                              ((3 . C) (2.1 . B) (1.0 . A))
+    ret)                                               ((3 . C) (2.1 . B) (1.0 . A))
 
   (let ((h (plist->eqv-ordered-hash
              '(#\c 3 #\b 2 #\a 1))))
@@ -385,6 +385,15 @@
     (ordered-hash-set!    h #\d 'D)
     h)                                                ,(eqv-ordered-hash #\c 3 #\a 1 #\b -2 #\d D)
 
+
+  ;; test (in-ordered-hash-cells)
+  ;; and also test that setting the cdr of a cell propagates to the ordered-hash
+  (let ((h (plist->eqv-ordered-hash
+             '(#\x 1 #\y 2 #\z 3))))
+    (for ((cell (in-ordered-hash-cells h)))
+      (set-cdr! cell (fx* 5 (cdr cell))))
+    h)                                                ,(eqv-ordered-hash #\x 5 #\y 10 #\z 15)
+      
 
   ;; ---------------------------- vector ---------------------------------------
   (vector-every (lambda (e) e) '#(1 2 3))              3

@@ -158,22 +158,6 @@
          (values #f #f #f)))))
 
 
-;; create and return a closure that iterates on keys of hashtable htable.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values key #t) i.e. the next key in hashtable and #t,
-;; or (values #<unspecified> #f) if end of hashtable is reached.
-(define (in-hash-keys htable)
-  (let* ((iter (hash-iterator htable))
-         (next (hash-iterator-next! iter)))
-     (lambda ()
-       (if (pair? next)
-         (let ((cell next))
-           (set! next (hash-iterator-next! iter))
-           (values (car cell) #t))
-         (values #f #f)))))
-
-
 ;; create and return a closure that iterates on each pair containing (key . value) of htable.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
@@ -192,6 +176,22 @@
          (let ((cell next))
            (set! next (hash-iterator-next! iter))
            (values cell #t))
+         (values #f #f)))))
+
+
+;; create and return a closure that iterates on keys of hashtable htable.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values key #t) i.e. the next key in hashtable and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+(define (in-hash-keys htable)
+  (let* ((iter (hash-iterator htable))
+         (next (hash-iterator-next! iter)))
+     (lambda ()
+       (if (pair? next)
+         (let ((cell next))
+           (set! next (hash-iterator-next! iter))
+           (values (car cell) #t))
          (values #f #f)))))
 
 
