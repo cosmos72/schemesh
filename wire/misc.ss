@@ -70,7 +70,7 @@
          (fxzero? (fxmod year 400))
          #t)))
 
-              
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; customize how "time" objects are serialized/deserialized
 

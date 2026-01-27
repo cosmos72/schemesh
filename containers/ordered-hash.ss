@@ -22,8 +22,7 @@
      for-ordered-hash for-ordered-hash-cells for-ordered-hash-keys for-ordered-hash-values
      in-ordered-hash  in-ordered-hash-cells  in-ordered-hash-keys  in-ordered-hash-values
 
-     ordered-hash-iterator (rename (iterator ordered-hash-iterator?))
-     ordered-hash-iterator-cell ordered-hash-iterator-next!) 
+     ordered-hash-iterator ordered-hash-iterator? ordered-hash-iterator-cell ordered-hash-iterator-next!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -46,7 +45,7 @@
   (nongenerative %ordered-hash-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-(define-record-type iterator
+(define-record-type (iterator make-iterator ordered-hash-iterator?)
   (fields
     (mutable node))  ; #f or current node
   (nongenerative %ordered-hash-iterator-7c46d04b-34f4-4046-b5c7-b63753c1be39))
@@ -383,7 +382,7 @@
           (set! node (node-next node))
           (values (cdr cell) #t))
         (values #f #f)))))
-         
+
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
@@ -394,16 +393,14 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key val ohtable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(ohtable ...))))
-          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
-              (let %for-hash ((cell (ordered-hash-iterator-next! iter)) ...)
-                (when (and cell ...)
-                  (let ((key (car cell)) ...
-                        (val (cdr cell)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-hash (ordered-hash-iterator-next! iter) ...)))))))))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let %for-hash ((node (ord-hash-head ohtable)) ...)
+              (when (and node ...)
+                (let ((key (node-key node)) ...
+                      (val (node-value node)) ...)
+                  (with-while-until
+                    body ...
+                    (%for-hash (node-next node) ...))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -421,13 +418,13 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((cell ohtable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...))))
-          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
-              (let %for-hash-cells ((cell (ordered-hash-iterator-next! iter)) ...)
-                (when (and cell ...)
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let %for-hash-cells ((node (ord-hash-head ohtable)) ...)
+              (when (and node ...)
+                (let ((cell (node-cell node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash-cells (ordered-hash-iterator-next! iter) ...))))))))))
+                    (%for-hash-cells (node-next node) ...))))))))))
 
 
 ;; Iterate in parallel on elements of given ordered-hashs ht ..., and evaluate body ... on each key.
@@ -439,15 +436,13 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key ohtable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(ohtable ...))))
-          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
-              (let %for-hash-keys ((cell (ordered-hash-iterator-next! iter)) ...)
-                (when (and cell ...)
-                  (let ((key (car cell)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-hash-keys (ordered-hash-iterator-next! iter) ...)))))))))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let %for-hash-keys ((node (ord-hash-head ohtable)) ...)
+              (when (and node ...)
+                (let ((key (node-key node)) ...)
+                  (with-while-until
+                    body ...
+                    (%for-hash-keys (node-next node) ...))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
@@ -459,15 +454,13 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((val ohtable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ohtable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(ohtable ...))))
-          #'(let ((iter (ordered-hash-iterator ohtable)) ...)
-              (let %for-hash-keys ((cell (ordered-hash-iterator-next! iter)) ...)
-                (when (and cell ...)
-                  (let ((val (cdr cell)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-hash-keys (ordered-hash-iterator-next! iter) ...)))))))))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+          #'(let %for-hash-values ((node (ord-hash-head ohtable)) ...)
+              (when (and node ...)
+                (let ((val (node-value node)) ...)
+                  (with-while-until
+                    body ...
+                    (%for-hash-values (node-next node) ...))))))))))
 
 
 ;; return a freshly allocated, mutable vector containing pairs (key . val) in insertion order

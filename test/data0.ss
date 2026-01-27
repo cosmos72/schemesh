@@ -385,15 +385,31 @@
     (ordered-hash-set!    h #\d 'D)
     h)                                                ,(eqv-ordered-hash #\c 3 #\a 1 #\b -2 #\d D)
 
+  ;; test function (in-ordered-hash)
+  (let ((h (plist->eqv-ordered-hash
+             '(#\x 1 #\y 2 #\z 3))))
+    (for ((k v (in-ordered-hash h)))
+      (ordered-hash-set! h v k))
+    h)                                                ,(eqv-ordered-hash #\x 1 #\y 2 #\z 3 1 #\x 2 #\y 3 #\z)
 
-  ;; test (in-ordered-hash-cells)
-  ;; and also test that setting the cdr of a cell propagates to the ordered-hash
+  ;; test that functions (in-ordered-hash-keys) and (in-ordered-hash-values)
+  ;; return keys and values in the same order
+  (let ((h (plist->eq-ordered-hash
+             '(x 1 y 2 z 3)))
+        (ret '()))
+    (for ((k (in-ordered-hash-keys h))
+          (v (in-ordered-hash-values h)))
+      (set! ret (cons v (cons k ret))))
+    (reverse! ret))                                    (x 1 y 2 z 3)
+
+  ;; test function (in-ordered-hash-cells)
+  ;; also test that setting the cdr of a cell propagates to the ordered-hash
   (let ((h (plist->eqv-ordered-hash
              '(#\x 1 #\y 2 #\z 3))))
     (for ((cell (in-ordered-hash-cells h)))
       (set-cdr! cell (fx* 5 (cdr cell))))
     h)                                                ,(eqv-ordered-hash #\x 5 #\y 10 #\z 15)
-      
+
 
   ;; ---------------------------- vector ---------------------------------------
   (vector-every (lambda (e) e) '#(1 2 3))              3
