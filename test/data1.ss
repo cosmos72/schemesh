@@ -232,6 +232,10 @@
   (field-names (eq-hashtable 'x 1 '|| 2))              #(|| x)
   (field (eq-hashtable 'x 1 'y #\2 'z '(3)) 'z)        (3)
 
+  ;; (field-names) and (field) accept ordered-hash
+  (field-names (eq-ordered-hash 'x 1 '|| 2))           #(x ||)
+  (field (eq-ordered-hash 'x 1 'y #\2 'z '(3)) 'z)     (3)
+
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)
   (datum->wire "\xFF;")                                #vu8(3 41 1 255)

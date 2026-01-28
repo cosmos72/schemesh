@@ -14,10 +14,11 @@
   (export field field-names)
   (import
     (rnrs)
-    (only (chezscheme)                 fx1+ fx/ void)
-    (only (scheme2k containers list)   plist? plist-ref)
-    (only (scheme2k containers span)   span span-insert-left/vector! span->vector)
-    (only (scheme2k containers vector) vector-every))
+    (only (chezscheme)                       fx1+ fx/ void)
+    (only (scheme2k containers list)         plist? plist-ref)
+    (only (scheme2k containers ordered-hash) ordered-hash? ordered-hash-keys ordered-hash-ref)
+    (only (scheme2k containers span)         span span-insert-left/vector! span->vector)
+    (only (scheme2k containers vector)       vector-every))
 
 
 ;; find first element in vector that is eq? to key,
@@ -109,11 +110,16 @@
   (case-lambda
     ((obj field-name rtd-cache default)
       (cond
-        ;; in Chez Scheme hashtable is a record => must checked for (hashtable?) before (record?)
+        ;; in Chez Scheme, hashtable and ordered-hash are record types
+        ;; => must checked for them before (record?)
         ((hashtable? obj)
           ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
-          ;; do not allow field's type and raise a condition
+          ;; do not allow field-name's type and raise a condition
           (hashtable-ref obj field-name default))
+        ((ordered-hash? obj)
+          ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
+          ;; do not allow field-name's type and raise a condition
+          (ordered-hash-ref obj field-name default))
         ((record? obj)
           (let ((rtd (record-rtd obj)))
             (if rtd-cache
@@ -133,12 +139,15 @@
 ;; each field name is represented as a symbol.
 (define (field-names obj)
   (cond
-    ;; in Chez Scheme hashtable is a record => must checked for (hashtable?) before (record?)
+    ;; in Chez Scheme, hashtable and ordered-hash are record types
+    ;; => must checked for them before (record?)
     ((hashtable? obj)
       (let ((v (hashtable-keys obj)))
         (when (vector-every symbol? v)
           (vector-sort! (lambda (sym1 sym2) (string<? (symbol->string sym1) (symbol->string sym2))) v))
         v))
+    ((ordered-hash? obj)
+      (ordered-hash-keys obj))
     ((record? obj)
       (let %loop-record-field-names ((sp (span)) (rtd (record-rtd obj)))
         (if rtd

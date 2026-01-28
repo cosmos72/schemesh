@@ -2,10 +2,6 @@
 
 ### TO DO
 
-* add type `json-object` ? Maybe use a more general name? It would be an eq-hashtable that remembers keys insertion order
-  and extend `json` library with new function `(json-read-value)` that can return a `json-object` ?
-  In alternative, `(json-read-value)` could accept an argument for choosing whether it returns a plist or an eq-hashtable.
-* add function `(json-skip-value)`
 
 * extend `reflect` library with new functions `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
   that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
@@ -17,8 +13,8 @@
 ### git main branch
 
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add type `json-reader` and its functions `(json-read-token)` `(json-skip-token)` `(json-write-token)` `(make-json-reader)`
-  in new library `(scheme2k io json)`
+* add type `json-reader` and its functions `(json-read-token)` `(json-read-value)` `(json-skip-token)` `(json-skip-value)`
+  `(make-json-reader)` as well as standalone functions `(json-write-token)` `(json-write-value)` in new library `(scheme2k io json)`
 * add functions `(field)` `(field-names)` in new library `(scheme2k reflect)`
 * pretty-print types `time` and `date` and add convenience functions to create them
 * add support for serializing/deserializing `date` objects to library `(scheme2k wire)`
