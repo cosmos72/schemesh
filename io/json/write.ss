@@ -29,3 +29,12 @@
           (raise-errorf 'json-write-token "unsupported token: ~s" tok))))
     ((tok)
       (json-write-token tok (current-output-port)))))
+
+
+(define json-write-value
+  (case-lambda
+    ((value port)
+      ;; TODO: implement
+      (void))
+    ((value)
+      (json-write-value value (current-output-port)))))

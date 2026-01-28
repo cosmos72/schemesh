@@ -22,7 +22,7 @@
      for-ordered-hash for-ordered-hash-cells for-ordered-hash-keys for-ordered-hash-values
      in-ordered-hash  in-ordered-hash-cells  in-ordered-hash-keys  in-ordered-hash-values
 
-     ordered-hash-iterator ordered-hash-iterator? ordered-hash-iterator-cell ordered-hash-iterator-next!)
+     ordered-hash-cursor ordered-hash-cursor? ordered-hash-cursor-cell ordered-hash-cursor-next!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -45,10 +45,10 @@
   (nongenerative %ordered-hash-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-(define-record-type (iterator make-iterator ordered-hash-iterator?)
+(define-record-type (cursor make-cursor ordered-hash-cursor?)
   (fields
     (mutable node))  ; #f or current node
-  (nongenerative %ordered-hash-iterator-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %ordered-hash-cursor-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define-record-type node
@@ -261,10 +261,10 @@
             (next (node-next node)))
         (if prev
             (node-next-set! prev next)
-            (ord-hash-head-set! oht next)) ; deleting the first node
+            (ord-hash-head-set! oht next)) ; we are deleting the first node
         (if next
             (node-prev-set! next prev)
-            (ord-hash-tail-set! oht prev))) ; deleting the last node
+            (ord-hash-tail-set! oht prev))) ; we are deleting the last node
       (hashtable-delete! table key))))
 
 
@@ -284,36 +284,36 @@
       (%loop (node-next node)))))
 
 
-;; return an iterator positioned at the first element.
-(define (ordered-hash-iterator oht)
-  (make-iterator (ord-hash-head oht)))
+;; return a cursor positioned at the first element.
+(define (ordered-hash-cursor oht)
+  (make-cursor (ord-hash-head oht)))
 
 
 ;; return hashtable element (key . val) corresponding to current position
-;; of iterator, or #f if end of hashtable is reached
+;; of cursor, or #f if end of hashtable is reached
 ;;
 ;; setting the cdr of returned element propagates back to the hashtable,
 ;; i.e. it is equivalent to setting the value associated to key in the hashtable
 ;;
 ;; NEVER set or modify in any way the car of returned element!
-(define (ordered-hash-iterator-cell iter)
-  (let ((node (iterator-node iter)))
+(define (ordered-hash-cursor-cell iter)
+  (let ((node (cursor-node iter)))
     (and node (node-cell node))))
 
 
 ;; return current ordered-hash element (key . val) if more elements are available,
 ;; otherwise return #f
 ;;
-;; as a side effect, modifies iterator in place to point to next ordered-hash element.
+;; as a side effect, modifies cursor in place to point to next ordered-hash element.
 ;;
 ;; setting the cdr of returned element propagates back to the ordered-hash.
 ;;
 ;; NEVER set or modify in any way the car of returned element!
-(define (ordered-hash-iterator-next! iter)
-  (let ((node (iterator-node iter)))
+(define (ordered-hash-cursor-next! iter)
+  (let ((node (cursor-node iter)))
     (if node
       (begin
-        (iterator-node-set! iter (node-next node))
+        (cursor-node-set! iter (node-next node))
         (node-cell node))
       #f)))
 
@@ -324,8 +324,8 @@
 ;; the returned closure accepts no arguments, and each call to it returns three values:
 ;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
 ;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
-(define (in-ordered-hash ohtable)
-  (let ((node (ord-hash-head ohtable)))
+(define (in-ordered-hash oht)
+  (let ((node (ord-hash-head oht)))
     (lambda ()
       (if node
         (let ((cell (node-cell node)))
@@ -334,7 +334,7 @@
         (values #f #f #f)))))
 
 
-;; create and return a closure that iterates on each pair containing (key . value) of ohtable.
+;; create and return a closure that iterates on each pair containing (key . value) of oht.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values pair #t) i.e. the next pair containing (key . value) in hashtable and #t,
@@ -344,9 +344,9 @@
 ;; i.e. changes the value associated to key in hashtable.
 ;;
 ;; Do NOT modify the (car) of any pair!
-(define (in-ordered-hash-cells ohtable)
-  (let ((node (ord-hash-head ohtable)))
-     (lambda ()
+(define (in-ordered-hash-cells oht)
+  (let ((node (ord-hash-head oht)))
+    (lambda ()
       (if node
         (let ((cell (node-cell node)))
           (set! node (node-next node))
@@ -359,9 +359,9 @@
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values key #t) i.e. the next key in hashtable and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
-(define (in-ordered-hash-keys ohtable)
-  (let ((node (ord-hash-head ohtable)))
-     (lambda ()
+(define (in-ordered-hash-keys oht)
+  (let ((node (ord-hash-head oht)))
+    (lambda ()
       (if node
         (let ((cell (node-cell node)))
           (set! node (node-next node))
@@ -374,9 +374,9 @@
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values key #t) i.e. the next key in hashtable t and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
-(define (in-ordered-hash-values ohtable)
-  (let ((node (ord-hash-head ohtable)))
-     (lambda ()
+(define (in-ordered-hash-values oht)
+  (let ((node (ord-hash-head oht)))
+    (lambda ()
       (if node
         (let ((cell (node-cell node)))
           (set! node (node-next node))
@@ -556,9 +556,8 @@
                  (else
                    (make-ordered-hash (hashtable-hash-function orig-table) eq-proc)))))
     ;; Traverse original in insertion order and copy entries
-    (ordered-hash-for-each oht
-      (lambda (k v)
-        (ordered-hash-set! copy k v)))
+    (for-ordered-hash-cells ((cell oht))
+      (ordered-hash-set! copy (car cell) (cdr cell)))
     copy))
 
 
@@ -573,16 +572,15 @@
          ((eq? eqv? eq-proc)
            (put-string port "(eqv-ordered-hash"))
          (else
-           (display "(ordered-hash " port)
+           (put-string port "(ordered-hash ")
            (display-procedure-name (hashtable-hash-function table) port)
            (put-char port #\space)
            (display-procedure-name (hashtable-equivalence-function table) port))))
-    (ordered-hash-for-each oht
-      (lambda (k v)
-        (put-char port #\space)
-        (writer k port)
-        (put-char port #\space)
-        (writer v port)))
+    (for-ordered-hash-cells ((cell oht))
+      (put-char port #\space)
+      (writer (car cell) port)
+      (put-char port #\space)
+      (writer (cdr cell) port))
     #| ( |# ; help vscode
     (put-char port #\))))
 

@@ -15,9 +15,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
-                               fx1+ fx1- fxvector-length fxvector-ref
-                               import meta-cond library-exports)
+    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ fx1-
+                               fxvector-length fxvector-ref import meta-cond library-exports)
     (only (scheme2k bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 

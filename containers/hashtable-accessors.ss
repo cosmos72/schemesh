@@ -11,7 +11,7 @@
 ;; or with (hash-table-for-each) that ONLY works on eq-hashtables.
 ;;
 ;; Define functions for accessing hashtables' internal bucket vector
-;; and let hash-iterator iterate on them.
+;; and let hash-cursor iterate on them.
 
 (define (record-accessor-byname rtd name)
   (and rtd

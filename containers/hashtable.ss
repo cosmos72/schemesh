@@ -9,10 +9,10 @@
 
 (library (scheme2k containers hashtable (0 9 3))
   (export
-    hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
+    hash-cursor hash-cursor? hash-cursor-copy hash-cursor-cell hash-cursor-next!
 
     for-hash for-hash-keys for-hash-cells for-hash-values
-    hash-for-each hash-for-each-key hash-for-each-pair hash-for-each-value
+    hash-for-each hash-for-each-cell hash-for-each-key hash-for-each-value
     in-hash in-hash-keys in-hash-cells in-hash-values
 
     eq-hashtable eqv-hashtable hashtable
@@ -39,13 +39,13 @@
 ;; Note: eqv hashtables contain two inner hashtables:
 ;; one for keys comparable with eq, and one for all other keys.
 ;; We must retrieve both vectors from them and iterate on both.
-(define-record-type (%hash-iterator %make-iter hash-iterator?)
+(define-record-type (%hash-cursor %make-iter hash-cursor?)
   (fields
     (mutable index  iter-index  iter-index-set!)
     (mutable bucket iter-bucket iter-bucket-set!)
     (mutable vec1   iter-vec1   iter-vec1-set!)
     (mutable vec2   iter-vec2   iter-vec2-set!))
-  (nongenerative %hash-iterator-7c46d04b-34f4-4046-b5c7-b63753c1be39)
+  (nongenerative %hash-cursor-7c46d04b-34f4-4046-b5c7-b63753c1be39)
   (sealed #t))
 
 (define (bucket-valid? bucket)
@@ -69,62 +69,60 @@
     (else
       #f)))
 
-;; make a copy of specified hash-iterator
-(define (hash-iterator-copy iter)
+;; make a copy of specified hash-cursor
+(define (hash-cursor-copy iter)
   (%make-iter (iter-index iter) (iter-bucket iter) (iter-vec1 iter) (iter-vec2 iter)))
 
 
 ;; return hashtable element (key . val) corresponding to current position
-;; of hash-iterator, or #f if end of hashtable is reached
+;; of hash-cursor, or #f if end of hashtable is reached
 ;;
 ;; setting the cdr of returned element propagates back to the hashtable,
 ;; i.e. it is equivalent to setting the value associated to key in the hashtable
 ;;
 ;; NEVER set or modify in any way the car of returned element!
-(define (hash-iterator-pair iter)
+(define (hash-cursor-cell iter)
   (bucket-keyval (iter-bucket iter)))
 
 
 ;; return current hashtable element (key . val) if more elements are available,
 ;; otherwise return #f
 ;;
-;; as a side effect, modifies hash-iterator in place to point to next hashtable element.
+;; as a side effect, modifies hash-cursor in place to point to next hashtable element.
 ;;
-;; as (hash-iterator-pair), setting the cdr of returned element propagates back
+;; as (hash-cursor-cell), setting the cdr of returned element propagates back
 ;; to the hashtable.
-(define (hash-iterator-next! iter)
-  (let ((obucket (iter-bucket iter)))
-    (let %hash-iterator-next! ((iter iter))
-      (let* ((bucket  (bucket-next (iter-bucket iter)))
-             (index   (iter-index  iter))
-             (vec1    (iter-vec1   iter))
-             (vlen    (vector-length vec1)))
+(define (hash-cursor-next! iter)
+  (let* ((bucket  (bucket-next (iter-bucket iter)))
+         (index   (iter-index  iter))
+         (vec1    (iter-vec1   iter))
+         (vlen    (vector-length vec1)))
 
-        ; iterate on vec1 until we find a cell
-        (do ()
-          ((or (bucket-valid? bucket) (fx>=? index vlen)))
-          (set! index (fx1+ index))
-          (when (fx<? index vlen)
-            (set! bucket (vector-ref vec1 index))))
-        (iter-index-set!  iter index)
-        (iter-bucket-set! iter bucket)
+    ; iterate on vec1 until we find a cell
+    (do ()
+      ((or (bucket-valid? bucket) (fx>=? index vlen)))
+      (set! index (fx1+ index))
+      (when (fx<? index vlen)
+        (set! bucket (vector-ref vec1 index))))
+    (iter-index-set!  iter index)
+    (iter-bucket-set! iter bucket)
 
-        (let ((vec2   (iter-vec2 iter)))
-          (if (or (bucket-valid? bucket) (fxzero? (vector-length vec2)))
-            ;; either we found a cell, or vec2 is empty and we reached end of vec1
-            ;; in both cases, stop iterating and return keyval of saved obucket
-            (bucket-keyval  obucket)
-            ; no cell found, but vec2 is non-empty: switch to it and retry
-            (begin
-              (iter-index-set!  iter -1)
-              (iter-bucket-set! iter #f)
-              (iter-vec1-set!   iter vec2)
-              (iter-vec2-set!   iter (vector))
-              (%hash-iterator-next! iter))))))))
+    (let ((vec2   (iter-vec2 iter)))
+      (if (or (bucket-valid? bucket) (fxzero? (vector-length vec2)))
+        ;; either we found a cell, or vec2 is empty and we reached end of vec1
+        ;; in both cases, stop iterating and return keyval
+        (bucket-keyval  bucket)
+        ; no cell found, but vec2 is non-empty: switch to it and retry
+        (begin
+          (iter-index-set!  iter -1)
+          (iter-bucket-set! iter #f)
+          (iter-vec1-set!   iter vec2)
+          (iter-vec2-set!   iter (vector))
+          (hash-cursor-next! iter))))))
 
 
-;; return hash-iterator to first element in hashtable
-(define (hash-iterator h)
+;; return hash-cursor to first element in hashtable
+(define (hash-cursor h)
   (if (fxzero? (hashtable-size h))
     ; hashtable is empty, return empty iterator
     (%make-iter 0 #f (vector) (vector))
@@ -137,8 +135,6 @@
                    (%hashtable->vector (%eqv-hashtable->gen-hashtable h))
                    '#()))
            (iter (%make-iter -1 #f vec1 vec2)))
-      ; advance iterator to first bucket
-      (hash-iterator-next! iter)
       iter)))
 
 
@@ -148,14 +144,12 @@
 ;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
 ;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash htable)
-  (let* ((iter (hash-iterator htable))
-         (next (hash-iterator-next! iter)))
-     (lambda ()
-       (if (pair? next)
-         (let ((cell next))
-           (set! next (hash-iterator-next! iter))
-           (values (car cell) (cdr cell) #t))
-         (values #f #f #f)))))
+  (let ((iter (hash-cursor htable)))
+    (lambda ()
+      (let ((cell (hash-cursor-next! iter)))
+        (if cell
+          (values (car cell) (cdr cell) #t)
+          (values #f #f #f))))))
 
 
 ;; create and return a closure that iterates on each pair containing (key . value) of htable.
@@ -169,14 +163,12 @@
 ;;
 ;; Do NOT modify the (car) of any pair!
 (define (in-hash-cells htable)
-  (let* ((iter (hash-iterator htable))
-         (next (hash-iterator-next! iter)))
-     (lambda ()
-       (if (pair? next)
-         (let ((cell next))
-           (set! next (hash-iterator-next! iter))
-           (values cell #t))
-         (values #f #f)))))
+  (let ((iter (hash-cursor htable)))
+    (lambda ()
+      (let ((cell (hash-cursor-next! iter)))
+        (if cell
+          (values cell #t)
+          (values #f #f))))))
 
 
 ;; create and return a closure that iterates on keys of hashtable htable.
@@ -185,14 +177,12 @@
 ;; either (values key #t) i.e. the next key in hashtable and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash-keys htable)
-  (let* ((iter (hash-iterator htable))
-         (next (hash-iterator-next! iter)))
-     (lambda ()
-       (if (pair? next)
-         (let ((cell next))
-           (set! next (hash-iterator-next! iter))
-           (values (car cell) #t))
-         (values #f #f)))))
+  (let ((iter (hash-cursor htable)))
+    (lambda ()
+      (let ((cell (hash-cursor-next! iter)))
+        (if cell
+         (values (car cell) #t)
+         (values #f #f))))))
 
 
 ;; create and return a closure that iterates on values of hashtable t.
@@ -201,50 +191,45 @@
 ;; either (values key #t) i.e. the next key in hashtable t and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash-values htable)
-  (let* ((iter (hash-iterator htable))
-         (next (hash-iterator-next! iter)))
-     (lambda ()
-       (if (pair? next)
-         (let ((cell next))
-           (set! next (hash-iterator-next! iter))
-           (values (cdr cell) #t))
-         (values #f #f)))))
+  (let ((iter (hash-cursor htable)))
+    (lambda ()
+      (let ((cell (hash-cursor-next! iter)))
+        (if cell
+         (values (cdr cell) #t)
+         (values #f #f))))))
 
 
 ;; Iterate on elements of given hashtables htable, and call (proc key value) on each key and value.
 ;; Return unspecified value.
-(define (hash-for-each proc htable)
+(define (hash-for-each htable proc)
   (assert* 'hash-for-each (procedure? proc))
-  (hash-for-each-pair (lambda (cell) (proc (car cell) (cdr cell)))
-                      htable))
+  (hash-for-each-cell htable (lambda (cell) (proc (car cell) (cdr cell)))))
 
 
 ;; Iterate on elements of given hashtables htable, and call (proc key) on each key.
 ;; Return unspecified value.
-(define (hash-for-each-key proc htable)
+(define (hash-for-each-key htable proc)
   (assert* 'hash-for-each-key (procedure? proc))
-  (hash-for-each-pair (lambda (cell) (proc (car cell)))
-                      htable))
+  (hash-for-each-cell htable (lambda (cell) (proc (car cell)))))
 
 
 ;; Iterate on elements of given hashtables htable, and call (proc pair) on each pair (key . value).
 ;; Return unspecified value.
 ;;
 ;; Do NOT modify the (car) of any pair!
-(define (hash-for-each-pair proc htable)
-  (assert* 'hash-for-each-pair (procedure? proc))
-  (let ((iter (hash-iterator htable)))
-    (do ((cell (hash-iterator-next! iter) (hash-iterator-next! iter)))
+(define (hash-for-each-cell htable proc)
+  (assert* 'hash-for-each-cell (procedure? proc))
+  (let ((iter (hash-cursor htable)))
+    (do ((cell (hash-cursor-next! iter) (hash-cursor-next! iter)))
         ((not cell))
       (proc cell))))
 
 
 ;; Iterate on elements of given hashtables htable, and call (proc value) on each value.
 ;; Return unspecified value.
-(define (hash-for-each-value proc htable)
+(define (hash-for-each-value htable proc)
   (assert* 'hash-for-each-value (procedure? proc))
-  (hash-for-each-pair (lambda (cell) (proc (cdr cell)))
-                      htable))
+  (hash-for-each-cell htable (lambda (cell) (proc (cdr cell)))))
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
@@ -257,14 +242,14 @@
       ((_ ((key val htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
                       ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-iterator htable)) ...)
-              (let %for-hash ((cell (hash-iterator-next! iter)) ...)
+          #'(let ((iter (hash-cursor htable)) ...)
+              (let %for-hash ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((key (car cell)) ...
                         (val (cdr cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash (hash-iterator-next! iter) ...)))))))))))
+                      (%for-hash (hash-cursor-next! iter) ...)))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -281,14 +266,14 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((pair htable) ...) body ...)
+      ((_ ((cell htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-iterator htable)) ...)
-              (let %for-hash-cells ((pair (hash-iterator-next! iter)) ...)
-                (when (and pair ...)
+          #'(let ((iter (hash-cursor htable)) ...)
+              (let %for-hash-cells ((cell (hash-cursor-next! iter)) ...)
+                (when (and cell ...)
                   (with-while-until
                     body ...
-                    (%for-hash-cells (hash-iterator-next! iter) ...))))))))))
+                    (%for-hash-cells (hash-cursor-next! iter) ...))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
@@ -302,13 +287,13 @@
       ((_ ((key htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
                       ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-iterator htable)) ...)
-              (let %for-hash-keys ((cell (hash-iterator-next! iter)) ...)
+          #'(let ((iter (hash-cursor htable)) ...)
+              (let %for-hash-keys ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((key (car cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash-keys (hash-iterator-next! iter) ...)))))))))))
+                      (%for-hash-keys (hash-cursor-next! iter) ...)))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
@@ -322,13 +307,13 @@
       ((_ ((val htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
                       ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-iterator htable)) ...)
-              (let %for-hash-keys ((cell (hash-iterator-next! iter)) ...)
+          #'(let ((iter (hash-cursor htable)) ...)
+              (let %for-hash-keys ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((val (cdr cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash-keys (hash-iterator-next! iter) ...)))))))))))
+                      (%for-hash-keys (hash-cursor-next! iter) ...)))))))))))
 
 
 ;; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
@@ -363,6 +348,7 @@
     (for-alist ((key value l))
       (hashtable-set! dst key value))
     dst))
+
 
 ;; iterate on all (key . value) elements of alist l,
 ;; and inserts each of them into a new hashtable created with
@@ -411,6 +397,7 @@
       (hashtable-set! dst key value))
     dst))
 
+
 ;; iterates on all key value elements of plist,
 ;; and inserts each of them into a new hashtable created with
 ;;   (make-eq-hashtable (fx/ (length plist) 2)).
@@ -440,42 +427,42 @@
 
 (define (display-hashtable-content htable out writer)
   (for-hash ((key val htable))
-    (display #\space out)
+    (put-char out #\space)
     (writer key out)
-    (display #\space out)
+    (put-char out #\space)
     (writer val out)))
 
 
-;; customize how "hash-iterator" objects are printed
-(record-writer (record-type-descriptor %hash-iterator)
+;; customize how "hash-cursor" objects are printed
+(record-writer (record-type-descriptor %hash-cursor)
   (lambda (iter out writer)
-    (display "#<hash-iterator>" out)))
+    (put-string out "#<hash-cursor>" out)))
 
 
 ;; customize how eq-hashtable objects are printed
 (record-writer %eq-hashtable-rtd
   (lambda (htable out writer)
-    (display "(eq-hashtable" out)
+    (put-string out "(eq-hashtable")
     (display-hashtable-content htable out writer)
-    (display ")" out)))
+    (put-string out ")")))
 
 
 ;; customize how eqv-hashtable objects are printed
 (record-writer %eqv-hashtable-rtd
   (lambda (htable out writer)
-    (display "(eqv-hashtable" out)
+    (put-string out "(eqv-hashtable")
     (display-hashtable-content htable out writer)
-    (display ")" out)))
+    (put-string out ")")))
 
 
 ;; customize how hashtable objects are printed
 (record-writer %gen-hashtable-rtd
   (lambda (htable out writer)
-    (display "(hashtable " out)
+    (put-string out "(hashtable ")
     (display-procedure-name (hashtable-hash-function htable) out)
-    (display #\space out)
+    (put-char out #\space)
     (display-procedure-name (hashtable-equivalence-function htable) out)
     (display-hashtable-content htable out writer)
-    (display ")" out)))
+    (put-string out ")")))
 
 ) ; close library

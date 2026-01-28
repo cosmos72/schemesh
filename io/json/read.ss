@@ -429,6 +429,52 @@
   (json-read-token* r (json-reader-buffer r)))
 
 
+
+;; read next value and return it, which can be one of:
+;;   #!eof   i.e. the (eof-object)
+;;   '()     i.e. null
+;;   #t      i.e. true
+;;   #f      i.e. false
+;;   an exact or inexact real number
+;;   a string
+;;   a span, representing a json array
+;;   a ordered-hash, representing a json object
+;;   a character among:
+;;     #\,   i.e. comma
+;;     #\:   i.e. colon
+(define (json-read-value r)
+  (let ((tok0 (json-read-token r)))
+    (case tok0
+      ((#\[)
+        (let %read-array ((r r) (sp (span)) (elem (json-read-value r)))
+          (cond
+            ((or (eof-object? elem) (eqv? elem #\]))
+              sp)
+            (else
+              (unless (eqv? #\, elem)
+                (span-insert-right! sp elem))
+              (%read-array r sp (json-read-value r))))))
+      ((#\{)
+        (let %read-object ((r r) (oht (eq-ordered-hash)) (key (json-read-value r)))
+          (cond
+            ((or (eof-object? key) (eqv? key #\}))
+              oht)
+            ((eqv? #\, key)
+              (%read-object r oht (json-read-value r)))
+            (else
+              (assert* 'json-read-value (string? key))
+              (let ((key   (string->symbol key))
+                    (colon (json-read-token r)))
+                (assert* 'json-read-value (eqv? #\: colon))
+                (let ((value (json-read-value r)))
+                  (assert-not* 'json-read-value (eof-object? value))
+                  (assert-not* 'json-read-value (char? value))
+                  (ordered-hash-set! oht key value)
+                  (%read-object r oht (json-read-value r))))))))
+      (else
+        tok0))))
+
+
 ;; skip next token and return its kind, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   '()     i.e. null
