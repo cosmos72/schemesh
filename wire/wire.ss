@@ -73,14 +73,16 @@
 ;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
 ;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
 ;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      49    UNUSED
-;;;      50    UNUSED
-;;;      51 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
-;;;      52 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
-;;;      53 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
+;;;      49 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
+;;;      50 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
+;;;      51 => datum is hashtable:     hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
-;;;      54     UNUSED
+;;;      52 => datum is eq-ordered-hash:  n encoded as vlen, followed by 2 * n tag+datum
+;;;      53 => datum is eqv-ordered-hash: n encoded as vlen, followed by 2 * n tag+datum
+;;;      54 => datum is ordered-hash:     hash function name encoded as symbol, checked against a whitelist
+;;;                                         followed by equal function name encoded as symbol, checked against a whitelist
+;;;                                         followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;       55 ... 88  => datum is a known symbol
 ;;;      89 ... 240 => datum is a user-registered record type
 ;;;     241 ... 253 => datum is a pre-registered record type
@@ -179,12 +181,13 @@
 (define tag-symbol8    46)
 (define tag-symbol16   47)
 (define tag-symbol24   48)
-;; (define tag-...        49) UNUSED
-;; (define tag-...        50) UNUSED
-(define tag-eq-hashtable  51)
-(define tag-eqv-hashtable 52)
-(define tag-hashtable     53)
-;; (define tag-...        54) UNUSED
+
+(define tag-eq-hashtable  49)
+(define tag-eqv-hashtable 50)
+(define tag-hashtable     51)
+(define tag-eq-ord-hash   52)
+(define tag-eqv-ord-hash  53)
+(define tag-ord-hash      54)
 
 (define min-tag-to-allocate   89)
 (define next-tag-to-allocate 240)
@@ -747,7 +750,7 @@
   (hashtable-ref known-hash-sym (hashtable-hash-function obj) #f))
 
 (define (len/hashtable pos obj)
-  (let ((cmp-sym (htable->cmp-sym obj))
+  (let ((cmp-sym  (htable->cmp-sym  obj))
         (hash-sym (htable->hash-sym obj)))
     (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
       (let* ((pos (tag+ pos))
@@ -763,7 +766,7 @@
       #f)))
 
 (define (put/hashtable bv pos obj)
-  (let ((cmp-sym (htable->cmp-sym obj))
+  (let ((cmp-sym  (htable->cmp-sym  obj))
         (hash-sym (htable->hash-sym obj)))
     (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
       (let* ((pos (put/tag bv pos (case cmp-sym ((eq?)  tag-eq-hashtable)
@@ -781,6 +784,47 @@
       #f)))
 
 
+(define (ord-hash->cmp-sym obj)
+  (hashtable-ref known-cmp-sym (ordered-hash-equivalence-function obj) #f))
+
+(define (ord-hash->hash-sym obj)
+  (hashtable-ref known-hash-sym (ordered-hash-hash-function obj) #f))
+
+(define (len/ord-hash pos obj)
+  (let ((cmp-sym  (ord-hash->cmp-sym  obj))
+        (hash-sym (ord-hash->hash-sym obj)))
+    (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
+      (let* ((pos (tag+ pos))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (len/symbol pos hash-sym))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (len/symbol pos cmp-sym))))
+             (pos (vlen+ (ordered-hash-size obj) pos))) ; n is encoded as vlen
+        (when pos
+          (for-ordered-hash ((k v obj))
+            (set! pos (len/any (len/any pos k) v))))
+        pos)
+      #f)))
+
+(define (put/ord-hash bv pos obj)
+  (let ((cmp-sym  (ord-hash->cmp-sym  obj))
+        (hash-sym (ord-hash->hash-sym obj)))
+    (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
+      (let* ((pos (put/tag bv pos (case cmp-sym ((eq?)  tag-eq-ord-hash)
+                                                ((eqv?) tag-eqv-ord-hash)
+                                                (else   tag-ord-hash))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (put/symbol bv pos hash-sym))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (put/symbol bv pos cmp-sym))))
+             (pos (put/vlen bv pos (ordered-hash-size obj)))) ; n is encoded as vlen
+        (when pos
+          (for-ordered-hash ((k v obj))
+            (set! pos (put/any bv (put/any bv pos k) v))))
+        pos)
+      #f)))
+
+
 (include "wire/record.ss")
 (include "wire/vector.ss")
 
@@ -788,58 +832,60 @@
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
 (define (len/any pos obj)
   (cond
-    ((not pos)         #f)
-    ((fixnum? obj)     (len/exact-sint  pos obj))
-    ((char?   obj)     (len/char       pos obj))
-    ((pair?   obj)     (len/pair       pos obj))
-    ((symbol? obj)     (len/symbol     pos obj))
-    ((flonum? obj)     (len/flonum     pos obj))
-    ((null? obj)       (tag+ pos)) ; only tag, datum is 0 bytes
-    ((eq? (void) obj)  (tag+ pos)) ; only tag, datum is 0 bytes
-    ((boolean? obj)    (tag+ pos)) ; only tag, datum is 0 bytes
-    ((eof-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
-    ((bwp-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
+    ((not pos)           #f)
+    ((fixnum? obj)       (len/exact-sint  pos obj))
+    ((char?   obj)       (len/char       pos obj))
+    ((pair?   obj)       (len/pair       pos obj))
+    ((symbol? obj)       (len/symbol     pos obj))
+    ((flonum? obj)       (len/flonum     pos obj))
+    ((null? obj)         (tag+ pos)) ; only tag, datum is 0 bytes
+    ((eq? (void) obj)    (tag+ pos)) ; only tag, datum is 0 bytes
+    ((boolean? obj)      (tag+ pos)) ; only tag, datum is 0 bytes
+    ((eof-object? obj)   (tag+ pos)) ; only tag, datum is 0 bytes
+    ((bwp-object? obj)   (tag+ pos)) ; only tag, datum is 0 bytes
     ((procedure? obj)  #f)
     ;; these are slower to check
-    ((box?    obj)     (len/box        pos obj))
-    ((number? obj)     (len/number     pos obj))
-    ((vector? obj)     (len/vector     pos obj))
-    ((bytevector? obj) (len/bytevector pos obj))
-    ((string? obj)     (len/string     pos obj))
-    ((hashtable? obj)  (len/hashtable  pos obj))
-    ((fxvector? obj)   (len/fxvector   pos obj))
-    ((flvector? obj)   (len/flvector   pos obj))
-    ((record? obj)     (len/record     pos obj))
-    (else              #f)))
+    ((box?    obj)       (len/box        pos obj))
+    ((number? obj)       (len/number     pos obj))
+    ((vector? obj)       (len/vector     pos obj))
+    ((bytevector? obj)   (len/bytevector pos obj))
+    ((string? obj)       (len/string     pos obj))
+    ((hashtable? obj)    (len/hashtable  pos obj))
+    ((ordered-hash? obj) (len/ord-hash   pos obj))
+    ((fxvector? obj)     (len/fxvector   pos obj))
+    ((flvector? obj)     (len/flvector   pos obj))
+    ((record? obj)       (len/record     pos obj))
+    (else                #f)))
 
 
 ;; recursively traverse obj, serialize it and write it into bytevector bv starting at position pos.
 ;; return updated position, or #f on errors.
 (define (put/any bv pos obj)
   (cond
-    ((not pos)         #f)
-    ((fixnum? obj)     (put/exact-sint  bv pos obj))
-    ((char?   obj)     (put/char       bv pos obj))
-    ((pair?   obj)     (put/pair       bv pos obj))
-    ((symbol? obj)     (put/symbol     bv pos obj))
-    ((flonum? obj)     (put/flonum     bv pos obj))
-    ((null? obj)       (put/tag bv pos tag-nil))  ; only tag, datum is 0 bytes
-    ((boolean? obj)    (put/tag bv pos (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
-    ((eq? (void) obj)  (put/tag bv pos tag-void)) ; only tag, datum is 0 bytes
-    ((eof-object? obj) (put/tag bv pos tag-eof))  ; only tag, datum is 0 bytes
-    ((bwp-object? obj) (put/tag bv pos tag-bwp))  ; only tag, datum is 0 bytes
-    ((procedure? obj)  #f)
+    ((not pos)           #f)
+    ((fixnum? obj)       (put/exact-sint  bv pos obj))
+    ((char?   obj)       (put/char       bv pos obj))
+    ((pair?   obj)       (put/pair       bv pos obj))
+    ((symbol? obj)       (put/symbol     bv pos obj))
+    ((flonum? obj)       (put/flonum     bv pos obj))
+    ((null? obj)         (put/tag bv pos tag-nil))  ; only tag, datum is 0 bytes
+    ((boolean? obj)      (put/tag bv pos (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
+    ((eq? (void) obj)    (put/tag bv pos tag-void)) ; only tag, datum is 0 bytes
+    ((eof-object? obj)   (put/tag bv pos tag-eof))  ; only tag, datum is 0 bytes
+    ((bwp-object? obj)   (put/tag bv pos tag-bwp))  ; only tag, datum is 0 bytes
+    ((procedure? obj)    #f)
     ;; these are slower to check
-    ((box?    obj)     (put/box        bv pos obj))
-    ((number? obj)     (put/number     bv pos obj))
-    ((vector? obj)     (put/vector     bv pos obj))
-    ((bytevector? obj) (put/bytevector bv pos obj))
-    ((string? obj)     (put/string     bv pos obj))
-    ((hashtable? obj)  (put/hashtable  bv pos obj))
-    ((fxvector? obj)   (put/fxvector   bv pos obj))
-    ((flvector? obj)   (put/flvector   bv pos obj))
-    ((record? obj)     (put/record     bv pos obj))
-    (else              #f)))
+    ((box?    obj)       (put/box        bv pos obj))
+    ((number? obj)       (put/number     bv pos obj))
+    ((vector? obj)       (put/vector     bv pos obj))
+    ((bytevector? obj)   (put/bytevector bv pos obj))
+    ((string? obj)       (put/string     bv pos obj))
+    ((hashtable? obj)    (put/hashtable  bv pos obj))
+    ((ordered-hash? obj) (put/ord-hash   bv pos obj))
+    ((fxvector? obj)     (put/fxvector   bv pos obj))
+    ((flvector? obj)     (put/flvector   bv pos obj))
+    ((record? obj)       (put/record     bv pos obj))
+    (else                #f)))
 
 
 ;; recursively traverse obj and return the number of bytes needed to serialize it.

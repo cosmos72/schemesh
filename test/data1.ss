@@ -253,14 +253,22 @@
     (date 1901 12 31  23 59 59 999999999 +3600))       #vu8(17 241 17 109 7 12 31 23 59 59 19 255 201 154 59 17 16 14)
   (datum->wire
     (make-time-utc #x80000000 999999999))              #vu8(14 242 88 20 5 0 0 0 128 0 19 255 201 154 59)
+
   (datum->wire
-    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
+    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 49 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (datum->wire
-    (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(21 52 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
+    (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(21 50 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
   (let ((bv (datum->wire
               (hashtable string-hash string=? "a" 1 "b" 2))))
-    (or (bytevector=? bv #vu8(12 53 76 74 2 41 1 97 1 41 1 98 2))
-        (bytevector=? bv #vu8(12 53 76 74 2 41 1 98 2 41 1 97 1))))       #t
+    (or (bytevector=? bv #vu8(12 51 76 74 2 41 1 97 1 41 1 98 2))
+        (bytevector=? bv #vu8(12 51 76 74 2 41 1 98 2 41 1 97 1))))       #t
+
+  (datum->wire
+    (eq-ordered-hash (void) 1.5 '() #x123456789))      #vu8(20 52 2 28 23 0 0 0 0 0 0 248 63 27 20 5 137 103 69 35 1)
+  (datum->wire
+    (eqv-ordered-hash #\{ 0.5+2.0i))                   #vu8(21 53 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
+  (datum->wire
+    (ordered-hash string-hash string=? "a" 1 "b" 2))   #vu8(12 54 76 74 2 41 1 97 1 41 1 98 2)
 
 
   (values->list (wire->datum  #vu8(4 243 6 36 27)))    ,((ok ()) 5)
@@ -280,9 +288,9 @@
     (bitwise-arithmetic-shift 1 64)
     (bitwise-arithmetic-shift -1 60)
     #\xDC80 #\xDCFF 'foo "bar\x20AC;" '#vfx(0)
-    #vu8(255 254 253) (bytespan 7)))                       #vu8(55 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
-                                                                128 220 32 255 220 46 3 102 111 111 42 4 98 0 97 0 114 0
-                                                                172 32 44 1 0 40 3 255 254 253 246 1 7)
+    #vu8(255 254 253) (bytespan 7)))                    #vu8(55 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
+                                                             128 220 32 255 220 46 3 102 111 111 42 4 98 0 97 0 114 0
+                                                             172 32 44 1 0 40 3 255 254 253 246 1 7)
 
   (values->list (wire->datum
      #vu8(59 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
@@ -294,11 +302,14 @@
                                                                #\xDC80 #\xDCFF foo "bar\x20AC;" #vfx(0)
                                                                #vu8(255 254 253) (bytespan 7)) 60)
 
-  (let ((ht (first-value (wire->datum #vu8(14 53 76 74 2 41 2 101 102 14 41 2 99 100 15)))))
+  (let ((ht (first-value (wire->datum #vu8(14 51 76 74 2 41 2 101 102 14 41 2 99 100 15)))))
     (vector-sort
       (lambda (cell1 cell2)
         (string<? (car cell1) (car cell2)))
       (hashtable-cells ht)))                               #(("cd" . -1) ("ef" . -2))
+
+  (first-value (wire->datum
+    #vu8(14 54 76 74 2 41 2 101 102 14 41 2 99 100 15)))   ,(ordered-hash string-hash string=? "ef" -2 "cd" -1)
 
   ;; stress test (wire->datum) on random bytevectors
   (let* ((payload-len 512)

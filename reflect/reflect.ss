@@ -110,14 +110,14 @@
   (case-lambda
     ((obj field-name rtd-cache default)
       (cond
-        ;; in Chez Scheme, hashtable and ordered-hash are record types
-        ;; => must checked for them before (record?)
+        ;; in Chez Scheme, hashtable is a record type
+        ;; => must check for it before (record?)
         ((hashtable? obj)
           ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
           ;; do not allow field-name's type and raise a condition
           (hashtable-ref obj field-name default))
         ((ordered-hash? obj)
-          ;; FIXME: can raise condition if hashtable-hash-function or hashtable-equivalence-function
+          ;; FIXME: can raise condition if ordered-hash-hash-function or ordered-hash-equivalence-function
           ;; do not allow field-name's type and raise a condition
           (ordered-hash-ref obj field-name default))
         ((record? obj)

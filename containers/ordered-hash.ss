@@ -14,7 +14,8 @@
      alist->eq-ordered-hash alist->eqv-ordered-hash alist->ordered-hash
      plist->eq-ordered-hash plist->eqv-ordered-hash plist->ordered-hash
 
-     ordered-hash? ordered-hash-contains? ordered-hash-empty? ordered-hash-size ordered-hash-copy
+     ordered-hash? ordered-hash-equivalence-function ordered-hash-hash-function
+     ordered-hash-contains? ordered-hash-empty? ordered-hash-size ordered-hash-copy
      ordered-hash-ref ordered-hash-set! ordered-hash-delete! ordered-hash-clear!
 
      ordered-hash-for-each ordered-hash-cells ordered-hash-keys ordered-hash-values ordered-hash-entries
@@ -186,6 +187,14 @@
 ;; Returns the created ordered-hash.
 (define (ordered-hash hash-proc eq-proc . plist)
   (plist->ordered-hash hash-proc eq-proc plist))
+
+
+(define (ordered-hash-equivalence-function oht)
+  (hashtable-equivalence-function (ord-hash-table oht)))
+
+
+(define (ordered-hash-hash-function oht)
+  (hashtable-hash-function (ord-hash-table oht)))
 
 
 ;; lookup key in ordered-hash and return #t if present, or #f if not present.

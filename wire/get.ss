@@ -300,6 +300,7 @@
 (define (cmp-sym->proc sym)  (hashtable-ref known-cmp-proc sym #f))
 (define (hash-sym->proc sym) (hashtable-ref known-hash-proc sym #f))
 
+
 (define (%fill/hashtable bv pos end key-hash-validator key-cmp-validator n ret)
   (if (fxzero? n)
     (values ret pos)
@@ -341,6 +342,47 @@
       (values #f #f))))
 
 
+(define (%fill/ord-hash bv pos end key-hash-validator key-cmp-validator n ret)
+  (if (fxzero? n)
+    (values ret pos)
+    (let*-values (((key pos) (get/any bv pos end))
+                  ((val pos) (get/any bv pos end)))
+      (if (and pos (key-hash-validator key) (key-cmp-validator key))
+        (begin
+          (ordered-hash-set! ret key val)
+          (%fill/ord-hash bv pos end key-hash-validator key-cmp-validator (fx1- n) ret))
+        (values #f #f)))))
+
+(define (get/eq-ord-hash bv pos end)
+  (let-values (((n pos) (get/vlen bv pos end)))
+    (if (and pos (fx<=? n (fx- end pos)))
+      (%fill/ord-hash bv pos end always-true always-true n (make-eq-ordered-hash n))
+      (values #f #f))))
+
+(define (get/eqv-ord-hash bv pos end)
+  (let-values (((n pos) (get/vlen bv pos end)))
+    (if (and pos (fx<=? n (fx- end pos)))
+      (%fill/ord-hash bv pos end always-true always-true n (make-eqv-ordered-hash n))
+      (values #f #f))))
+
+(define (get/ord-hash bv pos end)
+  (let*-values (((hash-sym pos) (get/any bv pos end))
+                ((cmp-sym pos)  (get/any bv pos end))
+                ((n pos)        (get/vlen bv pos end)))
+    ;; (debugf "...get/ord-hash pos=~s n=~s hash-sym=~s cmp-sym=~s" pos n hash-sym cmp-sym)
+    (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
+      (let ((hash-proc (hash-sym->proc hash-sym))
+            (cmp-proc  (cmp-sym->proc cmp-sym))
+            (key-hash-validator (hashtable-ref known-hash-key-type-validator hash-sym #f))
+            (key-cmp-validator  (hashtable-ref known-cmp-key-type-validator cmp-sym #f)))
+        ;; (debugf "...get/ord-hash hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
+        (if (and hash-proc cmp-proc key-hash-validator key-cmp-validator)
+          (%fill/ord-hash bv pos end key-hash-validator key-cmp-validator n
+                           (make-ordered-hash hash-proc cmp-proc n))
+          (values #f #f)))
+      (values #f #f))))
+
+
 (define known-tag
   (let ((plist
           (list tag-0 0 tag-1 1 tag-2 2 tag-3 3 tag-4 4 tag-5 5 tag-6 6 tag-7 7 tag-8 8
@@ -355,7 +397,8 @@
                 tag-string8  get/string8  tag-string16   get/string16   tag-string24 get/string24
                 tag-fxvector get/fxvector tag-flvector   get/flvector
                 tag-symbol8  get/symbol8  tag-symbol16   get/symbol16   tag-symbol24 get/symbol24
-                tag-eq-hashtable get/eq-hashtable tag-eqv-hashtable get/eqv-hashtable tag-hashtable get/hashtable))
+                tag-eq-hashtable get/eq-hashtable tag-eqv-hashtable get/eqv-hashtable tag-hashtable get/hashtable
+                tag-eq-ord-hash  get/eq-ord-hash  tag-eqv-ord-hash  get/eqv-ord-hash  tag-ord-hash  get/ord-hash))
         (vec (make-vector 256 (void))))
     (for-plist ((tag obj plist))
       (vector-set! vec tag obj))
