@@ -26,14 +26,14 @@
 
 (define (b-mode->input-buffer-size b-mode)
   (case b-mode
-    ((none) 1) ; Chez Scheme custom streams do not support zero input-buffer-size
+    ((none) 1) ; custom streams do not support zero input-buffer-size
     ((line) 128)
     (else   8192)))
 
 
 (define (b-mode->output-buffer-size b-mode)
   (case b-mode
-    ((none) 0)
+    ((none) 1) ; custom streams do not support zero output-buffer-size
     ((line) 128)
     (else   8192)))
 

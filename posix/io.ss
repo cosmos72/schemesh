@@ -26,7 +26,7 @@
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
-    (only (scheme2k bootstrap)              assert* raise-errorf)
+    (only (scheme2k bootstrap)              assert* debugf fx<=?* raise-errorf trace-define)
     (scheme2k containers bytespan)
     (only (scheme2k containers list)        plist? plist-ref)
     (only (scheme2k containers string)      substring-move!)
@@ -40,14 +40,14 @@
 
 (define (b-mode->input-buffer-size b-mode)
   (case b-mode
-    ((none) 1) ;; Chez Scheme custom ports do not support zero input-buffer-size
+    ((none) 1) ;; r6rs custom ports do not support zero input-buffer-size
     ((line) 128)
     (else   8192)))
 
 
 (define (b-mode->output-buffer-size b-mode)
   (case b-mode
-    ((none) 0)
+    ((none) 1) ;; r6rs custom ports do not support zero output-buffer-size
     ((line) 128)
     (else   8192)))
 

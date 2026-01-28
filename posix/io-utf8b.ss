@@ -65,18 +65,29 @@
 
 ;; always writes exactly n characters
 (define (tport-write t str start n)
-  (if (and (string? str) (fixnum? start) (fixnum? n)
-           (fx<? -1 start (fx+ start n) (fx1+ (string-length str))))
-    (let ((chunk-max (tport-buffer-size t)))
-      (let %write-loop ((start start) (n n))
-        (let ((chunk-n (fxmin n chunk-max)))
-          (bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
-          (tport-maybe-overflow t)
-          (unless (fx=? chunk-n n)
-            (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
-      (tport-pos-set! t (fx+ n (tport-pos t)))
-      n)
-    0))
+  (if (and (string? str) (fixnum? start) (fixnum? n))
+    (begin
+      ;; at least Chez Scheme 10.3.0 does not validate port output size & index,
+      ;; and sometimes calls this function with (> n (string-length str))
+      ;; => be paranoid and validate all arguments
+      ;; (assert* 'tport-write (fx<=?* 0 start (fx+ start n) (string-length str)))
+      (let* ((len       (string-length str))
+             (n         (fxmax 0 (fxmin n len)))
+             (start     (fxmax 0 (fxmin start (fx- len n))))
+             (chunk-max (fxmax 128 (tport-buffer-size t))))
+        (when (fx>? n 0)
+          (let %write-loop ((start start) (n n))
+            (let ((chunk-n (fxmin n chunk-max)))
+              ;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
+              (bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
+              (tport-maybe-overflow t)
+              (tport-pos-set! t (fx+ chunk-n (tport-pos t)))
+              (unless (fx=? chunk-n n)
+                (%write-loop (fx+ start chunk-n) (fx- n chunk-n))))))
+        ;; (debugf "< tport-write n ~s" n)
+        n))
+    n))
+
 
 (define (tport-flush t)
   (tport-overflow t)
@@ -181,9 +192,9 @@
       (set-textual-port-input-size!   port cap)
       (set-textual-port-input-index!  port cap)))
   (when (output-port? port)
-    (let ((cap (fxmax 0 output-buffer-size)))
+    (let ((cap (fxmax 1 output-buffer-size)))
       (set-textual-port-output-buffer! port (make-string cap))
-      (set-textual-port-output-size!   port cap)
+      (set-textual-port-output-size!   port (fxmax 0 (fx1- cap))) ; leave 1 byte for (put-char)
       (set-textual-port-output-index!  port 0)))
   port)
 
