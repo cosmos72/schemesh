@@ -25,7 +25,9 @@
                         set-textual-port-output-buffer! set-textual-port-output-index! set-textual-port-output-size!
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
-                        textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
+                        textual-port-output-buffer      textual-port-output-index      textual-port-output-size
+
+                        void)
     (only (scheme2k bootstrap)              assert* debugf fx<=?* raise-errorf trace-define)
     (scheme2k containers bytespan)
     (only (scheme2k containers list)        plist? plist-ref)
@@ -133,6 +135,30 @@
 (include "posix/io-utf8b.ss")
 
 
+;; if thunk returns abnormally i.e. raises condition or exits via a continuation
+;; then call (proc-on-abnormal-return)
+(define (dynamic-protect thunk proc-on-abnormal-return)
+  (let ((ok? #f))
+    (dynamic-wind
+      void
+      (lambda ()
+        (let ((ret (thunk)))
+          (set! ok? #t)
+          ret))
+      (lambda ()
+        (unless ok?
+          (proc-on-abnormal-return))))))
+
+
+#| ; unused
+(define-syntax dynamic-protect-macro
+  (syntax-rules ()
+    ((_ form proc-on-abnormal-return)
+      (if proc-on-abnormal-return
+        (dynamic-protect (lambda () form) proc-on-abnormal-return)
+        form))))
+|#
+
 ;; create and return a binary or textual input and/or output port that reads from and/or writes to a file descriptor.
 ;;
 ;; Arguments:
@@ -179,8 +205,12 @@
     ((path dir flags transcoder-sym b-mode)
       (assert* 'file->port (memq transcoder-sym '(binary textual utf8b)))
       (assert* 'file->port (buffer-mode? b-mode))
-      (let ((fd (file->fd path dir flags)))
-        (fd->port fd dir transcoder-sym b-mode (text->string path) (lambda () (fd-close fd)))))
+      (let* ((fd (file->fd path dir flags))
+             (proc-on-close (lambda () (fd-close fd))))
+        (dynamic-protect
+          (lambda ()
+            (fd->port fd dir transcoder-sym b-mode (text->string path) proc-on-close))
+          proc-on-close)))
     ((path dir flags transcoder-sym)
       (file->port path dir flags transcoder-sym (buffer-mode block)))
     ((path dir flags)
