@@ -201,11 +201,13 @@
 
 ;; create and return a textual input port that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
-(define (make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
-  (%set-textual-buffer-size!
-    (%make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
-    input-buffer-size
-    output-buffer-size))
+(define (make-utf8b-port bport-in bport-out b-mode options)
+  (let ((input-buffer-size  (b-mode->input-buffer-size b-mode))
+        (output-buffer-size (b-mode->output-buffer-size b-mode)))
+    (%set-textual-buffer-size!
+      (%make-utf8b-port bport-in input-buffer-size bport-out output-buffer-size options)
+      input-buffer-size
+      output-buffer-size)))
 
 
 (define port->utf8b-port
@@ -216,15 +218,11 @@
       (assert* 'port->utf8b-port (plist? options))
       (case dir
         ((read)
-          (let ((in-buffer-size (b-mode->input-buffer-size b-mode)))
-            (make-utf8b-port bin-port in-buffer-size #f 0 options)))
+          (make-utf8b-port bin-port    #f    b-mode options))
         ((rw)
-          (let ((in-buffer-size  (b-mode->input-buffer-size b-mode))
-                (out-buffer-size (b-mode->output-buffer-size b-mode)))
-            (make-utf8b-port bin-port in-buffer-size bin-port out-buffer-size options)))
+          (make-utf8b-port bin-port bin-port b-mode options))
         ((write)
-          (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
-            (make-utf8b-port #f 0 bin-port out-buffer-size options)))
+          (make-utf8b-port    #f    bin-port b-mode options))
         (else
           (assert* 'port->utf8b-port (memq dir '(read write rw))))))
     ((bin-port dir b-mode)
