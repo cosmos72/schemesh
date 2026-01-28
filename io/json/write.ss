@@ -14,6 +14,7 @@
     ((tok port)
       (cond
         ((string? tok)
+          ;; FIXME must escape characters #\x0 ... #\x1f with JSON syntax, not scheme syntax
           (write tok port))
         ((boolean? tok)
           (put-string port (if tok "true" "false")))
@@ -33,8 +34,32 @@
 
 (define json-write-value
   (case-lambda
-    ((value port)
-      ;; TODO: implement
-      (void))
-    ((value)
-      (json-write-value value (current-output-port)))))
+    ((obj port)
+      (cond
+        ((not (record? obj))
+          (json-write-token obj port))
+        ((span? obj)
+          (put-char port #\[)
+          (do ((i 0 (fx1+ i))
+               (n (span-length obj)))
+              ((fx>=? i n))
+            (unless (fxzero? i)
+              (put-char port #\,))
+            (json-write-value (span-ref obj i) port))
+          (put-char port #\]))
+        (else
+          (let ((first? #t))
+            (assert* 'json-write-value (ordered-hash? obj))
+            (put-char port #\{)
+            (for-ordered-hash ((key val obj))
+              (if first?
+                (set! first? #f)
+                (put-char port #\,))
+              (assert* 'json-write-value (symbol? key))
+              ; FIXME must escape characters #\x0 ... #\x1f with JSON syntax, not scheme syntax
+              (write (symbol->string key) port)
+              (put-char port #\:)
+              (json-write-value val port))
+            (put-char port #\})))))
+    ((obj)
+      (json-write-value obj (current-output-port)))))

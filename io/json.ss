@@ -17,8 +17,8 @@
     (only (scheme2k bootstrap)               assert* assert-not* raise-errorf)
     (only (scheme2k containers bytespan)     bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
                                              bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
-    (only (scheme2k containers ordered-hash) eq-ordered-hash ordered-hash-set!)
-    (only (scheme2k containers span)         span span-insert-right!)
+    (only (scheme2k containers ordered-hash) eq-ordered-hash for-ordered-hash ordered-hash? ordered-hash-set!)
+    (only (scheme2k containers span)         for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers utf8b)        bytespan-insert-right/char! utf8b-bytespan->string))
 
 
