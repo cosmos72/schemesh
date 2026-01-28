@@ -11,8 +11,11 @@
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
 
-  (+ 1 2 3) 6
-  (* 4 5 6) 120
+  (+ 1 2 3)                                        6
+  (* 4 5 6)                                        120
+  (fxmod #o27 #b1001)                              5
+  (list #xff #36rZZ)                               (255 1295)
+
   ;; ----------------- bootstrap ------------------------------------------
   (let ((x 0))
     (repeat 5 (set! x (fx1+ x)))

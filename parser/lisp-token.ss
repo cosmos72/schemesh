@@ -354,7 +354,7 @@
         (parsectx-read-char ctx) ; skip #\|
         (lex-skip-block-comment ctx flavor)
         (lex-lisp ctx flavor))
-      ((#\% #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\F #\T #\d #\e #\f #\i #\o #\t #\v #\x #\{)
+      ((#\% #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\F #\T #\b #\d #\e #\f #\i #\o #\t #\v #\x #\{)
         ;; #%foo      expands to value '($primitive foo)
         ;; #0... to #9... expand to one of:
         ;;              a sized vector type:
@@ -369,6 +369,7 @@
         ;; #:foo      expands to a gensym value
         ;; #F...      expands to the #f value
         ;; #T...      expands to the #t value
+        ;; #b...      expands to a binary number value
         ;; #d...      expands to a decimal number value
         ;; #e...      expands to an exact number value
         ;; #f...      expands to the #f value
