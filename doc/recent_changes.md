@@ -8,6 +8,8 @@
 * add functions `(wire-get)` and `(wire-put)` that read/write from binary input ports
 * remove function `(parsectx-unread-char)` and update functions that use it
 
+* investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
+
 ### git main branch
 
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
