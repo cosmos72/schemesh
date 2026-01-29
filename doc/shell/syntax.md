@@ -60,8 +60,6 @@ Also, each command name, argument, or redirection file name can be replaced with
 that evaluates to a string, or to a list of strings, or to a closure that accepts zero or one arguments (the job itself)
 and returns a string or a list of strings.
 
-Finally, file descriptor numbers can be replaced with a shell expression `( ... )` that evaluates to a fixnum.
-
 -----------------------------------------------------------------------------
 
 Other notable features:
