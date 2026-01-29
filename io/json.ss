@@ -12,14 +12,15 @@
           json-read-token  json-read-value json-skip-token json-skip-value
           json-write-token json-write-value)
   (import
-    (rename (rnrs)                           (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                       fx1+ fx1- include record-writer void)
-    (only (scheme2k bootstrap)               assert* assert-not* raise-errorf)
-    (only (scheme2k containers bytespan)     bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
-                                             bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
-    (only (scheme2k containers ordered-hash) eq-ordered-hash for-ordered-hash ordered-hash? ordered-hash-set!)
-    (only (scheme2k containers span)         for-span span span? span-insert-right! span-length span-ref)
-    (only (scheme2k containers utf8b)        bytespan-insert-right/char! utf8b-bytespan->string))
+    (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
+    (only (chezscheme)                    fx1+ fx1- include record-writer reverse! void)
+    (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
+    (only (scheme2k containers bytespan)  bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
+                                          bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
+    (only (scheme2k containers list)      for-plist plist? plist-add)
+    (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
+    (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
+    (only (scheme2k io stdio)             sh-stdin))
 
 
 (include "io/json/read.ss")

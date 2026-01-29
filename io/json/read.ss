@@ -245,9 +245,9 @@
         (when buf
           (bytespan-clear! buf))
         (parse-number p buf b))
-      ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f) ; false -> #f
-      ((fx=? b 110) (expect-bytes p '(117 108 108)) '())   ; null  -> '()
-      ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)    ; true  -> #t
+      ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f)  ; false -> #f
+      ((fx=? b 110) (expect-bytes p '(117 108 108)) (void)) ; null  -> (void)
+      ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)     ; true  -> #t
       (else
         (raise-json "unexpected byte ~s" b)))))
 
@@ -274,10 +274,14 @@
   (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-(define (make-json-reader p)
-  (assert* 'make-json-reader (binary-port? p))
-  (assert* 'make-json-reader (input-port? p))
-  (%make-json-reader p (bytespan $top) (bytespan) #f))
+(define make-json-reader
+  (case-lambda
+    ((p)
+      (assert* 'make-json-reader (binary-port? p))
+      (assert* 'make-json-reader (input-port? p))
+      (%make-json-reader p (bytespan $top) (bytespan) #f))
+    (()
+      (make-json-reader (sh-stdin)))))
 
 
 (define (json-reader-depth r)
@@ -413,7 +417,7 @@
 
 ;; read and return next token, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
-;;   '()     i.e. null
+;;   (void)  i.e. null
 ;;   #t      i.e. true
 ;;   #f      i.e. false
 ;;   an exact or inexact real number
@@ -432,13 +436,13 @@
 
 ;; read next value and return it, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
-;;   '()     i.e. null
+;;   (void)  i.e. null
 ;;   #t      i.e. true
 ;;   #f      i.e. false
 ;;   an exact or inexact real number
 ;;   a string
 ;;   a span, representing a json array
-;;   a ordered-hash, representing a json object
+;;   a plist, representing a json object
 ;;   a character among:
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
@@ -455,12 +459,12 @@
                 (span-insert-right! sp elem))
               (%read-array r sp (json-read-value r))))))
       ((#\{)
-        (let %read-object ((r r) (oht (eq-ordered-hash)) (key (json-read-value r)))
+        (let %read-object ((r r) (plist '()) (key (json-read-value r)))
           (cond
             ((or (eof-object? key) (eqv? key #\}))
-              oht)
+              (reverse! plist))
             ((eqv? #\, key)
-              (%read-object r oht (json-read-value r)))
+              (%read-object r plist (json-read-value r)))
             (else
               (assert* 'json-read-value (string? key))
               (let ((key   (string->symbol key))
@@ -469,15 +473,16 @@
                 (let ((value (json-read-value r)))
                   (assert-not* 'json-read-value (eof-object? value))
                   (assert-not* 'json-read-value (char? value))
-                  (ordered-hash-set! oht key value)
-                  (%read-object r oht (json-read-value r))))))))
+                  ;; plist will be reverse before returning it => insert value before key
+                  (%read-object r (plist-add plist value key)
+                                  (json-read-value r))))))))
       (else
         tok0))))
 
 
 ;; skip next token and return its kind, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
-;;   '()     i.e. null
+;;   (void)  i.e. null
 ;;   #t      i.e. true
 ;;   #f      i.e. false
 ;;   0       i.e. a number was skipped
@@ -495,7 +500,7 @@
 
 ;; skip next value and return its kind, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
-;;   '()     i.e. null
+;;   (void)  i.e. null
 ;;   #t      i.e. true
 ;;   #f      i.e. false
 ;;   0       i.e. a number was skipped
