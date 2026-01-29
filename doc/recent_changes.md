@@ -18,7 +18,8 @@
 * add functions `(field)` `(field-names)` in new library `(scheme2k reflect)`
 * pretty-print types `time` and `date` and add convenience functions to create them
 * extend library `(scheme2k wire)` to serialize/deserialize `date` objects and `ordered-hash` objects
-* rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytevector)`
+* rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
+* add function `(wire-get-from-bytespan)`
 
 ### release v0.9.3, 2025-12-26
 

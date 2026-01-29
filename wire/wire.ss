@@ -91,7 +91,7 @@
 
 
 (library (scheme2k wire (0 9 3))
-  (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-put-to-bytevector
+  (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           (rename (len/any wire-inner-len)
@@ -899,7 +899,7 @@
 
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
 ;; return number of written bytes, or #f on errors.
-(define wire-put-to-bytevector
+(define wire-put-to-bytespan
   (case-lambda
     ((bsp obj message-wire-len)
       (assert* 'wire-put (bytespan? bsp))
@@ -921,13 +921,13 @@
               message-wire-len))
           #f)))
     ((bsp obj)
-      (wire-put-to-bytevector bsp obj (datum->wire-length obj)))))
+      (wire-put-to-bytespan bsp obj (datum->wire-length obj)))))
 
 ;; recursively traverse obj, serialize it and return bytevector containing serialized bytes,
 ;; or #f on errors
 (define (datum->wire obj)
   (let ((bsp (bytespan)))
-    (if (wire-put-to-bytevector bsp obj)
+    (if (wire-put-to-bytespan bsp obj)
       (bytespan->bytevector*! bsp)
       #f)))
 

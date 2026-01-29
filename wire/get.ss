@@ -441,57 +441,65 @@
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
 ;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
-(define (wire-get-from-bytevector bv start end)
-  (assert* 'wire-get-from-bytevector (fx<=?* 0 start end (bytevector-length bv)))
-  (let-values (((len pos) (get/vlen bv start end)))
-    (cond
-      ((and len pos)
-        (let ((available (fx- end pos)))
-          (if (fx>=? available len)
-            (if (fxzero? len)
-              (values (void) pos) ; (void) can be encoded as header = 0
-              (let ((end0 (fx+ pos len)))
-                (let-values (((ret end1) (get/any bv pos end)))
-                  (if (and end1 (fx=? end0 end1))
-                    (values ret end1)
-                    ;; message deserialized, but it ends at unexpected position:
-                    ;; discard it, and tell how many bytes should be discarded.
-                    (values #t (fx- (fx+ len pos)))))))
+(define wire-get-from-bytevector
+  (case-lambda
+    ((bv start end)
+      (assert* 'wire-get-from-bytevector (fx<=?* 0 start end (bytevector-length bv)))
+      (let-values (((len pos) (get/vlen bv start end)))
+        (cond
+          ((and len pos)
+            (let ((available (fx- end pos)))
+              (if (fx>=? available len)
+                (if (fxzero? len)
+                  (values (void) pos) ; (void) can be encoded as header = 0
+                  (let ((end0 (fx+ pos len)))
+                    (let-values (((ret end1) (get/any bv pos end)))
+                      (if (and end1 (fx=? end0 end1))
+                        (values ret end1)
+                        ;; message deserialized, but it ends at unexpected position:
+                        ;; discard it, and tell how many bytes should be discarded.
+                        (values #t (fx- (fx+ len pos)))))))
+                ;; not enough bytes to deserialize message: tell how many more bytes are needed
+                (values #f (fx- available len)))))
+          ((fx>=? start end)
+            ;; zero bytes provided, need at least min-len-vlen
+            (values #f (fx- min-len-vlen)))
+          (len
             ;; not enough bytes to deserialize message: tell how many more bytes are needed
-            (values #f (fx- available len)))))
-      ((fx>=? start end)
-        ;; zero bytes provided, need at least min-len-vlen
-        (values #f (fx- min-len-vlen)))
-      (len
-        ;; not enough bytes to deserialize message: tell how many more bytes are needed
-        (values #f (fx- (fx- end start) (vlen+ len len))))
-      (else
-        ;; could not deserialize vlen
-        (values #f #f)))))
+            (values #f (fx- (fx- end start) (vlen+ len len))))
+          (else
+            ;; could not deserialize vlen
+            (values #f #f)))))
+    ((bv)
+      (wire-get-from-bytevector bv 0 (bytevector-length bv)))))
 
 
-;; read bytes from bytevector or bytespan stc and deserialize an object from them.
+;; read byte range [start, end) from bytespan bsp and deserialize an object from it.
+;; Return two values:
+;;   either object and updated start position in range [start, end)
+;;   or #f #f if serialized bytes are invalid and cannot be parsed;
+;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
+;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
+(define wire-get-from-bytespan
+  (case-lambda
+    ((bsp start end)
+      (assert* 'wire-get-from-bytespan (fx<=?* 0 start end (bytespan-length bsp)))
+      (let ((offset (bytespan-peek-beg bsp)))
+        (wire-get-from-bytevector (bytespan-peek-data bsp) (fx+ start offset) (fx+ end offset))))
+    ((bsp)
+      (wire-get-from-bytevector (bytespan-peek-data bsp) (bytespan-peek-beg bsp) (bytespan-peek-end bsp)))))
+
+
+;; read bytes from bytevector or bytespan src and deserialize an object from it.
 ;; Return two values:
 ;;   either object and number of consumed bytes,
-;;   or #f #f if serialized bytes are invalid
-;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added to the bytespan end.
+;;   or #f #f if serialized bytes are invalid and cannot be parsed;
+;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
+;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
 ;;
 ;; raises exception if src is not a bytevector or a bytespan,
 ;; or if start and end are out-of-range.
-(define wire->datum
-  (case-lambda
-    ((src)
-      (if (bytevector? src)
-        (wire-get-from-bytevector src 0 (bytevector-length src))
-        (wire-get-from-bytevector (bytespan-peek-data src) (bytespan-peek-beg src) (bytespan-peek-end src))))
-    ((src start end)
-      (if (bytevector? src)
-        (let ((len (bytevector-length src)))
-          (assert* 'wire->datum (fx<=?* 0 start end len))
-          (wire-get-from-bytevector src start end))
-        (begin
-          (assert* 'wire->datum (bytespan? src))
-          (let ((len (bytevector-length src))
-                (offset (bytespan-peek-beg src)))
-            (assert* 'wire->datum (fx<=?* 0 start end len))
-            (wire-get-from-bytevector (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))))))))
+(define (wire->datum src)
+  (if (bytevector? src)
+    (wire-get-from-bytevector src)
+    (wire-get-from-bytespan   src)))

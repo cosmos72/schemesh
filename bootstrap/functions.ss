@@ -31,7 +31,7 @@
     (rnrs)
     (only (chezscheme) $primitive console-error-port eval format gensym import include
                        make-continuation-condition make-format-condition meta-cond interaction-environment
-                       library-exports self-evaluating-vectors string->immutable-string
+                       library-exports string->immutable-string
                        top-level-bound? top-level-value void))
 
 
@@ -314,9 +314,13 @@
   (values 0 9 3))
 
 
-(begin
-  ;; be more R7RS-friendly: also allow unquoted vector literals #(...) #vfx(...) etc
-  (self-evaluating-vectors #t))
+(meta-cond
+  ;; (self-evaluating-vectors) requires Chez Scheme >= 9.5.8
+  ((memq 'self-evaluating-vectors (library-exports '(chezscheme)))
+    (let ()
+       (import (only (chezscheme) self-evaluating-vectors))
+       ;; be more R7RS-friendly: also allow unquoted vector literals #(...) #vfx(...) etc
+       (self-evaluating-vectors #t))))
 
 ) ; close library
 

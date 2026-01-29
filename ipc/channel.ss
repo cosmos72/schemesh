@@ -18,13 +18,13 @@
           channel-get channel-eof? channel-put in-channel)
   (import
     (rnrs)
-    (only (chezscheme)            record-writer void)
-    (only (scheme2k bootstrap)    assert* check-interrupts raise-assertf raise-errorf)
-    (scheme2k containers bytespan)
-    (scheme2k posix fd)
-    (only (scheme2k posix socket) socketpair-fds)
-    (scheme2k wire)
-    (only (scheme2k io)         read-bytes-insert-right!))
+    (only (chezscheme)                   record-writer void)
+    (only (scheme2k bootstrap)           assert* check-interrupts raise-assertf raise-errorf)
+          (scheme2k containers bytespan)
+          (scheme2k posix fd)
+    (only (scheme2k posix socket)        socketpair-fds)
+          (scheme2k wire)
+    (only (scheme2k io)                  read-bytes-insert-right!))
 
 
 (define-record-type channel
@@ -135,7 +135,7 @@
 (define (channel-put c datum)
   (let* ((out          (channel-out c))
          (wbuf         (channel-wbuf c))
-         (serialized-n (and out wbuf (wire-put-to-bytevector wbuf datum))))
+         (serialized-n (and out wbuf (wire-put-to-bytespan wbuf datum))))
     (if serialized-n
       (begin
         (%out-write-all out wbuf)
@@ -174,10 +174,7 @@
 
 ;; implementation of (channel-get)
 (define (%channel-get c in rbuf)
-  (let-values (((datum pos) (wire-get-from-bytevector
-                              (bytespan-peek-data rbuf)
-                              (bytespan-peek-beg  rbuf)
-                              (bytespan-peek-end  rbuf))))
+  (let-values (((datum pos) (wire-get-from-bytespan rbuf)))
     (cond
       ((not (fixnum? pos))
         (raise-errorf 'channel-get "failed parsing wire-serialized data read from ~s ~s" in))
