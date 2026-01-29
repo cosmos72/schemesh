@@ -7,7 +7,7 @@ Ordered from highest priority to lowest priority, job syntax is:
 1. command with arguments: that's fundamental, `cmd_name /some/dir --some-options --other-options` executes the command, if found in `$PATH`
 
    The command, and also each argument, can contain zero or more single quotes `"..."` and single quotes `'...'`
-   that are useful to disable some of the steps below. Example: `ls  path" with "spaces  path'<with>lots$of&special[chars]*'`
+   that are useful to disable some of the steps below. Example: `ls  path" with "spaces  path'<>with"lots$of&special[chars]*\'`
 
 2. shell glob and substitution, which are performed together
    i.e. the expansion produced by each one is **not** parsed again for special characters recognized by the other one.
