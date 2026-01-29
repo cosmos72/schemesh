@@ -2,7 +2,15 @@
 
 Ordered from highest priority to lowest priority, job syntax is:
 
-0. subshell: `[shell_commands]` executes commands in a subshell. See below for what `shell_commands` can contain
+0. grouping, subshell and scheme jobs:
+   `{shell_commands}` groups commands. It has no special semantic, its only purpose is group them as a single entity, as parentheses do in math.
+
+   `[shell_commands]` executes commands in a subshell.
+
+   `$(scheme_expression optional_args ...)` wraps an arbitrary scheme expression in a shell job - in short, a "scheme job" - and executes it.
+
+   These three syntaxes can be optionally followed by redirections, see 3. and 4.
+   See below for what `shell_commands` can contain.
 
 1. command with arguments: that's fundamental, `cmd_name /some/dir --some-options --other-options` executes the command, if found in `$PATH`
 
