@@ -125,6 +125,8 @@ Mon Mar 31 12:00:01 PM GMT 2025
 traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
 the former is supported, while the latter has a different meaning in schemesh - see Scheme jobs below.
 
+For the complete shell syntax, see [doc/shell/syntax.md](doc/shell/syntax.md)
+
 ### Scheme jobs
 
 Shell jobs can also contain arbitrary Scheme code:
@@ -632,6 +634,12 @@ and help for each builtin can be viewed by typing `help NAME` at the prompt.
 
 The documentation currently include:
 
+* Complete shell syntax, see [doc/shell/syntax.md](doc/shell/syntax.md)
+
+* Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
+
+* Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
+
 * Prompt customization, see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
 
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
@@ -639,10 +647,6 @@ The documentation currently include:
 * Line editing internals, see [doc/lineedit/linectx.md](doc/lineedit/linectx.md)
 
 * Filesystem access, see [doc/posix/dir.md](doc/posix/dir.md)
-
-* Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
-
-* Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
 
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
