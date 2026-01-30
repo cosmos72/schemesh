@@ -237,17 +237,17 @@
 ;; customize how "wire-receiver" objects are printed
 (record-writer (record-type-descriptor wire-receiver)
   (lambda (r port writer)
-    (display "(wire-receiver " port)
-    (display (wire-receiver-in r) port)
-    (display ")" port)))
+    (put-string port "(wire-receiver ")
+    (writer (wire-receiver-in r) port)
+    (put-string port ")")))
 
 
 ;; customize how "wire-sender" objects are printed
 (record-writer (record-type-descriptor wire-sender)
   (lambda (s port writer)
-    (display "(wire-sender " port)
-    (display (wire-sender-out s) port)
-    (display ")" port)))
+    (put-string port "(wire-sender ")
+    (writer (wire-sender-out s) port)
+    (put-string port ")")))
 
 
 ) ; close library
