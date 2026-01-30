@@ -42,15 +42,13 @@
 
   (include "reflect/reflect.ss")
 
-  (include "wire/wire.ss")
-
   (include "posix/fd.ss")
   (include "posix/dir.ss")
   (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/signal.ss")
   (include "posix/socket.ss")       ; requires posix/fd.ss
-  (include "posix/status.ss")       ; requires wire/wire.ss
+  (include "posix/status.ss")
   (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
   (include "posix/tty.ss")
   (include "posix/rlimit.ss")
@@ -58,16 +56,17 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "io/http.ss")
+  (include "io/http.ss")                 ; requires io/posix/posix.ss
   (include "io/redir.ss")
   (include "io/stdio.ss")
-  (include "io/json.ss")            ; requires io/stdio.ss
+  (include "io/port.ss")                 ; requires io/stdio.ss
+  (include "io/json/json.ss")            ; requires io/stdio.ss
+  (include "io/wire/wire.ss")            ; requires io/posix/status.ss
   (include "io/io.ss")
 
   (include "vscreen/all.ss")
 
-
-  (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
+  (include "ipc/channel.ss") ; requires io/wire/wire.ss posix/fd.ss
   (meta-cond
     ((threaded?) (include "ipc/fifo-thread.ss"))
     (else        (include "ipc/fifo-nothread.ss")))

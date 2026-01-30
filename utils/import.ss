@@ -52,7 +52,6 @@
     (scheme2k posix)
     (scheme2k reflect)
     (scheme2k vscreen)
-    (scheme2k wire)
     (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh parser)
     (schemesh shell)

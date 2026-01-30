@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file wire/wire.ss
+;; this file should be included only by file io/wire/wire.ss
 
 (define (len/container pos c n ref-proc)
   (let %len/container ((i 0) (pos (vlen+ n (tag+ pos)))) ; n is encoded as vlen

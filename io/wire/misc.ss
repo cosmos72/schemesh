@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file wire/wire.ss
+;; this file should be included only by file io/wire/wire.ss
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; customize how "date" objects are serialized/deserialized

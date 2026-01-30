@@ -7,9 +7,18 @@
 
 #!r6rs
 
+;; this file should be included only by file io/wire/wire.ss
+
 ;; customize how "status" objects are serialized/deserialized
 
-(define tag-status 243) ; must match tag-status in wire/wire.ss
+
+;; copy-pasted from posix/status.ss
+(define-record-type (%status %make-status %status?)
+  (fields
+    (immutable kind %status->kind) ; symbol
+    (immutable val  %status->val))
+  (nongenerative %status-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 (define known-kind (plist->eq-hashtable '(new 0 running 1 stopped 2 exception 3 failed 4 killed 5 ok 6)))
 
@@ -25,21 +34,22 @@
         (vector-ref vec int)
         #f))))
 
-(define (wire-len/status pos obj)
-  (wire-inner-len (fx+ pos 2) (%status->val obj)))
+(define (len/status pos obj)
+  (len/any (fx+ pos 2) (%status->val obj)))
 
 ;; tag was already read and consumed. only read serialized kind and val.
-(define (wire-get/status bv pos end)
+(define (get/status bv pos end)
   (let ((kind (int->kind (bytevector-u8-ref bv pos))))
     (if kind
-      (let-values (((value pos) (wire-inner-get bv (fx1+ pos) end)))
+      (let-values (((value pos) (get/any bv (fx1+ pos) end)))
         (if pos
           (values (%make-status kind value) pos)
           (values #f #f)))
     (values #f #f))))
 
-(define (wire-put/status bv pos obj)
+(define (put/status bv pos obj)
   (let ((kind (%status->kind obj)))
     (bytevector-u8-set! bv pos tag-status)
     (bytevector-u8-set! bv (fx1+ pos) (kind->int kind))
-    (wire-inner-put bv (fx+ pos 2) (%status->val obj))))
+    (put/any bv (fx+ pos 2) (%status->val obj))))
+

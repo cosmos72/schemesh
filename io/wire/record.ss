@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file wire/wire.ss
+;; this file should be included only by file io/wire/wire.ss
 
 ;; hashtable record-type-descriptor -> (len-proc . put-proc)
 ;; containing serialization procedures for all registered record-type-descriptors

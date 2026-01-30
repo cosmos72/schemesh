@@ -7,236 +7,11 @@
 
 #!r6rs
 
-;;; Wire serialization/deserialization format.
-;;;
-;;; Hardcoded limits:
-;;;
-;;; Serialization format is message based, and length of each message
-;;        can be at most 2^32 - 1 bytes or (greatest-fixnum) bytes,
-;;;       whatever is smaller, including header (see below)
-;;;
-;;; Each message contains: header + payload (tag + datum)
-;;;
-;;; header: vlen, encoded either as 1 byte or 4 bytes little-endian,
-;;        maximum is 2^31 - 5 or (greatest-fixnum) - 4, whatever is smaller.
-;;;       Indicates the number of bytes occupied by payload (tag + datum)
-;;;       does NOT include the number of bytes occupied by vlen
-;;;
-;;; tag: 0 byte => datum is (void)
-;;;      1 byte => indicates the type of datum and possibly its value
-;;;       0 => datum is fixnum 0
-;;;       1 => datum is fixnum 1
-;;;       2 => datum is fixnum 2
-;;;       3 => datum is fixnum 3
-;;;       4 => datum is fixnum 4
-;;;       5 => datum is fixnum 5
-;;;       6 => datum is fixnum 6
-;;;       7 => datum is fixnum 7
-;;;       8 => datum is fixnum 8
-;;;       9 => datum is fixnum 9
-;;;      10 => datum is fixnum 10
-;;;      11 => datum is fixnum -5
-;;;      12 => datum is fixnum -4
-;;;      13 => datum is fixnum -3
-;;;      14 => datum is fixnum -2
-;;;      15 => datum is fixnum -1
-;;;      16 => datum is 1-byte signed exact integer
-;;;      17 => datum is 2-byte signed exact integer, little endian
-;;;      18 => datum is 3-byte signed exact integer, little endian
-;;;      19 => datum is 4-byte signed exact integer, little endian
-;;;      20 => datum is vlen followed by vlen bytes: signed exact integer, little endian
-;;;      21 => datum is exact ratio, encoded as 2 tag+datum: numerator, denominator
-;;;      22 => datum is exact complex, encoded as 2 tag+datum: real, imag
-;;;      23 => datum is flonum, 8 byte IEEE float64 little-endian
-;;;      24 => datum is cflonum, two 8 byte IEEE float64 little-endian: real, imag
-;;;      25 => datum is #f
-;;;      26 => datum is #t
-;;;      27 => datum is '()
-;;;      28 => datum is (void) needed inside a message, where 0-byte tag cannot be represented
-;;;      29 => datum is (eof-object)
-;;;      30 => datum is (bwp-object)
-;;;      31 => datum is character:         1 byte
-;;;      32 => datum is character:         2 byte, little endian
-;;;      33 => datum is character:         3 bytes, little endian
-;;;      34 => datum is box:               followed by unboxed tag+datum
-;;;      35 => datum is pair:              encoded as 2 tag+datum: car, cdr
-;;;      36 => datum is one-element list:  encoded as tag+datum: car
-;;;      37 => datum is improper list:     n encoded as u32, followed by n tag+datum: elements
-;;;      38 => datum is proper list:       n encoded as u32, followed by n tag+datum: elements
-;;;      39 => datum is vector:        n encoded as vlen, followed by n tag+datum
-;;;      40 => datum is bytevector:    n encoded as vlen, followed by n bytes
-;;;      41 => datum is string8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      42 => datum is string16:      n encoded as vlen, followed by characters each encoded as 2 bytes
-;;;      43 => datum is string24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      44 => datum is fxvector:      n encoded as vlen, followed by n tag+datum
-;;;      45 => datum is flvector:      n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
-;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
-;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      49 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
-;;;      50 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
-;;;      51 => datum is hashtable:     hash function name encoded as symbol, checked against a whitelist
-;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
-;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
-;;;      52 => datum is eq-ordered-hash:  n encoded as vlen, followed by 2 * n tag+datum
-;;;      53 => datum is eqv-ordered-hash: n encoded as vlen, followed by 2 * n tag+datum
-;;;      54 => datum is ordered-hash:     hash function name encoded as symbol, checked against a whitelist
-;;;                                         followed by equal function name encoded as symbol, checked against a whitelist
-;;;                                         followed by n encoded as vlen, followed by 2 * n tag+datum
-;;       55 ... 88  => datum is a known symbol
-;;;      89 ... 240 => datum is a user-registered record type
-;;;     241 ... 253 => datum is a pre-registered record type
-;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
-;;;     255 => datum starts with extended tag
-
-
-(library (scheme2k wire (0 9 3))
-  (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
-          wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
-          ;; internal functions, exported for types that want to define their own serializer/deserializer
-          (rename (len/any wire-inner-len)
-                  (get/any wire-inner-get)
-                  (put/any wire-inner-put)))
-  (import
-    (rnrs)
-    (rnrs mutable-strings)
-    (only (chezscheme) box box? bwp-object? fxsrl unbox
-                       bytevector-ieee-double-ref bytevector-ieee-double-set!
-                       bytevector-s24-ref         bytevector-s24-set!
-                       bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ cflonum? current-time date-year date-month date-day date-hour date-minute
-                       date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
-                       fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
-                       include integer-length logbit? make-fxvector make-time meta-cond
-                       reverse! procedure-arity-mask
-                       time? time=? time-type time-second time-nanosecond void)
-
-    ;; these predicates are equivalent to their r6rs counterparts,
-    ;; only extended to also accept 1 argument
-    (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
-            chez:)
-
-    (only (scheme2k bootstrap) assert* bwp-object fx<=?*)
-    (scheme2k containers))
-
-
-
-(define min-len-vlen 1) ; vlen is encoded as 1 or 4 bytes
-(define max-len-vlen 4) ; vlen is encoded as 1 or 4 bytes
-
-;; maximum supported number of elements in a container (vector, string, hashtable ...)
-(define max-vlen (fx- (min #x7fffffff (greatest-fixnum)) max-len-vlen))
-
-;; maximum length of payload = tag + datum
-(define max-len-payload max-vlen)
-
-(define len-tag    1)  ; tag is encoded as 1 byte
-
-(define tag-0         0)
-(define tag-1         1)
-(define tag-2         2)
-(define tag-3         3)
-(define tag-4         4)
-(define tag-5         5)
-(define tag-6         6)
-(define tag-7         7)
-(define tag-8         8)
-(define tag-9         9)
-(define tag-10       10)
-(define tag--5       11)
-(define tag--4       12)
-(define tag--3       13)
-(define tag--2       14)
-(define tag--1       15)
-(define tag-s8       16) ; exact integer, signed, 8 bit
-(define tag-s16      17) ; exact integer, signed, 16 bit, little endian
-(define tag-s24      18) ; exact integer, signed, 24 bit, little endian
-(define tag-s32      19) ; exact integer, signed, 32 bit, little endian
-(define tag-sint     20) ; vlen followed by: exact integer, signed, vlen bytes, little endian
-(define tag-ratio    21) ; exact ratio
-(define tag-complex  22) ; exact complex
-(define tag-flonum   23)
-(define tag-cflonum  24)
-(define tag-f        25)
-(define tag-t        26)
-(define tag-nil      27)
-(define tag-void     28)
-(define tag-eof      29)
-(define tag-bwp      30)
-(define tag-char8    31) ; char, 8 bit
-(define tag-char16   32) ; char, 16 bit, little endian
-(define tag-char24   33) ; char, 24 bit, little endian
-(define tag-box      34)
-(define tag-pair     35)
-(define tag-list1    36)
-(define tag-list*    37)
-(define tag-list     38)
-(define tag-vector   39)
-(define tag-bytevector 40)
-(define tag-string8    41)
-(define tag-string16   42)
-(define tag-string24   43)
-(define tag-fxvector   44)
-(define tag-flvector   45)
-(define tag-symbol8    46)
-(define tag-symbol16   47)
-(define tag-symbol24   48)
-
-(define tag-eq-hashtable  49)
-(define tag-eqv-hashtable 50)
-(define tag-hashtable     51)
-(define tag-eq-ord-hash   52)
-(define tag-eqv-ord-hash  53)
-(define tag-ord-hash      54)
-
-(define min-tag-to-allocate   89)
-(define next-tag-to-allocate 240)
-(define max-tag-to-allocate  253)
-
-(define tag-date          241)
-(define tag-time          242)
-(define tag-status        243) ; implemented in posix/wire-status.ss
-(define tag-span          244) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-gbuffer       245) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-bytespan      246) ; n encoded as vlen, followed by n bytes
-(define tag-bytegbuffer   247) ; NOT IMPLEMENTED
-(define tag-charspan8     248) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-charspan16    249) ; n encoded as vlen, followed by n characters each encoded as u16
-(define tag-charspan24    250) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-chargbuffer8  251) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-chargbuffer16 252) ; n encoded as vlen, followed by n characters each encoded as u16
-(define tag-chargbuffer24 253) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-magic-bytes   254)
-
-;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
-;;;              the last three bytes are version-lo version-mid version-hi
-
-(define known-sym
-  (eq-hashtable
-    'boolean=? 55 ; UNUSED 56
-    'bytevector=? 57 'bytevector-hash 58
-    'cfl= 59 ; UNUSED 60
-    'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
-    'enum-set=? 64  ; UNUSED 65
-    'eq? 66 'eqv? 67 'equal? 68 'equal-hash 69
-    'fl=? 70 ; UNUSED 71
-    'fx=? 72 ; UNUSED 72
-    'string=? 74 'string-ci=? 75 'string-hash 76 'string-ci-hash 77
-    'symbol=? 78 'symbol-hash 79
-    'time=? 80 'time-collector-cpu 81 'time-collector-real 82
-    'time-duration 83 ; UNUSED 84
-    'time-monotonic 85 'time-process 86 'time-thread 87 'time-utc 88))
+;; this file should be included only by file io/wire/wire.ss
 
 (define (symbol->tag sym)
   (hashtable-ref known-sym sym #f))
 
-
-
-(define max-len-char 3) ;; each character is encoded as <= 3 bytes
-(define len-flonum   8) ;; each flonum is encoded as 8 bytes
-(define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
-
-(define endian (endianness little))
 
 (define (valid-payload-len? n)
   (and (fixnum? n) (fx<=? 0 n max-len-payload)))
@@ -663,8 +438,6 @@
     (vlen+ n ;; n is encoded as vlen
       (tag+ pos (fx* n bytes-per-char))))) ;; each character is encoded as bytes-per-char bytes
 
-(define tags-string (vector tag-string8 tag-string16 tag-string24))
-
 (define (put/string bv pos obj)
   (let* ((n (string-length obj))
          (bytes-per-char (bytes-per-char/string obj n))
@@ -696,52 +469,6 @@
              (new-tag (fx+ old-tag (fx- tag-symbol8 tag-string8))))
         (put/tag bv pos new-tag)
         end))))
-
-(define (always-true x) #t)
-
-(define known-cmp-sym
-  (eq-hashtable
-    boolean=? 'boolean=? ; boolean keys are not very useful in a hashtable...
-    bytevector=? 'bytevector=? cfl= 'cfl= char=? 'char=? char-ci=? 'char-ci=?
-    enum-set=? 'enum-set=? eq? 'eq? eqv? 'eqv? equal? 'equal? fl=? 'fl=? fx=? 'fx=?
-    string=? 'string=? string-ci=? 'string-ci=? symbol=? 'symbol=? time=? 'time=?
-    chez:char=? 'char=? chez:char-ci=? 'char-ci=?
-    chez:string=? 'string=? chez:string-ci=? 'string-ci=?))
-
-(define known-hash-sym
-  (eq-hashtable
-     bytevector-hash 'bytevector-hash
-     char->integer 'char->integer ; usable as hash function for char=?
-     equal-hash 'equal-hash
-     string-hash 'string-hash string-ci-hash 'string-ci-hash
-     symbol-hash 'symbol-hash))
-
-(define known-cmp-key-type-validator
-  (eq-hashtable
-     'boolean=?       boolean?
-     'bytevector=?    bytevector?
-     'cfl=            cflonum?
-     'char=?          char?
-     'char-ci=?       char?
-     'enum-set=?      enum-set?
-     'eq?             always-true
-     'eqv?            always-true
-     'equal?          always-true
-     'fl=?            flonum?
-     'fx=?            fixnum?
-     'string=?        string?
-     'string-ci=?     string?
-     'symbol=?        symbol?
-     'time=?          time?))
-
-(define known-hash-key-type-validator
-  (eq-hashtable
-     'bytevector-hash bytevector?
-     'char->integer   char?
-     'equal-hash      always-true
-     'string-hash     string?
-     'string-ci-hash  string?
-     'symbol-hash     symbol?))
 
 (define (htable->cmp-sym obj)
   (hashtable-ref known-cmp-sym (hashtable-equivalence-function obj) #f))
@@ -824,9 +551,6 @@
         pos)
       #f)))
 
-
-(include "wire/record.ss")
-(include "wire/vector.ss")
 
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
@@ -931,21 +655,4 @@
       (bytespan->bytevector*! bsp)
       #f)))
 
-(include "wire/get.ss")
-(include "wire/container.ss")
-(include "wire/misc.ss")
 
-(begin
-  (wire-register-rtd (record-rtd (duration 0 0))     tag-time         len/time       get/time         put/time)
-  (wire-register-rtd (record-rtd (date 1970 1 1 +0)) tag-date         len/date       get/date         put/date)
-  (wire-register-rtd (record-rtd (span))             tag-span         len/span       get/span         put/span)
-  (wire-register-rtd (record-rtd (gbuffer))          tag-gbuffer      len/gbuffer    get/gbuffer      put/gbuffer)
-  (wire-register-rtd (record-rtd (bytespan))         tag-bytespan     len/bytespan   get/bytespan     put/bytespan)
-  (wire-register-rtd (record-rtd (charspan))         tag-charspan24   len/charspan   get/charspan24   put/charspan)
-
-  (vector-set! known-tag tag-charspan8     get/charspan8)
-  (vector-set! known-tag tag-charspan16    get/charspan16)
-
-) ; close begin
-
-) ; close library

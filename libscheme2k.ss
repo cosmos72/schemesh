@@ -45,7 +45,13 @@
 
   (include "reflect/reflect.ss")
 
-  (include "wire/wire.ss")
+  (include "io/http.ss")
+  (include "io/port.ss")
+  (include "io/redir.ss")
+  (include "io/stdio.ss")
+  (include "io/json/json.ss")            ; requires io/stdio.ss
+  (include "io/wire/wire.ss")
+  (include "io/io.ss")
 
   (include "posix/fd.ss")
   (include "posix/dir.ss")
@@ -53,7 +59,7 @@
   (include "posix/pattern.ss")
   (include "posix/signal.ss")
   (include "posix/socket.ss")       ; requires posix/fd.ss
-  (include "posix/status.ss")       ; requires wire/wire.ss
+  (include "posix/status.ss")       ; requires io/wire/wire.ss
   (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
   (include "posix/tty.ss")
   (include "posix/rlimit.ss")
@@ -61,13 +67,7 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "io/http.ss")
-  (include "io/redir.ss")
-  (include "io/stdio.ss")
-  (include "io/json.ss")            ; requires io/stdio.ss
-  (include "io/io.ss")
-
-  (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
+  (include "ipc/channel.ss") ; requires io/wire/wire.ss posix/fd.ss
   (meta-cond
     ((threaded?) (include "ipc/fifo-thread.ss"))
     (else        (include "ipc/fifo-nothread.ss")))
@@ -120,7 +120,6 @@
       (scheme2k posix)
       (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
       (scheme2k reflect)
-      (scheme2k vscreen)
-      (scheme2k wire)))
+      (scheme2k vscreen)))
 
 ) ; close begin

@@ -10,7 +10,7 @@
 ;;;
 ;;; exchanges serialized data through binary ports or file descriptors (sockets, pipes ...).
 ;;;
-;;; data is serialized/deserialized with library (scheme2k wire)
+;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
 (library (scheme2k ipc channel (0 9 3))
   (export (rename (%channel channel))
@@ -23,8 +23,8 @@
           (scheme2k containers bytespan)
           (scheme2k posix fd)
     (only (scheme2k posix socket)        socketpair-fds)
-          (scheme2k wire)
-    (only (scheme2k io)                  read-bytes-insert-right!))
+          (scheme2k io wire)
+    (only (scheme2k io port)             read-bytes-insert-right!))
 
 
 (define-record-type channel
@@ -130,7 +130,7 @@
 ;;
 ;; return (void) if successful
 ;; return #f if channel's out is closed or set to #f,
-;;           or if library (scheme2k wire) does not support serializing/deserializing datum
+;;           or if library (scheme2k io wire) does not support serializing/deserializing datum
 ;; raise exception on I/O error
 (define (channel-put c datum)
   (let* ((out          (channel-out c))

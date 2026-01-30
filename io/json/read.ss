@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file io/json.ss
+;; this file should be included only by file io/json/json.ss
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; JSON pull parser

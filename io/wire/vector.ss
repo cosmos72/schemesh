@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file wire/wire.ss
+;; this file should be included only by file io/wire/wire.ss
 
 (define (len/vector pos obj)
   (let ((n (vector-length obj)))

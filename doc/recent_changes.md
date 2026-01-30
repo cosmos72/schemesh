@@ -4,7 +4,7 @@
 
 * extend `reflect` library with new functions `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
   that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
-* extend library `(scheme2k wire)` to serialize/deserialize stencil vectors
+* extend library `(scheme2k io wire)` to serialize/deserialize stencil vectors
 * add functions `(wire-get)` and `(wire-put)` that read/write from binary input ports
 * remove function `(parsectx-unread-char)` and update functions that use it
 
@@ -17,7 +17,7 @@
   `(make-json-reader)` as well as standalone functions `(json-write-token)` `(json-write-value)` in new library `(scheme2k io json)`
 * add functions `(field)` `(field-names)` in new library `(scheme2k reflect)`
 * pretty-print types `time` and `date` and add convenience functions to create them
-* extend library `(scheme2k wire)` to serialize/deserialize `date` objects and `ordered-hash` objects
+* rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
 

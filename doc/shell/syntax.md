@@ -36,7 +36,7 @@ Ordered from highest priority to lowest priority, job syntax is:
    If `FD` is specified, spaces must **not** be present after it, otherwise it `FD` would be parsed as an argument.
 
    File redirection is disabled both inside double quotes `"..."` and inside single quotes `'...'`
-   and can also be disabled for a single character by preceding it with backslash `\`
+   and can also be disabled for a single `<` or `>` by preceding it with backslash `\`
 
 4. file descriptor redirections:  `[FD1]<& FD2` and  `[FD1]>& [FD2]`  where FD2 is an unsigned integer, or -1 which causes FD1 to be closed.
    Again, if `FD1` is specified, spaces must **not** be present after it, otherwise it `FD1` would be parsed as an argument.
@@ -44,10 +44,13 @@ Ordered from highest priority to lowest priority, job syntax is:
    Bash syntax `>& FILE` that redirects both stdout and stderr is **not** supported, one has to write `> FILE 2>&1`
 
    File descriptor redirection is disabled both inside double quotes `"..."` and inside single quotes `'...'`
-   and can also be disabled for a single character by preceding it with backslash `\`
+   and can also be disabled for a single `<` or `>` by preceding it with backslash `\`
 
 5. per-command environment variables: `NAME1=VALUE1 [NAME2=VALUE2 ...] CMD_ARGS_AND_REDIRECTIONS`.
    If command is omitted, i.e. only `NAME=VALUE1 [NAME2=VALUE2 ...]` is present, the environment variables are set into the parent job.
+
+   Per-command environment variables are disabled both inside double quotes `"..."` and inside single quotes `'...'`
+   and can also be disabled for a single `=` by preceding it with backslash `\`
 
 6. negation: `! ENVS_CMD_ARGS_AND_REDIRECTIONS`. Multiple negations are allowed, as for example `!!!ENVS_CMD_ARGS_AND_REDIRECTIONS`
 

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; this file should be included only by file wire/wire.ss
+;; this file should be included only by file io/wire/wire.ss
 
 (define (get/exact-s8 bv pos end)
   ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)

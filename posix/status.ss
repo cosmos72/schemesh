@@ -18,7 +18,6 @@
     (only (chezscheme)            console-output-port console-error-port fx1+ include record-writer void)
     (only (scheme2k bootstrap)    assert* sh-make-parameter)
     (only (scheme2k containers hashtable) for-hash plist->eq-hashtable)
-    (scheme2k wire)
     (only (scheme2k posix fd)     c-exit)
     (only (scheme2k posix signal) signal-name->number signal-raise))
 
@@ -244,11 +243,9 @@
         (c-exit (fxand c-exit-value 255))))))
 
 
-;; customize how "status" objects are serialized/deserialized
-(include "posix/wire-status.ss")
-
 (define status-display-color?
   (sh-make-parameter #t))
+
 
 ;; customize how "status" objects are printed
 (record-writer (record-type-descriptor %status)
@@ -280,9 +277,5 @@
             (put-char port #\space)
             (put-datum port val))))
       (put-string port ")"))))
-
-(wire-register-rtd (record-type-descriptor %status) tag-status
-                   wire-len/status wire-get/status wire-put/status)
-
 
 ) ; close library
