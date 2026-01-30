@@ -27,7 +27,7 @@ Ordered from highest priority to lowest priority, job syntax is:
 
 * substitution: command name and its arguments can contain the special sequences:
     `$NAME` which expands to the value of the corresponding environment variable
-    `$[shell_commands]` which expands to the output produced by running the subshell commands in `$[...]`
+    `$[shell_commands]` or `` `shell_commands` `` that expand to the output produced by running the `shell_commands`
     See below for what `shell_commands` can contain.
     Substitution works normally inside double quotes `"..."` while it is disabled inside single quotes `'...'`
     and can also be disabled for a single character by preceding it with backslash `\`
