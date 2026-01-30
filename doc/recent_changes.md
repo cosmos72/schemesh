@@ -20,6 +20,9 @@
 * rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
+* rename functions `(...consumer...)` -> `(...fifo-receiver...)`
+* rename functions `(...producer...)` -> `(...fifo-sender...)`
+* rename function `(...channel...)` -> `(...wire-receiver...)` or `(...wire-sender...)`
 
 ### release v0.9.3, 2025-12-26
 

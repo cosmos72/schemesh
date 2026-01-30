@@ -9,7 +9,7 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-  ;; -------------------------- tty ---------------------------------------
+  ;; -------------------------- tty --------------------------------------------
   ;; (tty-size) returs a cons (width . height), or c_errno() < 0 on error
   (let ((sz (tty-size)))
     (if (pair? sz)
@@ -17,7 +17,7 @@
            (integer? (cdr sz)) (positive? (cdr sz)))
       (and (integer? sz) (negative? sz))))             #t
 
-  ;; ------------------------- posix --------------------------------------
+  ;; ------------------------- posix -------------------------------------------
   (fx<=? (c-errno) 0)                                  #t
 
   (countdown 0)                                        0
@@ -57,30 +57,30 @@
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
-  ;; ------------------------ channel -------------------------------------
-  (let-values (((rchan wchan) (channel-pipe-pair)))
+  ;; ------------------ wire-receiver and wire-sender --------------------------
+  (let-values (((rx tx) (wire-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
-      (channel-put wchan datum1)
-      (let ((datum2 (first-value-or-void (channel-get rchan))))
-        (channel-close rchan)
-        (channel-close wchan)
+      (wire-sender-put tx datum1)
+      (let ((datum2 (first-value-or-void (wire-receiver-get rx))))
+        (wire-receiver-close rx)
+        (wire-sender-close tx)
         (list (eqv? datum1 datum2)
-              (channel-eof? rchan)
-              (channel-eof? wchan)))))                 (#t #t #t)
+              (wire-receiver-eof? rx)
+              (wire-sender-eof? tx)))))                 (#t #t #t)
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
-    (let ((wchan  (channel #f out))
+    (let ((tx     (make-wire-sender out))
           (datum1 (bitwise-arithmetic-shift -1 9999)))
-      (channel-put wchan datum1)
-      (channel-close wchan) ;; also closes out
+      (wire-sender-put tx datum1)
+      (wire-sender-close tx) ;; also closes out
       (let* ((in     (open-bytevector-input-port (bv-proc)))
-             (rchan  (channel in #f))
-             (datum2 (first-value-or-void (channel-get rchan))))
-        (channel-close rchan) ;; also closes in
+             (rx     (make-wire-receiver in))
+             (datum2 (first-value-or-void (wire-receiver-get rx))))
+        (wire-receiver-close rx) ;; also closes in
         (list (eqv? datum1 datum2)
-              (channel-eof? rchan)
-              (channel-eof? wchan)))))                 (#t #t #t)
+              (wire-receiver-eof? rx)
+              (wire-sender-eof? tx)))))                 (#t #t #t)
 
   ;; ------------------------ lineedit io ---------------------------------
   (read

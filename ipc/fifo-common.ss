@@ -10,22 +10,22 @@
 ;; this file should be included only by files ipc/fifo-thread.ss or ipc/fifo-nothread.ss
 
 
-(define-record-type (producer %make-producer producer?)
+(define-record-type (fifo-sender %make-fifo-sender fifo-sender?)
   (fields
     (mutable tail)
     mutex
     changed)
-  (nongenerative producer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative fifo-sender-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 
-(define-record-type (consumer %make-consumer consumer?)
+(define-record-type (fifo-receiver %make-fifo-receiver fifo-receiver?)
   (fields
     (mutable head)
     (mutable eof?)
     mutex
     changed)
-  (nongenerative consumer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative fifo-receiver-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; convert one of:
@@ -48,12 +48,12 @@
       (make-time 'time-duration (time-nanosecond duration) (time-second duration)))))
 
 
-;; create and return a closure that iterates on data recreived by consumer c.
+;; create and return a closure that iterates on data recreived by fifo-receiver c.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values datum #t) i.e. the next datum received from consumer and #t,
-;; or (values #<unspecified> #f) if consumer reached end-of-file.
-(define (in-consumer c)
-  (assert* 'in-consumer (consumer? c))
+;; either (values datum #t) i.e. the next datum received from fifo-receiver and #t,
+;; or (values #<unspecified> #f) if fifo-receiver reached end-of-file.
+(define (in-fifo-receiver c)
+  (assert* 'in-fifo-receiver (fifo-receiver? c))
   (lambda ()
-    (consumer-get c)))
+    (fifo-receiver-get c)))

@@ -56,21 +56,21 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "io/http.ss")                 ; requires io/posix/posix.ss
+  (include "io/http.ss")            ; requires io/posix/posix.ss
   (include "io/redir.ss")
   (include "io/stdio.ss")
-  (include "io/port.ss")                 ; requires io/stdio.ss
-  (include "io/json/json.ss")            ; requires io/stdio.ss
-  (include "io/wire/wire.ss")            ; requires io/posix/status.ss
+  (include "io/port.ss")            ; requires io/stdio.ss
+  (include "io/json/json.ss")       ; requires io/stdio.ss
+  (include "io/wire/wire.ss")       ; requires io/posix/status.ss
   (include "io/io.ss")
 
-  (include "vscreen/all.ss")
-
-  (include "ipc/channel.ss") ; requires io/wire/wire.ss posix/fd.ss
   (meta-cond
     ((threaded?) (include "ipc/fifo-thread.ss"))
     (else        (include "ipc/fifo-nothread.ss")))
+  (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
   (include "ipc/ipc.ss")
+
+  (include "vscreen/all.ss")
 
   (include "lineedit/ansi.ss")
   (include "lineedit/paren.ss")
@@ -78,6 +78,8 @@
   (include "lineedit/parser.ss")
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
+
+  (include "producer/producer.ss")
 
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")

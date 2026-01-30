@@ -50,6 +50,7 @@
     (scheme2k lineedit)
     (scheme2k io)
     (scheme2k posix)
+    (scheme2k producer)
     (scheme2k reflect)
     (scheme2k vscreen)
     (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
@@ -79,6 +80,8 @@
       (eval '(import (scheme2k lineedit))))
     (when (top-level-bound? 'parsers)
       (eval '(import (schemesh parser))))
+    (when (top-level-bound? 'producer?)
+      (eval '(import (schemesh producer))))
     (when (top-level-bound? 'pid-wait)
       (eval '(import (scheme2k posix)))
       (eval '(import (scheme2k posix replacements))))

@@ -12,8 +12,8 @@
 ;;; exchanges arbitrary objects through thread-safe FIFO
 ;;;
 (library (scheme2k ipc fifo (0 9 3))
-  (export make-producer producer? producer-close producer-name producer-put
-          make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get in-consumer)
+  (export make-fifo-sender fifo-sender? fifo-sender-close fifo-sender-name fifo-sender-put
+          make-fifo-receiver fifo-receiver? fifo-receiver-get fifo-receiver-eof? fifo-receiver-timed-get fifo-receiver-try-get in-fifo-receiver)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -24,98 +24,98 @@
 
 (include "ipc/fifo-common.ss")
 
-;; create and return a producer.
-(define make-producer
+;; create and return a fifo-sender.
+(define make-fifo-sender
   (case-lambda
     (()
-      (make-producer #f))
+      (make-fifo-sender #f))
     ((name)
-      (%make-producer (cons #f '()) name #f))))
+      (%make-fifo-sender (cons #f '()) name #f))))
 
 
-(define (producer-name p)
-  (producer-mutex p))
+(define (fifo-sender-name p)
+  (fifo-sender-mutex p))
 
 
-;; Close specified producer.
+;; Close specified fifo-sender.
 ;; Notifies all attached consumers that no more data can be received.
-;; Each attached consumer will still receive any pending data.
+;; Each attached fifo-receiver will still receive any pending data.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (producer-close p)
-  (set-cdr! (producer-tail p) #f))
+(define (fifo-sender-close p)
+  (set-cdr! (fifo-sender-tail p) #f))
 
 
-;; put a datum into the producer, which will be visible to all
-;; consumers attached *before* this call to (producer-put).
+;; put a datum into the fifo-sender, which will be visible to all
+;; consumers attached *before* this call to (fifo-sender-put).
 ;;
-;; raises exception if producer is closed
+;; raises exception if fifo-sender is closed
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (producer-put p obj)
-  (let ((old-tail (producer-tail p)))
+(define (fifo-sender-put p obj)
+  (let ((old-tail (fifo-sender-tail p)))
     (unless (null? (cdr old-tail))
-      (raise-errorf 'producer-put "~s is already closed" p))
+      (raise-errorf 'fifo-sender-put "~s is already closed" p))
     (set-car! old-tail obj)
     (let ((new-tail (cons #f '())))
       (set-cdr! old-tail new-tail)
-      (producer-tail-set! p new-tail))))
+      (fifo-sender-tail-set! p new-tail))))
 
 
 
 
 
-;; create a consumer attached to specified producer, and return it.
-;; multiple consumers can be attached to the same producer, and each consumer
-;; receives in order all data put to the producer *after* the consumer was created.
+;; create a fifo-receiver attached to specified fifo-sender, and return it.
+;; multiple consumers can be attached to the same fifo-sender, and each fifo-receiver
+;; receives in order all data put to the fifo-sender *after* the fifo-receiver was created.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (make-consumer p)
-  (%make-consumer (producer-tail p) #f (producer-mutex p) (producer-changed p)))
+(define (make-fifo-receiver p)
+  (%make-fifo-receiver (fifo-sender-tail p) #f (fifo-sender-mutex p) (fifo-sender-changed p)))
 
 
-(define (consumer-name c)
-  (consumer-mutex c))
+(define (fifo-receiver-name c)
+  (fifo-receiver-mutex c))
 
 (define huge-timeout (* 86400 365))
 
-(define (consumer-timed-get-once c timeout)
+(define (fifo-receiver-timed-get-once c timeout)
   (check-interrupts)
-  (let* ((head (consumer-head c))
+  (let* ((head (fifo-receiver-head c))
          (tail (cdr head)))
     (cond
       ((not tail)
-        (consumer-eof?-set! c #t)
+        (fifo-receiver-eof?-set! c #t)
         (values #f 'eof))
       ((null? tail)
         (if (eqv? 0 timeout)
           (values #f 'timeout)
           (begin
             (countdown timeout)
-            (consumer-timed-get-once c 0))))
+            (fifo-receiver-timed-get-once c 0))))
       ((pair? tail)
-        (consumer-head-set! c tail)
+        (fifo-receiver-head-set! c tail)
         (values (car head) 'ok)))))
 
 
-;; block until a datum is received from producer, and return two values:
+;; block until a datum is received from fifo-sender, and return two values:
 ;;   datum and #t
-;;   or <unspecified> and #f if producer has been closed and all data has been received.
+;;   or <unspecified> and #f if fifo-sender has been closed and all data has been received.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (consumer-get c)
-  (if (consumer-eof? c)
+(define (fifo-receiver-get c)
+  (if (fifo-receiver-eof? c)
     (values #f #f)
-    (let %consumer-get ((c c))
-      (let-values (((datum flag) (consumer-timed-get-once c huge-timeout)))
+    (let %fifo-receiver-get ((c c))
+      (let-values (((datum flag) (fifo-receiver-timed-get-once c huge-timeout)))
         (if (eq? flag 'timeout)
-          (%consumer-get c)
+          (%fifo-receiver-get c)
           (values datum (eq? flag 'ok)))))))
 
 
-;; block with timeout until a datum is received from producer, and return two values:
+;; block with timeout until a datum is received from fifo-sender, and return two values:
 ;;   received datum and 'ok
-;;   or <unspecified> and 'eof if producer has been closed and all data has been received
+;;   or <unspecified> and 'eof if fifo-sender has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; timeout must be one of:
@@ -124,46 +124,46 @@
 ;; * a time object with type 'time-duration
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (consumer-timed-get c timeout)
-  (if (consumer-eof? c)
+(define (fifo-receiver-timed-get c timeout)
+  (if (fifo-receiver-eof? c)
     (values #f 'eof)
-    (consumer-timed-get-once c timeout)))
+    (fifo-receiver-timed-get-once c timeout)))
 
 
-;; non-blockingly try to receive a datum from producer, and return two values:
+;; non-blockingly try to receive a datum from fifo-sender, and return two values:
 ;;   received datum and 'ok
-;;   or <unspecified> and 'eof if producer has been closed and all data has been received
+;;   or <unspecified> and 'eof if fifo-sender has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (consumer-try-get c)
-  (if (consumer-eof? c)
+(define (fifo-receiver-try-get c)
+  (if (fifo-receiver-eof? c)
     (values #f 'eof)
-    (consumer-timed-get-once c 0)))
+    (fifo-receiver-timed-get-once c 0)))
 
 
-;; customize how "producer" objects are printed
-(record-writer (record-type-descriptor producer)
+;; customize how "fifo-sender" objects are printed
+(record-writer (record-type-descriptor fifo-sender)
   (lambda (p port writer)
-    (let ((name (producer-name p)))
+    (let ((name (fifo-sender-name p)))
       (if name
         (begin
-          (display "#<producer " port)
+          (display "#<fifo-sender " port)
           (display name port)
           (display ">" port))
-        (display "#<producer>" port)))))
+        (display "#<fifo-sender>" port)))))
 
 
-;; customize how "consumer" objects are printed
-(record-writer (record-type-descriptor consumer)
+;; customize how "fifo-receiver" objects are printed
+(record-writer (record-type-descriptor fifo-receiver)
   (lambda (c port writer)
-    (let ((name (consumer-name c)))
+    (let ((name (fifo-receiver-name c)))
       (if name
         (begin
-          (display "#<consumer " port)
+          (display "#<fifo-receiver " port)
           (display name port)
           (display ">" port))
-        (display "#<consumer>" port)))))
+        (display "#<fifo-receiver>" port)))))
 
 
 ) ; close library
