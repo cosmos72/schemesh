@@ -66,7 +66,7 @@
                   ((obj4 ok4) (obj-reader-get rx))
                   ((obj5 ok5) (obj-reader-get rx)))
       ;; ignore obj4 and obj5, they have unspecified values
-      (list obj1 obj2 obj3 ok1 ok2 ok3 ok4 ok5)))       (qwerty asdf !@$%^& #t #t #t #f #f)
+      (list obj1 ok1 obj2 ok2 obj3 ok3 ok4 ok5)))       (qwerty #t asdf #t !@$%^& #t #f #f)
 
 
   (let ((tx (list-writer)))
@@ -81,7 +81,10 @@
   (let* ((tx (make-queue-writer))
          (rx (make-queue-reader tx)))
     (queue-writer-put tx '(1/2 . 3/4+7i))
-    (values->list (queue-reader-get rx)))               ((1/2 . 3/4+7i) #t)
+    (let*-values (((obj1 ok1) (queue-reader-get rx))
+                  ((obj2 ok2) (queue-reader-try-get rx)))
+      ;; ignore obj2, it has unspecified value
+      (list obj1 ok1 ok2)))                             ((1/2 . 3/4+7i) #t timeout)
 
   ;; ------------------- wire-reader and wire-writer ---------------------------
   (let-values (((rx tx) (wire-pipe-pair)))
