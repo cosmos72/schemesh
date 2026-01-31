@@ -31,52 +31,63 @@
   (new get-proc close-proc #f))
 
 
-;; call (get-proc p) to generate one more value and return it.
+;; call (get-proc r) to generate one more value and return it.
 ;; each call will return two values:
 ;;  either (values elem truish) i.e. the next generate value,
-;;  or (values #<unspecified> #f) when the generator is exhausted or after (obj-reader-close p) is called.
-(define (obj-reader-get p)
-  (assert* 'obj-reader-get (obj-reader? p))
-  (if (obj-reader-eof? p)
+;;  or (values #<unspecified> #f) when the reader is exhausted or after (obj-reader-close r) has been called.
+(define (obj-reader-get r)
+  (assert* 'obj-reader-get (obj-reader? r))
+  (if (obj-reader-eof? r)
     (values #f #f)
-    (let-values (((obj ok?) ((obj-reader-get-proc p) p)))
+    (let-values (((obj ok?) ((obj-reader-get-proc r) r)))
       (unless ok?
-        (obj-reader-eof?-set! p #t))
+        (obj-reader-eof?-set! r #t))
       (values obj ok?))))
 
 
-;; call (close-proc p) to release any resource held by the obj-reader.
+;; call (close-proc r) to release any resource held by the obj-reader.
 ;; return unspecified value.
 ;;
-;; further calls to (obj-reader-close p) on the same p have no effect.
-(define (obj-reader-close p)
-  (assert* 'obj-reader-close (obj-reader? p))
-  (let ((close-proc (obj-reader-close-proc p)))
+;; further calls to (obj-reader-close r) on the same r have no effect.
+(define (obj-reader-close r)
+  (assert* 'obj-reader-close (obj-reader? r))
+  (let ((close-proc (obj-reader-close-proc r)))
     (when close-proc
-      (close-proc p)
-      (obj-reader-close-proc-set! p #f)))
-  (obj-reader-eof?-set! p #t))
+      (close-proc r)
+      (obj-reader-close-proc-set! r #f)))
+  (obj-reader-eof?-set! r #t))
 
 
 ;; create and return a obj-reader that generates always the same value.
-;; each call to (obj-reader-get p) will return two values:
+;; each call to (obj-reader-get r) will return two values:
 ;;  either (values const truish) i.e. the next element, which is always eq? to const
-;;  or (values #<unspecified> #f) after (obj-reader-close p) is called.
+;;  or (values #<unspecified> #f) after (obj-reader-close r) has been called.
 ;;
-;; note: this generator is unlimited, and stops generating values only if (obj-reader-close p) is called.
+;; note: this reader is unlimited, and stops generating values only if (obj-reader-close r) has been called.
 (define (constant-reader const)
   (let ((%constant-reader ;; name shown when displaying the closure
-          (lambda (p) const)))
+          (lambda (r)
+            (values const #t))))
     (make-obj-reader %constant-reader #f)))
 
 
+;; create and return an exhausted obj-reader.
+;; each call to (obj-reader-get r) will return two values:
+;;  (values #<unspecified> #f) indicating the reader is exhausted.
+(define (empty-reader)
+  (let ((%empty-reader ;; name shown when displaying the closure
+          (lambda (r)
+            (values #f #f))))
+    (make-obj-reader %empty-reader #f)))
+
+
 ;; create and return a obj-reader that generates the elements of specified list.
-;; each call to (obj-reader-get p) will return two values:
+;; each call to (obj-reader-get r) will return two values:
 ;;  either (values elem truish) i.e. the next element from the list
-;;  or (values #<unspecified> #f) when the list is exhausted or after (obj-reader-close p) is called.
+;;  or (values #<unspecified> #f) when the list is exhausted or after (obj-reader-close r) has been called.
 (define (list-reader l)
   (let ((%list-reader ;; name shown when displaying the closure
-          (lambda (p)
+          (lambda (r)
             (if (null? l)
               (values #f #f)
               (let ((elem (car l)))
@@ -86,15 +97,15 @@
 
 
 ;; create and return a obj-reader that generates the elements of specified vector.
-;; each call to (obj-reader-get p) will return two values:
+;; each call to (obj-reader-get r) will return two values:
 ;;  either (values elem truish) i.e. the next element from the vector
-;;  or (values #<unspecified> #f) when the vector is exhausted or after (obj-reader-close p) is called.
+;;  or (values #<unspecified> #f) when the vector is exhausted or after (obj-reader-close r) has been called.
 (define vector-reader
   (case-lambda
     ((v start end)
       (assert* 'vector-reader (fx<=?* 0 start end (vector-length v)))
       (let ((%vector-reader ;; name shown when displaying the closure
-              (lambda (p)
+              (lambda (r)
                 (if (fx>=? start end)
                   (values #f #f)
                   (let ((elem (vector-ref v start)))
@@ -106,26 +117,26 @@
 
 
 ;; create and return a obj-reader that generates the elements of specified sequence, one at time.
-;; each call to (obj-reader-get p) will return two values:
+;; each call to (obj-reader-get r) will return two values:
 ;;  either (values elem truish) i.e. the next element from the sequence
-;;  or (values #<unspecified> #f) when the sequence is exhausted or after (obj-reader-close p) is called.
+;;  or (values #<unspecified> #f) when the sequence is exhausted or after (obj-reader-close r) has been called.
 ;;
 ;; This function effectively converts a sequence to a obj-reader.
 (define (sequence-reader seq)
   (assert* 'sequence-reader (procedure? seq))
   (assert* 'sequence-reader (logbit? 0 (procedure-arity-mask seq)))
   (let ((%sequence-reader ;; name shown when displaying the closure
-          (lambda (p) (seq))))
+          (lambda (r) (seq))))
     (make-obj-reader %sequence-reader #f)))
 
 
 ;; create and return a closure that accepts zero arguments and, at each call,
-;; will return two values:
+;; will return the two values returned by calling (obj-reader-get r):
 ;;   either (values elem truish) i.e. the next generated value,
-;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close p) is called.
+;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close r) has been called.
 ;;
 ;; This function effectively converts a obj-reader to a sequence.
-(define (in-reader p)
-  (assert* 'in-reader (obj-reader? p))
+(define (in-reader r)
+  (assert* 'in-reader (obj-reader? r))
   (lambda ()
-    (obj-reader-get p)))
+    (obj-reader-get r)))
