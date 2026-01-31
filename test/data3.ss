@@ -87,6 +87,7 @@
       (list obj1 ok1 ok2)))                             ((1/2 . 3/4+7i) #t timeout)
 
   ;; ------------------- wire-reader and wire-writer ---------------------------
+
   (let-values (((rx tx) (wire-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
       (wire-writer-put tx datum1)
