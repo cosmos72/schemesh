@@ -12,6 +12,59 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; JSON pull parser
 
+;; parser states
+(define $top                 0)
+(define $done                1)
+(define $array-expect-value  2)
+(define $array-after-value   3)
+(define $object-expect-key   4)
+(define $object-expect-colon 5)
+(define $object-expect-value 6)
+(define $object-after-value  7)
+
+
+(define-record-type (json-reader %make-json-reader json-reader?)
+  (parent obj-reader)
+  (fields
+    in              ; binary input port
+    stack           ; bytespan contaning stack of states
+    buffer)         ; bytespan buffer for parsing strings and numbers
+  (protocol
+    (lambda (args->new)
+      (lambda (in)
+        ((args->new %json-reader-get %json-reader-close)
+          in (bytespan $top) (bytespan)))))
+  (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+
+
+(define make-json-reader
+  (case-lambda
+    ((in)
+      (assert* 'make-json-reader (binary-port? in))
+      (assert* 'make-json-reader (input-port? in))
+      (%make-json-reader in))
+    (()
+      (make-json-reader (sh-stdin)))))
+
+
+(define (json-reader-depth rx)
+  (fx1- (bytespan-length (json-reader-stack rx))))
+
+
+(define (json-reader-eof? rx)
+  (assert* 'json-reader-eof? (json-reader? rx))
+  (obj-reader-eof? rx))
+
+
+(define (json-reader-close rx)
+  (assert* 'json-reader-close (json-reader? rx))
+  (obj-reader-close rx))
+
+
+;; called by (json-reader-close) -> (obj-reader-close )
+(define (%json-reader-close rx)
+  (close-port (json-reader-in rx)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
@@ -254,39 +307,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Validating parser
 
-;; parser states
-(define $top                 0)
-(define $done                1)
-(define $array-expect-value  2)
-(define $array-after-value   3)
-(define $object-expect-key   4)
-(define $object-expect-colon 5)
-(define $object-expect-value 6)
-(define $object-after-value  7)
-
-
-(define-record-type (json-reader %make-json-reader json-reader?)
-  (fields
-    in              ; binary input port
-    stack           ; bytespan contaning stack of states
-    buffer          ; bytespan buffer for parsing strings and numbers
-    (mutable eof?)) ; boolean
-  (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
-
-(define make-json-reader
-  (case-lambda
-    ((in)
-      (assert* 'make-json-reader (binary-port? in))
-      (assert* 'make-json-reader (input-port? in))
-      (%make-json-reader in (bytespan $top) (bytespan) #f))
-    (()
-      (make-json-reader (sh-stdin)))))
-
-
-(define (json-reader-depth rx)
-  (fx1- (bytespan-length (json-reader-stack rx))))
-
 (define (push rx state)
   (bytes-append! (json-reader-stack rx) state))
 
@@ -386,26 +406,11 @@
        (raise-json "expecting ',' or '}' in json object, found ~s" tok))))
 
 
-;; forget accumulated stack of states and restart parsing, expecting #!eof or a top-level json value.
-;; useful to parse multiple concatenated json documents, as for example NDJSON standard.
-;; does not clear the eof? flag.
-(define (json-reader-restart rx)
-  (let ((in     (json-reader-in rx))
-        (stack (json-reader-stack rx)))
-    (skip-ws in)
-    (bytespan-resize-right! stack 1)
-    (bytespan-set/u8! stack 0 (if (eof-object? (lookahead-u8 in))
-                                $done
-                                $top))))
-
-
-(define (json-reader-get-token* rx buf)
+(define (validate-next-token rx buf)
   (if (json-reader-eof? rx)
     (eof-object)
     (let ((tok (next-token (json-reader-in rx) buf))
           (st  (state rx)))
-      (when (eof-object? tok)
-        (json-reader-eof?-set! rx #t))
       (cond
         ((fx=? st $top)
           (validate-top rx tok))
@@ -443,7 +448,7 @@
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
 (define (json-reader-get-token rx)
-  (json-reader-get-token* rx (json-reader-buffer rx)))
+  (validate-next-token rx (json-reader-buffer rx)))
 
 
 
@@ -508,7 +513,7 @@
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
 (define (json-reader-skip-token rx)
-  (json-reader-get-token* rx #f))
+  (validate-next-token rx #f))
 
 
 ;; skip next json value and return its kind, which can be one of:
@@ -536,14 +541,39 @@
       tok0)))
 
 
-;; autotected json variant present in input port, and read next item from it:
-;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially.
-;; if next top-level value is a json array, then return its elements one by one as items
-;; if next top-level value is a json object, then return it as a single item
-;; if next top-level value is an atomic json value (string, number, boolean, null), then return it as a single item
-;; if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
+;; forget accumulated stack of states, skip whitespace and restart parsing, expecting a top-level json value or #!eof.
+;; useful to parse multiple concatenated json documents, as for example NDJSON standard.
+;; does not clear the eof? flag.
+(define (json-reader-restart rx)
+  (let ((in    (json-reader-in rx))
+        (stack (json-reader-stack rx)))
+    (skip-ws in)
+    (bytespan-resize-right! stack 1)
+    (bytespan-set/u8! stack 0 (if (eof-object? (lookahead-u8 in))
+                                $done
+                                $top))))
+
+
+;; return obj as obj-reader should do:
+;;   either (values obj #t) if it's a valid item
+;;   or (values #<unspecified> #f) if it's #!eof
+(define (to-item obj)
+  (values obj (not (eof-object? obj))))
+
+
+;; autotect json variant present in input port, and read next item from it:
+;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially:
+;;   if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
+;;   if next top-level value is a json array, then return its elements one by one as items
+;;   otherwise return next top-level value as a single item
 ;;
-;; this function does NOT allow json separators : or , between top-level json values
+;; this function does NOT allow separators : or , after top-level json values
+(define (json-reader-get rx)
+  (assert* 'json-reader-get (json-reader? rx))
+  (obj-reader-get rx))
+
+
+;; called by (json-reader-get) -> (obj-reader-get)
 (define (%json-reader-get rx)
   (let ((in    (json-reader-in rx))
         (depth (json-reader-depth rx)))
@@ -573,13 +603,5 @@
         (to-item (json-reader-get-value rx))))))
 
 
-;; temporary alias
-(define json-reader-get %json-reader-get)
 
-
-;; return obj as obj-reader should do:
-;; either (values obj #t) if it's a valid object
-;; or (values #<unspecified> #f) if it's #!eof
-(define (to-item obj)
-  (values obj (not (eof-object? obj))))
 

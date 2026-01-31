@@ -20,6 +20,7 @@
     (only (scheme2k containers list)      for-plist plist? plist-add)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
+    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
     (only (scheme2k io stdio)             sh-stdin))
 
 
