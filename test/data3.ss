@@ -57,30 +57,30 @@
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
-  ;; ------------------ wire-receiver and wire-sender --------------------------
+  ;; ------------------ wire-reader and wire-writer --------------------------
   (let-values (((rx tx) (wire-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
-      (wire-sender-put tx datum1)
-      (let ((datum2 (first-value-or-void (wire-receiver-get rx))))
-        (wire-receiver-close rx)
-        (wire-sender-close tx)
+      (wire-writer-put tx datum1)
+      (let ((datum2 (first-value-or-void (wire-reader-get rx))))
+        (wire-reader-close rx)
+        (wire-writer-close tx)
         (list (eqv? datum1 datum2)
-              (wire-receiver-eof? rx)
-              (wire-sender-eof? tx)))))                 (#t #t #t)
+              (wire-reader-eof? rx)
+              (wire-writer-eof? tx)))))                 (#t #t #t)
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
-    (let ((tx     (make-wire-sender out))
+    (let ((tx     (make-wire-writer out))
           (datum1 (bitwise-arithmetic-shift -1 9999)))
-      (wire-sender-put tx datum1)
-      (wire-sender-close tx) ;; also closes out
+      (wire-writer-put tx datum1)
+      (wire-writer-close tx) ;; also closes out
       (let* ((in     (open-bytevector-input-port (bv-proc)))
-             (rx     (make-wire-receiver in))
-             (datum2 (first-value-or-void (wire-receiver-get rx))))
-        (wire-receiver-close rx) ;; also closes in
+             (rx     (make-wire-reader in))
+             (datum2 (first-value-or-void (wire-reader-get rx))))
+        (wire-reader-close rx) ;; also closes in
         (list (eqv? datum1 datum2)
-              (wire-receiver-eof? rx)
-              (wire-sender-eof? tx)))))                 (#t #t #t)
+              (wire-reader-eof? rx)
+              (wire-writer-eof? tx)))))                 (#t #t #t)
 
   ;; ------------------------ lineedit io ---------------------------------
   (read

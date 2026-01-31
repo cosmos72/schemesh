@@ -5,7 +5,6 @@
 * extend `reflect` library with new functions `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
   that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
 * extend library `(scheme2k io wire)` to serialize/deserialize stencil vectors
-* add functions `(wire-get)` and `(wire-put)` that read/write from binary input ports
 * remove function `(parsectx-unread-char)` and update functions that use it
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
@@ -20,9 +19,9 @@
 * rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
-* rename functions `(...consumer...)` -> `(...fifo-receiver...)`
-* rename functions `(...obj-reader...)` -> `(...fifo-sender...)`
-* rename function `(...channel...)` -> `(...wire-receiver...)` or `(...wire-sender...)`
+* rename functions `(...producer...)` -> `(...queue-reader...)`
+* rename functions `(...consumer...)` -> `(...queue-writer...)`
+* rename function `(...channel...)` -> `(...wire-reader...)` or `(...wire-writer...)`
 
 ### release v0.9.3, 2025-12-26
 

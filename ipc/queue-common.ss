@@ -7,25 +7,25 @@
 
 #!r6rs
 
-;; this file should be included only by files ipc/fifo-thread.ss or ipc/fifo-nothread.ss
+;; this file should be included only by files ipc/queue-thread.ss or ipc/queue-nothread.ss
 
 
-(define-record-type (fifo-sender %make-fifo-sender fifo-sender?)
+(define-record-type (queue-writer %make-queue-writer queue-writer?)
   (fields
     (mutable tail)
     mutex
     changed)
-  (nongenerative fifo-sender-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative queue-writer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 
-(define-record-type (fifo-receiver %make-fifo-receiver fifo-receiver?)
+(define-record-type (queue-reader %make-queue-reader queue-reader?)
   (fields
     (mutable head)
     (mutable eof?)
     mutex
     changed)
-  (nongenerative fifo-receiver-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative queue-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; convert one of:
@@ -48,12 +48,12 @@
       (make-time 'time-duration (time-nanosecond duration) (time-second duration)))))
 
 
-;; create and return a closure that iterates on data recreived by fifo-receiver c.
+;; create and return a closure that iterates on data recreived by queue-reader c.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values datum #t) i.e. the next datum received from fifo-receiver and #t,
-;; or (values #<unspecified> #f) if fifo-receiver reached end-of-file.
-(define (in-fifo-receiver c)
-  (assert* 'in-fifo-receiver (fifo-receiver? c))
+;; either (values datum #t) i.e. the next datum received from queue-reader and #t,
+;; or (values #<unspecified> #f) if queue-reader reached end-of-file.
+(define (in-queue-reader c)
+  (assert* 'in-queue-reader (queue-reader? c))
   (lambda ()
-    (fifo-receiver-get c)))
+    (queue-reader-get c)))

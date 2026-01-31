@@ -70,8 +70,8 @@
   (include "io/io.ss")
 
   (meta-cond
-    ((threaded?) (include "ipc/fifo-thread.ss"))
-    (else        (include "ipc/fifo-nothread.ss")))
+    ((threaded?) (include "ipc/queue-thread.ss"))
+    (else        (include "ipc/queue-nothread.ss")))
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
   (include "ipc/ipc.ss")
 
