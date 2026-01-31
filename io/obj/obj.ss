@@ -31,14 +31,15 @@
 ;;;                       or waiting simultaneously on multiple generators
 (library (scheme2k io obj (0 9 3))
   (export
-    make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-close obj-reader-eof?
-    make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-close obj-writer-eof?
+    make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close
+    make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
 
     in-reader constant-reader empty-reader list-reader sequence-reader vector-reader
     discard-writer full-writer list-writer)
   (import
     (rnrs)
-    (only (chezscheme)                    fx1+ include logbit? procedure-arity-mask record-type-descriptor record-writer reverse! void)
+    (only (chezscheme)                    box box-cas! fx1+ include logbit? procedure-arity-mask
+                                          record-type-descriptor record-writer reverse! unbox void)
     (only (scheme2k bootstrap)            assert* forever fx<=?* raise-errorf))
 
 
@@ -52,21 +53,21 @@
     (put-string port "(make-obj-reader ")
     (writer (obj-reader-get-proc r) port)
     (put-char port #\space)
-    (writer (obj-reader-close-proc r) port)
+    (writer (unbox (obj-reader-close-box r)) port)
     (put-char port #\space)
     (writer (if (obj-reader-eof? r) 'eof #f) port)
     (put-string port ")")))
 
 
 ;; customize how "obj-writer" objects are printed
-(record-writer (record-type-descriptor obj-reader)
+(record-writer (record-type-descriptor obj-writer)
   (lambda (w port writer)
-    (put-string port "(make-obj-reader ")
-    (writer (obj-reader-get-proc w) port)
+    (put-string port "(make-obj-writer ")
+    (writer (obj-writer-put-proc w) port)
     (put-char port #\space)
-    (writer (obj-reader-close-proc w) port)
+    (writer (unbox (obj-writer-close-box w)) port)
     (put-char port #\space)
-    (writer (if (obj-reader-eof? w) 'eof #f) port)
+    (writer (if (obj-writer-eof? w) 'eof #f) port)
     (put-string port ")")))
 
 

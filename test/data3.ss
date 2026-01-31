@@ -57,7 +57,33 @@
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
-  ;; ------------------ wire-reader and wire-writer --------------------------
+  ;; -------------------- obj-reader and obj-writer ----------------------------
+
+  (let ((rx (list-reader '(qwerty asdf !@$%^&))))
+    (let*-values (((obj1 ok1) (obj-reader-get rx))
+                  ((obj2 ok2) (obj-reader-get rx))
+                  ((obj3 ok3) (obj-reader-get rx))
+                  ((obj4 ok4) (obj-reader-get rx))
+                  ((obj5 ok5) (obj-reader-get rx)))
+      ;; ignore obj4 and obj5, they have unspecified values
+      (list obj1 obj2 obj3 ok1 ok2 ok3 ok4 ok5)))       (qwerty asdf !@$%^& #t #t #t #f #f)
+
+
+  (let ((tx (list-writer)))
+    (obj-writer-put tx 97)
+    (obj-writer-put tx 98)
+    (obj-writer-close tx)
+    (obj-writer-close tx))                              (97 98)
+
+
+  ;; ------------------ queue-reader and queue-writer --------------------------
+
+  (let* ((tx (make-queue-writer))
+         (rx (make-queue-reader tx)))
+    (queue-writer-put tx '(1/2 . 3/4+7i))
+    (values->list (queue-reader-get rx)))               ((1/2 . 3/4+7i) #t)
+
+  ;; ------------------- wire-reader and wire-writer ---------------------------
   (let-values (((rx tx) (wire-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
       (wire-writer-put tx datum1)

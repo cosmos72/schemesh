@@ -10,22 +10,31 @@
 ;; this file should be included only by files ipc/queue-thread.ss or ipc/queue-nothread.ss
 
 
+(define-record-type (queue-reader %make-queue-reader queue-reader?)
+  (parent obj-reader)
+  (fields
+    (mutable head)
+    mutex
+    changed)
+  (protocol
+    (lambda (args->new)
+      (lambda (head mutex changed)
+        ((args->new %queue-reader-get #f) head mutex changed))))
+  (nongenerative queue-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
+
 (define-record-type (queue-writer %make-queue-writer queue-writer?)
+  (parent obj-writer)
   (fields
     (mutable tail)
     mutex
     changed)
+  (protocol
+    (lambda (args->new)
+      (lambda (mutex condition)
+        ((args->new %queue-writer-put %queue-writer-close)
+           (cons #f '()) mutex condition))))
   (nongenerative queue-writer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
-
-
-(define-record-type (queue-reader %make-queue-reader queue-reader?)
-  (fields
-    (mutable head)
-    (mutable eof?)
-    mutex
-    changed)
-  (nongenerative queue-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; convert one of:
@@ -48,12 +57,14 @@
       (make-time 'time-duration (time-nanosecond duration) (time-second duration)))))
 
 
-;; create and return a closure that iterates on data recreived by queue-reader c.
+;; create and return a closure that iterates on data received by queue-reader rx.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values datum #t) i.e. the next datum received from queue-reader and #t,
 ;; or (values #<unspecified> #f) if queue-reader reached end-of-file.
-(define (in-queue-reader c)
-  (assert* 'in-queue-reader (queue-reader? c))
+;;
+;; note: (in-reader rx) is equivalent and also accepts other obj-reader types
+(define (in-queue-reader rx)
+  (assert* 'in-queue-reader (queue-reader? rx))
   (lambda ()
-    (queue-reader-get c)))
+    (queue-reader-get rx)))

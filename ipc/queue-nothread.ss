@@ -9,17 +9,20 @@
 
 ;;; inter-thread communication library:
 ;;;
-;;; exchanges arbitrary objects through thread-safe FIFO
+;;; exchanges arbitrary objects through thread-safe in-memory queue
 ;;;
 (library (scheme2k ipc queue (0 9 3))
-  (export make-queue-writer queue-writer? queue-writer-close queue-writer-name queue-writer-put
-          make-queue-reader queue-reader? queue-reader-get queue-reader-eof? queue-reader-timed-get queue-reader-try-get in-queue-reader)
+  (export make-queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close
+          make-queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close
+          queue-reader-timed-get queue-reader-try-get in-queue-reader)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)            include make-time record-writer time? time-type time-second time-nanosecond)
     (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
-    (only (scheme2k posix signal) countdown))
+    (only (scheme2k posix signal) countdown)
+    (only (scheme2k io obj)       obj-reader obj-reader-get obj-reader-eof? obj-reader-close
+                                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close))
 
 
 (include "ipc/queue-common.ss")
@@ -28,13 +31,19 @@
 (define make-queue-writer
   (case-lambda
     (()
-      (make-queue-writer #f))
+      (%make-queue-writer #f #f))
     ((name)
-      (%make-queue-writer (cons #f '()) name #f))))
+      (%make-queue-writer name #f))))
 
 
-(define (queue-writer-name p)
-  (queue-writer-mutex p))
+(define (queue-writer-name tx)
+  (queue-writer-mutex tx))
+
+
+;; Return #t if specified queue-writer is closed, otherwise return #f
+(define (queue-writer-eof? tx)
+  (assert* 'queue-writer-eof? (queue-writer? tx))
+  (obj-writer-eof? tx))
 
 
 ;; Close specified queue-writer.
@@ -42,8 +51,14 @@
 ;; Each attached queue-reader will still receive any pending data.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (queue-writer-close p)
-  (set-cdr! (queue-writer-tail p) #f))
+(define (queue-writer-close tx)
+  (assert* 'queue-writer-close (queue-writer? tx))
+  (obj-writer-close tx))
+
+
+;; called by (queue-writer-close) -> (obj-writer-close)
+(define (%queue-writer-close tx)
+  (set-cdr! (queue-writer-tail tx) #f))
 
 
 ;; put a datum into the queue-writer, which will be visible to all
@@ -52,49 +67,69 @@
 ;; raises exception if queue-writer is closed
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (queue-writer-put p obj)
-  (let ((old-tail (queue-writer-tail p)))
+(define (queue-writer-put tx obj)
+  (assert* 'queue-writer-put (queue-writer? tx))
+  (obj-writer-put tx obj))
+
+
+;; called by (queue-writer-put) -> (obj-writer-put)
+(define (%queue-writer-put tx obj)
+  (let ((old-tail (queue-writer-tail tx)))
     (unless (null? (cdr old-tail))
-      (raise-errorf 'queue-writer-put "~s is already closed" p))
+      (raise-errorf 'queue-writer-put "~s is already closed" tx))
     (set-car! old-tail obj)
     (let ((new-tail (cons #f '())))
       (set-cdr! old-tail new-tail)
-      (queue-writer-tail-set! p new-tail))))
+      (queue-writer-tail-set! tx new-tail))))
 
 
-
-
-
-;; create a queue-reader attached to specified queue-writer, and return it.
-;; multiple consumers can be attached to the same queue-writer, and each queue-reader
-;; receives in order all data put to the queue-writer *after* the queue-reader was created.
+;; Create and return a queue-reader, which is a subtype of obj-writer.
+;; Receives in order each datum put to the specified queue-writer *after* the queue-reader was created.
+;;
+;; Multiple queue-readers can be attached to the same queue-writer, and each queue-reader
+;; receives in order each datum put to the queue-writer *after* that queue-reader was created.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (make-queue-reader p)
-  (%make-queue-reader (queue-writer-tail p) #f (queue-writer-mutex p) (queue-writer-changed p)))
+(define (make-queue-reader tx)
+  (%make-queue-reader (queue-writer-tail tx) (queue-writer-mutex tx) (queue-writer-changed tx)))
 
 
-(define (queue-reader-name c)
-  (queue-reader-mutex c))
+(define (queue-reader-name rx)
+  (queue-reader-mutex rx))
+
+
+(define (queue-reader-eof? rx)
+  (assert* 'queue-reader-eof? (queue-reader? rx))
+  (obj-reader-eof? rx))
+
+
+(define (queue-reader-close rx)
+  (assert* 'queue-reader-close (queue-reader? rx))
+  (obj-reader-close rx))
+
 
 (define huge-timeout (* 86400 365))
 
-(define (queue-reader-timed-get-once c timeout)
+(define (queue-reader-timed-get-once rx timeout)
   (check-interrupts)
-  (let* ((head (queue-reader-head c))
+  (let* ((head (queue-reader-head rx))
          (tail (cdr head)))
     (cond
+      ((queue-reader-eof? rx)
+        ;; this queue-reader is already closed
+        (values #f 'eof))
       ((not tail)
-        (queue-reader-eof?-set! c #t)
+        ;; connected queue-writer was closed, and we reached eof
+        (queue-reader-close rx)
         (values #f 'eof))
       ((null? tail)
         (if (eqv? 0 timeout)
           (values #f 'timeout)
           (begin
             (countdown timeout)
-            (queue-reader-timed-get-once c 0))))
+            (queue-reader-timed-get-once rx 0))))
       ((pair? tail)
-        (queue-reader-head-set! c tail)
+        (queue-reader-head-set! rx tail)
         (values (car head) 'ok)))))
 
 
@@ -103,14 +138,17 @@
 ;;   or <unspecified> and #f if queue-writer has been closed and all data has been received.
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (queue-reader-get c)
-  (if (queue-reader-eof? c)
-    (values #f #f)
-    (let %queue-reader-get ((c c))
-      (let-values (((datum flag) (queue-reader-timed-get-once c huge-timeout)))
-        (if (eq? flag 'timeout)
-          (%queue-reader-get c)
-          (values datum (eq? flag 'ok)))))))
+(define (queue-reader-get rx)
+  (assert* 'queue-reader-get (queue-reader? rx))
+  (obj-reader-get rx))
+
+
+;; called by (queue-reader-get) -> (obj-reader-get)
+(define (%queue-reader-get rx)
+  (let-values (((datum flag) (queue-reader-timed-get-once rx huge-timeout)))
+    (if (eq? flag 'timeout)
+      (%queue-reader-get rx) ;; timeout, retry 
+      (values datum (eq? flag 'ok)))))
 
 
 ;; block with timeout until a datum is received from queue-writer, and return two values:
@@ -124,10 +162,11 @@
 ;; * a time object with type 'time-duration
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (queue-reader-timed-get c timeout)
-  (if (queue-reader-eof? c)
+(define (queue-reader-timed-get rx timeout)
+  (assert* 'queue-reader-timed-get (queue-reader? rx))
+  (if (queue-reader-eof? rx)
     (values #f 'eof)
-    (queue-reader-timed-get-once c timeout)))
+    (queue-reader-timed-get-once rx timeout)))
 
 
 ;; non-blockingly try to receive a datum from queue-writer, and return two values:
@@ -136,34 +175,13 @@
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is for non-threaded build of Chez Scheme.
-(define (queue-reader-try-get c)
-  (if (queue-reader-eof? c)
+(define (queue-reader-try-get rx)
+  (assert* 'queue-reader-try-get (queue-reader? rx))
+  (if (queue-reader-eof? rx)
     (values #f 'eof)
-    (queue-reader-timed-get-once c 0)))
+    (queue-reader-timed-get-once rx 0)))
 
 
-;; customize how "queue-writer" objects are printed
-(record-writer (record-type-descriptor queue-writer)
-  (lambda (p port writer)
-    (let ((name (queue-writer-name p)))
-      (if name
-        (begin
-          (display "#<queue-writer " port)
-          (display name port)
-          (display ">" port))
-        (display "#<queue-writer>" port)))))
-
-
-;; customize how "queue-reader" objects are printed
-(record-writer (record-type-descriptor queue-reader)
-  (lambda (c port writer)
-    (let ((name (queue-reader-name c)))
-      (if name
-        (begin
-          (display "#<queue-reader " port)
-          (display name port)
-          (display ">" port))
-        (display "#<queue-reader>" port)))))
-
+(include "ipc/queue-util.ss")
 
 ) ; close library
