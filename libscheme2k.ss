@@ -15,6 +15,8 @@
   (include "bootstrap/functions.ss")
   (include "bootstrap/bootstrap.ss")
 
+  (include "io/obj/obj.ss")
+
   (include "containers/bitmap.ss")
   (include "containers/bytevector.ss")
   (include "containers/date.ss")
@@ -82,8 +84,6 @@
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
 
-  (include "producer/producer.ss")
-
   ;; library (scheme2k rnrs) exports the same bindings as (rnrs),
   ;; except for few bindings that are replaced with improved alternatives:
   ;;
@@ -120,7 +120,6 @@
       (scheme2k io)
       (scheme2k posix)
       (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
-      (scheme2k producer)
       (scheme2k reflect)
       (scheme2k vscreen)))
 

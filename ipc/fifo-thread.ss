@@ -11,7 +11,8 @@
 ;;;
 (library (scheme2k ipc fifo (0 9 3))
   (export make-fifo-sender fifo-sender? fifo-sender-close fifo-sender-name fifo-sender-put
-          make-fifo-receiver fifo-receiver? fifo-receiver-get fifo-receiver-eof? fifo-receiver-timed-get fifo-receiver-try-get in-fifo-receiver)
+          make-fifo-receiver fifo-receiver? fifo-receiver-get fifo-receiver-eof?
+          fifo-receiver-timed-get fifo-receiver-try-get in-fifo-receiver)
   (import
     (rnrs)
     (rnrs mutable-pairs)

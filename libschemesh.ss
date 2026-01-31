@@ -12,6 +12,8 @@
   (include "bootstrap/functions.ss")
   (include "bootstrap/bootstrap.ss")
 
+  (include "io/obj/obj.ss")
+
   (include "containers/bitmap.ss")
   (include "containers/bytevector.ss")
   (include "containers/flvector.ss")
@@ -78,8 +80,6 @@
   (include "lineedit/parser.ss")
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
-
-  (include "producer/producer.ss")
 
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")

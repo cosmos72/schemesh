@@ -14,6 +14,7 @@
     for-hash for-hash-keys for-hash-cells for-hash-values
     hash-for-each hash-for-each-cell hash-for-each-key hash-for-each-value
     in-hash in-hash-keys in-hash-cells in-hash-values
+    hash-reader
 
     eq-hashtable eqv-hashtable hashtable
     alist->eq-hashtable alist->eqv-hashtable alist->hashtable
@@ -23,6 +24,7 @@
     (rnrs)
     (only (chezscheme)                 $primitive format fx1+ fx1- fx/ include meta record-writer)
     (only (scheme2k bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
+    (only (scheme2k io obj)            make-obj-reader)
     (only (scheme2k containers list)   for-alist for-plist)
     (only (scheme2k containers string) string-prefix? string-suffix? display-procedure-name)
     (only (scheme2k containers vector) vector-index))
@@ -136,6 +138,23 @@
                    '#()))
            (iter (%make-iter -1 #f vec1 vec2)))
       iter)))
+
+
+
+;; create and return a obj-reader that generates the cells of specified hashtable.
+;; each call to (obj-reader-get p) will return two values:
+;;  either (values cell truish) i.e. the next cell the hashtable, where cell is a pair (key . value)
+;;  or (values #<unspecified> #f) when the hashtable is exhausted or after (obj-reader-close p) is called.
+;;
+;; note: assigning the cdr of a returned pair propagates to the hashtable.
+;; do NOT modify the car of any returned pair!
+(define (hash-reader ht)
+  (let* ((iter (hash-cursor ht))
+         (%hash-reader ;; name shown when displaying the closure
+           (lambda (p)
+             (let ((cell (hash-cursor-next! iter)))
+               (values cell (and cell #t))))))
+    (make-obj-reader %hash-reader #f)))
 
 
 ;; create and return a closure that iterates on elements of hashtable t.

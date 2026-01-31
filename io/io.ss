@@ -14,6 +14,7 @@
   (import
     (scheme2k io json)
     (scheme2k io http)
+    (scheme2k io obj)
     (scheme2k io port)
     (scheme2k io redir)
     (scheme2k io stdio)
