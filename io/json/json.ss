@@ -8,15 +8,15 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export make-json-reader json-reader json-reader? json-reader-depth
-          json-read-token  json-read-value json-skip-token json-skip-value
+  (export make-json-reader json-reader json-reader? #|json-reader-eof? json-reader-close|# json-reader-depth json-reader-restart
+          json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value 
           json-write-token json-write-value)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                    fx1+ fx1- include record-writer reverse! void)
     (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
     (only (scheme2k containers bytespan)  bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
-                                          bytespan-length bytespan-ref-right/u8 bytespan-set/u8!)
+                                          bytespan-length bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
     (only (scheme2k containers list)      for-plist plist? plist-add)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
@@ -35,12 +35,12 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (make-json-reader) (json-read-token) and (json-write-token)
+;; Example usage for (make-json-reader) (json-reader-get-token) and (json-write-token)
 ;;
 #|
 (define (json-copy-all bin-in txt-out)
   (let loop ((r (make-json-reader bin-in)))
-    (let ((tok (json-read-token r)))
+    (let ((tok (json-reader-get-token r)))
       (unless (eof-object? tok)
         (json-write-token tok txt-out)
         (loop r)))))

@@ -112,7 +112,29 @@
               (wire-reader-eof? rx)
               (wire-writer-eof? tx)))))                 (#t #t #t)
 
-  ;; ------------------------ lineedit io ---------------------------------
+  ;; ---------------------------- json-reader ----------------------------------
+
+  ;; parse only whitespace. not a valid json, but accepted by (json-reader-get)
+  ;; as zero top-level json values
+  (let ((rx (make-json-reader
+              (open-bytevector-input-port #vu8(9 10 13 32)))))
+    (second-value (json-reader-get rx)))                #f
+
+  (let ((rx (make-json-reader
+              (open-bytevector-input-port
+                (string->utf8b
+                  "[1, 2.5, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
+    (let*-values (((obj1 ok1) (json-reader-get rx))
+                  ((obj2 ok2) (json-reader-get rx))
+                  ((obj3 ok3) (json-reader-get rx))
+                  ((obj4 ok4) (json-reader-get rx))
+                  ((obj5 ok5) (json-reader-get rx))
+                  ((obj6 ok6) (json-reader-get rx))
+                  ((obj7 ok7) (json-reader-get rx)))
+      (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4
+            obj5 ok5 obj6 ok6 #|obj7|# ok7)))           (1 #t 2.5 #t #t #t #f #t (a "\x20ac;") #t "foo" #t #f)
+
+  ;; ---------------------------- lineedit io ----------------------------------
   (read
     (open-vlines-input-port
       (vlines

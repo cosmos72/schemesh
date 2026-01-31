@@ -67,7 +67,7 @@
 (define-syntax second-value
   (syntax-rules ()
     ((_ expr)
-      (call-with-values (lambda () expr) (lambda args (cdr args))))))
+      (call-with-values (lambda () expr) (lambda args (cadr args))))))
 
 
 ;; port where to write debug messages with (debugf).

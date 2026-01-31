@@ -12,7 +12,7 @@
 ### git main branch
 
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add type `json-reader` and its functions `(json-read-token)` `(json-read-value)` `(json-skip-token)` `(json-skip-value)`
+* add type `json-reader` and its functions `(json-reader-get-token)` `(json-reader-get-value)` `(json-reader-skip-token)` `(json-reader-skip-value)`
   `(make-json-reader)` as well as standalone functions `(json-write-token)` `(json-write-value)` in new library `(scheme2k io json)`
 * add functions `(field)` `(field-names)` in new library `(scheme2k reflect)`
 * pretty-print types `time` and `date` and add convenience functions to create them

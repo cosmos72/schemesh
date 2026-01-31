@@ -10,7 +10,7 @@
 ;;; JSON pull parser, uses only standard R6RS without external libraries
 ;;;
 (library (scheme2k io json (0 9 3))
-  (export json-read-token make-json-reader)
+  (export json-reader-get-token make-json-reader)
   (import (rnrs))
 
 
@@ -113,7 +113,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main pull tokenizer
 
-(define (json-read-token p)
+(define (json-reader-get-token p)
   (skip-ws p)
   (let ((b (get-u8 p)))
     (cond
@@ -168,7 +168,7 @@
       (when finished?
         (error 'json "token requested after eof"))
 
-      (let ((t (json-read-token p)))
+      (let ((t (json-reader-get-token p)))
         (let ((kind (car t)))
           (case (state)
 
@@ -272,12 +272,12 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (json-read-token)
+;; Example usage for (json-reader-get-token)
 ;;
 ;; (define p (open-bytevector-input-port
 ;;            (string->utf8 "{\"a\": [1, true]}")))
 ;; (let %loop ()
-;;   (let ((t (json-read-token p)))
+;;   (let ((t (json-reader-get-token p)))
 ;;     (display t) (newline)
 ;;     (unless (equal? t 'eof) (%loop))))
 

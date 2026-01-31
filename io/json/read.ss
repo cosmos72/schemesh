@@ -37,9 +37,9 @@
 (define raise-json
   (case-lambda
     ((str)
-      (raise-errorf 'json-read-token str))
+      (raise-errorf 'json-reader-get-token str))
     ((fmt arg)
-      (raise-errorf 'json-read-token fmt arg))))
+      (raise-errorf 'json-reader-get-token fmt arg))))
 
 (define (raise-eof-in-number)
   (raise-json "unexpected EOF in json number"))
@@ -52,11 +52,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Reader helpers
 
-(define (skip-ws p)
-  (let ((b (lookahead-u8 p)))
+(define (skip-ws in)
+  (let ((b (lookahead-u8 in)))
     (when (whitespace? b)
-      (get-u8 p)
-      (skip-ws p))))
+      (get-u8 in)
+      (skip-ws in))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; String parsing
@@ -74,33 +74,33 @@
     ""))
 
 
-(define (parse-string p bytes)
+(define (parse-string in bytes)
   ;; opening quote already consumed
-  (let ((b (get-u8 p)))
+  (let ((b (get-u8 in)))
     (cond
       ((not (fixnum? b))
         (raise-json "unexpected EOF in json string"))
       ((fx=? b 34) ;; closing quote
         (bytes->string bytes))
       ((fx=? b 92) ;; backslash, starts escape sequence
-        (let ((e (get-u8 p)))
+        (let ((e (get-u8 in)))
           (cond
             ((not (fixnum? e)) (raise-json "unexpected EOF in json string"))
-            ((fx=? e 34)  (bytes-append! bytes e)  (parse-string p bytes))
-            ((fx=? e 47)  (bytes-append! bytes e)  (parse-string p bytes))
-            ((fx=? e 92)  (bytes-append! bytes e)  (parse-string p bytes))
-            ((fx=? e 98)  (bytes-append! bytes 8)  (parse-string p bytes))
-            ((fx=? e 102) (bytes-append! bytes 12) (parse-string p bytes))
-            ((fx=? e 110) (bytes-append! bytes 10) (parse-string p bytes))
-            ((fx=? e 114) (bytes-append! bytes 13) (parse-string p bytes))
-            ((fx=? e 116) (bytes-append! bytes 9)  (parse-string p bytes))
+            ((fx=? e 34)  (bytes-append! bytes e)  (parse-string in bytes))
+            ((fx=? e 47)  (bytes-append! bytes e)  (parse-string in bytes))
+            ((fx=? e 92)  (bytes-append! bytes e)  (parse-string in bytes))
+            ((fx=? e 98)  (bytes-append! bytes 8)  (parse-string in bytes))
+            ((fx=? e 102) (bytes-append! bytes 12) (parse-string in bytes))
+            ((fx=? e 110) (bytes-append! bytes 10) (parse-string in bytes))
+            ((fx=? e 114) (bytes-append! bytes 13) (parse-string in bytes))
+            ((fx=? e 116) (bytes-append! bytes 9)  (parse-string in bytes))
             ((fx=? e 117) ;; \uXXXX
-              (let* ((u16 (parse-string-hex4 p))
+              (let* ((u16 (parse-string-hex4 in))
                      (ch
                        (integer->char
                          (cond
                            ((fx<=? #xD800 u16 #xDBFF)
-                             (let ((low16 (parse-string-low-surrogate p)))
+                             (let ((low16 (parse-string-low-surrogate in)))
                                (fx+ (fx<< (fx- u16 #xD800) 10)
                                     (fx+ low16 (fx- #x10000 #xDC00)))))
                            ((fx<=? #xDC00 u16 #xDFFF)
@@ -110,23 +110,23 @@
                              u16)))))
                 (when bytes
                   (bytespan-insert-right/char! bytes ch)))
-              (parse-string p bytes))
+              (parse-string in bytes))
             (else
               (raise-json "invalid byte ~s in json string escape" e)))))
       (else
         (when (fx<? b 32)
           (raise-json "invalid control byte ~s in json string" b))
         (bytes-append! bytes b)
-        (parse-string p bytes)))))
+        (parse-string in bytes)))))
 
 
 ;; parse the four hexadecimal digits after \u
 ;; and return them as a fixnum in 0 ... #xFFFF
-(define (parse-string-hex4 p)
+(define (parse-string-hex4 in)
   (let %loop ((i 0) (u16 0))
     (if (fx=? i 4)
       u16
-      (let ((b (get-u8 p)))
+      (let ((b (get-u8 in)))
         (unless (hex-digit? b)
           (raise-json "invalid byte ~s in json string escape \\u" b))
         (%loop (fx1+ i)
@@ -135,11 +135,11 @@
 
 ;; parse an Unicode low surrogate
 ;; i.e. an escape sequence \uXXXX containing a fixnum in #xDC00 ... #xDFFF
-(define (parse-string-low-surrogate p)
-  (unless (and (eqv? (get-u8 p) 92)
-               (eqv? (get-u8 p) 117))
+(define (parse-string-low-surrogate in)
+  (unless (and (eqv? (get-u8 in) 92)
+               (eqv? (get-u8 in) 117))
     (raise-json "missing low surrogate \\uXXXX after high surrogate in json string"))
-  (let ((u16 (parse-string-hex4 p)))
+  (let ((u16 (parse-string-hex4 in)))
     (unless (fx<=? #xDC00 u16 #xDFFF)
       (raise-json "out-of-range low surrogate \\u~4,'0X after high surrogate in json string" u16))
     u16))
@@ -148,11 +148,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Number parsing
 
-(define (parse-number p bytes first)
+(define (parse-number in bytes first)
   (let* ((b (if (fx=? first 45) ; #\-
               (begin
                 (bytes-append! bytes first)
-                (get-u8 p))
+                (get-u8 in))
               first))
          (initial0
            (if (fixnum? b)
@@ -160,52 +160,52 @@
              (raise-eof-in-number))))
     (bytes-append! bytes b)
     (unless initial0
-      (parse-optional-digits p bytes)))
+      (parse-optional-digits in bytes)))
 
-  (let ((b (lookahead-u8 p)))
+  (let ((b (lookahead-u8 in)))
     (case b
       ((46) ; #\.
-        (get-u8 p)
+        (get-u8 in)
         (bytes-append! bytes b)
-        (parse-digits p bytes))))
+        (parse-digits in bytes))))
 
-  (let ((b (lookahead-u8 p)))
+  (let ((b (lookahead-u8 in)))
     (case b
       ((69 101) ; #\E #\e
-        (get-u8 p)
+        (get-u8 in)
         (bytes-append! bytes b)
-        (parse-exponent p bytes))))
+        (parse-exponent in bytes))))
 
   (bytes->number bytes))
 
 
 ;; parse zero or more base-10 digits
-(define (parse-optional-digits p bytes)
-  (let ((b (lookahead-u8 p)))
+(define (parse-optional-digits in bytes)
+  (let ((b (lookahead-u8 in)))
     (when (digit? b)
       (bytes-append! bytes b)
-      (get-u8 p)
-      (parse-optional-digits p bytes))))
+      (get-u8 in)
+      (parse-optional-digits in bytes))))
 
 
 ;; parse one or more base-10 digits
-(define (parse-digits p bytes)
-  (let ((b (lookahead-u8 p)))
+(define (parse-digits in bytes)
+  (let ((b (lookahead-u8 in)))
     (unless (digit? b)
       (raise-invalid-digit b))
     (bytes-append! bytes b)
-    (get-u8 p))
-  (parse-optional-digits p bytes))
+    (get-u8 in))
+  (parse-optional-digits in bytes))
 
 
 ;; parse json number exponent after #\E or #\e
-(define (parse-exponent p bytes)
-  (let ((b (lookahead-u8 p)))
+(define (parse-exponent in bytes)
+  (let ((b (lookahead-u8 in)))
     (case b
       ((43 45) ; #\+ #\-
         (bytes-append! bytes b)
-        (get-u8 p))))
-  (parse-digits p bytes))
+        (get-u8 in))))
+  (parse-digits in bytes))
 
 
 (define (bytes->number bytes)
@@ -216,19 +216,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing
 
-(define (expect-bytes p bytes)
+(define (expect-bytes in bytes)
   (for-each
     (lambda (b)
-      (unless (eqv? b (get-u8 p))
+      (unless (eqv? b (get-u8 in))
         (raise-json "invalid literal")))
     bytes))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Raw tokenizer. Validates grammar, does not validate syntax
 
-(define (next-token p buf)
-  (skip-ws p)
-  (let ((b (get-u8 p)))
+(define (next-token in buf)
+  (skip-ws in)
+  (let ((b (get-u8 in)))
     (cond
       ((not (fixnum? b)) (eof-object))
       ((fx=? b 44)  #\,)
@@ -240,14 +240,14 @@
       ((fx=? b 34)
         (when buf
           (bytespan-clear! buf))
-        (parse-string p buf))
+        (parse-string in buf))
       ((or (digit? b) (fx=? b 45))
         (when buf
           (bytespan-clear! buf))
-        (parse-number p buf b))
-      ((fx=? b 102) (expect-bytes p '(97 108 115 101)) #f)  ; false -> #f
-      ((fx=? b 110) (expect-bytes p '(117 108 108)) (void)) ; null  -> (void)
-      ((fx=? b 116) (expect-bytes p '(114 117 101)) #t)     ; true  -> #t
+        (parse-number in buf b))
+      ((fx=? b 102) (expect-bytes in '(97 108 115 101)) #f)  ; false -> #f
+      ((fx=? b 110) (expect-bytes in '(117 108 108)) (void)) ; null  -> (void)
+      ((fx=? b 116) (expect-bytes in '(114 117 101)) #t)     ; true  -> #t
       (else
         (raise-json "unexpected byte ~s" b)))))
 
@@ -267,7 +267,7 @@
 
 (define-record-type (json-reader %make-json-reader json-reader?)
   (fields
-    port            ; binary input port
+    in              ; binary input port
     stack           ; bytespan contaning stack of states
     buffer          ; bytespan buffer for parsing strings and numbers
     (mutable eof?)) ; boolean
@@ -276,29 +276,29 @@
 
 (define make-json-reader
   (case-lambda
-    ((p)
-      (assert* 'make-json-reader (binary-port? p))
-      (assert* 'make-json-reader (input-port? p))
-      (%make-json-reader p (bytespan $top) (bytespan) #f))
+    ((in)
+      (assert* 'make-json-reader (binary-port? in))
+      (assert* 'make-json-reader (input-port? in))
+      (%make-json-reader in (bytespan $top) (bytespan) #f))
     (()
       (make-json-reader (sh-stdin)))))
 
 
-(define (json-reader-depth r)
-  (fx1- (bytespan-length (json-reader-stack r))))
+(define (json-reader-depth rx)
+  (fx1- (bytespan-length (json-reader-stack rx))))
 
-(define (push r state)
-  (bytes-append! (json-reader-stack r) state))
+(define (push rx state)
+  (bytes-append! (json-reader-stack rx) state))
 
-(define (pop r)
-  (bytespan-delete-right! (json-reader-stack r) 1))
+(define (pop rx)
+  (bytespan-delete-right! (json-reader-stack rx) 1))
 
-(define (change r state)
-  (let* ((st (json-reader-stack r)))
+(define (change rx state)
+  (let* ((st (json-reader-stack rx)))
     (bytespan-set/u8! st (fx1- (bytespan-length st)) state)))
 
-(define (state r)
-  (bytespan-ref-right/u8 (json-reader-stack r)))
+(define (state rx)
+  (bytespan-ref-right/u8 (json-reader-stack rx)))
 
 (define (atomic-value-token? tok)
   (not (or (char? tok) (eof-object? tok))))
@@ -306,116 +306,129 @@
 (define (value-start-token? tok)
   (or (atomic-value-token? tok) (eqv? tok #\{) (eqv? tok #\[)))
 
-(define (accept-value-start r tok)
+(define (accept-value-start rx tok)
   (case tok
     ((#\{)
-      (push r $object-expect-key))
+      (push rx $object-expect-key))
     ((#\[)
-      (push r $array-expect-value))
+      (push rx $array-expect-value))
     (else ;; atomic value: nothing to push
       (void))))
 
 
-(define (validate-top r tok)
+(define (validate-top rx tok)
   (cond
     ((eof-object? tok)
       (raise-json "empty json input"))
     ((value-start-token? tok)
-      (change r $done)
-      (accept-value-start r tok))
+      (change rx $done)
+      (accept-value-start rx tok))
     (else
       (raise-json "invalid json top-level token ~s" tok))))
 
 
-(define (validate-done r tok)
+(define (validate-done rx tok)
   (unless (eof-object? tok)
     (raise-json "trailing token ~s after top-level value" tok)))
 
 
-(define (validate-array-expect-value r tok)
+(define (validate-array-expect-value rx tok)
   (cond
     ((eqv? tok #\])
-      (pop r))
+      (pop rx))
     ((value-start-token? tok)
-      (change r $array-after-value)
-      (accept-value-start r tok))
+      (change rx $array-after-value)
+      (accept-value-start rx tok))
     (else
      (raise-json "expecting value or ']' in json array, found ~s" tok))))
 
 
-(define (validate-array-after-value r tok)
+(define (validate-array-after-value rx tok)
   (case tok
     ((#\,)
-      (change r $array-expect-value))
+      (change rx $array-expect-value))
     ((#\])
-      (pop r))
+      (pop rx))
     (else
       (raise-json "expecting ',' or ']' in json array, found ~s" tok))))
 
 
-(define (validate-object-expect-key r tok)
+(define (validate-object-expect-key rx tok)
   (cond
     ((eqv? tok #\})
-      (pop r))
+      (pop rx))
     ((string? tok)
-      (change r $object-expect-colon))
+      (change rx $object-expect-colon))
     (else
       (raise-json "expecting string key or '}' in json object, found ~s" tok))))
 
 
-(define (validate-object-expect-colon r tok)
+(define (validate-object-expect-colon rx tok)
   (unless (eqv? tok #\:)
     (raise-json "expecting ':' after json object key, found ~s" tok))
-  (change r $object-expect-value))
+  (change rx $object-expect-value))
 
 
-(define (validate-object-expect-value r tok)
+(define (validate-object-expect-value rx tok)
   (unless (value-start-token? tok)
     (raise-json "expecting value in json object, found ~s" tok))
-  (change r $object-after-value)
-  (accept-value-start r tok))
+  (change rx $object-after-value)
+  (accept-value-start rx tok))
 
 
-(define (validate-object-after-value r tok)
+(define (validate-object-after-value rx tok)
   (case tok
     ((#\,)
-      (change r $object-expect-key))
+      (change rx $object-expect-key))
     ((#\})
-      (pop r))
+      (pop rx))
     (else
        (raise-json "expecting ',' or '}' in json object, found ~s" tok))))
 
 
-(define (json-read-token* r buf)
-  (if (json-reader-eof? r)
+;; forget accumulated stack of states and restart parsing, expecting #!eof or a top-level json value.
+;; useful to parse multiple concatenated json documents, as for example NDJSON standard.
+;; does not clear the eof? flag.
+(define (json-reader-restart rx)
+  (let ((in     (json-reader-in rx))
+        (stack (json-reader-stack rx)))
+    (skip-ws in)
+    (bytespan-resize-right! stack 1)
+    (bytespan-set/u8! stack 0 (if (eof-object? (lookahead-u8 in))
+                                $done
+                                $top))))
+
+
+(define (json-reader-get-token* rx buf)
+  (if (json-reader-eof? rx)
     (eof-object)
-    (let ((tok (next-token (json-reader-port r) buf))
-          (st  (state r)))
+    (let ((tok (next-token (json-reader-in rx) buf))
+          (st  (state rx)))
       (when (eof-object? tok)
-        (json-reader-eof?-set! r #t))
+        (json-reader-eof?-set! rx #t))
       (cond
         ((fx=? st $top)
-          (validate-top r tok))
+          (validate-top rx tok))
         ((fx=? st $done)
-          (validate-done r tok))
+          (validate-done rx tok))
         ((fx=? st $array-expect-value)
-          (validate-array-expect-value r tok))
+          (validate-array-expect-value rx tok))
         ((fx=? st $array-after-value)
-          (validate-array-after-value r tok))
+          (validate-array-after-value rx tok))
         ((fx=? st $object-expect-key)
-          (validate-object-expect-key r tok))
+          (validate-object-expect-key rx tok))
         ((fx=? st $object-expect-colon)
-          (validate-object-expect-colon r tok))
+          (validate-object-expect-colon rx tok))
         ((fx=? st $object-expect-value)
-          (validate-object-expect-value r tok))
+          (validate-object-expect-value rx tok))
         ((fx=? st $object-after-value)
-          (validate-object-after-value r tok))
+          (validate-object-after-value rx tok))
         (else
           (raise-json "inconsistent json-reader state: ~s" st)))
       tok)))
 
 
-;; read and return next token, which can be one of:
+;; read and return next json token, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   (void)  i.e. null
 ;;   #t      i.e. true
@@ -429,12 +442,12 @@
 ;;     #\]   i.e. right bracket
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
-(define (json-read-token r)
-  (json-read-token* r (json-reader-buffer r)))
+(define (json-reader-get-token rx)
+  (json-reader-get-token* rx (json-reader-buffer rx)))
 
 
 
-;; read next value and return it, which can be one of:
+;; read next json value and return it, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   (void)  i.e. null
 ;;   #t      i.e. true
@@ -446,41 +459,41 @@
 ;;   a character among:
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
-(define (json-read-value r)
-  (let ((tok0 (json-read-token r)))
+(define (json-reader-get-value rx)
+  (let ((tok0 (json-reader-get-token rx)))
     (case tok0
       ((#\[)
-        (let %read-array ((r r) (sp (span)) (elem (json-read-value r)))
+        (let %read-array ((rx rx) (sp (span)) (elem (json-reader-get-value rx)))
           (cond
             ((or (eof-object? elem) (eqv? elem #\]))
               sp)
             (else
               (unless (eqv? #\, elem)
                 (span-insert-right! sp elem))
-              (%read-array r sp (json-read-value r))))))
+              (%read-array rx sp (json-reader-get-value rx))))))
       ((#\{)
-        (let %read-object ((r r) (plist '()) (key (json-read-value r)))
+        (let %read-object ((rx rx) (plist '()) (key (json-reader-get-value rx)))
           (cond
             ((or (eof-object? key) (eqv? key #\}))
               (reverse! plist))
             ((eqv? #\, key)
-              (%read-object r plist (json-read-value r)))
+              (%read-object rx plist (json-reader-get-value rx)))
             (else
-              (assert* 'json-read-value (string? key))
+              (assert* 'json-reader-get-value (string? key))
               (let ((key   (string->symbol key))
-                    (colon (json-read-token r)))
-                (assert* 'json-read-value (eqv? #\: colon))
-                (let ((value (json-read-value r)))
-                  (assert-not* 'json-read-value (eof-object? value))
-                  (assert-not* 'json-read-value (char? value))
+                    (colon (json-reader-get-token rx)))
+                (assert* 'json-reader-get-value (eqv? #\: colon))
+                (let ((value (json-reader-get-value rx)))
+                  (assert-not* 'json-reader-get-value (eof-object? value))
+                  (assert-not* 'json-reader-get-value (char? value))
                   ;; plist will be reverse before returning it => insert value before key
-                  (%read-object r (plist-add plist value key)
-                                  (json-read-value r))))))))
+                  (%read-object rx (plist-add plist value key)
+                                  (json-reader-get-value rx))))))))
       (else
         tok0))))
 
 
-;; skip next token and return its kind, which can be one of:
+;; skip next json token and return its kind, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   (void)  i.e. null
 ;;   #t      i.e. true
@@ -494,11 +507,11 @@
 ;;     #\]   i.e. right bracket
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
-(define (json-skip-token r)
-  (json-read-token* r #f))
+(define (json-reader-skip-token rx)
+  (json-reader-get-token* rx #f))
 
 
-;; skip next value and return its kind, which can be one of:
+;; skip next json value and return its kind, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   (void)  i.e. null
 ;;   #t      i.e. true
@@ -512,12 +525,61 @@
 ;;     #\]   i.e. right bracket
 ;;     #\,   i.e. comma
 ;;     #\:   i.e. colon
-(define (json-skip-value r)
-  (let ((tok0 (json-skip-token r)))
+(define (json-reader-skip-value rx)
+  (let ((tok0 (json-reader-skip-token rx)))
     (if (or (eqv? tok0 #\[) (eqv? tok0 #\{))
-      (let %skip-value ((r r) (depth0 (json-reader-depth r)))
-        (let ((tok (json-skip-token r)))
-          (if (or (eof-object? tok) (fx<? (json-reader-depth r) depth0))
+      (let %skip-value ((rx rx) (depth0 (json-reader-depth rx)))
+        (let ((tok (json-reader-skip-token rx)))
+          (if (or (eof-object? tok) (fx<? (json-reader-depth rx) depth0))
             (if (eqv? tok0 #\[) 'array 'object)
-            (%skip-value r depth0))))
+            (%skip-value rx depth0))))
       tok0)))
+
+
+;; autotected json variant present in input port, and read next item from it:
+;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially.
+;; if next top-level value is a json array, then return its elements one by one as items
+;; if next top-level value is a json object, then return it as a single item
+;; if next top-level value is an atomic json value (string, number, boolean, null), then return it as a single item
+;; if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
+;;
+;; this function does NOT allow json separators : or , between top-level json values
+(define (%json-reader-get rx)
+  (let ((in    (json-reader-in rx))
+        (depth (json-reader-depth rx)))
+    (assert* 'json-reader-get (fx<=? depth 1))
+    (if (fxzero? depth)
+       ;; in case we already read some previous json document. also skips whitespace.
+      (json-reader-restart rx)
+      (skip-ws in))
+    (case (lookahead-u8 in)
+      ((91)  ; #\[
+        (cond
+          ((fxzero? depth)
+            ;; json document is a json array => return its elements one by one as items
+            (json-reader-skip-token rx)
+            (%json-reader-get rx))
+          (else
+            ;; found a json array => return it as a single item
+            (to-item (json-reader-get-value rx)))))
+      ((44 93) ; #\, #\]
+        ;; found end of top-level json array,
+        ;; or separator between elements in top-level json array.
+        ;; skip it and retry.
+        (json-reader-skip-token rx)
+        (%json-reader-get rx))
+      (else
+        ;; top-level value is an object, or an atomic value, or a syntax error => return it as a single item
+        (to-item (json-reader-get-value rx))))))
+
+
+;; temporary alias
+(define json-reader-get %json-reader-get)
+
+
+;; return obj as obj-reader should do:
+;; either (values obj #t) if it's a valid object
+;; or (values #<unspecified> #f) if it's #!eof
+(define (to-item obj)
+  (values obj (not (eof-object? obj))))
+
