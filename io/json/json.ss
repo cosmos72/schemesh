@@ -8,19 +8,22 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export make-json-reader json-reader json-reader? #|json-reader-eof? json-reader-close|# json-reader-depth json-reader-restart
+  (export make-json-reader json-reader json-reader? json-reader-eof? json-reader-close json-reader-depth json-reader-restart
+          make-json-writer json-writer json-writer? json-writer-eof? json-writer-close
+
           json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value 
-          json-write-token json-write-value)
+          json-writer-put json-writer-put-token json-writer-put-value)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                    fx1+ fx1- include record-writer reverse! void)
+    (only (chezscheme)                    fx1+ fx1- include port-closed? record-writer reverse! void)
     (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
     (only (scheme2k containers bytespan)  bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
                                           bytespan-length bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
     (only (scheme2k containers list)      for-plist plist? plist-add)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
-    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
+    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close
+                                          obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k io stdio)             sh-stdin))
 
 
@@ -36,15 +39,16 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Example usage for (make-json-reader) (json-reader-get-token) and (json-write-token)
+;; Example usage for (make-json-reader) (json-reader-get-token) and (json-writer-put-token)
 ;;
 #|
 (define (json-copy-all bin-in txt-out)
-  (let loop ((r (make-json-reader bin-in)))
+  (let loop ((r (make-json-reader bin-in))
+             (w (make-json-writer txt-out)))
     (let ((tok (json-reader-get-token r)))
       (unless (eof-object? tok)
-        (json-write-token tok txt-out)
-        (loop r)))))
+        (json-writer-put-token w tok)
+        (loop r w)))))
 
 (json-copy-all
   (open-bytevector-input-port

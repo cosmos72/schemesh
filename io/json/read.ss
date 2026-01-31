@@ -40,6 +40,7 @@
 (define make-json-reader
   (case-lambda
     ((in)
+      (assert* 'make-json-reader (port? in))
       (assert* 'make-json-reader (binary-port? in))
       (assert* 'make-json-reader (input-port? in))
       (%make-json-reader in))
@@ -61,7 +62,7 @@
   (obj-reader-close rx))
 
 
-;; called by (json-reader-close) -> (obj-reader-close )
+;; called by (json-reader-close) -> (obj-reader-close)
 (define (%json-reader-close rx)
   (close-port (json-reader-in rx)))
 

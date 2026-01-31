@@ -134,6 +134,21 @@
       (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4
             obj5 ok5 obj6 ok6 #|obj7|# ok7)))           (1 #t 2.5 #t #t #t #f #t (a "\x20ac;") #t "foo" #t #f)
 
+  (with-output-to-string
+    (lambda ()
+      (let loop ((rx (make-json-reader
+                       (open-bytevector-input-port
+                         (string->utf8b
+                           "[0.0, {\"foo\": -1}, null]"))))
+                 (tx (make-json-writer)))
+        (let-values (((tok ok?) (json-reader-get rx)))
+          (cond
+            (ok?
+              (json-writer-put tx tok)
+              (loop rx tx))
+            (else
+              (json-writer-close tx)))))))              "[\n0.0,\n{\"foo\":-1},\nnull\n]\n"
+
   ;; ---------------------------- lineedit io ----------------------------------
   (read
     (open-vlines-input-port
