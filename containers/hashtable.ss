@@ -87,10 +87,9 @@
   (bucket-keyval (iter-bucket iter)))
 
 
-;; return current hashtable element (key . val) if more elements are available,
-;; otherwise return #f
-;;
-;; as a side effect, modifies hash-cursor in place to point to next hashtable element.
+;; advance hash-cursor in place to point to next hashtable element,
+;; and return such element as a pair (key . val).
+;; if no more elements are available, return #f.
 ;;
 ;; as (hash-cursor-cell), setting the cdr of returned element propagates back
 ;; to the hashtable.

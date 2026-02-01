@@ -7,19 +7,124 @@
 
 #!r6rs
 
-;;; Simple reflection on scheme records, hashtables, plists or vectors
+;;; Simple reflection on scheme records, hashtables, plists and vector-like containers
 ;;;
 
 (library (scheme2k reflect (0 9 3))
-  (export field field-names)
+  (export     array?     array-accessor     array-length
+          chararray? chararray-accessor chararray-length
+             htable?     htable-cursor     htable-size
+          field field-names)
   (import
     (rnrs)
     (only (chezscheme)                       fx1+ fx/ void)
+    (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
+    (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
+    (only (scheme2k containers hashtable)    hash-cursor hash-cursor-next!)
     (only (scheme2k containers list)         plist? plist-ref)
-    (only (scheme2k containers ordered-hash) ordered-hash? ordered-hash-keys ordered-hash-ref)
-    (only (scheme2k containers span)         span span-insert-left/vector! span->vector)
+    (only (scheme2k containers ordered-hash) ordered-hash? ordered-hash-cursor ordered-hash-cursor-next!
+                                             ordered-hash-keys ordered-hash-ref ordered-hash-size)
+    (only (scheme2k containers span)         span span? span-insert-left/vector! span-length span-ref span->vector)
     (only (scheme2k containers vector)       vector-every))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; reflection on hashtable-like containers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; return #t if obj is an associative container for arbitrary values.
+;; currently returns #t for: hashtable, ordered-hash
+(define (htable? obj)
+  (or (hashtable? obj) (ordered-hash? obj)))
+
+
+;; if obj is an associative container for arbitrary values,
+;; return its size. otherwise return #f
+(define (htable-size obj)
+  (cond
+    ((hashtable? obj)    (hashtable-size obj))
+    ((ordered-hash? obj) (ordered-hash-size obj))
+    (else           #f)))
+
+
+;; if obj is an associative container for arbitrary values,
+;; return two values:
+;;   a cursor object,
+;;   and a procedure that accepts such cursor and returns the next entry in obj as a pair (key . value),
+;;     or #f if cursor reached the end of obj.
+;; otherwise return (values #f #f)
+(define (htable-cursor obj)
+  (cond
+    ((hashtable? obj)     (values (hash-cursor obj) hash-cursor-next!))
+    ((ordered-hash? obj)  (values (ordered-hash-cursor obj) ordered-hash-cursor-next!))
+    (else                 (values #f #f))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; reflection on vector-like containers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; return #t if obj is a random-access container for arbitrary values.
+;; currently returns #t for: vector, span, gbuffer
+(define (array? obj)
+  (or (vector? obj) (span? obj) (gbuffer? obj)))
+
+
+;; if obj is a random-access container for arbitrary values,
+;; return its length. otherwise return #f
+(define (array-length obj)
+  (cond
+    ((vector? obj)  (vector-length obj))
+    ((span? obj)    (span-length obj))
+    ((gbuffer? obj) (gbuffer-length obj))
+    (else           #f)))
+
+
+;; if obj is a random-access container for arbitrary values,
+;; return a procedure that accepts two arguments: obj and a fixnum,
+;;   and returns the element of obj at such index.
+;; otherwise return #f
+(define (array-accessor obj)
+  (cond
+    ((vector? obj)  vector-ref)
+    ((span? obj)    span-ref)
+    ((gbuffer? obj) gbuffer-ref)
+    (else           #f)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; reflection on string-like containers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; return #t if obj is a random-access container for characters.
+;; currently returns #t for: string, charspan
+(define (chararray? obj)
+  (or (string? obj) (charspan? obj)))
+
+
+;; if obj is a random-access container for characters,
+;; return its length. otherwise return #f
+(define (chararray-length obj)
+  (cond
+    ((string? obj)   (string-length obj))
+    ((charspan? obj) (charspan-length obj))
+    (else            #f)))
+
+
+;; if obj is a random-access container for characters,
+;; return a procedure that accepts two arguments: obj and a fixnum,
+;;   and returns the character of obj at such index.
+;; otherwise return #f
+(define (chararray-accessor obj)
+  (cond
+    ((vector? obj)   string-ref)
+    ((charspan? obj) charspan-ref)
+    (else           #f)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; reflection on records
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; find first element in vector that is eq? to key,
 ;; and return its position in 0 ... (fx1- (vector-length vec))
@@ -101,7 +206,7 @@
 
 
 ;; find the value of specified field name in obj.
-;; obj must be a record, hashtable or plist.
+;; obj must be a record, hashtable, ordered-hash or plist.
 ;; name must be a symbol.
 ;;
 ;; return the value of specified field, or default if not found.
@@ -137,6 +242,21 @@
 
 ;; return a vector containing the field names of obj, in natural order.
 ;; each field name is represented as a symbol.
+;;
+;; if obj is a hashtable, return its keys.
+;;   if all the keys are symbols, they are are returned in lexicographic order.
+;;
+;; if obj is a ordered-hash, returns its keys in insertion order.
+;;
+;; if obj is a list, assume it is a plist and return its keys,
+;; i.e. the 1st, 3rd, 5th ... element of the list.
+;;
+;; if obj is a record, returns its field names.
+;;   the returned vector contains as **last** ones the field names
+;;   of its record-rtd, preceded by the fields names of its parent-rtd,
+;;   preceded by the fields names of its parent's parent-rtd, and so on.
+;;
+;; if field names cannot be retrieved, return an empty vector.
 (define (field-names obj)
   (cond
     ;; in Chez Scheme, hashtable and ordered-hash are record types

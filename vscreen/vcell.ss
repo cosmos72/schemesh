@@ -290,7 +290,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; vcell is a colored char, contains a palette to indicate the fg ad bg colors
+;; vcell is a colored character, also contains a palette to indicate the fg ang bg colors
 (define (vcell? cl)
   (and (fixnum? cl)  (fx<=? vcell-min cl vcell-max)))
 

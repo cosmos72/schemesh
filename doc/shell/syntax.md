@@ -1,6 +1,6 @@
-# shell job syntax
+# shell syntax
 
-Ordered from highest priority to lowest priority, job syntax is:
+Ordered from highest priority to lowest priority, shell syntax is:
 
 0. grouping, subshell and scheme jobs:
    `{shell_commands}` groups commands. It has no special semantic, its only purpose is group them as a single entity, as parentheses do in math.
@@ -67,7 +67,7 @@ Ordered from highest priority to lowest priority, job syntax is:
 
 In this context, `shell_commands` is the most general syntax i.e. any of the syntaxes listed above.
 
-Also, each command name, argument, or redirection file name can be replaced with a shell expression `( ... )`
+Also, each argument or redirection file name can be replaced with a shell expression `( ... )`
 that evaluates to a string, or to a list of strings, or to a closure that accepts zero or one arguments (the job itself)
 and returns a string or a list of strings.
 

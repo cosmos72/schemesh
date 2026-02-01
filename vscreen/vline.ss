@@ -65,15 +65,15 @@
 ;; Return a copy-on-write clone of specified vline.
 (define (vline-copy-on-write line)
   (assert* 'vline-copy-on-write (vline? line))
-  (%make-vline (cl< line) (cl> line) (vline-share-inc! line)
+  (%make-vline (v< line) (v> line) (vline-share-inc! line)
                (vline-dirty-start-x line) (vline-dirty-end-x line)))
 
 ;; if vline was a copy-on-write clone, actually clone it.
 (define (vline-unshare! line)
   (assert* 'vline-unshare! (vline? line))
   (when (vline-share-dec! line)
-    (vbuffer-left-set!  line (vcellspan-copy (cl< line)))
-    (vbuffer-right-set! line (vcellspan-copy (cl> line)))
+    (vbuffer-left-set!  line (vcellspan-copy (v< line)))
+    (vbuffer-right-set! line (vcellspan-copy (v> line)))
     (%vline-share-set!  line (cons 0 #f))))
 
 (define vline-empty?     vbuffer-empty?)
@@ -109,8 +109,8 @@
   (assert* 'vline-equal/chars? (vline? line1))
   (assert* 'vline-equal/chars? (vline? line2))
   (or (eq? line1 line2)
-      (and (eq? (cl< line1) (cl< line2))
-           (eq? (cl> line1) (cl> line2)))
+      (and (eq? (v< line1) (v< line2))
+           (eq? (v> line1) (v> line2)))
       (let ((n1 (vline-length line1)))
         (and (fx=? n1 (vline-length line2))
           (do ((i 0 (fx1+ i)))

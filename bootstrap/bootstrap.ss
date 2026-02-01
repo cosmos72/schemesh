@@ -305,10 +305,10 @@
 
 (define-syntax repeat
   (syntax-rules ()
-    ((_ n body ...) (let %repeat ((i (fxmax 0 n)))
-                      (unless (fxzero? i)
+    ((_ n body ...) (let %repeat ((i 0))
+                      (when (fx<? i n)
                         (with-while-until
-                          body ... (%repeat (fx1- i))))))))
+                          body ... (%repeat (fx1+ i))))))))
 
 
 (define-syntax while
