@@ -15,19 +15,22 @@
           json-writer-put json-writer-put-token json-writer-put-value)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
-    (only (chezscheme)                    fx1+ fx1- include port-closed? record-writer reverse! void)
+    (only (chezscheme)                    fx1+ fx1- include make-time port-closed? record-writer reverse!
+                                          time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
-    (only (scheme2k containers bytespan)  bytespan bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
+    (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
                                           bytespan-length bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
+    (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
-    (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
+    (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string utf8b->string)
     (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close
                                           obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k io stdio)             sh-stdin)
     (scheme2k reflect))
 
 
+(include "io/json/rtd-cache.ss")
 (include "io/json/read.ss")
 (include "io/json/write.ss")
 

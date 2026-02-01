@@ -66,6 +66,13 @@
   (write/string out (symbol->string sym)))
 
 
+(define (write/key out key)
+  (cond
+    ((symbol? key) (write/symbol out key))
+    ((string? key) (write/string out key))
+    (else          (raise-errorf 'json-writer-put "unsupported object key: ~s" key))))
+
+
 ;; if obj is a supported atomic value, write it to out and return #t.
 ;; otherwise return #f.
 (define (write/atomic? out obj)
@@ -182,70 +189,95 @@
   (obj-writer-put tx obj))
 
 
-(define (write/key out key)
-  (cond
-    ((symbol? key) (write/symbol out key))
-    ((string? key) (write/string out key))
-    (else          (raise-errorf 'json-writer-put "unsupported object key: ~s" key))))
-
-
-(define (write/key+value out first? key val)
-  (unless first?
-    (put-char out #\,))
-  (write/key out key)
-  (put-char out #\:)
-  (write/datum out val))
-
-
-(define (write/array out obj)
-  (put-char out #\[)
-  (do ((i 0 (fx1+ i))
-       (n   (array-length obj))
-       (ref (array-accessor obj)))
-      ((fx>=? i n))
-    (unless (fxzero? i)
+(define (put/key+value tx first? key val)
+  (let ((out (json-writer-out tx)))
+    (unless first?
       (put-char out #\,))
-    (write/datum out (ref obj i)))
-  (put-char out #\]))
+    (write/key out key)
+    (put-char out #\:)
+    (put/datum tx val)))
 
 
-(define (write/htable out obj)
-  (put-char out #\{)
-  (let-values (((cursor next!) (htable-cursor obj)))
-    (do ((first? #t #f)
-         (cell   (next! cursor) (next! cursor)))
-        ((not cell))
-      (write/key+value out first? (car cell) (cdr cell))))
-  (put-char out #\}))
+(define (put/array tx obj)
+  (let ((out (json-writer-out tx)))
+    (put-char out #\[)
+    (do ((i 0 (fx1+ i))
+         (n   (array-length obj))
+         (ref (array-accessor obj)))
+        ((fx>=? i n))
+      (unless (fxzero? i)
+        (put-char out #\,))
+      (put/datum tx (ref obj i)))
+    (put-char out #\])))
 
 
-(define (write/list out obj)
+(define (put/bytespan tx obj)
+  (write/string (json-writer-out tx) (utf8b-bytespan->string obj)))
+
+
+(define (put/bytevector tx obj)
+  (write/string (json-writer-out tx) (utf8b->string obj)))
+  
+
+(define (put/htable tx obj)
+  (let ((out (json-writer-out tx)))
+    (put-char out #\{)
+    (let-values (((cursor next!) (htable-cursor obj)))
+      (do ((first? #t #f)
+           (cell   (next! cursor) (next! cursor)))
+          ((not cell))
+        (put/key+value tx first? (car cell) (cdr cell))))
+    (put-char out #\})))
+
+
+(define (put/list tx obj)
   (unless (plist? obj)
-    (raise-errorf 'json-writer-put "unsupported datum, list is not a plist: ~s" obj))
-  (put-char out #\{)
-  (do ((l obj (cddr l)))
-      ((null? l))
-    (write/key+value out (eq? l obj) (car l) (cadr l)))
-  (put-char out #\}))
+    (raise-errorf 'json-writer-put "list is not a plist: ~s" obj))
+  (let ((out (json-writer-out tx)))
+    (put-char out #\{)
+    (do ((l obj (cddr l)))
+        ((null? l))
+      (put/key+value tx (eq? l obj) (car l) (cadr l)))
+    (put-char out #\})))
 
 
-(define (write/record out obj)
-  ;; TODO implement
-  (void))
+(define (ensure-rtd-cache tx)
+  (or (json-writer-rtd-cache tx)
+      (let ((rtd-cache (make-eq-hashtable)))
+        (json-writer-rtd-cache-set! tx rtd-cache)
+        rtd-cache)))
 
 
-(define (write/datum out obj)
+(define (put/record tx obj)
+  (let* ((rtd-cache (ensure-rtd-cache tx))
+         (names     (field-names obj rtd-cache)) ;; TODO json-field-names
+         (out       (json-writer-out tx)))
+    (put-char out #\{)
+    (do ((i 0 (fx1+ i))
+         (n (vector-length names)))
+        ((fx>=? i n))
+      (let* ((name  (vector-ref names i))
+             (value (field obj name rtd-cache)))
+        (put/key+value tx (fxzero? i) name value)))
+    (put-char out #\})))
+
+
+(define (put/datum tx obj)
   (cond
-    ((write/atomic? out obj)
+    ((write/atomic? (json-writer-out tx) obj)
       (void))
     ((or (null? obj) (pair? obj))
-      (write/list out obj))
+      (put/list tx obj))
     ((array? obj)
-      (write/array out obj))
+      (put/array tx obj))
+    ((bytespan? obj)
+      (put/bytespan tx obj))
+    ((bytevector? obj)
+      (put/bytevector tx obj))
     ((htable? obj)
-      (write/htable out obj))
+      (put/htable tx obj))
     ((record? obj)
-      (write/record out obj))
+      (put/record tx obj))
     (else
       (raise-errorf 'json-writer-put "unsupported datum: ~s" obj))))
 
@@ -259,4 +291,4 @@
         (json-writer-prologue?-set! tx #f)
         (json-writer-epilogue?-set! tx #t))
       (put-string out ",\n"))
-    (write/datum out obj)))
+    (put/datum tx obj)))
