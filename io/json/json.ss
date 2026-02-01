@@ -24,7 +24,8 @@
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string)
     (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close
                                           obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
-    (only (scheme2k io stdio)             sh-stdin))
+    (only (scheme2k io stdio)             sh-stdin)
+    (scheme2k reflect))
 
 
 (include "io/json/read.ss")
