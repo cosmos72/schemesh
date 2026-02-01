@@ -217,6 +217,27 @@
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen 9 30 "abcdefgh0" "12\n" "qwerty"))
 
   ;; ---------------------- reflect ---------------------------------------
+  (list
+    (array? 7) (array? #vu8()) (array? (bytespan))
+    (array? "") (array? (charspan))
+    (array? #()) (array? (span)) (array? (gbuffer)))   (#f #f #f #f #f #t #t #t)
+
+  (let ((gb  (list->gbuffer '(a bc def |.| 0.0+12.5i)))
+        (l   '()))
+    (do ((i 0 (fx1+ i))
+         (n   (array-length gb))
+         (ref (array-accessor gb)))
+        ((fx>=? i n) (reverse! l))
+      (set! l (cons (ref gb i) l))))                   (a bc def |.| 0.0+12.5i)
+
+  (let ((ht (ordered-hash char->integer char=?
+               #\a 1 #\b 2 #\C 3 #\space 4))
+        (l   '()))
+    (let-values (((cursor next!) (htable-cursor ht)))
+      (do ((cell (next! cursor) (next! cursor)))
+          ((not cell) (reverse! l))
+        (set! l (cons cell l)))))                      ((#\a . 1) (#\b . 2) (#\C . 3) (#\space . 4))
+
   ;; (field-names) and (field) accept record types
   (field-names (make-vscreen))                         #(left right dirty-start-y dirty-end-y dirty? width height
                                                          prompt-end-x prompt-end-y cursor-ix cursor-iy)
