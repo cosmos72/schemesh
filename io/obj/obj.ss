@@ -50,25 +50,25 @@
 ;; customize how "obj-reader" objects are printed
 (record-writer (record-type-descriptor obj-reader)
   (lambda (r port writer)
-    (put-string port "(make-obj-reader ")
+    (put-string port "#<obj-reader ")
     (writer (obj-reader-get-proc r) port)
     (put-char port #\space)
     (writer (unbox (obj-reader-close-box r)) port)
     (put-char port #\space)
     (writer (if (obj-reader-eof? r) 'eof #f) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 
 ;; customize how "obj-writer" objects are printed
 (record-writer (record-type-descriptor obj-writer)
   (lambda (w port writer)
-    (put-string port "(make-obj-writer ")
+    (put-string port "#<obj-writer ")
     (writer (obj-writer-put-proc w) port)
     (put-char port #\space)
     (writer (unbox (obj-writer-close-box w)) port)
     (put-char port #\space)
     (writer (if (obj-writer-eof? w) 'eof #f) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 
 ) ; close library

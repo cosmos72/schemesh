@@ -34,15 +34,15 @@
 
 (record-writer (record-type-descriptor json-reader)
   (lambda (rx port writer)
-    (put-string port "(make-json-reader ")
+    (put-string port "#<json-reader ")
     (writer (json-reader-in rx) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 (record-writer (record-type-descriptor json-writer)
   (lambda (tx port writer)
-    (put-string port "(make-json-writer ")
+    (put-string port "#<json-writer ")
     (writer (json-writer-out tx) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 ) ; close library
 

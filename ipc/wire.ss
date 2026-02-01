@@ -283,17 +283,17 @@
 ;; customize how "wire-reader" objects are printed
 (record-writer (record-type-descriptor wire-reader)
   (lambda (rx port writer)
-    (put-string port "(make-wire-reader ")
+    (put-string port "#<wire-reader ")
     (writer (unbox (wire-reader-in-box rx)) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 
 ;; customize how "wire-writer" objects are printed
 (record-writer (record-type-descriptor wire-writer)
   (lambda (tx port writer)
-    (put-string port "(make-wire-writer ")
+    (put-string port "#<wire-writer ")
     (writer (unbox (wire-writer-out-box tx)) port)
-    (put-string port ")")))
+    (put-string port ">")))
 
 
 ) ; close library

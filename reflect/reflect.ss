@@ -126,6 +126,10 @@
 ;;; reflection on records
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; caching
+
 ;; find first element in vector that is eq? to key,
 ;; and return its position in 0 ... (fx1- (vector-length vec))
 ;;
@@ -160,33 +164,42 @@
 
 ;; collect all accessors for fields in specified record-type-descriptor
 ;; and add them to accessors.
+;; Return unspecified value.
 ;;
-;; also collect accessors for fields in parent record-type-descriptors,
+;; Also collect accessors for fields in parent record-type-descriptors,
 ;; unless they conflict with a field in a child record-type-descriptor.
-(define (cache-record-accessors* accessors rtd field-names)
+(define (cache-record-accessors* accessors rtd this-field-names all-field-names)
+  (span-insert-left/vector! all-field-names this-field-names)
   (do ((i   0 (fx1+ i))
-       (len (vector-length field-names)))
+       (len (vector-length this-field-names)))
       ((fx>=? i len))
-    (let ((field-name (vector-ref field-names i)))
+    (let ((field-name (vector-ref this-field-names i)))
       (unless (hashtable-contains? accessors field-name)
         (hashtable-set! accessors field-name (record-accessor rtd i)))))
   (let ((parent-rtd (record-type-parent rtd)))
-    (if parent-rtd
-      ;; also collect fields in parent record-type-descriptors
-      (cache-record-accessors* accessors parent-rtd (record-type-field-names parent-rtd))
-      accessors)))
+    (when parent-rtd
+      ;; also collect fields from parent record-type-descriptors
+      (cache-record-accessors* accessors parent-rtd (record-type-field-names parent-rtd) all-field-names))))
 
 
-;; collect all accessors for fields in specified record-type-descriptor
-;; and add them to rtd-cache.
+;; collect all accessors for fields in specified record-type-descriptor,
+;; add them to rtd-cache, and return them as a hastable field-name -> accessor
 ;;
 ;; also collect accessors for fields in parent record-type-descriptors,
 ;; unless they conflict with a field name in a child record-type-descriptor.
+;;
+;; finally, also collect field names from specified record-type-descriptor and its parents,
+;; and add them to the returned accessors hashtable with the key (void)
 (define (cache-record-accessors rtd-cache rtd)
-  (let* ((field-names   (record-type-field-names rtd))
-         (accessors (make-eq-hashtable  (vector-length field-names))))
+  (let* ((this-field-names (record-type-field-names rtd))
+         (all-field-names  (span))
+         (accessors        (make-eq-hashtable (vector-length this-field-names))))
     (hashtable-set! rtd-cache rtd accessors)
-    (cache-record-accessors* accessors rtd field-names)))
+    (cache-record-accessors* accessors rtd this-field-names all-field-names)
+    ;; also cache vector containing fields names in natural order,
+    ;; associated to (void) key, which is not a valid field name
+    (hashtable-set! accessors (void) (span->vector all-field-names))
+    accessors))
 
 
 ;; implementation of (field) for record types.
@@ -204,6 +217,26 @@
     ;; no rtd => cannot access fields
     default))
 
+
+(define (cached-record-field-names obj rtd-cache rtd)
+  (let* ((cached-accessors (hashtable-ref rtd-cache rtd #f))
+         (accessors (or cached-accessors (cache-record-accessors rtd-cache rtd))))
+    (hashtable-ref accessors (void) '#())))
+
+
+(define (uncached-record-field-names obj sp rtd)
+  (if rtd
+    (begin
+      ;; insert fields from this record-type-descriptor *before* the subtypes field names
+      (span-insert-left/vector! sp (record-type-field-names rtd))
+      ;; then iterate on parent record-type-descriptor
+      (uncached-record-field-names obj sp (record-type-parent rtd)))
+    ;; no more parent record-type-descriptors, convert filled span to vector
+    (span->vector sp)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; field
 
 ;; find the value of specified field name in obj.
 ;; obj must be a record, hashtable, ordered-hash or plist.
@@ -240,6 +273,9 @@
     (field obj field-name #f (void)))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; field-names
+
 ;; return a vector containing the field names of obj, in natural order.
 ;; each field name is represented as a symbol.
 ;;
@@ -257,39 +293,45 @@
 ;;   preceded by the fields names of its parent's parent-rtd, and so on.
 ;;
 ;; if field names cannot be retrieved, return an empty vector.
-(define (field-names obj)
-  (cond
-    ;; in Chez Scheme, hashtable and ordered-hash are record types
-    ;; => must checked for them before (record?)
-    ((hashtable? obj)
-      (let ((v (hashtable-keys obj)))
-        (when (vector-every symbol? v)
-          (vector-sort! (lambda (sym1 sym2) (string<? (symbol->string sym1) (symbol->string sym2))) v))
-        v))
-    ((ordered-hash? obj)
-      (ordered-hash-keys obj))
-    ((record? obj)
-      (let %loop-record-field-names ((sp (span)) (rtd (record-rtd obj)))
-        (if rtd
-          (begin
-            ;; insert fields from this record-type-descriptor
-            (span-insert-left/vector! sp (record-type-field-names rtd))
-            ;; then iterate on parent record-type-descriptor
-            (%loop-record-field-names sp (record-type-parent rtd)))
-          (span->vector sp))))
-    ((list? obj)
-      (let* ((len (length obj))
-             (n   (fx/ len 2)))
-        (if (even? len)
-          (let %loop-plist-field-names ((i 0) (n n) (v (make-vector n)) (l obj))
-            (if (fx<? i n)
-              (begin
-                (vector-set! v i (car l))
-                (%loop-plist-field-names (fx1+ i) n v (cddr l)))
-              v))
+;;
+;; do NOT modify the returned vector, because it may be cached in rtd-cache.
+(define field-names
+  (case-lambda
+    ((obj rtd-cache)
+      (cond
+        ;; in Chez Scheme, hashtable and ordered-hash are record types
+        ;; => must checked for them before (record?)
+        ((hashtable? obj)
+          (let ((v (hashtable-keys obj)))
+            (when (vector-every symbol? v)
+              (vector-sort! (lambda (sym1 sym2) (string<? (symbol->string sym1) (symbol->string sym2))) v))
+            v))
+        ((ordered-hash? obj)
+          (ordered-hash-keys obj))
+        ((record? obj)
+          (let ((rtd (record-rtd obj)))
+            (cond
+              ((not rtd)
+                '#())
+              (rtd-cache
+                (cached-record-field-names obj rtd-cache rtd))
+              (else
+                (uncached-record-field-names obj (span) rtd)))))
+        ((list? obj)
+          (let* ((len (length obj))
+                 (n   (fx/ len 2)))
+            (if (even? len)
+              (let %loop-plist-field-names ((i 0) (n n) (v (make-vector n)) (l obj))
+                (if (fx<? i n)
+                  (begin
+                    (vector-set! v i (car l))
+                    (%loop-plist-field-names (fx1+ i) n v (cddr l)))
+                  v))
+              '#())))
+        (else
           '#())))
-    (else
-      '#())))
+    ((obj)
+      (field-names obj #f))))
 
 
 ) ; close library

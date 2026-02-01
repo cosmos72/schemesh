@@ -207,7 +207,7 @@
       (put-char out #\,))
     (write/datum out (ref obj i)))
   (put-char out #\]))
-  
+
 
 (define (write/htable out obj)
   (put-char out #\{)

@@ -257,6 +257,15 @@
   (field-names (eq-ordered-hash 'x 1 '|| 2))           #(x ||)
   (field (eq-ordered-hash 'x 1 'y #\2 'z '(3)) 'z)     (3)
 
+  (let ((v (make-vscreen)))
+    (list
+      (field-names v) ;; uncached
+      (field-names v (eq-hashtable)))) ; cached
+                                                       (#(left right dirty-start-y dirty-end-y dirty? width
+                                                          height prompt-end-x prompt-end-y cursor-ix cursor-iy)
+                                                        #(left right dirty-start-y dirty-end-y dirty? width
+                                                          height prompt-end-x prompt-end-y cursor-ix cursor-iy))
+
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)
   (datum->wire "\xFF;")                                #vu8(3 41 1 255)
