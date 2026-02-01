@@ -28,24 +28,30 @@
   (fields
     in              ; binary input port
     stack           ; bytespan contaning stack of states
-    buffer)         ; bytespan buffer for parsing strings and numbers
+    buffer          ; bytespan buffer for parsing strings and numbers
+    cache)          ; #f or eq-hashtable containing rtd -> rtd->info
   (protocol
     (lambda (args->new)
-      (lambda (in)
+      (lambda (in cache)
         ((args->new %json-reader-get %json-reader-close)
-          in (bytespan $top) (bytespan)))))
+          in (bytespan $top) (bytespan) cache))))
   (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define make-json-reader
   (case-lambda
-    ((in)
+    ((in cache)
       (assert* 'make-json-reader (port? in))
       (assert* 'make-json-reader (binary-port? in))
       (assert* 'make-json-reader (input-port? in))
-      (%make-json-reader in))
+      (when cache
+        (assert* 'make-json-reader (hashtable? cache))
+        (assert* 'make-json-reader (eq? eq? (hashtable-equivalence-function cache))))
+      (%make-json-reader in cache))
+    ((in)
+      (make-json-reader in #f))
     (()
-      (make-json-reader (sh-stdin)))))
+      (make-json-reader (sh-stdin) #f))))
 
 
 (define (json-reader-depth rx)
@@ -564,13 +570,16 @@
   (values obj (not (eof-object? obj))))
 
 
-;; autotect json variant present in input port, and read next item from it:
+;; autotect json variant present in input port, read and deserialize next datum from it:
 ;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially:
 ;;   if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
 ;;   if next top-level value is a json array, then return its elements one by one as items
 ;;   otherwise return next top-level value as a single item
 ;;
-;; this function does NOT allow separators : or , after top-level json values
+;; Note: this function does NOT allow separators : or , after top-level json values
+;;
+;; TODO: if a json object contains the "@type" key, lookup its associated value in rtd-cache-override and,
+;;       if found, call the registered constructor passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
   (obj-reader-get rx))
@@ -594,6 +603,7 @@
             (%json-reader-get rx))
           (else
             ;; found a json array => return it as a single item
+            ;; TODO: call (%json-reader-get) recursively on array elements
             (to-item (json-reader-get-value rx)))))
       ((44 93) ; #\, #\]
         ;; found end of top-level json array,
@@ -603,6 +613,7 @@
         (%json-reader-get rx))
       (else
         ;; top-level value is an object, or an atomic value, or a syntax error => return it as a single item
+        ;; TODO: call (%json-reader-get) recursively on json object values
         (to-item (json-reader-get-value rx))))))
 
 

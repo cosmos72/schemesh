@@ -217,7 +217,7 @@
 
 (define (put/bytevector tx obj)
   (write/string (json-writer-out tx) (utf8b->string obj)))
-  
+
 
 (define (put/htable tx obj)
   (let ((out (json-writer-out tx)))
@@ -250,15 +250,13 @@
 
 (define (put/record tx obj)
   (let* ((rtd-cache (ensure-rtd-cache tx))
-         (names     (field-names obj rtd-cache)) ;; TODO json-field-names
+         (iter      (json-field-cursor obj rtd-cache))
          (out       (json-writer-out tx)))
     (put-char out #\{)
-    (do ((i 0 (fx1+ i))
-         (n (vector-length names)))
-        ((fx>=? i n))
-      (let* ((name  (vector-ref names i))
-             (value (field obj name rtd-cache)))
-        (put/key+value tx (fxzero? i) name value)))
+    (do ((first? #t #f)
+         (cell   (field-cursor-next! iter) (field-cursor-next! iter)))
+        ((not cell))
+      (put/key+value tx first? (car cell) ((cdr cell) obj)))
     (put-char out #\})))
 
 

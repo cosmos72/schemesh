@@ -14,17 +14,19 @@
   (export     array?     array-accessor     array-length
           chararray? chararray-accessor chararray-length
              htable?     htable-cursor     htable-size
-          field field-names)
+          field field-cursor field-cursor-next! field-names
+          field-custom-info)
   (import
     (rnrs)
-    (only (chezscheme)                       fx1+ fx/ void)
+    (only (chezscheme)                       fx1+ fx/ logbit? procedure-arity-mask void)
+    (only (scheme2k bootstrap)               assert*)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
     (only (scheme2k containers hashtable)    hash-cursor hash-cursor-next!)
     (only (scheme2k containers list)         plist? plist-ref)
-    (only (scheme2k containers ordered-hash) ordered-hash? ordered-hash-cursor ordered-hash-cursor-next!
-                                             ordered-hash-keys ordered-hash-ref ordered-hash-size)
-    (only (scheme2k containers span)         span span? span-insert-left/vector! span-length span-ref span->vector)
+          (scheme2k containers ordered-hash)
+    (only (scheme2k containers span)         span span? span-insert-left/vector! span-insert-right/vector! span-length
+                                             span-ref span->vector)
     (only (scheme2k containers vector)       vector-every))
 
 
@@ -130,6 +132,71 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; caching
 
+
+(define-record-type (%rtd-info %make-rtd-info %rtd-info?)
+  (fields
+    (mutable constructor rtd-constructor rtd-constructor-set!)
+    (mutable field-names rtd-field-names rtd-field-names-set!))
+  (parent ordered-hash-type)
+  (nongenerative %rtd-info-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
+
+;; create and return an rtd-info containing caller-specified constructor and fields
+(define (field-custom-info constructor . names-and-accessors)
+  (assert* 'field-custom-info (plist? names-and-accessors))
+  (let* ((len   (fx/ (length names-and-accessors) 2))
+         (names (make-vector len))
+         (info  (%make-rtd-info (make-eq-hashtable) #f #f #f names)))
+    (do ((i 0 (fx1+ i))
+         (l names-and-accessors (cddr l)))
+        ((null? l) info)
+      (let ((name     (car l))
+            (accessor (cadr l)))
+        (assert* 'field-custom-info (symbol? name))
+        (assert* 'field-custom-info (procedure? accessor))
+        (assert* 'field-custom-info (logbit? 1 (procedure-arity-mask accessor)))
+        (ordered-hash-set! info name accessor)))))
+
+
+;; collect all accessors for fields in specified record-type-descriptor
+;; and add them to info.
+;; Return unspecified value.
+;;
+;; Also collect accessors for fields in parent record-type-descriptors,
+;; unless they conflict with a field in a child record-type-descriptor.
+(define (fill-rtd-info info rtd)
+  (let ((parent-rtd (record-type-parent rtd)))
+    (when parent-rtd
+      ;; first, collect fields from parent record-type-descriptors
+      (fill-rtd-info info parent-rtd)))
+  (let ((this-field-names (record-type-field-names rtd)))
+    (span-insert-right/vector! (rtd-field-names info) this-field-names)
+    (do ((i   0 (fx1+ i))
+         (len (vector-length this-field-names)))
+        ((fx>=? i len))
+      (let ((field-name (vector-ref this-field-names i)))
+        ;; field-name may conflict with some eq? field name from parents rtd
+        (ordered-hash-delete! info field-name)
+        (ordered-hash-set!    info field-name (record-accessor rtd i))))))
+
+
+;; collect all accessors for fields in specified record-type-descriptor,
+;; add them to cache, and return them as a rtd-info
+;;
+;; also collect accessors for fields in parent record-type-descriptors,
+;; unless they conflict with a field name in a child record-type-descriptor.
+;;
+;; finally, also collect field names from specified record-type-descriptor and its parents,
+;; and add them to the returned accessors hashtable with the key (void)
+(define (make-rtd-info cache rtd)
+  (let ((info (%make-rtd-info (make-eq-hashtable) #f #f #f (span))))
+    (fill-rtd-info info rtd)
+    ;; convert field names span -> vector
+    (rtd-field-names-set! info (span->vector (rtd-field-names info)))
+    (hashtable-set! cache rtd info)
+    info))
+
+
 ;; find first element in vector that is eq? to key,
 ;; and return its position in 0 ... (fx1- (vector-length vec))
 ;;
@@ -162,66 +229,24 @@
     default))
 
 
-;; collect all accessors for fields in specified record-type-descriptor
-;; and add them to accessors.
-;; Return unspecified value.
-;;
-;; Also collect accessors for fields in parent record-type-descriptors,
-;; unless they conflict with a field in a child record-type-descriptor.
-(define (cache-record-accessors* accessors rtd this-field-names all-field-names)
-  (span-insert-left/vector! all-field-names this-field-names)
-  (do ((i   0 (fx1+ i))
-       (len (vector-length this-field-names)))
-      ((fx>=? i len))
-    (let ((field-name (vector-ref this-field-names i)))
-      (unless (hashtable-contains? accessors field-name)
-        (hashtable-set! accessors field-name (record-accessor rtd i)))))
-  (let ((parent-rtd (record-type-parent rtd)))
-    (when parent-rtd
-      ;; also collect fields from parent record-type-descriptors
-      (cache-record-accessors* accessors parent-rtd (record-type-field-names parent-rtd) all-field-names))))
-
-
-;; collect all accessors for fields in specified record-type-descriptor,
-;; add them to rtd-cache, and return them as a hastable field-name -> accessor
-;;
-;; also collect accessors for fields in parent record-type-descriptors,
-;; unless they conflict with a field name in a child record-type-descriptor.
-;;
-;; finally, also collect field names from specified record-type-descriptor and its parents,
-;; and add them to the returned accessors hashtable with the key (void)
-(define (cache-record-accessors rtd-cache rtd)
-  (let* ((this-field-names (record-type-field-names rtd))
-         (all-field-names  (span))
-         (accessors        (make-eq-hashtable (vector-length this-field-names))))
-    (hashtable-set! rtd-cache rtd accessors)
-    (cache-record-accessors* accessors rtd this-field-names all-field-names)
-    ;; also cache vector containing fields names in natural order,
-    ;; associated to (void) key, which is not a valid field name
-    (hashtable-set! accessors (void) (span->vector all-field-names))
-    accessors))
-
 
 ;; implementation of (field) for record types.
 ;; returns value of specified field name in obj, or default
-(define (cached-record-field obj field-name rtd-cache default rtd)
+(define (cached-record-field obj field-name cache default rtd)
   (if rtd
-    (let* ((accessors (or (hashtable-ref rtd-cache rtd #f)
-                          (cache-record-accessors rtd-cache rtd)))
-           (accessor  (hashtable-ref accessors field-name #f)))
+    (let* ((info     (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd)))
+           (accessor (ordered-hash-ref info field-name #f)))
       (if accessor
         (accessor obj)
-        ;; all fields of rtd and its parents are present in cached accessors
+        ;; all fields of rtd and its parents are present in cached info
         ;; => requested field-name is not present
         default))
     ;; no rtd => cannot access fields
     default))
 
 
-(define (cached-record-field-names obj rtd-cache rtd)
-  (let* ((cached-accessors (hashtable-ref rtd-cache rtd #f))
-         (accessors (or cached-accessors (cache-record-accessors rtd-cache rtd))))
-    (hashtable-ref accessors (void) '#())))
+(define (cached-record-field-names obj cache rtd)
+ (rtd-field-names (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd))))
 
 
 (define (uncached-record-field-names obj sp rtd)
@@ -246,7 +271,7 @@
 ;; if default is not specified, it defaults to (void)
 (define field
   (case-lambda
-    ((obj field-name rtd-cache default)
+    ((obj field-name cache default)
       (cond
         ;; in Chez Scheme, hashtable is a record type
         ;; => must check for it before (record?)
@@ -260,17 +285,36 @@
           (ordered-hash-ref obj field-name default))
         ((record? obj)
           (let ((rtd (record-rtd obj)))
-            (if rtd-cache
-              (cached-record-field obj field-name rtd-cache default rtd)
+            (if cache
+              (cached-record-field   obj field-name cache default rtd)
               (uncached-record-field obj field-name default rtd))))
         ((plist? obj)
           (plist-ref obj field-name default))
         (else
           default)))
-  ((obj field-name rtd-cache)
-    (field obj field-name rtd-cache (void)))
+  ((obj field-name cache)
+    (field obj field-name cache (void)))
   ((obj field-name)
     (field obj field-name #f (void)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; field-cursor
+
+
+;; return a cursor that iterates on all field names of of obj, in natural order.
+(define (field-cursor obj cache)
+  (let ((rtd (record-rtd obj)))
+    (if rtd
+      (let ((info (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd))))
+        (ordered-hash-cursor info))
+      (ordered-hash-cursor-empty))))
+
+
+;; return next pair (field-name . accessor) of specified field cursor,
+;; or #f if cursor reached the end of fields.
+(define field-cursor-next! ordered-hash-cursor-next!)
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -294,10 +338,10 @@
 ;;
 ;; if field names cannot be retrieved, return an empty vector.
 ;;
-;; do NOT modify the returned vector, because it may be cached in rtd-cache.
+;; do NOT modify the returned vector, because it may be cached in cache.
 (define field-names
   (case-lambda
-    ((obj rtd-cache)
+    ((obj cache)
       (cond
         ;; in Chez Scheme, hashtable and ordered-hash are record types
         ;; => must checked for them before (record?)
@@ -313,8 +357,8 @@
             (cond
               ((not rtd)
                 '#())
-              (rtd-cache
-                (cached-record-field-names obj rtd-cache rtd))
+              (cache
+                (cached-record-field-names obj cache rtd))
               (else
                 (uncached-record-field-names obj (span) rtd)))))
         ((list? obj)

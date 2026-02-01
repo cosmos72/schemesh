@@ -14,6 +14,7 @@
      alist->eq-ordered-hash alist->eqv-ordered-hash alist->ordered-hash
      plist->eq-ordered-hash plist->eqv-ordered-hash plist->ordered-hash
 
+     (rename (ord-hash ordered-hash-type))
      ordered-hash? ordered-hash-equivalence-function ordered-hash-hash-function
      ordered-hash-contains? ordered-hash-empty? ordered-hash-size ordered-hash-copy
      ordered-hash-ref ordered-hash-set! ordered-hash-delete! ordered-hash-clear!
@@ -23,7 +24,8 @@
      for-ordered-hash for-ordered-hash-cells for-ordered-hash-keys for-ordered-hash-values
      in-ordered-hash  in-ordered-hash-cells  in-ordered-hash-keys  in-ordered-hash-values
 
-     ordered-hash-cursor ordered-hash-cursor? ordered-hash-cursor-cell ordered-hash-cursor-next!)
+     ordered-hash-cursor ordered-hash-cursor? ordered-hash-cursor-cell ordered-hash-cursor-next!
+     ordered-hash-cursor-empty)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -90,6 +92,13 @@
       (%make-ordered-hash (make-hashtable hash equiv?) #f #f))
     ((hash equiv? size)
       (%make-ordered-hash (make-hashtable hash equiv? size) #f #f))))
+
+
+;; return an exhausted ordered-hash-cursor 
+(define ordered-hash-cursor-empty
+  (let ((iter (make-cursor #f)))
+    (lambda ()
+      iter)))
 
 
 ;; (alist->eq-ordered-hash l) iterates on all (key . value) elements of list l
@@ -200,9 +209,7 @@
 ;; lookup key in ordered-hash and return #t if present, or #f if not present.
 ;; Always O(1)
 (define (ordered-hash-contains? oht key)
-  (if (hashtable-ref (ord-hash-table oht) key #f)
-    #t
-    #f))
+  (hashtable-contains? (ord-hash-table oht) key))
 
 
 ;; Always O(1)
@@ -283,7 +290,7 @@
   (ord-hash-tail-set! oht #f))
 
 
-;; call (proc key value) on each entry in ord-hash-table, in insertion order.
+;; call (proc key value) on each entry in oht, in insertion order.
 ;; Mutating an ordered hashtable during iteration results in unspecified behavior.
 ;; Always O(n)
 (define (ordered-hash-for-each oht proc)
@@ -293,7 +300,7 @@
       (%loop (node-next node)))))
 
 
-;; return a cursor positioned at the first element.
+;; return a cursor positioned before the first element of oht
 (define (ordered-hash-cursor oht)
   (make-cursor (ord-hash-head oht)))
 
@@ -568,6 +575,14 @@
     (for-ordered-hash-cells ((cell oht))
       (ordered-hash-set! copy (car cell) (cdr cell)))
     copy))
+
+
+;; customize how ordered-hash-cursor objects are printed
+(record-writer (record-type-descriptor cursor)
+  (lambda (iter port writer)
+    (put-string port "#<ordered-hash-cursor ")
+    (writer (ordered-hash-cursor-cell iter) port)
+    (put-char port #\>)))
 
 
 ;; customize how ordered-hash objects are printed
