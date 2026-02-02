@@ -14,11 +14,12 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) foreign-procedure make-continuation-condition make-format-condition sort! void)
-    (only (scheme2k bootstrap) catch raise-assertf try)
-    (only (scheme2k containers) bytevector<? charspan? for-list string->utf8b)
+    (only (chezscheme)           foreign-procedure make-continuation-condition make-format-condition sort! void)
+    (only (scheme2k bootstrap)   catch raise-assertf try)
+    (only (scheme2k containers)  bytevector<? charspan? for-list string->utf8b)
     (only (scheme2k conversions) text->bytevector text->bytevector0)
-    (only (scheme2k posix fd) c-errno->string raise-c-errno))
+    (only (scheme2k io obj)      obj-reader obj-reader-get obj-reader-close)
+    (only (scheme2k posix fd)    c-errno->string raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))

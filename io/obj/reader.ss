@@ -21,7 +21,7 @@
   (nongenerative %obj-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; called internally by make-obj-reader: create and return a obj-reader
+;; called internally by make-obj-reader: create and return an obj-reader
 (define (%make-obj-reader new get-proc close-proc)
   (assert* 'make-obj-reader (procedure? get-proc))
   (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask get-proc)))
@@ -33,7 +33,7 @@
 
 ;; call (get-proc rx) to generate one more value and return it.
 ;; each call will return two values:
-;;  either (values elem truish) i.e. the next generate value,
+;;  either (values elem #t) i.e. the next generate value,
 ;;  or (values #<unspecified> #f) when the reader is exhausted or after (obj-reader-close rx) has been called.
 (define (obj-reader-get rx)
   (assert* 'obj-reader-get (obj-reader? rx))
@@ -45,10 +45,11 @@
       (values obj ok?))))
 
 
-;; call (close-proc rx) to release any resource held by the obj-reader.
+;; call the close-proc stored in obj-reader at its creation,
+;; to release any resource held by the obj-reader.
 ;; return unspecified value.
 ;;
-;; further calls to (obj-reader-close rx) on the same rx have no effect, and do not call (close-proc rx) again.
+;; further calls to (obj-reader-close rx) on the same rx have no effect, and do not call close-proc again.
 (define (obj-reader-close rx)
   (assert* 'obj-reader-close (obj-reader? rx))
   (obj-reader-eof?-set! rx #t)
@@ -59,12 +60,12 @@
       (close-proc rx))))
 
 
-;; create and return a obj-reader that generates always the same value.
+;; create and return an obj-reader that generates always the same value.
 ;; each call to (obj-reader-get rx) will return two values:
-;;  either (values const truish) i.e. the next element, which is always eq? to const
+;;  either (values const #t) i.e. the next element, which is always eq? to const
 ;;  or (values #<unspecified> #f) after (obj-reader-close rx) has been called.
 ;;
-;; note: this reader is unlimited, and stops generating values only if (obj-reader-close rx) has been called.
+;; note: this reader is unlimited, and stops generating values only if (obj-reader-close rx) is called.
 (define (constant-reader const)
   (let ((%constant-reader ;; name shown when displaying the closure
           (lambda (rx)
@@ -73,7 +74,7 @@
 
 
 ;; create and return an exhausted obj-reader.
-;; each call to (obj-reader-get rx) will return two values:
+;; each call to (obj-reader-get rx) will always return the two values:
 ;;  (values #<unspecified> #f) indicating the reader is exhausted.
 (define (empty-reader)
   (let ((%empty-reader ;; name shown when displaying the closure
@@ -82,10 +83,13 @@
     (make-obj-reader %empty-reader #f)))
 
 
-;; create and return a obj-reader that generates the elements of specified list.
+;; create and return an obj-reader that generates the elements of specified list.
 ;; each call to (obj-reader-get rx) will return two values:
-;;  either (values elem truish) i.e. the next element from the list
+;;  either (values elem #t) i.e. the next element from the list
 ;;  or (values #<unspecified> #f) when the list is exhausted or after (obj-reader-close rx) has been called.
+;;
+;; This function effectively converts a list to an obj-reader, and could reasonably be named `list->reader`
+;; although by convention readers are created by functions `TYPE-reader`
 (define (list-reader l)
   (let ((%list-reader ;; name shown when displaying the closure
           (lambda (rx)
@@ -97,10 +101,13 @@
     (make-obj-reader %list-reader #f)))
 
 
-;; create and return a obj-reader that generates the elements of specified vector.
+;; create and return an obj-reader that generates the elements of specified vector.
 ;; each call to (obj-reader-get rx) will return two values:
-;;  either (values elem truish) i.e. the next element from the vector
+;;  either (values elem #t) i.e. the next element from the vector
 ;;  or (values #<unspecified> #f) when the vector is exhausted or after (obj-reader-close rx) has been called.
+;;
+;; This function effectively converts a vector to an obj-reader, and could reasonably be named `vector->reader`
+;; although by convention readers are created by functions `TYPE-reader`
 (define vector-reader
   (case-lambda
     ((v start end)
@@ -117,12 +124,13 @@
       (vector-reader v 0 (vector-length v)))))
 
 
-;; create and return a obj-reader that generates the elements of specified sequence, one at time.
+;; create and return an obj-reader that generates the elements of specified unary sequence, one at time.
 ;; each call to (obj-reader-get rx) will return two values:
-;;  either (values elem truish) i.e. the next element from the sequence
+;;  either (values elem #t) i.e. the next element from the sequence
 ;;  or (values #<unspecified> #f) when the sequence is exhausted or after (obj-reader-close rx) has been called.
 ;;
-;; This function effectively converts a sequence to a obj-reader.
+;; This function effectively converts a sequence to an obj-reader, and could reasonably be named `sequence->reader`
+;; although by convention readers are created by functions `TYPE-reader`
 (define (sequence-reader seq)
   (assert* 'sequence-reader (procedure? seq))
   (assert* 'sequence-reader (logbit? 0 (procedure-arity-mask seq)))
@@ -131,12 +139,13 @@
     (make-obj-reader %sequence-reader #f)))
 
 
-;; create and return a closure that accepts zero arguments and, at each call,
+;; create and return a sequence, i.e. a closure that accepts zero arguments and, at each call,
 ;; will return the two values returned by calling (obj-reader-get rx):
-;;   either (values elem truish) i.e. the next generated value,
+;;   either (values elem #t) i.e. the next generated value,
 ;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close rx) has been called.
 ;;
-;; This function effectively converts a obj-reader to a sequence.
+;; This function effectively converts an obj-reader to a sequence, and could reasonably be named `reader->sequence`,
+;; although by convention sequences are created by functions `in-TYPE`
 (define (in-reader rx)
   (assert* 'in-reader (obj-reader? rx))
   (lambda ()

@@ -22,7 +22,7 @@
   (nongenerative %obj-writer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; called internally by make-obj-writer: create and return a obj-writer
+;; called internally by make-obj-writer: create and return an obj-writer
 (define (%make-obj-writer new put-proc close-proc)
   (assert* 'make-obj-writer (procedure? put-proc))
   (assert* 'make-obj-writer (logbit? 2 (procedure-arity-mask put-proc)))
@@ -58,7 +58,7 @@
   (obj-writer-result tx))
 
 
-;; create and return a obj-writer that does nothing
+;; create and return an obj-writer that does nothing
 ;; each call to (obj-writer-put tx obj) will discard obj,
 ;; or raise a condition after (obj-writer-close tx) has been called.
 (define (discard-writer const)
@@ -67,7 +67,7 @@
     (make-obj-writer %discard-writer-put #f)))
 
 
-;; create and return a obj-writer that is already closed and cannot be written to:
+;; create and return an obj-writer that is already closed and cannot be written to:
 ;; each call to (obj-writer-put tx obj) will raise a condition.
 (define (full-writer const)
   (let* ((%full-writer-put ;; name shown when displaying the closure
@@ -77,7 +77,7 @@
     tx))
 
 
-;; create and return a obj-writer accumulates values into an internal list.
+;; create and return an obj-writer accumulates values into an internal list.
 ;; each call to (obj-writer-put tx obj) will add an element to such list,
 ;; or raise a condition after (obj-writer-close tx) has been called.
 ;;

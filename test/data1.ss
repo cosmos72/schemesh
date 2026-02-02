@@ -220,7 +220,7 @@
   (list
     (array? 7) (array? #vu8()) (array? (bytespan))
     (array? "") (array? (charspan))
-    (array? #()) (array? (span)) (array? (gbuffer)))   (#f #f #f #f #f #t #t #t)
+    (array? '#()) (array? (span)) (array? (gbuffer)))  (#f #f #f #f #f #t #t #t)
 
   (let ((gb  (list->gbuffer '(a bc def |.| 0.0+12.5i)))
         (l   '()))

@@ -73,6 +73,48 @@
     (else          (raise-errorf 'json-writer-put "unsupported object key: ~s" key))))
 
 
+(define (write/ratio out ratio)
+  (let* ((neg?  (< ratio 0))
+         (ratio (if neg? (- ratio) ratio)))
+    (when neg?
+      (put-char out #\-))
+    (let-values (((integer fraction) (div-and-mod ratio 1)))
+      (write integer out)
+      (put-char out #\.)
+      (let* ((fraction*1e16 (div (* fraction 10000000000000000) 1))
+             (fraction-string (number->string fraction*1e16))
+             (fraction-string-length (string-length fraction-string)))
+        (do ((i 16 (fx1- i)))
+            ((fx<=? i fraction-string-length))
+          (put-char out #\0))
+        (let ((reduced-length
+                (do ((i fraction-string-length (fx1- i)))
+                    ((or (fx<=? i 0) (not (char=? #\0 (string-ref fraction-string (fx1- i)))))
+                      i))))
+          (string-truncate! fraction-string reduced-length)
+          (put-string out fraction-string))))))
+
+
+(define (write/flonum out obj)
+  (let ((str (number->string obj)))
+    (put-string out str)
+    (unless (string-index-right str #\e)
+      ;; convention: exponent means it's an inexact number,
+      ;;          no exponent means it's an exact number
+      (put-string out "e0"))))
+
+
+(define (write/number out obj)
+  (cond
+    ;; do NOT use (integer? obj) because it returns #t on flonums ending with .0
+    ((flonum? obj)
+      (write/flonum out obj))
+    ((ratnum? obj)
+      (write/ratio out obj))
+    (else
+      (write obj out))))
+
+
 ;; if obj is a supported atomic value, write it to out and return #t.
 ;; otherwise return #f.
 (define (write/atomic? out obj)
@@ -89,10 +131,9 @@
     ((string? obj)
       (write/string out obj)
       #t)
-    ((or (flonum? obj) (integer? obj))
-      ;; json only supports flonums or exact integers.
-      ;; it does not support exact fractions nor complex numbers
-      (write obj out)
+    ((and (number? obj) (real? obj))
+      ;; json does not support complex numbers
+      (write/number out obj)
       #t)
     (else
       #f)))

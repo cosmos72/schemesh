@@ -16,18 +16,22 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "posix.h"
+
 #include "../containers/containers.h" /* scheme2k_Sbytevector(), scheme2k_Sstring_utf8b() */
 #include "../eval.h"                  /* eval() */
 
 #include <arpa/inet.h> /* inet_pton(), ntohs() */
 #include <dirent.h>    /* opendir(), readdir(), closedir() */
-#include <errno.h>     /* EINVAL, EIO, ESRCH, errno */
+#include <dirent.h>
+#include <errno.h> /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h>
-#include <limits.h>
+#include <grp.h>
+#include <limits.h> /* INT_MAX, INT_MIN */
 #include <netdb.h>
 #include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
-#include <pthread.h>      /* pthread_kill(), pthread_self() */
+#include <pthread.h> /* pthread_kill(), pthread_self() */
+#include <pwd.h>
 #include <pwd.h>          /* getpwnam_r(), getpwuid_r() */
 #include <sched.h>        /* sched_yield() */
 #include <signal.h>       /* kill(), sigaction(), SIG... */
@@ -40,12 +44,15 @@
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
 #include <sys/socket.h>   /* getaddrinfo(), socket(), socketpair(), AF_*, SOCK_* */
-#include <sys/stat.h>     /* fstatat() */
-#include <sys/types.h>    /* ... */
-#include <sys/un.h>       /* struct sockaddr_un */
-#include <sys/wait.h>     /* waitpid(), W... */
-#include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
-#include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
+#include <sys/stat.h>
+#include <sys/stat.h>  /* fstatat() */
+#include <sys/types.h> /* ... */
+#include <sys/un.h>    /* struct sockaddr_un */
+#include <sys/wait.h>  /* waitpid(), W... */
+#include <time.h>
+#include <time.h> /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
+#include <unistd.h>
+#include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
@@ -149,7 +156,10 @@ static ptr c_errno_to_string(int err) {
   return scheme2k_Sstring_utf8b(c_strerror(err), -1);
 }
 
-/** signal.h defines a lot of static functions */
+/* dir.h requires lots of #includes above and defines static functions */
+#include "dir.h"
+
+/** signal.h requires lots of #includes above and defines a lot of static functions */
 #include "signal.h"
 
 #include "endpoint.h"
@@ -2184,8 +2194,11 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_errno_esrch", &c_errno_esrch);
   Sregister_symbol("c_errno_to_string", &c_errno_to_string);
 
-  Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_chdir", &c_chdir);
+  Sregister_symbol("c_dir_get_entry", &c_dir_get_entry);
+  /* Sregister_symbol("c_dir_open", &c_dir_open); */
+  /* Sregister_symbol("c_dir_close", &c_dir_close); */
+  Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
   Sregister_symbol("c_mkdir", &c_mkdir);
 

@@ -128,10 +128,16 @@
 
 
 ;; bytes->string should accept only valid utf8 - currently not checked.
-(define (bytes->string bytes)
-  (if bytes
-    (utf8b-bytespan->string bytes)
-    ""))
+(define bytes->string
+  (case-lambda
+    ((bytes start end)
+      (if (and bytes (fx<? start end))
+        (utf8b-bytespan->string bytes start end)
+        ""))
+    ((bytes)
+      (if bytes
+        (bytes->string bytes 0 (bytespan-length bytes))
+        ""))))
 
 
 (define (parse-string in bytes)
@@ -209,34 +215,40 @@
 ;; Number parsing
 
 (define (parse-number in bytes first)
-  (let* ((b (if (fx=? first 45) ; #\-
-              (begin
-                (bytes-append! bytes first)
-                (get-u8 in))
-              first))
-         (initial0
-           (if (fixnum? b)
-             (fx=? first 48) ; #\0
-             (raise-eof-in-number))))
-    (bytes-append! bytes b)
-    (unless initial0
-      (parse-optional-digits in bytes)))
+  (let ((dot #f)
+        (exponent #f))
 
-  (let ((b (lookahead-u8 in)))
-    (case b
-      ((46) ; #\.
-        (get-u8 in)
-        (bytes-append! bytes b)
-        (parse-digits in bytes))))
+    (let* ((b (if (fx=? first 45) ; #\-
+                (begin
+                  (bytes-append! bytes first)
+                  (get-u8 in))
+                first))
+           (initial0? (if (fixnum? b)
+                        (fx=? first 48) ; #\0
+                        (raise-eof-in-number))))
+      (bytes-append! bytes b)
+      (unless initial0?
+        (parse-optional-digits in bytes)))
 
-  (let ((b (lookahead-u8 in)))
-    (case b
-      ((69 101) ; #\E #\e
-        (get-u8 in)
-        (bytes-append! bytes b)
-        (parse-exponent in bytes))))
+    (let ((b (lookahead-u8 in)))
+      (case b
+        ((46) ; #\.
+          (get-u8 in)
+          (when bytes
+            (set! dot (bytespan-length bytes)))
+          (bytes-append! bytes b)
+          (parse-digits in bytes))))
 
-  (bytes->number bytes))
+    (let ((b (lookahead-u8 in)))
+      (case b
+        ((69 101) ; #\E #\e
+          (get-u8 in)
+          (when bytes
+            (set! exponent (bytespan-length bytes)))
+          (bytes-append! bytes b)
+          (parse-exponent in bytes))))
+
+    (bytes->number bytes dot exponent)))
 
 
 ;; parse zero or more base-10 digits
@@ -268,10 +280,27 @@
   (parse-digits in bytes))
 
 
-(define (bytes->number bytes)
-  (if bytes
-    (string->number (bytes->string bytes))
-    0))
+(define (bytes->exact-number bytes dot)
+  (let* ((integer         (string->number (bytes->string bytes 0 dot)))
+         (fraction-start  (fx1+ dot))
+         (fraction-end    (bytespan-length bytes))
+         (fraction        (string->number (bytes->string bytes fraction-start fraction-end)))
+         (scaled-fraction (* fraction (expt 1/10 (fx- fraction-end fraction-start)))))
+    (if (fx=? 45 (bytespan-ref/u8 bytes 0)) ; #\-
+      (- integer scaled-fraction)
+      (+ integer scaled-fraction))))
+
+
+(define (bytes->number bytes dot exponent)
+  (cond
+    ((not bytes)
+      0)
+    ;; convention: exponent means it's an inexact number,
+    ;;          no exponent means it's an exact number
+    ((and dot (not exponent))
+      (bytes->exact-number bytes dot))
+    (else
+      (string->number (bytes->string bytes)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing

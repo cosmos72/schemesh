@@ -140,9 +140,9 @@
 
 
 
-;; create and return a obj-reader that generates the cells of specified hashtable.
+;; create and return an obj-reader that generates the cells of specified hashtable.
 ;; each call to (obj-reader-get p) will return two values:
-;;  either (values cell truish) i.e. the next cell the hashtable, where cell is a pair (key . value)
+;;  either (values cell #t) i.e. the next cell the hashtable, where cell is a pair (key . value)
 ;;  or (values #<unspecified> #f) when the hashtable is exhausted or after (obj-reader-close p) is called.
 ;;
 ;; note: assigning the cdr of a returned pair propagates to the hashtable.
@@ -156,7 +156,7 @@
     (make-obj-reader %hash-reader #f)))
 
 
-;; create and return a closure that iterates on elements of hashtable t.
+;; create and return a sequence that iterates on elements of hashtable t.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns three values:
 ;; either (values key val #t) i.e. the next key and value in hashtable t and #t,

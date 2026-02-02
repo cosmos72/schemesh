@@ -11,7 +11,7 @@
 ;;; define an abstract obj-reader type: generates or reads from somewhere a finite or unlimited sequence of arbitrary values.
 ;;;
 ;;; each call to (obj-reader-get r) will return two values:
-;;;  either (values elem truish) i.e. the next element
+;;;  either (values elem #t) i.e. the next element
 ;;;  or (values #<unspecified> #f) when obj-reader is exhausted or after (obj-reader-close r) is called
 ;;;
 ;;; existing APIs that were considered, and reasons for not reusing them:

@@ -9,13 +9,26 @@
 
 (library (scheme2k containers in (0 9 3))
   (export
-    constant in-value in-interval in-numbers
-    in-roundrobin in-list-roundrobin in-sequences number->cflonum)
+    constant in-value in-values in-interval in-numbers
+    in-roundrobin in-list-roundrobin in-sequences number->cflonum
+    sequence->list sequence->vector)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ last-pair)
+    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ last-pair reverse!)
     (only (scheme2k bootstrap) assert* debugf))
+
+
+;; A sequence is a closure that, at each call, returns N+1 values:
+;;   * N values: the next element in the sequence.
+;;               Examples: the next element in a list or vector, or the next key and value in a hashtable.
+;;   * a boolean, #f if end-of-sequence is reached, otherwise #t.
+;;                if #f, the other N returned values are unspecified.
+;;
+;; A unary sequence is the case where N = 1: a closure that, at each call, returns two values:
+;;   * a datum, representing the next element in the sequence
+;;   * a boolean, #f if end-of-sequence is reached, otherwise #t.
+;;                if #f, the other datum is unspecified
 
 
 ;; create and return a closure that always returns specified argument(s)
@@ -35,8 +48,13 @@
             %constants))))
 
 
+;; create and return a closure that always returns the same two values: args followed by #t
+(define (in-value arg)
+  (constant arg #t))
+
+
 ;; create and return a closure that always returns the same N+1 values: args followed by #t
-(define (in-value . args)
+(define (in-values . args)
   (apply constant (append args '(#t))))
 
 
@@ -263,6 +281,20 @@
       (in-list-roundrobin seqs start 1))
     ((seqs)
       (in-list-roundrobin seqs 0 1))))
+
+
+;; Read all elements from specified unary sequence, collect them into a list, and return such list.
+(define (sequence->list seq)
+  (let %sequence->list ((seq seq) (l '()))
+    (let-values (((elem ok?) (seq)))
+      (if ok?
+        (%sequence->list seq (cons elem l))
+        (reverse! l)))))
+
+
+;; Read all elements from specified unary sequence, collect them into a vector, and return such vector.
+(define (sequence->vector seq)
+  (list->vector (sequence->list seq)))
 
 
 ) ; close library
