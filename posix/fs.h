@@ -301,7 +301,7 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   if (lstat(entry->d_name, &st) < 0) {
     /* only a few fields can be filled */
     iptr i;
-    if (vec_n > c_vec_type) {
+    if (flags & c_dir_flag_type) {
       Svector_set(vec, c_vec_type, Sunsigned32(type));
     }
     for (i = c_vec_type + 1; i < vec_n; i++) {
@@ -314,26 +314,31 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
 
   /* lstat() is successful, fill all fields */
 
-  if (type == c_type_unknown && (flags & c_dir_flag_type)) {
-    type = modeToFileType(st.st_mode);
+  if (flags & c_dir_flag_type) {
+    if (type == c_type_unknown) {
+      type = modeToFileType(st.st_mode);
+    }
     Svector_set(vec, c_vec_type, Sunsigned32(type));
+  }
+  if (flags & c_dir_flag_size) {
+    Svector_set(vec, c_vec_size, Sunsigned64(st.st_size));
   }
   if (flags & c_dir_flag_mode) {
     Svector_set(vec, c_vec_mode, Sunsigned32(st.st_mode & 07777));
   }
 
-  if (type == c_type_lnk && (flags & c_dir_flag_target)) {
-    char    buf[PATH_MAX];
-    ssize_t len = readlink(entry->d_name, buf, sizeof(buf));
-    if (len > 0) {
-      /* link target can be arbitrary bytes, not only valid UTF-8 */
-      Svector_set(vec, c_vec_target, scheme2k_Sstring_utf8b(buf, len));
+  if ((flags & c_dir_flag_target)) {
+    ptr target = Sfalse;
+    if (type == c_type_lnk) {
+      char    buf[PATH_MAX];
+      ssize_t len = readlink(entry->d_name, buf, sizeof(buf));
+      if (len > 0) {
+        /* link target can be arbitrary bytes, not only valid UTF-8 */
+        target = scheme2k_Sstring_utf8b(buf, len);
+      }
     }
+    Svector_set(vec, c_vec_target, target);
   }
-
-  /* owner / group */
-  fillUserAndGroup(vec, flags, st.st_uid, st.st_gid);
-
 #ifdef __APPLE__
   fillTime(vec, c_vec_accessed, flags & c_dir_flag_accessed, st.st_atime);
   fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, st.st_mtime);
@@ -343,6 +348,15 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, &(st.st_mtim));
   fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, &(st.st_ctim));
 #endif
+
+  fillUserAndGroup(vec, flags, st.st_uid, st.st_gid);
+
+  if (flags & c_dir_flag_inode) {
+    Svector_set(vec, c_vec_inode, Sunsigned64(st.st_ino));
+  }
+  if (flags & c_dir_flag_num_links) {
+    Svector_set(vec, c_vec_num_links, Sunsigned64(st.st_nlink));
+  }
   return 2;
 }
 
