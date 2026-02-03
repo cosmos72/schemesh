@@ -1,6 +1,6 @@
-# posix dir
+# posix fs
 
-The library `(scheme2k posix dir)`, which is also included in `(scheme2k posix)` and `(schemesh)`,
+The library `(scheme2k posix fs)`, which is also included in `(scheme2k posix)` and `(schemesh)`,
 provides low-level functions to access POSIX filesystem.
 
 Additional functions are also provided by `(scheme2k posix replacements)`, see [replacements.md](replacements.md).

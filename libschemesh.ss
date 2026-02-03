@@ -45,7 +45,7 @@
   (include "reflect/reflect.ss")
 
   (include "posix/fd.ss")
-  (include "posix/dir.ss")
+  (include "posix/fs.ss")
   (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/signal.ss")

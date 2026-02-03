@@ -44,7 +44,7 @@
                                (put-string-some chez:put-string-some))
 
     (only (scheme2k posix fd)  c-errno->string)
-    (only (scheme2k posix dir) file-type file-delete)
+    (only (scheme2k posix fs)  file-type file-delete)
     (scheme2k posix thread))
 
 

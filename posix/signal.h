@@ -12,19 +12,6 @@
 #error "posix/signal.h should only be #included by posix/posix.c"
 #endif
 
-#ifdef ATOMIC_INT_LOCK_FREE /* macro value does not matter */
-#define ATOMIC _Atomic
-#else
-#define ATOMIC volatile
-#endif
-
-#undef SCHEME2K_C_DEBUG
-#ifdef SCHEME2K_C_DEBUG
-#define C_DEBUG_WRITE(fd, str) ((void)write(fd, str, sizeof(str) - 1))
-#else
-#define C_DEBUG_WRITE(fd, str) ((void)0)
-#endif
-
 /* ------------------------------------ signals handling ---------------------------------------- */
 
 static void c_signals_unblock(void) {

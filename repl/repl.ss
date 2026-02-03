@@ -31,7 +31,7 @@
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!)
     (scheme2k lineedit lineedit)
     (schemesh parser)
-    (only (scheme2k posix dir)       file-type)
+    (only (scheme2k posix fs)        file-type)
     (scheme2k posix signal)
     (scheme2k posix tty)
     (only (schemesh shell)

@@ -116,9 +116,9 @@
     (scheme2k containers gbuffer)
     (only (scheme2k containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!
                                             string->utf8b utf8b-bytespan->string)
-    (only (scheme2k posix pid)              pid-get)
-    (only (scheme2k posix dir)              file-delete file-rename)
-    (only (scheme2k posix io)               file->port))
+    (only (scheme2k posix fs)               file-delete file-rename)
+    (only (scheme2k posix io)               file->port)
+    (only (scheme2k posix pid)              pid-get))
 
 
 (include "vscreen/vcell.ss")

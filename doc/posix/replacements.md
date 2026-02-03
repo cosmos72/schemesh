@@ -6,7 +6,7 @@ exports improved version of several standard Scheme functions defined by R6RS.
 Such functions are intentionally *not* exported by library `(scheme2k posix)`
 to avoid conflicts with standard library `(rnrs)`.
 
-Additional filesystem-related functions are also provided by `(scheme2k posix dir)`, see [dir.md](dir.md).
+Additional filesystem-related functions are also provided by `(scheme2k posix fs)`, see [fs.md](fs.md).
 
 ### Alphabetical index
 

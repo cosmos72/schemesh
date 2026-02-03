@@ -19,13 +19,13 @@
     (scheme2k containers charspan)
     (scheme2k containers span)
     (scheme2k containers sort)
-    (only (scheme2k containers utf8b) codepoint-utf8b? integer->char* utf8b->string)
-    (only (scheme2k posix dir)        directory-list-type directory-sort!)
-    (only (scheme2k vscreen)          vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
+    (only (scheme2k containers utf8b)     codepoint-utf8b? integer->char* utf8b->string)
+    (only (scheme2k posix fs)             directory-list-type directory-sort!)
+    (only (scheme2k vscreen)              vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (scheme2k lineedit paren)
-    (only (scheme2k lineedit lineedit) linectx-completion-stem linectx-vscreen)
-    (only (schemesh shell parameters) sh-current-environment)
-    (only (schemesh shell job)        sh-aliases sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
+    (only (scheme2k lineedit lineedit)    linectx-completion-stem linectx-vscreen)
+    (only (schemesh shell parameters)     sh-current-environment)
+    (only (schemesh shell job)            sh-aliases sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
 
 ;; each sh-autocomplete-... procedure accepts a prefix charspan and a span of charspans,
 ;; and fills the span with possible completions of prefix:
