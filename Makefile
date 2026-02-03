@@ -3,12 +3,12 @@
 CC=cc
 
 # optimized build
-#CFLAGS=-O2 -pipe -Wall -W -Wextra
-#LDFLAGS=-s
+CFLAGS=-O2 -pipe -Wall -W -Wextra
+LDFLAGS=-s
 
 # debug build
-CFLAGS=-g -pipe -Wall -W -Wextra
-LDFLAGS=-g
+# CFLAGS=-g -pipe -Wall -W -Wextra
+# LDFLAGS=-g
 
 # Autodetect Chez Scheme installation.
 # Alternatively, you can manually specify it, as for example:
