@@ -3,12 +3,12 @@
 CC=cc
 
 # optimized build
-CFLAGS=-O2 -pipe -Wall -W -Wextra
-LDFLAGS=-s
+#CFLAGS=-O2 -pipe -Wall -W -Wextra
+#LDFLAGS=-s
 
 # debug build
-# CFLAGS=-g -pipe -Wall -W -Wextra
-# LDFLAGS=-g
+CFLAGS=-g -pipe -Wall -W -Wextra
+LDFLAGS=-g
 
 # Autodetect Chez Scheme installation.
 # Alternatively, you can manually specify it, as for example:
@@ -78,7 +78,7 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
-posix.o: posix/posix.c eval.h posix/posix.h posix/signal.h posix/socket.h
+posix.o: posix/posix.c eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/signal.h posix/socket.h posix/tty.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h

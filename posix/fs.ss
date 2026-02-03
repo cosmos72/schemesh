@@ -9,18 +9,90 @@
 
 (library (scheme2k posix fs (0 9 3))
   (export
+      (rename (make-dir-reader dir)) make-dir-reader
+      dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get
+
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)           foreign-procedure make-continuation-condition make-format-condition sort! void)
-    (only (scheme2k bootstrap)   catch raise-assertf try)
+    (only (chezscheme)           foreign-procedure make-continuation-condition make-format-condition record-writer sort! void)
+    (only (scheme2k bootstrap)   assert* catch raise-assertf try)
     (only (scheme2k containers)  bytevector<? charspan? for-list string->utf8b)
-    (only (scheme2k conversions) text->bytevector text->bytevector0)
-    (only (scheme2k io obj)      obj-reader obj-reader-get obj-reader-close)
+    (only (scheme2k conversions) text->bytevector text->bytevector0 text->string)
+    (only (scheme2k io obj)      obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
     (only (scheme2k posix fd)    c-errno->string raise-c-errno))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; streaming API
+
+(define-record-type (dir-reader %make-dir-reader dir-reader?)
+  (parent obj-reader)
+  (fields
+    (mutable handle)  ; #f or integer containing C DIR*
+    vec               ; vector, used as buffer for C function c_dir_next()              
+    path)             ; directory being read
+  (protocol
+    (lambda (args->new)
+      (lambda (handle path)
+        ((args->new %dir-reader-get %dir-reader-close) handle (make-vector 14 (void)) path))))
+  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
+
+(define make-dir-reader
+  (let ((c-dir-open (foreign-procedure "c_dir_open" (ptr) ptr)))
+    (case-lambda
+      ((path)
+        (let ((obj (c-dir-open (text->bytevector0 path))))
+          (unless (and (integer? obj) (exact? obj) (> obj 0))
+            (raise-c-errno 'make-dir-reader 'opendir obj path))
+          (%make-dir-reader obj (text->string path)))))))
+
+
+(define (dir-reader-eof? rx)
+  (assert* 'dir-reader-eof? (dir-reader? rx))
+  (obj-reader-eof? rx))
+
+
+(define (dir-reader-close rx)
+  (assert* 'dir-reader-close (dir-reader? rx))
+  (obj-reader-close rx))
+
+
+(define (dir-reader-get rx)
+  (assert* 'dir-reader-get (dir-reader? rx))
+  (obj-reader-get rx))
+
+
+;; called by (dir-reader-get) -> (obj-reader-get)
+(define %dir-reader-get
+  (let ((c-dir-next (foreign-procedure "c_dir_next" (void* ptr unsigned) int)))
+    (lambda (rx)
+      (let ((handle (dir-reader-handle rx)))
+        (if handle
+          (let ((vec (dir-reader-vec rx)))
+            (vector-fill! vec (void))
+             (let ((err (c-dir-next handle vec #x3fff)))
+               (unless (and (fixnum? err) (fx>=? err 0))
+                 (raise-c-errno 'dir-reader-get 'readdir err handle)))
+            (values vec #t))
+          (values #f #f))))))
+          
+
+;; called by (dir-reader-close) -> (obj-reader-close)
+(define %dir-reader-close
+  (let ((c-dir-close (foreign-procedure "c_dir_close" (void*) void)))
+    (lambda (rx)
+      (let ((handle (dir-reader-handle rx)))
+        (when handle
+          (dir-reader-handle-set! rx #f)
+          (c-dir-close handle))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; low-level API
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
 
@@ -285,6 +357,14 @@
               where all keys are bytevector or string, found list element ~s"
               elem))))
       dir-list)))
+
+
+;; customize how "dir-reader" objects are printed
+(record-writer (record-type-descriptor dir-reader)
+  (lambda (rx port writer)
+    (put-string port "(make-dir-reader ")
+    (write (dir-reader-path rx) port)
+    (put-string port ")")))
 
 
 ) ; close library

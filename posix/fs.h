@@ -21,18 +21,38 @@
 typedef enum {
   c_vec_name        = 0,
   c_vec_type        = 1,
-  c_vec_target      = 2,
-  c_vec_mode        = 3,
-  c_vec_num_links   = 4,
-  c_vec_inode       = 5,
-  c_vec_user        = 6,
-  c_vec_group       = 7,
-  c_vec_size        = 8,
-  c_vec_accessed    = 9,
-  c_vec_modified    = 10,
-  c_vec_ino_changed = 11,
-  c_vec_n           = 12,
+  c_vec_size        = 2,
+  c_vec_target      = 3,
+  c_vec_mode        = 4,
+  c_vec_accessed    = 5,
+  c_vec_modified    = 6,
+  c_vec_ino_changed = 7,
+  c_vec_user        = 8,
+  c_vec_group       = 9,
+  c_vec_uid         = 10,
+  c_vec_gid         = 11,
+  c_vec_inode       = 12,
+  c_vec_num_links   = 13,
+  c_vec_n           = 14,
 } c_vec;
+
+enum {
+  c_dir_flag_name        = 1 << c_vec_name,
+  c_dir_flag_type        = 1 << c_vec_type,
+  c_dir_flag_size        = 1 << c_vec_size,
+  c_dir_flag_target      = 1 << c_vec_target,
+  c_dir_flag_mode        = 1 << c_vec_mode,
+  c_dir_flag_accessed    = 1 << c_vec_accessed,
+  c_dir_flag_modified    = 1 << c_vec_modified,
+  c_dir_flag_ino_changed = 1 << c_vec_ino_changed,
+  c_dir_flag_user        = 1 << c_vec_user,
+  c_dir_flag_group       = 1 << c_vec_group,
+  c_dir_flag_uid         = 1 << c_vec_uid,
+  c_dir_flag_gid         = 1 << c_vec_gid,
+  c_dir_flag_inode       = 1 << c_vec_inode,
+  c_dir_flag_num_links   = 1 << c_vec_num_links,
+  c_dir_flag_hidden      = 1 << c_vec_n,
+};
 
 typedef enum {
   c_type_unknown = 0,
@@ -178,85 +198,131 @@ static c_type modeToFileType(mode_t mode) {
 }
 
 #ifdef __APPLE__
-static void fillTime(ptr vec, unsigned i, const time_t t) {
-  Svector_set(vec, i, Scons(Sinteger64(t), Sunsigned32(0)));
+static void fillTime(ptr vec, unsigned i, unsigned flag, const time_t t) {
+  if (flag) {
+    Svector_set(vec, i, Scons(Sinteger64(t), Sunsigned32(0)));
+  }
 }
 #else
-static void fillTime(ptr vec, unsigned i, const struct timespec* t) {
-  Svector_set(vec, i, Scons(Sinteger64(t->tv_sec), Sunsigned32(t->tv_nsec)));
+static void fillTime(ptr vec, unsigned i, unsigned flag, const struct timespec* t) {
+  if (flag) {
+    Svector_set(vec, i, Scons(Sinteger64(t->tv_sec), Sunsigned32(t->tv_nsec)));
+  }
 }
 #endif /* __APPLE__ */
 
-static void fillUserAndGroup(ptr vec, uid_t uid, gid_t gid) {
+static void fillUserAndGroup(ptr vec, unsigned flags, uid_t uid, gid_t gid) {
 #ifdef NSS_BUFLEN_GROUP
   char namebuf[NSS_BUFLEN_GROUP];
 #else
   char namebuf[1024];
 #endif /* NSS_BUFLEN_GROUP */
 
-  ptr obj;
-  {
+  if (flags & c_dir_flag_user) {
     struct passwd  pbuf;
     struct passwd* pwd = NULL;
 
     if (getpwuid_r(uid, &pbuf, namebuf, sizeof(namebuf), &pwd) == 0 && pwd != NULL) {
-      obj = scheme2k_Sstring_utf8b(pwd->pw_name, -1);
-    } else {
-      obj = Sunsigned(uid);
+      Svector_set(vec, c_vec_user, scheme2k_Sstring_utf8b(pwd->pw_name, -1));
     }
-    Svector_set(vec, c_vec_user, obj);
   }
-  {
+  if (flags & c_dir_flag_group) {
     struct group  gbuf;
     struct group* grp = NULL;
 
     if (getgrgid_r(gid, &gbuf, namebuf, sizeof(namebuf), &grp) == 0 && grp != NULL) {
-      obj = scheme2k_Sstring_utf8b(grp->gr_name, -1);
-    } else {
-      obj = Sunsigned(gid);
+      Svector_set(vec, c_vec_group, scheme2k_Sstring_utf8b(grp->gr_name, -1));
     }
-    Svector_set(vec, c_vec_group, obj);
+  }
+  if (flags & c_dir_flag_uid) {
+    Svector_set(vec, c_vec_uid, Sinteger(uid));
+  }
+  if (flags & c_dir_flag_gid) {
+    Svector_set(vec, c_vec_gid, Sinteger(gid));
   }
 }
 
-static ptr c_dir_get_entry(DIR* dir, ptr vec) {
+static ptr c_dir_open(ptr path) {
+  DIR*        dir;
+  const char* path0;
+  iptr        len;
+  if (!Sbytevectorp(path) ||                   /*              */
+      (len = Sbytevector_length(path)) <= 0 || /*              */
+      (path0 = (const char*)Sbytevector_data(path))[len - 1] != '\0') {
+    return Sinteger(c_errno_set(EINVAL)); /* < 0 */
+  }
+  if (!(dir = opendir(path0))) {
+    return Sinteger(c_errno()); /* < 0 */
+  }
+  return Sunsigned((uintptr_t)(void*)dir);
+}
+
+static void c_dir_close(void* dir) {
+  if (dir) {
+    closedir((DIR*)dir);
+  }
+}
+
+static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   struct stat    st;
   struct dirent* entry;
-  c_type         type;
+  iptr           vec_n;
+  c_type         type = c_type_unknown;
 
-  if (!dir || !Svectorp(vec) || Svector_length(vec) < c_vec_n) {
-    return Sinteger(c_errno_set(EINVAL));
+  if (!dir || !Svectorp(vec)) {
+    return c_errno_set(EINVAL);
   }
+  if ((vec_n = Svector_length(vec)) > c_vec_n) {
+    vec_n = c_vec_n;
+  }
+  // unset flags that require access beyond the end of vec
+  flags = (flags & c_dir_flag_hidden) | (flags & ((1 << vec_n) - 1));
 
-  entry = readdir(dir);
-  if (!entry) {
-    return Sunsigned32(0); // end of dir
-  }
+  do {
+    entry = readdir((DIR*)dir);
+    if (!entry) {
+      return 0; // end of dir
+    }
+  } while ((flags & c_dir_flag_hidden) == 0 && entry->d_name[0] == '.');
 
   /* file name can be arbitrary bytes, not only valid UTF-8 */
-  Svector_set(vec, c_vec_name, scheme2k_Sstring_utf8b(entry->d_name, -1));
-  Svector_set(vec, c_vec_inode, Sunsigned64(entry->d_ino));
-
+  if (flags & c_dir_flag_name) {
+    Svector_set(vec, c_vec_name, scheme2k_Sstring_utf8b(entry->d_name, -1));
+  }
+  if (flags & c_dir_flag_inode) {
+    Svector_set(vec, c_vec_inode, Sunsigned64(entry->d_ino));
+  }
+  if (flags & c_dir_flag_type) {
 #ifdef _DIRENT_HAVE_D_TYPE
-  type = dtypeToFileType(entry->d_type);
-#else
-  type = c_type_unknown;
+    type = dtypeToFileType(entry->d_type);
 #endif
+  }
 
   if (lstat(entry->d_name, &st) < 0) {
     /* only a few fields can be filled */
-    Svector_set(vec, c_vec_type, Sunsigned32(type));
-    return Sunsigned32(1);
+    iptr i;
+    if (vec_n > c_vec_type) {
+      Svector_set(vec, c_vec_type, Sunsigned32(type));
+    }
+    for (i = c_vec_type + 1; i < vec_n; i++) {
+      if (i != c_vec_inode) {
+        Svector_set(vec, c_vec_type, Svoid);
+      }
+    }
+    return 1;
   }
 
   /* lstat() is successful, fill all fields */
-  if (type == c_type_unknown) {
+
+  if (type == c_type_unknown && (flags & c_dir_flag_type)) {
     type = modeToFileType(st.st_mode);
     Svector_set(vec, c_vec_type, Sunsigned32(type));
   }
-  Svector_set(vec, c_vec_mode, Sunsigned32(st.st_mode & 07777));
+  if (flags & c_dir_flag_mode) {
+    Svector_set(vec, c_vec_mode, Sunsigned32(st.st_mode & 07777));
+  }
 
-  if (type == c_type_lnk) {
+  if (type == c_type_lnk && (flags & c_dir_flag_target)) {
     char    buf[PATH_MAX];
     ssize_t len = readlink(entry->d_name, buf, sizeof(buf));
     if (len > 0) {
@@ -266,18 +332,18 @@ static ptr c_dir_get_entry(DIR* dir, ptr vec) {
   }
 
   /* owner / group */
-  fillUserAndGroup(vec, st.st_uid, st.st_gid);
+  fillUserAndGroup(vec, flags, st.st_uid, st.st_gid);
 
 #ifdef __APPLE__
-  fillTime(vec, c_vec_accessed, st.st_atime);
-  fillTime(vec, c_vec_modified, st.st_mtime);
-  fillTime(vec, c_vec_ino_changed, st.st_ctime);
+  fillTime(vec, c_vec_accessed, flags & c_dir_flag_accessed, st.st_atime);
+  fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, st.st_mtime);
+  fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, st.st_ctime);
 #else
-  fillTime(vec, c_vec_accessed, &(st.st_atim));
-  fillTime(vec, c_vec_modified, &(st.st_mtim));
-  fillTime(vec, c_vec_ino_changed, &(st.st_ctim));
+  fillTime(vec, c_vec_accessed, flags & c_dir_flag_accessed, &(st.st_atim));
+  fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, &(st.st_mtim));
+  fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, &(st.st_ctim));
 #endif
-  return Sunsigned32(2);
+  return 2;
 }
 
 typedef enum {
