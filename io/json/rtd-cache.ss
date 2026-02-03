@@ -25,7 +25,7 @@
 (define (add-time-info cache)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! cache rtd
-      (field-custom-info deserialize-time
+      (make-record-info #f deserialize-time
         type-sym  time-type
         'value    (lambda (obj) (+ (time-second obj)
                                    (/ (time-nanosecond obj) 1000000000))))))
@@ -36,14 +36,14 @@
   cache)
 
 
-(define rtd-cache-override
+(define record-info-table
   (add-date-info
     (add-time-info
       (make-eq-hashtable))))
 
 
 (define (json-field-cursor obj rtd-cache)
-  (let ((info (hashtable-ref rtd-cache-override (record-rtd obj) #f)))
+  (let ((info (hashtable-ref record-info-table (record-rtd obj) #f)))
     (if info
       (ordered-hash-cursor info)
       (field-cursor obj rtd-cache))))

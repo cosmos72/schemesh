@@ -607,8 +607,8 @@
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; TODO: if a json object contains the "@type" key, lookup its associated value in rtd-cache-override and,
-;;       if found, call the registered constructor passing the json object as the only argument, represented as a plist.
+;; TODO: if a json object contains the "@type" key, lookup its associated value in record-info-table and,
+;;       if found, call the registered deserializer, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
   (obj-reader-get rx))

@@ -15,7 +15,7 @@
           chararray? chararray-accessor chararray-length
              htable?     htable-cursor     htable-size
           field field-cursor field-cursor-next! field-names
-          field-custom-info)
+          make-record-info record-info record-info? record-info-serializer record-info-deserializer record-info-field-names)
   (import
     (rnrs)
     (only (chezscheme)                       fx1+ fx/ logbit? procedure-arity-mask void)
@@ -133,28 +133,37 @@
 ;;; caching
 
 
-(define-record-type (%rtd-info %make-rtd-info %rtd-info?)
-  (fields
-    (mutable constructor rtd-constructor rtd-constructor-set!)
-    (mutable field-names rtd-field-names rtd-field-names-set!))
+(define-record-type (record-info %make-record-info record-info?)
   (parent ordered-hash-type)
-  (nongenerative %rtd-info-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (fields
+    (immutable serializer   record-info-serializer)                                 ; #f or procedure
+    (immutable deserializer record-info-deserializer)                               ; #f or procedure
+    (mutable   field-names  record-info-field-names %record-info-field-names-set!)) ; vector of symbols
+  (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; create and return an rtd-info containing caller-specified constructor and fields
-(define (field-custom-info constructor . names-and-accessors)
-  (assert* 'field-custom-info (plist? names-and-accessors))
+;; create and return an rtd-info containing caller-specified serializer, deserializer and fields
+(define (make-record-info serializer deserializer . names-and-accessors)
+  (when serializer
+    ;; serializer will be called with two arguments: obj-writer and the object to serialize
+    (assert* 'make-record-info (procedure? serializer))
+    (assert* 'make-record-info (logbit? 2 (procedure-arity-mask serializer))))
+  (when deserializer
+    ;; deserializer will be called with one argument: plist containing deserialized fields
+    (assert* 'make-record-info (procedure? deserializer))
+    (assert* 'make-record-info (logbit? 1 (procedure-arity-mask deserializer))))
+  (assert* 'make-record-info (plist? names-and-accessors))
   (let* ((len   (fx/ (length names-and-accessors) 2))
          (names (make-vector len))
-         (info  (%make-rtd-info (make-eq-hashtable) #f #f #f names)))
+         (info  (%make-record-info (make-eq-hashtable) #f #f serializer deserializer names)))
     (do ((i 0 (fx1+ i))
          (l names-and-accessors (cddr l)))
         ((null? l) info)
       (let ((name     (car l))
             (accessor (cadr l)))
-        (assert* 'field-custom-info (symbol? name))
-        (assert* 'field-custom-info (procedure? accessor))
-        (assert* 'field-custom-info (logbit? 1 (procedure-arity-mask accessor)))
+        (assert* 'make-record-info (symbol? name))
+        (assert* 'make-record-info (procedure? accessor))
+        (assert* 'make-record-info (logbit? 1 (procedure-arity-mask accessor)))
         (ordered-hash-set! info name accessor)))))
 
 
@@ -164,13 +173,13 @@
 ;;
 ;; Also collect accessors for fields in parent record-type-descriptors,
 ;; unless they conflict with a field in a child record-type-descriptor.
-(define (fill-rtd-info info rtd)
+(define (fill-record-info info rtd)
   (let ((parent-rtd (record-type-parent rtd)))
     (when parent-rtd
       ;; first, collect fields from parent record-type-descriptors
-      (fill-rtd-info info parent-rtd)))
+      (fill-record-info info parent-rtd)))
   (let ((this-field-names (record-type-field-names rtd)))
-    (span-insert-right/vector! (rtd-field-names info) this-field-names)
+    (span-insert-right/vector! (record-info-field-names info) this-field-names)
     (do ((i   0 (fx1+ i))
          (len (vector-length this-field-names)))
         ((fx>=? i len))
@@ -188,11 +197,11 @@
 ;;
 ;; finally, also collect field names from specified record-type-descriptor and its parents,
 ;; and add them to the returned accessors hashtable with the key (void)
-(define (make-rtd-info cache rtd)
-  (let ((info (%make-rtd-info (make-eq-hashtable) #f #f #f (span))))
-    (fill-rtd-info info rtd)
+(define (make-record-info/reflect cache rtd)
+  (let ((info (%make-record-info (make-eq-hashtable) #f #f #f #f (span))))
+    (fill-record-info info rtd)
     ;; convert field names span -> vector
-    (rtd-field-names-set! info (span->vector (rtd-field-names info)))
+    (%record-info-field-names-set! info (span->vector (record-info-field-names info)))
     (hashtable-set! cache rtd info)
     info))
 
@@ -234,7 +243,7 @@
 ;; returns value of specified field name in obj, or default
 (define (cached-record-field obj field-name cache default rtd)
   (if rtd
-    (let* ((info     (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd)))
+    (let* ((info     (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd)))
            (accessor (ordered-hash-ref info field-name #f)))
       (if accessor
         (accessor obj)
@@ -246,7 +255,7 @@
 
 
 (define (cached-record-field-names obj cache rtd)
- (rtd-field-names (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd))))
+ (record-info-field-names (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd))))
 
 
 (define (uncached-record-field-names obj sp rtd)
@@ -306,7 +315,7 @@
 (define (field-cursor obj cache)
   (let ((rtd (record-rtd obj)))
     (if rtd
-      (let ((info (or (hashtable-ref cache rtd #f) (make-rtd-info cache rtd))))
+      (let ((info (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd))))
         (ordered-hash-cursor info))
       (ordered-hash-cursor-empty))))
 
