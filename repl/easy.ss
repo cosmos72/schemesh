@@ -92,6 +92,13 @@
       (raise-errorf 'put "unsupported writer: ~s" to))))
 
 
+;; iterate (get from) then (put to) until from is exhausted
+(define (copy from to)
+  (let-values (((datum ok?) (get from)))
+    (when ok?
+      (put to datum)
+      (copy from to))))
+
 
 (define (stdin)
   ;; TODO: autodetect reader protocol upon the first (obj-reader-get)

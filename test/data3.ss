@@ -150,7 +150,7 @@
               (json-writer-put tx tok)
               (loop rx tx))
             (else
-              (json-writer-close tx)))))))              "[\n0,\n0.0e0,\n{\"foo\":-1},\nnull\n]\n"
+              (json-writer-close tx)))))))              "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
 
   ;; ---------------------------- lineedit io ----------------------------------
   (read

@@ -50,7 +50,7 @@
 (define (%json-writer-close tx)
   (let ((out (json-writer-out tx)))
     (when (json-writer-epilogue? tx)
-      (put-string out "\n]\n")
+      (put-string out "]\n")
       (json-writer-epilogue?-set! tx #f)
       (json-writer-prologue?-set! tx #t))
     (unless (port-closed? out)
@@ -326,7 +326,7 @@
   (let ((out (json-writer-out tx)))
     (if (json-writer-prologue? tx)
       (begin
-        (put-string out "[\n")
+        (put-char out #\[)
         (json-writer-prologue?-set! tx #f)
         (json-writer-epilogue?-set! tx #t))
       (put-string out ",\n"))

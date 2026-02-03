@@ -27,8 +27,8 @@
     (hashtable-set! cache rtd
       (field-custom-info deserialize-time
         type-sym  time-type
-        'value    (lambda (obj) (fl+ (inexact (time-second obj))
-                                     (fl/ (inexact (time-nanosecond obj)) 1e9))))))
+        'value    (lambda (obj) (+ (time-second obj)
+                                   (/ (time-nanosecond obj) 1000000000))))))
   cache)
 
 

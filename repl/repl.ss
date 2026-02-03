@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all close dir eof? get put stdin stdout
+          all close copy dir eof? get put stdin stdout
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
