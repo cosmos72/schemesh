@@ -100,14 +100,61 @@
       (copy from to))))
 
 
-(define (stdin)
-  ;; TODO: autodetect reader protocol upon the first (obj-reader-get)
-  (make-json-reader (sh-port #f 0 'binary)))
+;; easy wrapper for (make-json-reader)
+(define from-json
+  (case-lambda
+    ((in)
+      (make-json-reader in))
+    (()
+      (make-json-reader (sh-port #f 0 'binary)))))
 
 
-(define (stdout)
-  ;; TODO: choose writer protocol depending on optional arguments or stdout fd type:
-  ;;   tty    => make-tabular-writer
-  ;;   socket => make-wire-writer
-  ;;   else   => make-json-writer
-  (make-json-writer (sh-port #t 1 'textual)))
+;; easy wrapper for (make-queue-reader)
+;; q must be a queue-writer
+(define (from-queue q)
+  (make-queue-reader q))
+
+
+;; easy wrapper for (make-wire-reader)
+(define from-wire
+  (case-lambda
+    ((in)
+      (make-json-reader in))
+    (()
+      (make-json-reader (sh-port #f 0 'binary)))))
+
+
+;; easy wrapper for (make-wire-writer)
+(define to-json
+  (case-lambda
+    ((out)
+      (make-json-writer out))
+    (()
+      (make-json-writer (sh-port #f 1 'textual)))))
+
+
+;; easy wrapper for (make-queue-writer)
+(define (to-queue)
+  (make-queue-writer))
+
+
+;; easy wrapper for (make-wire-writer)
+(define to-wire
+  (case-lambda
+    ((out)
+      (make-wire-writer out))
+    (()
+      (make-wire-writer (sh-port #f 1 'binary)))))
+
+
+;; TODO: create a reader that autodetects protocol upon the first call to (obj-reader-get)
+(define (from-stdin)
+  (from-json))
+
+
+;; TODO: choose writer protocol depending on optional arguments or stdout fd type:
+;;   tty    => make-tabular-writer
+;;   socket => make-wire-writer
+;;   else   => make-json-writer
+(define (to-stdout)
+  (to-json))

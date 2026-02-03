@@ -12,7 +12,9 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all close copy dir eof? get put stdin stdout
+          all close copy dir eof? get put
+          from-stdin from-json from-queue from-wire
+           to-stdout   to-json   to-queue   to-wire
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
@@ -35,7 +37,9 @@
     (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get
                                      obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
                                      reader->list)
-    (only (scheme2k io json)         make-json-reader make-json-writer)
+    (only (scheme2k io json)         make-json-reader  make-json-writer)
+    (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
+    (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-write-all)
     (only (scheme2k posix fs)        file-type make-dir-reader)

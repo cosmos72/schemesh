@@ -243,30 +243,35 @@
   (obj-writer-put tx datum))
 
 
-;; called by (wire-writer-put) -> (obj-writer-put)
-(define (%wire-writer-put tx datum)
-  (let* ((wbuf         (wire-writer-wbuf tx))
-         (serialized-n (and (%wire-writer-out-unbox tx) (wire-put-to-bytespan wbuf datum))))
-    (if serialized-n
-      (let ((out (%wire-writer-out-unbox tx)))
-        (when out
-          (%out-write-all tx out wbuf))
-        (bytespan-clear! wbuf))
-      #f)))
+(define (unbox-raise-if-closed tx)
+  (let ((out (%wire-writer-out-unbox tx)))
+    (unless out
+      (raise-errorf 'wire-writer-put "~s is already closed" tx))
+    out))
 
 
-(define (%out-write-all tx out wbuf)
-  (let ((bv    (bytespan-peek-data wbuf))
+(define (put-all tx wbuf)
+  (let ((out   (unbox-raise-if-closed tx))
+        (bv    (bytespan-peek-data wbuf))
         (start (bytespan-peek-beg  wbuf))
         (end   (bytespan-peek-end  wbuf)))
     (cond
-      ((not out)
-        (raise-errorf 'wire-writer-put "~s is already closed" tx))
       ((fixnum? out)
         (fd-write-all out bv start end))
       (else ; (port? out)
         (check-interrupts)
         (put-bytevector out bv start (fx- end start))))))
+
+
+;; called by (wire-writer-put) -> (obj-writer-put)
+(define (%wire-writer-put tx datum)
+  (unbox-raise-if-closed tx)
+  (let* ((wbuf         (wire-writer-wbuf tx))
+         (serialized-n (wire-put-to-bytespan wbuf datum)))
+    (unless serialized-n
+      (raise-errorf 'wire-writer-put "unsupported datum: ~s" datum))
+    (put-all tx wbuf)
+    (bytespan-clear! wbuf)))
 
 
 ;; create and return a closure that iterates on data read from wire-reader rx.
