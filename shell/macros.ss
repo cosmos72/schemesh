@@ -275,7 +275,7 @@
                 void
                 (lambda () (let^ ((var obj) ...) body ...))
                 void
-                (lambda () (close obj) ...))))))))
+                (lambda () (reverse-macro (close obj) ...)))))))))
 
 
 
@@ -306,7 +306,7 @@
                 swap
                 (lambda^ () body ...)
                 swap
-                (lambda () (tclose tobj) ...))))))))
+                (lambda () (reverse-macro (tclose tobj) ...)))))))))
 
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (fd-close var) ...,

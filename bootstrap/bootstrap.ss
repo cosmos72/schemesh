@@ -12,8 +12,8 @@
       ;; bootstrap.ss
       ==> ;; _ is already exported by (rnrs)
       assert* assert-not* catch check check-not define-macro debugf debugf-port
-      first-value first-value-or-void forever let1 let-macro raise-assert* repeat second-value
-      with-locked-objects while until with-while-until
+      first-value first-value-or-void forever let1 let-macro raise-assert* repeat reverse-macro
+      second-value with-locked-objects while until with-while-until
       throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
@@ -364,15 +364,26 @@
           (or ex #t))))))
 
 
+(define-syntax reverse-macro
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_)
+        #'(void))
+      ((_ body1)
+        #'body1)
+      ((_ body1 body2)
+        #`(begin body2 body1))
+      ((_ body1 body2 body3 body4 ...)
+        #`(begin (reverse-macro body4 ...) body3 body2 body1)))))
+
+
 (define-syntax with-locked-objects
   (syntax-rules ()
     ((_ (obj1 obj2 ...) body1 body2 ...)
       (dynamic-wind
         (lambda () (lock-object obj1) (lock-object obj2) ...)
         (lambda () body1 body2 ...)
-        (lambda () (unlock-object obj1) (unlock-object obj2) ...)))))
-
-
+        (lambda () (reverse-macro (unlock-object obj1) (unlock-object obj2) ...))))))
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.

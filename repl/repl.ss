@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all close copy dir eof? get put
+          all close copy dir eof? get put with-closable
           from-stdin from-json from-queue from-wire
            to-stdout   to-json   to-queue   to-wire
 
@@ -32,6 +32,7 @@
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers list) for-list)
+          (scheme2k containers macros)
           (scheme2k containers span)
           (scheme2k lineedit lineedit)
     (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get
@@ -48,7 +49,7 @@
           (schemesh parser)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-history repl-restart repl-restart?
-       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
+       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind
        sh-exception-handler sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
        sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/))

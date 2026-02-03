@@ -100,6 +100,16 @@
       (copy from to))))
 
 
+;; evaluate body ... with var ... bound to expr ... then always call (close var)
+;; ... even if body raises a condition or calls a continuation
+(define-syntax with-closable
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((var expr) ...) body ...)
+      (with-resource ((var expr close) ...) body ...))))
+
+
 ;; easy wrapper for (make-json-reader)
 (define from-json
   (case-lambda
