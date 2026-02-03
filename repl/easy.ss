@@ -147,7 +147,10 @@
       (make-wire-writer (sh-port #f 1 'binary)))))
 
 
-;; TODO: create a reader that autodetects protocol upon the first call to (obj-reader-get)
+;; lazily create a reader that autodetects protocol upon the first call to (obj-reader-get)
+;;
+;; TODO: this must be a thread parameter.
+;; further calls must return the same reader until current job changes
 (define (from-stdin)
   (from-json))
 
@@ -156,5 +159,8 @@
 ;;   tty    => make-tabular-writer
 ;;   socket => make-wire-writer
 ;;   else   => make-json-writer
+;;
+;; TODO: this must be a thread parameter.
+;; further calls must return the same writer until current job changes
 (define (to-stdout)
   (to-json))

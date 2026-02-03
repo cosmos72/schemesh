@@ -32,7 +32,7 @@
     (scheme2k reflect))
 
 
-(include "io/json/rtd-cache.ss")
+(include "io/json/record-info.ss")
 (include "io/json/read.ss")
 (include "io/json/write.ss")
 
