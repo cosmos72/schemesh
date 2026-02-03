@@ -401,6 +401,38 @@ static ptr c_get_hostname(void) {
 }
 
 /**
+ * get group name of specified uid.
+ * return a Scheme string, or Scheme integer on error
+ */
+static ptr c_get_groupname(int gid) {
+  struct group  grp;
+  struct group* result = NULL;
+  ptr           ret;
+  char*         buf;
+  long          bufsize = -1;
+  int           err;
+
+#ifdef _SC_GETGR_R_SIZE_MAX
+  bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+#endif
+  if (bufsize < 0) {
+    bufsize = 4096;
+  }
+  buf = malloc(bufsize);
+  if (!buf) {
+    return Sinteger(c_errno());
+  }
+  err = getgrgid_r((gid_t)gid, &grp, buf, bufsize, &result);
+  if (err == 0 && result && result->gr_name) {
+    ret = scheme2k_Sstring_utf8b(result->gr_name, -1);
+  } else {
+    ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
+  }
+  free(buf);
+  return ret;
+}
+
+/**
  * get user name of specified uid.
  * return a Scheme string, or Scheme integer on error
  */
@@ -416,7 +448,7 @@ static ptr c_get_username(int uid) {
   bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
 #endif
   if (bufsize < 0) {
-    bufsize = 16384;
+    bufsize = 4096;
   }
   buf = malloc(bufsize);
   if (!buf) {
@@ -740,6 +772,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_pgid_foreground_cas", &c_pgid_foreground_cas);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
 
+  Sregister_symbol("c_get_groupname", &c_get_groupname);
   Sregister_symbol("c_get_hostname", &c_get_hostname);
   Sregister_symbol("c_get_username", &c_get_username);
   Sregister_symbol("c_get_userhome", &c_get_userhome);

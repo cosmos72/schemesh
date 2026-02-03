@@ -94,7 +94,7 @@
       (%make-ordered-hash (make-hashtable hash equiv? size) #f #f))))
 
 
-;; return an exhausted ordered-hash-cursor 
+;; return an exhausted ordered-hash-cursor
 (define ordered-hash-cursor-empty
   (let ((iter (make-cursor #f)))
     (lambda ()

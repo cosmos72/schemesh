@@ -108,7 +108,7 @@
                        date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
                        fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
                        include integer-length logbit? make-fxvector make-time meta-cond
-                       procedure-arity-mask reverse! 
+                       procedure-arity-mask reverse!
                        time? time=? time-type time-second time-nanosecond void)
 
     ;; these predicates are equivalent to their r6rs counterparts,

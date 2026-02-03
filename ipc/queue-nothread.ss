@@ -147,7 +147,7 @@
 (define (%queue-reader-get rx)
   (let-values (((datum flag) (queue-reader-timed-get-once rx huge-timeout)))
     (if (eq? flag 'timeout)
-      (%queue-reader-get rx) ;; timeout, retry 
+      (%queue-reader-get rx) ;; timeout, retry
       (values datum (eq? flag 'ok)))))
 
 

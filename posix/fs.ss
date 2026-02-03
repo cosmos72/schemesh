@@ -9,20 +9,25 @@
 
 (library (scheme2k posix fs (0 9 3))
   (export
-      (rename (make-dir-reader dir)) make-dir-reader
-      dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get
+      make-dir-reader dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get
+
+      make-dir-entry dir-entry
 
       directory-list directory-list-type directory-sort!
-      file-delete file-rename file-type mkdir)
+      file-delete file-rename file-type mkdir
+      gid->groupname uid->username)
   (import
-    (rnrs)
+    (rename (rnrs)                   (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
-    (only (chezscheme)           foreign-procedure make-continuation-condition make-format-condition record-writer sort! void)
-    (only (scheme2k bootstrap)   assert* catch raise-assertf try)
-    (only (scheme2k containers)  bytevector<? charspan? for-list string->utf8b)
-    (only (scheme2k conversions) text->bytevector text->bytevector0 text->string)
-    (only (scheme2k io obj)      obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
-    (only (scheme2k posix fd)    c-errno->string raise-c-errno))
+    (rnrs mutable-strings)
+    (only (chezscheme)               foreign-procedure fx1+ make-continuation-condition
+                                     make-format-condition record-writer sort! string->immutable-string void)
+    (only (scheme2k bootstrap)       assert* catch raise-assertf try)
+    (only (scheme2k containers)      bytevector<? charspan? for-list string->utf8b)
+    (only (scheme2k containers time) make-time-utc)
+    (only (scheme2k conversions)     text->bytevector text->bytevector0 text->string)
+    (only (scheme2k io obj)          obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
+    (only (scheme2k posix fd)        c-errno->string raise-c-errno))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -31,14 +36,17 @@
 (define-record-type (dir-reader %make-dir-reader dir-reader?)
   (parent obj-reader)
   (fields
-    (mutable handle)  ; #f or integer containing C DIR*
-    vec               ; vector, used as buffer for C function c_dir_next()              
-    path)             ; directory being read
+    (mutable handle)    ; #f or integer containing C DIR*
+    vec                 ; vector, used as buffer for C function c_dir_next()
+    (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
+    (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
+    path)               ; directory being read
   (protocol
     (lambda (args->new)
       (lambda (handle path)
-        ((args->new %dir-reader-get %dir-reader-close) handle (make-vector 14 (void)) path))))
-  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+        ((args->new %dir-reader-get %dir-reader-close)
+          handle (make-vector 12 (void)) #f #f path))))
+  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define make-dir-reader
@@ -74,12 +82,14 @@
         (if handle
           (let ((vec (dir-reader-vec rx)))
             (vector-fill! vec (void))
-             (let ((err (c-dir-next handle vec #x3fff)))
-               (unless (and (fixnum? err) (fx>=? err 0))
-                 (raise-c-errno 'dir-reader-get 'readdir err handle)))
-            (values vec #t))
-          (values #f #f))))))
-          
+            (let ((err (c-dir-next handle vec #x3fff)))
+              (unless (and (fixnum? err) (fx>=? err 0))
+                (raise-c-errno 'dir-reader-get 'readdir err handle))
+              (if (fx>? err 0)
+                (values (vector->dir-entry rx vec) #t)
+                (values #f #f)))) ;; dir-reader is exhausted
+          (values #f #f)))))) ;; dir-reader is closed
+
 
 ;; called by (dir-reader-close) -> (obj-reader-close)
 (define %dir-reader-close
@@ -91,10 +101,107 @@
           (c-dir-close handle))))))
 
 
+(define-record-type dir-entry
+  (fields
+    (mutable name)     ; string
+    (mutable type)     ; (void) or symbol
+    (mutable size)     ; (void) or size in bytes
+    (mutable target)   ; (void) or #f or string: symlink target
+    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
+    (mutable accessed) ; (void) or time-utc
+    (mutable modified) ; (void) or time-utc
+    (mutable inode-changed) ; (void) or time-utc
+    (mutable user)     ; (void) or immutable string
+    (mutable group)    ; (void) or immutable string
+    (mutable uid)      ; (void) or exact integer
+    (mutable gid)      ; (void) or exact integer
+    (mutable inode)    ; (void) or exact integer
+    (mutable nlink))   ; (void) or exact integer
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+
+
+(define if-fixnum->type
+  (let ((types '#(#f fifo char-device dir block-device file symlink socket)))
+    (lambda (obj)
+      (if (and (fixnum? obj) (fx<=? 1 obj 7))
+        (vector-ref types obj)
+        (void)))))
+
+
+(define if-mode->string
+  (let ((fullstr "rwxrwxrwxSST"))
+    (lambda (mode)
+      (if (fixnum? mode)
+        (do ((str (make-string 12 #\-))
+             (i 0 (fx1+ i)))
+            ((fx>=? i 12) str)
+          (let ((bit (if (fx<? i 9)
+                       (fx>> #o400 i)
+                       (fx>> #o4000 (fx- i 9)))))
+            (unless (fxzero? (fxand bit mode))
+              (string-set! str i (string-ref fullstr i)))))
+        (void)))))
+
+
+(define (if-pair->time-utc obj)
+  (if (pair? obj)
+    (make-time-utc (car obj) (cdr obj))
+    (void)))
+
+
+(define (if-uid->username rx uid)
+  (if (and (integer? uid) (exact? uid))
+    ;; use short-lived cache uid -> username stored in dir-reader
+    ;; reduces syscall clutter
+    (let ((cache (or (dir-reader-uid-cache rx)
+                     (let ((ht (make-eqv-hashtable)))
+                       (dir-reader-uid-cache-set! rx ht)
+                       ht))))
+      (or (hashtable-ref cache uid #f)
+          (let* ((xname (uid->username uid))
+                 (name  (if (string? xname) (string->immutable-string xname) (void))))
+            (hashtable-set! cache uid name) ;; also cache lookup failures
+            name)))
+    (void)))
+
+
+(define (if-gid->groupname rx gid)
+  (if (and (integer? gid) (exact? gid))
+    ;; use short-lived cache gid -> groupname stored in dir-reader
+    ;; reduces syscall clutter
+    (let ((cache (or (dir-reader-gid-cache rx)
+                     (let ((ht (make-eqv-hashtable)))
+                       (dir-reader-gid-cache-set! rx ht)
+                       ht))))
+      (or (hashtable-ref cache gid #f)
+          (let* ((xname (gid->groupname gid))
+                 (name  (if (string? xname) (string->immutable-string xname) (void))))
+            (hashtable-set! cache gid name) ;; also cache lookup failures
+            name)))
+    (void)))
+
+
+(define (vector->dir-entry rx vec)
+  (make-dir-entry
+    (vector-ref vec 0)
+    (if-fixnum->type   (vector-ref vec 1))
+    (vector-ref vec 2)
+    (vector-ref vec 3)
+    (if-mode->string   (vector-ref vec 4))
+    (if-pair->time-utc (vector-ref vec 5))
+    (if-pair->time-utc (vector-ref vec 6))
+    (if-pair->time-utc (vector-ref vec 7))
+    (if-uid->username  rx (vector-ref vec 8))
+    (if-gid->groupname rx (vector-ref vec 9))
+    (vector-ref vec 8)
+    (vector-ref vec 9)
+    (vector-ref vec 10)
+    (vector-ref vec 11)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; low-level API
 
-(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
 
 
 (define (%find-and-convert-fixnum-option caller options key default)
@@ -357,6 +464,24 @@
               where all keys are bytevector or string, found list element ~s"
               elem))))
       dir-list)))
+
+
+;; return string on success, or c-errno integer < 0 on error
+(define gid->groupname
+  (let ((c-get-groupname (foreign-procedure "c_get_groupname" (int) ptr)))
+    (lambda (gid)
+      (if (fixnum? gid)
+        (c-get-groupname gid)
+        c-errno-einval))))
+
+
+;; return string on success, or c-errno integer < 0 on error
+(define uid->username
+  (let ((c-get-username (foreign-procedure "c_get_username" (int) ptr)))
+    (lambda (uid)
+      (if (fixnum? uid)
+        (c-get-username uid)
+        c-errno-einval))))
 
 
 ;; customize how "dir-reader" objects are printed

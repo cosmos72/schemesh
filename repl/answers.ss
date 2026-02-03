@@ -19,9 +19,16 @@
       (()
         ans)
       ((n)
-        (if (fx<? -1 n (span-length ans))
-          (span-ref ans n)
-          (void))))))
+        (let ((len (span-length ans)))
+          (cond
+            ((not (fixnum? n))
+              (void))
+            ((fx<? -1 n len)
+              (span-ref ans n))
+            ((fx<? -1 (- n) len)
+              (span-ref ans (fx+ len n)))
+            (else
+              (void))))))))
 
 
 ;; set or retrieve maximum length of (repl-answers)

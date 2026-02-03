@@ -47,7 +47,7 @@
 ;; NOTE: returned charspan must NOT be modified.
 (define sh-cwd
   (case-lambda
-    (()          (%job-cwd (sh-globals)))
+    (()          (job-cwd  (sh-job #f)))
     ((job-or-id) (job-cwd  (sh-job job-or-id)))))
 
 

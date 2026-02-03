@@ -11,9 +11,14 @@
 
 (define-record-type obj-reader
   (fields
+    ;; procedure for generating next element.
     get-proc
-    close-box            ; box containing #f or procedure
-    (mutable eof?))      ; boolean
+    ;; box containing #f or procedure for closing this reader.
+    ;; if box contains #f, it means reader is closed:
+    ;;   (obj-reader-get) will return (values #<unspecified> #f)
+    ;;   and (obj-reader-eof?) will return true
+    close-box)
+  ;; (make-obj-reader get-proc close-proc)
   (protocol
     (lambda (new)
       (lambda (get-proc close-proc)
@@ -28,36 +33,54 @@
   (when close-proc
     (assert* 'make-obj-reader (procedure? close-proc))
     (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask close-proc))))
-  (new get-proc (box close-proc) #f))
+  (new get-proc (box (or close-proc void1))))
 
 
-;; call (get-proc rx) to generate one more value and return it.
+;; Close an obj-reader or subtype.
+;; Return unspecified value.
+;;
+;; Multiple calls to (obj-reader-close rx) on the same obj-reader are allowed,
+;; and are equivalent to a single call.
+;;
+;; After an obj-reader has been closed,
+;;  (obj-reader-get rx) will always return (values #<unspecified> #f) without calling its get-proc procedure,
+;;  and (obj-reader-eof? rx) will always return #t
+;;
+;; Implementation note: calls the close-proc stored in obj-reader at its creation,
+;; to release any resource held by the obj-reader.
+;; close-proc is guaranteed to be called at most once per obj-reader,
+;; even if (obj-reader-close rx) is called concurrently on the same object from multiple threads.
+(define (obj-reader-close rx)
+  (assert* 'obj-reader-close (obj-reader? rx))
+  (let* ((close-box  (obj-reader-close-box rx))
+         (close-proc (unbox close-box)))
+    (when (and close-proc (box-cas! close-box close-proc #f))
+      (close-proc rx))))
+
+
+;; return #t if obj-reader has been closed or reached eof, otherwise return #f.
+(define (obj-reader-eof? rx)
+  (assert* 'obj-reader-eof? (obj-reader? rx))
+  (not (unbox (obj-reader-close-box rx))))
+
+
+;; Generate one more element and return it.
 ;; each call will return two values:
-;;  either (values elem #t) i.e. the next generate value,
-;;  or (values #<unspecified> #f) when the reader is exhausted or after (obj-reader-close rx) has been called.
+;;  either (values elem #t) i.e. the next generated element,
+;;  or (values #<unspecified> #f) when the reader is exhausted or has been closed.
+;;
+;; Implementation note: if reader is closed, always returns (values #<unspecified> #f) without calling (get-proc rx).
+;; Otherwise calls (get-proc rx) to generate the next element.
+;; If (get-proc rx) returns (values #<unspecified> #f) i.e. is exhausted,
+;; this function will close the reader before returning such values.
 (define (obj-reader-get rx)
   (assert* 'obj-reader-get (obj-reader? rx))
   (if (obj-reader-eof? rx)
     (values #f #f)
     (let-values (((obj ok?) ((obj-reader-get-proc rx) rx)))
       (unless ok?
-        (obj-reader-eof?-set! rx #t))
+        (obj-reader-close rx))
       (values obj ok?))))
-
-
-;; call the close-proc stored in obj-reader at its creation,
-;; to release any resource held by the obj-reader.
-;; return unspecified value.
-;;
-;; further calls to (obj-reader-close rx) on the same rx have no effect, and do not call close-proc again.
-(define (obj-reader-close rx)
-  (assert* 'obj-reader-close (obj-reader? rx))
-  (obj-reader-eof?-set! rx #t)
-  (let* ((close-box  (obj-reader-close-box rx))
-         (close-proc (unbox close-box))
-         (consumed?  (and close-proc (box-cas! close-box close-proc #f))))
-    (when consumed?
-      (close-proc rx))))
 
 
 ;; create and return an obj-reader that generates always the same value.
@@ -119,7 +142,7 @@
                   (let ((elem (vector-ref v start)))
                     (set! start (fx1+ start))
                     (values elem #t))))))
-        (make-obj-reader %vector-reader #t)))
+        (make-obj-reader %vector-reader #f)))
     ((v)
       (vector-reader v 0 (vector-length v)))))
 
@@ -150,3 +173,17 @@
   (assert* 'in-reader (obj-reader? rx))
   (lambda ()
     (obj-reader-get rx)))
+
+
+;; Read all elements from specified obj-reader, collect them into a list, and return such list.
+(define (reader->list rx)
+  (let %reader->list ((rx rx) (l '()))
+    (let-values (((elem ok?) (obj-reader-get rx)))
+      (if ok?
+        (%reader->list rx (cons elem l))
+        (reverse! l)))))
+
+
+;; Read all elements from specified obj-reader, collect them into a vector, and return such vector.
+(define (reader->vector rx)
+  (list->vector (reader->list rx)))

@@ -11,7 +11,7 @@
   (export make-json-reader json-reader json-reader? json-reader-eof? json-reader-close json-reader-depth json-reader-restart
           make-json-writer json-writer json-writer? json-writer-eof? json-writer-close
 
-          json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value 
+          json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
           json-writer-put json-writer-put-token json-writer-put-value)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))

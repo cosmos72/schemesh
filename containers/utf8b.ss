@@ -21,8 +21,8 @@
     charspan->utf8b charspan->utf8b/0)
 
   (import
-    (rename (rnrs) (fxarithmetic-shift-left  fx<<)
-                   (fxarithmetic-shift-right fx>>))
+    (rename (rnrs)                         (fxarithmetic-shift-left  fx<<)
+                                           (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate!)

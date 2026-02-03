@@ -19,21 +19,19 @@
 #endif
 
 typedef enum {
-  c_vec_name        = 0,
-  c_vec_type        = 1,
-  c_vec_size        = 2,
-  c_vec_target      = 3,
-  c_vec_mode        = 4,
-  c_vec_accessed    = 5,
-  c_vec_modified    = 6,
-  c_vec_ino_changed = 7,
-  c_vec_user        = 8,
-  c_vec_group       = 9,
-  c_vec_uid         = 10,
-  c_vec_gid         = 11,
-  c_vec_inode       = 12,
-  c_vec_num_links   = 13,
-  c_vec_n           = 14,
+  c_vec_name,
+  c_vec_type,
+  c_vec_size,
+  c_vec_target,
+  c_vec_mode,
+  c_vec_accessed,
+  c_vec_modified,
+  c_vec_ino_changed,
+  c_vec_uid,
+  c_vec_gid,
+  c_vec_inode,
+  c_vec_num_links,
+  c_vec_n,
 } c_vec;
 
 enum {
@@ -45,8 +43,6 @@ enum {
   c_dir_flag_accessed    = 1 << c_vec_accessed,
   c_dir_flag_modified    = 1 << c_vec_modified,
   c_dir_flag_ino_changed = 1 << c_vec_ino_changed,
-  c_dir_flag_user        = 1 << c_vec_user,
-  c_dir_flag_group       = 1 << c_vec_group,
   c_dir_flag_uid         = 1 << c_vec_uid,
   c_dir_flag_gid         = 1 << c_vec_gid,
   c_dir_flag_inode       = 1 << c_vec_inode,
@@ -211,37 +207,6 @@ static void fillTime(ptr vec, unsigned i, unsigned flag, const struct timespec* 
 }
 #endif /* __APPLE__ */
 
-static void fillUserAndGroup(ptr vec, unsigned flags, uid_t uid, gid_t gid) {
-#ifdef NSS_BUFLEN_GROUP
-  char namebuf[NSS_BUFLEN_GROUP];
-#else
-  char namebuf[1024];
-#endif /* NSS_BUFLEN_GROUP */
-
-  if (flags & c_dir_flag_user) {
-    struct passwd  pbuf;
-    struct passwd* pwd = NULL;
-
-    if (getpwuid_r(uid, &pbuf, namebuf, sizeof(namebuf), &pwd) == 0 && pwd != NULL) {
-      Svector_set(vec, c_vec_user, scheme2k_Sstring_utf8b(pwd->pw_name, -1));
-    }
-  }
-  if (flags & c_dir_flag_group) {
-    struct group  gbuf;
-    struct group* grp = NULL;
-
-    if (getgrgid_r(gid, &gbuf, namebuf, sizeof(namebuf), &grp) == 0 && grp != NULL) {
-      Svector_set(vec, c_vec_group, scheme2k_Sstring_utf8b(grp->gr_name, -1));
-    }
-  }
-  if (flags & c_dir_flag_uid) {
-    Svector_set(vec, c_vec_uid, Sinteger(uid));
-  }
-  if (flags & c_dir_flag_gid) {
-    Svector_set(vec, c_vec_gid, Sinteger(gid));
-  }
-}
-
 static ptr c_dir_open(ptr path) {
   DIR*        dir;
   const char* path0;
@@ -267,6 +232,7 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   struct stat    st;
   struct dirent* entry;
   iptr           vec_n;
+  int            dir_fd;
   c_type         type = c_type_unknown;
 
   if (!dir || !Svectorp(vec)) {
@@ -298,7 +264,9 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
 #endif
   }
 
-  if (lstat(entry->d_name, &st) < 0) {
+  dir_fd = dirfd((DIR*)dir);
+
+  if (dir_fd < 0 || fstatat(dir_fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
     /* only a few fields can be filled */
     iptr i;
     if (flags & c_dir_flag_type) {
@@ -312,7 +280,7 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
     return 1;
   }
 
-  /* lstat() is successful, fill all fields */
+  /* fstatat() is successful, fill all fields */
 
   if (flags & c_dir_flag_type) {
     if (type == c_type_unknown) {
@@ -328,11 +296,15 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   }
 
   if ((flags & c_dir_flag_target)) {
-    ptr target = Sfalse;
-    if (type == c_type_lnk) {
+    ptr target;
+    if (type != c_type_lnk) {
+      target = Sfalse; /* not a symlink */
+    } else {
       char    buf[PATH_MAX];
-      ssize_t len = readlink(entry->d_name, buf, sizeof(buf));
-      if (len > 0) {
+      ssize_t len = readlinkat(dir_fd, entry->d_name, buf, sizeof(buf));
+      if (len <= 0) {
+        target = Svoid; /* failed to read symlink */
+      } else {
         /* link target can be arbitrary bytes, not only valid UTF-8 */
         target = scheme2k_Sstring_utf8b(buf, len);
       }
@@ -349,8 +321,12 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, &(st.st_ctim));
 #endif
 
-  fillUserAndGroup(vec, flags, st.st_uid, st.st_gid);
-
+  if (flags & c_dir_flag_uid) {
+    Svector_set(vec, c_vec_uid, Sinteger(st.st_uid));
+  }
+  if (flags & c_dir_flag_gid) {
+    Svector_set(vec, c_vec_gid, Sinteger(st.st_gid));
+  }
   if (flags & c_dir_flag_inode) {
     Svector_set(vec, c_vec_inode, Sunsigned64(st.st_ino));
   }

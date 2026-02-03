@@ -21,6 +21,7 @@
     (only (scheme2k lineedit paren) paren-name)
     (scheme2k lineedit parser)
     (only (scheme2k posix fd)       c-hostname)
+    (only (scheme2k posix fs)       uid->username)
     (schemesh parser)
     (schemesh shell autocomplete)
     (schemesh shell job))
@@ -74,12 +75,10 @@
     (lambda ()
       ret)))
 
-(define uid->username (foreign-procedure "c_get_username" (int) ptr))
-
 (define c-username
   (let ((c-username-value (uid->username (current-euid))))
     (lambda ()
-      (if (string? c-username)
+      (if (string? c-username-value)
         c-username-value
         (sh-env-ref #t "USER")))))
 

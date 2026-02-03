@@ -11,6 +11,9 @@
   (export ;; repl/answers.ss
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
+          ;; repl/easy.ss
+          all close dir eof? get put stdin stdout
+
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
           repl-lineedit repl-parse repl-print
@@ -21,29 +24,34 @@
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
-    (only (chezscheme)
-        abort base-exception-handler break-handler console-input-port console-output-port
-        console-error-port default-exception-handler display-condition eval exit-handler fx1+
-        include inspect make-parameter parameterize pretty-print read-token reset reset-handler void)
-    (scheme2k bootstrap)
+    (only (chezscheme)  abort base-exception-handler break-handler bytevector-truncate! console-input-port console-output-port
+                        console-error-port default-exception-handler display-condition eval exit-handler fx1+
+                        include inspect make-parameter parameterize pretty-print read-token reset reset-handler void)
+          (scheme2k bootstrap)
+    (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers list) for-list)
-    (scheme2k containers span)
+          (scheme2k containers span)
+          (scheme2k lineedit lineedit)
+    (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get
+                                     obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
+                                     reader->list)
+    (only (scheme2k io json)         make-json-reader make-json-writer)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!)
-    (scheme2k lineedit lineedit)
-    (schemesh parser)
-    (only (scheme2k posix fs)        file-type)
-    (scheme2k posix signal)
-    (scheme2k posix tty)
+    (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-write-all)
+    (only (scheme2k posix fs)        file-type make-dir-reader)
+          (scheme2k posix signal)
+          (scheme2k posix tty)
+          (schemesh parser)
     (only (schemesh shell)
-       repl-args repl-args-linectx repl-restart repl-restart?
-       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
-       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
-       repl-history sh-make-linectx sh-schemesh-reload-count
-       sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/))
+       repl-args repl-args-linectx repl-history repl-restart repl-restart?
+       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
+       sh-exception-handler sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
+       sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/))
 
 
 (include "repl/answers.ss")
+(include "repl/easy.ss")
 
 
 ;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them

@@ -34,13 +34,13 @@
     make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close
     make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
 
-    in-reader constant-reader empty-reader list-reader sequence-reader vector-reader
+    in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector
     discard-writer full-writer list-writer)
   (import
     (rnrs)
     (only (chezscheme)                    box box-cas! fx1+ include logbit? procedure-arity-mask
                                           record-type-descriptor record-writer reverse! unbox void)
-    (only (scheme2k bootstrap)            assert* forever fx<=?* raise-errorf))
+    (only (scheme2k bootstrap)            assert* forever fx<=?* raise-errorf void1))
 
 
 (include "io/obj/reader.ss")
