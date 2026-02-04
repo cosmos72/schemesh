@@ -664,6 +664,86 @@ static ptr c_fxvector_equal(ptr src1, iptr src1_start, ptr src2, iptr src2_start
   return Sfalse;
 }
 
+/******************************************************************************/
+/****************************** date functions ********************************/
+/******************************************************************************/
+
+static uint8_t min_uint8(uint8_t a, uint8_t b) {
+  return a < b ? a : b;
+}
+
+static uint32_t min_uint32(uint32_t a, uint32_t b) {
+  return a < b ? a : b;
+}
+
+static char* put_year(char* end, int32_t year) {
+  int yneg = year < 0;
+  /* work with negative years: wider range */
+  if (!yneg) {
+    year = -year;
+  }
+  for (int i = 1; i <= 4 || year != 0; i++) {
+    *--end = -(year % 10) + '0';
+    year /= 10;
+  }
+  if (yneg) {
+    *--end = '-';
+  }
+  return end;
+}
+
+static char* put_9digits(char* end, char prefix, uint32_t digits) {
+  for (int i = 1; i <= 9; i++) {
+    end[-i] = (digits % 10) + '0';
+    digits /= 10;
+  }
+  end[-10] = prefix;
+  return end - 10;
+}
+
+static char* put_2digits(char* end, char prefix, uint8_t digits) {
+  end[-1] = (digits % 10) + '0';
+  end[-2] = (digits / 10) + '0';
+  end[-3] = prefix;
+  return end - 3;
+}
+
+static ptr c_date_to_string(int32_t  year,
+                            uint8_t  month,
+                            uint8_t  day,
+                            uint8_t  hour,
+                            uint8_t  minute,
+                            uint8_t  second,
+                            uint32_t nanosecond,
+                            int32_t  tz_second) {
+  /* longest RFC 3339 date representable with 32-bit signed year is 42 bytes:
+   * "-2147483648-31-12:23:59:59.123456789+23:59" */
+  char  buf[42];
+  char* end = buf + sizeof(buf);
+
+  if (tz_second == 0) {
+    *--end = 'Z';
+  } else {
+    int      tz_neg    = tz_second < 0;
+    int      tz_abs    = tz_neg ? -tz_second : tz_second;
+    unsigned tz_minute = tz_abs / 60;
+    unsigned tz_hour   = tz_minute / 60;
+    tz_minute -= tz_hour * 60;
+    end = put_2digits(end, ':', tz_minute);
+    end = put_2digits(end, (tz_neg ? '-' : '+'), min_uint8(tz_hour, 24));
+  }
+  if (nanosecond != 0) {
+    end = put_9digits(end, '.', min_uint32(nanosecond, 999999999));
+  }
+  end = put_2digits(end, ':', min_uint8(second, 62)); /* allow leap seconds */
+  end = put_2digits(end, ':', min_uint8(minute, 59));
+  end = put_2digits(end, 'T', min_uint8(hour, 59));
+  end = put_2digits(end, '-', min_uint8(day, 31));
+  end = put_2digits(end, '-', min_uint8(month, 12));
+  end = put_year(end, year);
+  return Sstring_of_length(end, buf + sizeof(buf) - end);
+}
+
 void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
@@ -684,4 +764,6 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_fxvector_copy", &c_fxvector_copy);
   Sregister_symbol("c_fxvector_compare", &c_fxvector_compare);
   Sregister_symbol("c_fxvector_equal", &c_fxvector_equal);
+
+  Sregister_symbol("c_date_to_string", &c_date_to_string);
 }

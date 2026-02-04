@@ -14,7 +14,8 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) date-year date-month date-day date-hour date-minute date-second date-nanosecond
-                       date-zone-name date-zone-offset fx/ fx1+ make-date record-rtd record-writer string-copy!))
+                       date-zone-name date-zone-offset
+                       foreign-procedure fx/ fx1+ make-date record-rtd record-writer string-copy!))
 
 
 ;; create and return a date with specified fields.
@@ -41,91 +42,16 @@
       (make-date nanosecond second minute hour day month year))))
 
 
-(define (date->string-length yneg ylen nanos tzmin)
-  (fx+ (fx+ (if yneg 1 0)
-            (fxmax 4 ylen))
-       (fx+ 15
-            (fx+ (if (fxzero? nanos) 0 10)
-                 (if (fxzero? tzmin) 1 6)))))
+(define date->string
+  (let ((c-date->string (foreign-procedure "c_date_to_string" (integer-32 unsigned-8 unsigned-8
+                                                               unsigned-8 unsigned-8 unsigned-8
+                                                               unsigned-32 integer-32) ptr)))
+    (lambda (d)
+      (c-date->string (date-year d) (date-month d)  (date-day d)
+                      (date-hour d) (date-minute d) (date-second d)
+                      (date-nanosecond d) (date-zone-offset d)))))
 
 
-(define (put-year buf yneg ystr ylen)
-  (when yneg
-    (string-set! buf 0 #\-))
-  (let ((pos (fx+ (if yneg 1 0)
-                  (fxmax 0 (fx- 4 ylen)))))
-   (string-copy! ystr 0 buf pos ylen)
-   (fx+ pos ylen)))
-
-
-(define (put-2digits buf pos ch digits)
-  (string-set! buf pos ch)
-  (let-values (((tens units) (fxdiv-and-mod digits 10)))
-    (string-set! buf (fx1+ pos) (integer->char (fx+ tens 48)))
-    (string-set! buf (fx+ 2 pos) (integer->char (fx+ units 48))))
-  (fx+ 3 pos))
-
-
-(define (put-3digits buf pos digits)
-  (let*-values (((tens    units) (fxdiv-and-mod digits 10))
-                ((hundreds tens) (fxdiv-and-mod tens   10)))
-    (string-set! buf      pos  (integer->char (fx+ hundreds 48)))
-    (string-set! buf (fx1+ pos) (integer->char (fx+ tens 48)))
-    (string-set! buf (fx+ 2 pos) (integer->char (fx+ units 48))))
-  (fx+ 3 pos))
-
-
-(define (put-9digits buf pos digits)
-  (let*-values (((millions  units) (fxdiv-and-mod digits 1000000))
-                ((thousands units) (fxdiv-and-mod units 1000)))
-    (let* ((pos (put-3digits buf pos millions))
-           (pos (put-3digits buf pos thousands))
-           (pos (put-3digits buf pos units)))
-      pos)))
-  
-
-(define (put-nanos buf pos ch nanos)
-  (if (fxzero? nanos)
-    pos
-    (begin
-      (string-set! buf pos ch)
-      (put-9digits buf (fx1+ pos) nanos))))
-
-
-(define (put-tz buf pos tzmin)
-  (cond
-    ((fxzero? tzmin)
-      (string-set! buf pos #\Z)
-      (fx1+ pos))
-    (else
-      (let* ((tzneg (fx<? tzmin 0))
-             (tzabs (if tzneg (- tzmin) tzmin)))
-        (let-values (((tzhour tzmin) (div-and-mod tzabs 60)))
-          (let* ((pos (put-2digits buf pos (if tzneg #\- #\+) tzhour))
-                 (pos (put-2digits buf pos #\: tzmin)))
-            pos))))))
-  
-
-;; convert a date to RFC 3339 string, which is stricter than ISO 8601
-(define (date->string d)
-  (let* ((year  (date-year d))
-         (yneg  (< year 0))
-         (ystr  (number->string (if yneg (- year) year))) ; TODO: slow and allocates a lot
-         (ylen  (string-length ystr))
-         (nanos (date-nanosecond d))
-         (tzmin (fx/ (fx+ (date-zone-offset d) 30) 60))
-         (buf   (make-string (date->string-length yneg ylen nanos tzmin) #\0))
-         (pos   (put-year    buf yneg ystr ylen))
-         (pos   (put-2digits buf pos #\- (date-month d)))
-         (pos   (put-2digits buf pos #\- (date-day d)))
-         (pos   (put-2digits buf pos #\T (date-hour d)))
-         (pos   (put-2digits buf pos #\: (date-minute d)))
-         (pos   (put-2digits buf pos #\: (date-second d)))
-         (pos   (put-nanos   buf pos #\. nanos)))
-    (put-tz buf pos tzmin)
-    buf))
-  
-    
 ;; convert a date from RFC 3339 string, which is stricter than ISO 8601
 (define (string->date str)
   ;; TODO
