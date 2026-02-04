@@ -53,9 +53,8 @@
 
 
 ;; convert a date from RFC 3339 string, which is stricter than ISO 8601
-(define (string->date str)
-  ;; TODO
-  str)
+;; TODO finish implementing
+(define string->date (foreign-procedure "c_string_to_date" (ptr ptr) int))
 
 
 ;; customize how "date" objects are printed

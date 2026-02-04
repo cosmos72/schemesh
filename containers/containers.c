@@ -676,36 +676,37 @@ static uint32_t min_uint32(uint32_t a, uint32_t b) {
   return a < b ? a : b;
 }
 
-static char* put_year(char* end, int32_t year) {
-  int yneg = year < 0;
-  /* work with negative years: wider range */
-  if (!yneg) {
-    year = -year;
-  }
-  for (int i = 1; i <= 4 || year != 0; i++) {
-    *--end = -(year % 10) + '0';
-    year /= 10;
-  }
-  if (yneg) {
-    *--end = '-';
-  }
-  return end;
+static iptr min_iptr(iptr a, iptr b) {
+  return a < b ? a : b;
 }
 
-static char* put_9digits(char* end, char prefix, uint32_t digits) {
+static char* put_year(char* pos, int32_t year) {
+  /* work with unsigned years: wider range */
+  unsigned y = year < 0 ? (unsigned)-year : (unsigned)year;
+  for (unsigned i = 1; i <= 4 || y != 0; i++) {
+    *--pos = (y % 10) + '0';
+    y /= 10;
+  }
+  if (year < 0) {
+    *--pos = '-';
+  }
+  return pos;
+}
+
+static char* put_9digits(char* pos, char prefix, uint32_t digits) {
   for (int i = 1; i <= 9; i++) {
-    end[-i] = (digits % 10) + '0';
+    pos[-i] = (digits % 10) + '0';
     digits /= 10;
   }
-  end[-10] = prefix;
-  return end - 10;
+  pos[-10] = prefix;
+  return pos - 10;
 }
 
-static char* put_2digits(char* end, char prefix, uint8_t digits) {
-  end[-1] = (digits % 10) + '0';
-  end[-2] = (digits / 10) + '0';
-  end[-3] = prefix;
-  return end - 3;
+static char* put_2digits(char* pos, char prefix, uint8_t digits) {
+  pos[-1] = (digits % 10) + '0';
+  pos[-2] = (digits / 10) + '0';
+  pos[-3] = prefix;
+  return pos - 3;
 }
 
 static ptr c_date_to_string(int32_t  year,
@@ -719,29 +720,167 @@ static ptr c_date_to_string(int32_t  year,
   /* longest RFC 3339 date representable with 32-bit signed year is 42 bytes:
    * "-2147483648-31-12:23:59:59.123456789+23:59" */
   char  buf[42];
-  char* end = buf + sizeof(buf);
+  char* pos = buf + sizeof(buf);
 
   if (tz_second == 0) {
-    *--end = 'Z';
+    *--pos = 'Z';
   } else {
     int      tz_neg    = tz_second < 0;
     int      tz_abs    = tz_neg ? -tz_second : tz_second;
     unsigned tz_minute = tz_abs / 60;
     unsigned tz_hour   = tz_minute / 60;
     tz_minute -= tz_hour * 60;
-    end = put_2digits(end, ':', tz_minute);
-    end = put_2digits(end, (tz_neg ? '-' : '+'), min_uint8(tz_hour, 24));
+    pos = put_2digits(pos, ':', tz_minute);
+    pos = put_2digits(pos, (tz_neg ? '-' : '+'), min_uint8(tz_hour, 24));
   }
   if (nanosecond != 0) {
-    end = put_9digits(end, '.', min_uint32(nanosecond, 999999999));
+    pos = put_9digits(pos, '.', min_uint32(nanosecond, 999999999));
   }
-  end = put_2digits(end, ':', min_uint8(second, 62)); /* allow leap seconds */
-  end = put_2digits(end, ':', min_uint8(minute, 59));
-  end = put_2digits(end, 'T', min_uint8(hour, 59));
-  end = put_2digits(end, '-', min_uint8(day, 31));
-  end = put_2digits(end, '-', min_uint8(month, 12));
-  end = put_year(end, year);
-  return Sstring_of_length(end, buf + sizeof(buf) - end);
+  pos = put_2digits(pos, ':', min_uint8(second, 62)); /* allow leap seconds */
+  pos = put_2digits(pos, ':', min_uint8(minute, 59));
+  pos = put_2digits(pos, 'T', min_uint8(hour, 59));
+  pos = put_2digits(pos, '-', min_uint8(day, 31));
+  pos = put_2digits(pos, '-', min_uint8(month, 12));
+  pos = put_year(pos, year);
+  return Sstring_of_length(pos, buf + sizeof(buf) - pos);
+}
+
+typedef struct {
+  iptr     offset;
+  uint32_t value;
+} atod_result;
+
+static int consume_char(ptr str, char ch, atod_result* res, iptr end) {
+  iptr offset = res->offset;
+  if (offset < end && Sstring_ref(str, offset) == (unsigned char)ch) {
+    res->offset = offset + 1;
+    return 1; /* ok */
+  }
+  return 0; /* error */
+}
+
+static int parse_uint32(ptr str, char prefix, atod_result* res, iptr end) {
+  iptr     offset;
+  uint32_t value;
+
+  if (prefix && !consume_char(str, prefix, res, end)) {
+    return 0; /* error */
+  }
+  value = 0;
+  for (offset = res->offset; offset < end; ++offset) {
+    string_char ch = Sstring_ref(str, offset);
+    if (ch < (uint8_t)'0' || ch > (uint8_t)'9') {
+      break;
+    }
+    value = value * 10 + (ch - '0');
+  }
+  if (res->offset == offset) {
+    /* no digits parsed */
+    return 0; /* error */
+  }
+  res->offset = offset;
+  res->value  = value;
+  return 1; /* ok */
+}
+
+static int c_string_to_date(ptr str, ptr bvec) {
+  atod_result res;
+  octet*      addr;
+  iptr        end;
+  uint8_t     yneg;
+  uint8_t     tz_neg;
+
+  if (!Sstringp(str) || (end = Sstring_length(str)) < 10 || /*        */
+      !Sbytevectorp(bvec) || Sbytevector_length(bvec) != 20) {
+    return -1;
+  }
+  addr       = Sbytevector_data(bvec);
+  res.offset = yneg = (Sstring_ref(str, 0) == '-');
+
+  /* parse year */
+  if (parse_uint32(str, '\0', &res, min_iptr(res.offset + 9, end))) {
+    int32_t year = yneg ? -(int32_t)res.value : (int32_t)res.value;
+    memcpy(addr, &year, 4);
+  } else {
+    return -1;
+  }
+
+  /* parse month */
+  if (!parse_uint32(str, '-', &res, min_iptr(res.offset + 3, end))) {
+    return -1;
+  }
+  addr[4] = (uint8_t)res.value;
+
+  /* parse day */
+  if (!parse_uint32(str, '-', &res, min_iptr(res.offset + 3, end))) {
+    return -1;
+  }
+  addr[5] = (uint8_t)res.value;
+
+  if (consume_char(str, 'T', &res, end)) {
+    /* parse hour */
+    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 2, end))) {
+      return -1;
+    }
+    addr[6] = (uint8_t)res.value;
+
+    /* parse minute */
+    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end))) {
+      return -1;
+    }
+    addr[7] = (uint8_t)res.value;
+
+    /* parse second */
+    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end))) {
+      return -1;
+    }
+    addr[8] = (uint8_t)res.value;
+  } else {
+    addr[8] = addr[7] = addr[6] = 0;
+  }
+
+  if (consume_char(str, '.', &res, end)) {
+    /* parse nanosecond */
+    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 9, end))) {
+      return -1;
+    }
+    memcpy(addr + 12, &res.value, 4);
+  } else {
+    memset(addr + 12, 0, 4);
+  }
+
+  if ((tz_neg = 0, consume_char(str, '+', &res, end)) || /*            */
+      (consume_char(str, '-', &res, end) && (tz_neg = 1))) {
+
+    int32_t tz_second;
+    uint8_t tz_hour, tz_minute;
+
+    /* parse tz_hour */
+    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 2, end)) ||
+        (tz_hour = (uint8_t)res.value) > 24) {
+      return -1;
+    }
+
+    /* parse tz_minute */
+    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end)) ||
+        (tz_minute = (uint8_t)res.value) > 59) {
+      return -1;
+    }
+    tz_second = (int32_t)tz_hour * 3600 + (int32_t)tz_minute * 60;
+    if (tz_neg) {
+      tz_second = -tz_second;
+    }
+    memcpy(addr + 16, &tz_second, 4);
+
+  } else if (consume_char(str, 'Z', &res, end)) {
+    /* 'Z' means UTC */
+    memset(addr + 16, 0, 4);
+  }
+  if (res.offset != end) {
+    return -1;
+  }
+  /* consumed all characters */
+  return 0;
 }
 
 void scheme2k_register_c_functions_containers(void) {
@@ -766,4 +905,5 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_fxvector_equal", &c_fxvector_equal);
 
   Sregister_symbol("c_date_to_string", &c_date_to_string);
+  Sregister_symbol("c_string_to_date", &c_string_to_date);
 }
