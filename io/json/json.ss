@@ -20,6 +20,7 @@
     (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
     (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
                                           bytespan-length bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
+    (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add plist-ref)
     (only (scheme2k containers ordered-hash) ordered-hash-cursor)

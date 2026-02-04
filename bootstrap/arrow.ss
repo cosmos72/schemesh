@@ -16,7 +16,7 @@
 
 
 ;; scan template for '_ and replace '_ with item.
-;; if template contains no '_ then append item to template.
+;; if template contains no '_ then insert item into template as first argument
 ;;
 ;; return template, modified in-place
 (define (replace_! item template)
@@ -25,12 +25,13 @@
       (begin
         (set-car! place item)
         template)
-      (append! template (list item)))))
+      (cons (car template) (cons item (cdr template))))))
+
 
 
 ;; helper function used by expand==>
 ;;
-;; traverse list, find first element eq? to '==> or '?=> and return two values:
+;; traverse list, find first element eq? to '=> or '?=> and return two values:
 ;;  its position in the list and the symbol found,
 ;;  or #f #f if no such element was found
 (define (scan=> l)
@@ -44,7 +45,7 @@
         (%scan=> (cdr l) (fx1+ pos))))))
 
 
-;; expand (==> head rest)
+;; expand (=> head rest)
 (define (compose=> head rest)
   (let-values (((pos sym) (scan=> rest)))
     (if pos

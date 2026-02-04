@@ -13,27 +13,44 @@
 (define-record-type (json-writer %make-json-writer json-writer?)
   (parent obj-writer)
   (fields
-    out                   ; textual input port
-    (mutable rtd-cache)   ; #f or eq-hashtable
+    out                   ; textual output port
+    (mutable cache)       ; #f or eq-hashtable rtd -> record-info, set in construction or created lazily
     (mutable prologue?)   ; #t before first call to any (json-writer-put...) function
-    (mutable epilogue?))  ; #t if we should write #\] before closing the port
+    (mutable epilogue?)   ; #t if we should write #\] before closing the port
+    close-out?)           ; boolean, #t if closing the json-writer must close the underlying textual output port
   (protocol
     (lambda (args->new)
-      (lambda (out)
+      (lambda (out close-out? cache)
         ((args->new %json-writer-put %json-writer-close)
-          out #f #t #f))))
-  (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+          out #f #t #f (and close-out? #t)))))
+  (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
+;; Create a json-writer that, at each call to one of
+;;   (obj-writer-put) (json-writer-put) (json-writer-put-value) or (json-writer-put-token),
+;; serializes the received data in streaming mode,
+;; and writes it to the underlying textual output port.
+;;
+;; Note: as per obj-writer contract, by default closing a json-writer does NOT close the underlying textual output port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a json-writer should take ownership of the textual output port passed to the constructor,
+;; then the optional argument close-out? must be truish.
+;;
+;; Optional argument cache must be #f or a a possibly empty eq-hashtable containing rtd -> record-info
 (define make-json-writer
   (case-lambda
-    ((out)
+    ((out close-out? cache)
       (assert* 'make-json-writer (port? out))
       (assert* 'make-json-writer (textual-port? out))
       (assert* 'make-json-writer (output-port? out))
-      (%make-json-writer out))
+      (%make-json-writer out close-out? cache))
+    ((out close-out?)
+      (make-json-writer out close-out? #f))
+    ((out)
+      (make-json-writer out #f #f))
     (()
-      (make-json-writer (current-output-port)))))
+      (make-json-writer (current-output-port) #f #f))))
 
 
 (define (json-writer-eof? tx)
@@ -53,8 +70,10 @@
       (put-string out "]\n")
       (json-writer-epilogue?-set! tx #f)
       (json-writer-prologue?-set! tx #t))
-    (unless (port-closed? out)
-      (close-port out))))
+    ;; close out only if json-writer constructor was called with truish close-out?
+    (if (json-writer-close-out? tx)
+      (close-port out)
+      (flush-output-port out))))
 
 
 (define (write/string out str)
@@ -282,17 +301,17 @@
     (put-char out #\})))
 
 
-(define (ensure-rtd-cache tx)
-  (or (json-writer-rtd-cache tx)
-      (let ((rtd-cache (make-eq-hashtable)))
-        (json-writer-rtd-cache-set! tx rtd-cache)
-        rtd-cache)))
+(define (ensure-cache tx)
+  (or (json-writer-cache tx)
+      (let ((cache (make-eq-hashtable)))
+        (json-writer-cache-set! tx cache)
+        cache)))
 
 
 (define (put/record tx obj)
-  (let* ((rtd-cache (ensure-rtd-cache tx))
-         (iter      (json-field-cursor obj rtd-cache))
-         (out       (json-writer-out tx)))
+  (let* ((cache  (ensure-cache tx))
+         (iter   (json-field-cursor obj cache))
+         (out    (json-writer-out tx)))
     (put-char out #\{)
     (do ((first? #t #f)
          (cell   (field-cursor-next! iter) (field-cursor-next! iter)))

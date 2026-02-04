@@ -120,21 +120,22 @@
               (open-bytevector-input-port #vu8(9 10 13 32)))))
     (second-value (json-reader-get rx)))                #f
 
+
+  ;; json-reader-get-value returns the next element, no matter if it's aggregate or not
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
                   ;; we parse json numbers as inexact only if number contains "e..."
                   "[1, 2.3, 2.3e0, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
-    (let*-values (((obj1 ok1) (json-reader-get rx))
-                  ((obj2 ok2) (json-reader-get rx))
-                  ((obj3 ok3) (json-reader-get rx))
-                  ((obj4 ok4) (json-reader-get rx))
-                  ((obj5 ok5) (json-reader-get rx))
-                  ((obj6 ok6) (json-reader-get rx))
-                  ((obj7 ok7) (json-reader-get rx))
-                  ((obj8 ok8) (json-reader-get rx)))
-      (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4 obj5 ok5
-            obj6 ok6 obj7 ok7 #|obj8|# ok8)))           (1 #t 23/10 #t 2.3 #t #t #t #f #t (a "\x20ac;") #t "foo" #t #f)
+    (let* ((obj1        (json-reader-get-value rx))
+           (obj2 (begin (json-reader-restart rx)
+                        (json-reader-get-value rx)))
+           (obj3 (begin (json-reader-restart rx)
+                        (json-reader-get-value rx)))
+           (obj4        (json-reader-get-value rx)))
+      (list (span? obj1) obj1 obj2 obj3
+            (eof-object? obj4))))                       ,(#t (span 1 23/10 2.3 #t #f) (a "\x20ac;") "foo" #t)
+
 
   (with-output-to-string
     (lambda ()
@@ -151,6 +152,33 @@
               (loop rx tx))
             (else
               (json-writer-close tx)))))))              "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
+
+  ;; json-reader-get looks inside top-level arrays and returns their elements one by one.
+  (let ((rx (make-json-reader
+              (open-bytevector-input-port
+                (string->utf8b
+                  ;; we parse json numbers as inexact only if number contains "e..."
+                  "[1, 2.3, 2.3e0, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
+    (let*-values (((obj1 ok1) (json-reader-get rx))
+                  ((obj2 ok2) (json-reader-get rx))
+                  ((obj3 ok3) (json-reader-get rx))
+                  ((obj4 ok4) (json-reader-get rx))
+                  ((obj5 ok5) (json-reader-get rx))
+                  ((obj6 ok6) (json-reader-get rx))
+                  ((obj7 ok7) (json-reader-get rx))
+                  ((obj8 ok8) (json-reader-get rx)))
+      (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4 obj5 ok5
+            obj6 ok6 obj7 ok7 #|obj8|# ok8)))           (1 #t 23/10 #t 2.3 #t #t #t #f #t (a "\x20ac;") #t "foo" #t #f)
+
+  ;; json-reader-get also looks inside json objects (at any depth) for key "@type" and,
+  ;; if the value is registered into json's internal record-info-table,
+  ;; calls the registered constructor passing as the only argument the json object, converted to a plist.
+  (let ((rx (make-json-reader
+              (open-bytevector-input-port
+                (string->utf8b
+                  "[{\"@type\":\"time-utc\",\"value\":1770224910.283978890}]")))))
+    (let-values (((obj ok) (json-reader-get rx)))
+      (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
   ;; ---------------------------- lineedit io ----------------------------------
   (read

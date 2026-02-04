@@ -11,7 +11,7 @@
   (export
     for-glob in-glob sh-include sh-include*
     shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard
-    with-fd with-port with-resource with-parameterized-resource)
+    with-fd with-port with-sh-resource with-parameterized-resource)
   (import
     (rnrs)
     (only (chezscheme)                 datum format fx1- meta parameterize reverse! void)
@@ -262,7 +262,9 @@
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (close expr-value) ...
 ;; even if body ... raises a condition or calls a continuation
-(define-syntax with-resource
+;;
+;; If used from a sh-expr, (close expr-value) ... will be called when job finishes.
+(define-syntax with-sh-resource
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
@@ -316,7 +318,7 @@
     ((_ () body ...)
       (begin^ body ...))
     ((_ ((var expr) ...) body ...)
-      (with-resource ((var expr fd-close) ...) body ...))))
+      (with-sh-resource ((var expr fd-close) ...) body ...))))
 
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (close-port var) ...,
@@ -326,7 +328,7 @@
     ((_ () body ...)
       (begin^ body ...))
     ((_ ((var expr) ...) body ...)
-      (with-resource ((var expr close-port) ...) body ...))))
+      (with-sh-resource ((var expr close-port) ...) body ...))))
 
 
 ) ; close library

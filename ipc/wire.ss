@@ -33,46 +33,79 @@
   (parent obj-reader)
   (fields
     in-box              ; box containing one of: #f, or read fd, or binary input port
-    rbuf)               ; #f or bytespan, read buffer
+    rbuf                ; #f or bytespan, read buffer
+    close-in?)          ; boolean, #t if closing the wire-reader must close in.
   (protocol
     (lambda (args->new)
-      (lambda (in-box rbuf)
+      (lambda (in-box rbuf close-in?)
         ((args->new %wire-reader-get %wire-reader-close)
-          in-box rbuf))))
-  (nongenerative wire-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+          in-box rbuf (and close-in? #t)))))
+  (nongenerative wire-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define-record-type (wire-writer %make-wire-writer wire-writer?)
   (parent obj-writer)
   (fields
     out-box             ; box containing one of: #f, or write fd, or binary output port
-    wbuf)               ; #f or bytespan, write buffer
+    wbuf                ; #f or bytespan, write buffer
+    close-out?)         ; boolean, #t if closing the wire-writer must close out.
   (protocol
     (lambda (args->new)
-      (lambda (out-box wbuf)
+      (lambda (out-box wbuf close-out?)
         ((args->new %wire-writer-put %wire-writer-close)
-          out-box wbuf))))
-  (nongenerative wire-writer-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+          out-box wbuf (and close-out? #t)))))
+  (nongenerative wire-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
-;; create and return a wire-reader.
-;; argument in must be one of:
+;; Create and return a wire-reader that, at each call to
+;;   (obj-reader-get) or (wire-reader-get)
+;; reads some bytes from the underlying file descriptor or binary input port,
+;; parses the bytes and returns the deserialized data.
+;;
+;; Constructor argument in must be one of:
 ;;   a fixnum >= 0, indicating the file descriptor to read from
 ;;   a binary input port
 ;;   #f, indicating that wire-reader reached end-of-file
-(define (make-wire-reader in)
-  (%validate-in in)
-  (%make-wire-reader (box in) (and in (bytespan))))
+;;
+;; Note: as per obj-reader contract, by default closing a wire-reader does NOT close
+;; the underlying file descriptor or binary input port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a wire-reader should take ownership of the file descriptor or binary input port
+;; passed to the constructor, then pass a truish value as the optional argument close-in?
+(define make-wire-reader
+  (case-lambda
+    ((in close-in?)
+      (%validate-in in)
+      (%make-wire-reader (box in) (and in (bytespan)) close-in?))
+    ((in)
+      (make-wire-reader in #f))))
 
 
-;; create and return a wire-writer.
-;; argument out must be one of:
+
+;; Create and return a wire-writer that, at each call to
+;;   (obj-writer-put) or (wire-writer-put)
+;; serializes the received data into bytes, and writes such bytes;;
+;; to the underlying file descriptor or binary output port.
+;;
+;; Constructor argument out must be one of:
 ;;   a fixnum >= 0, indicating the file descriptor to write to
 ;;   a binary output port
 ;;   #f, indicating that wire-writer is closed
-(define (make-wire-writer out)
-  (%validate-out out)
-  (%make-wire-writer (box out) (and out (bytespan))))
+;;
+;; Note: as per obj-writer contract, by default closing a wire-writer does NOT close
+;; the underlying file descriptor or binary output port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a wire-writer should take ownership of the file descriptor or binary output port
+;; passed to the constructor, then pass a truish value as the optional argument close-out?
+(define make-wire-writer
+  (case-lambda
+    ((out close-out?)
+      (%validate-out out)
+      (%make-wire-writer (box out) (and out (bytespan)) close-out?))
+    ((out)
+      (make-wire-writer out #f))))
 
 
 (define (%validate-in in)
@@ -106,10 +139,13 @@
 ;; create and return a wire-reader and a wire-writer:
 ;;   the wire-reader reads serialized data from the read side of a newly created pipe file descriptor,
 ;;   the wire-writer writes serialized data to the write side of the same pipe (which is a different file descriptor).
+;;
+;; the returned wire-reader and wire-writer take ownership of the created pipe file descriptors,
+;; and closing one of them closes the corresponding pipe file descriptor.
 (define (wire-pipe-pair)
   (let-values (((in out) (pipe-fds #t #t))) ;; mark fds close-on-exec
-    (values (%make-wire-reader (box in)  (bytespan))
-            (%make-wire-writer (box out) (bytespan)))))
+    (values (%make-wire-reader (box in)  (bytespan) #t)
+            (%make-wire-writer (box out) (bytespan) #t))))
 
 
 ;; create and return two wire-reader and two wire-writer, in the following order:
@@ -117,16 +153,19 @@
 ;;   wire-sender1   writes serialized data to the same socket file descriptor as wire-receiver1
 ;;   wire-receiver2 reads  serialized data from the second socket file descriptor of the same socket pair
 ;;   wire-sender2   writes serialized data to the same socket file descriptor as wire-receiver2
+;;
+;; the returned wire-readers and wire-writers take ownership of the created socket file descriptors,
+;; and closing one of them closes the corresponding socket file descriptor.
 (define (wire-socketpair-pair)
   (let-values (((fd1 fd2) (socketpair-fds #t #t))) ; mark fds close-on-exec
     (let ((box1 (box fd1))
           (box2 (box fd2)))
       ;; give the same box to each reader and writer pair sharing a single fd,
       ;; so that closing one also closes the other
-      (values (%make-wire-reader box1 (bytespan))
-              (%make-wire-writer box1 (bytespan))
-              (%make-wire-reader box2 (bytespan))
-              (%make-wire-writer box2 (bytespan))))))
+      (values (%make-wire-reader box1 (bytespan) #t)
+              (%make-wire-writer box1 (bytespan) #t)
+              (%make-wire-reader box2 (bytespan) #t)
+              (%make-wire-writer box2 (bytespan) #t)))))
 
 
 (define (wire-reader-eof? rx)
@@ -153,18 +192,20 @@
 
 ;; called by (wire-reader-close) -> (obj-reader-close)
 (define (%wire-reader-close rx)
-  (%close-box (wire-reader-in-box rx)))
+  (%close-box (wire-reader-in-box rx) (wire-reader-close-in? rx)))
 
 
 ;; called by (wire-writer-close) -> (obj-writer-close)
 ;; Helps detecting end-of-file at the receiver side.
-(define (%wire-writer-close rx)
-  (%close-box (wire-writer-out-box rx)))
+(define (%wire-writer-close tx)
+  (%close-box (wire-writer-out-box tx) (wire-writer-close-out? tx)))
 
 
-(define (%close-box obj-box)
+(define (%close-box obj-box close?)
   (let ((obj (unbox obj-box)))
-    (when (and obj (box-cas! obj-box obj #f))
+    ;; store #f in box, instead of fd or port.
+    ;; close fd or port only if wire-reader or wire-writer own them
+    (when (and obj (box-cas! obj-box obj #f) close?)
       (if (fixnum? obj)
         (fd-close obj)
         (close-port obj)))))

@@ -32,9 +32,12 @@
   (new put-proc  (box close-proc) (void) #f))
 
 
-;; call (put-proc tx obj) to write one more value.
-;; each call will return the value returned by (put-proc tx),
-;; or raise a condition in case of I/O errors or after (obj-writer-close tx) has been called.
+;; Put one more value into an obj-writer.
+;;   Internally calls (put-proc tx obj).
+;;   Each call will return the value returned by (put-proc tx) - which is usually unspecified -
+;;   or raise a condition in case of I/O errors.
+;;
+;; Calling (obj-writer-put tx obj) on a closed obj-writer always raises a condition.
 (define (obj-writer-put tx obj)
   (assert* 'obj-writer-put (obj-writer? tx))
   (if (obj-writer-eof? tx)
@@ -42,18 +45,33 @@
     ((obj-writer-put-proc tx) tx obj)))
 
 
-;; call (close-proc tx) to release any resource held by the obj-writer.
-;; return the value returned by (close-proc tx), which is expected to be the value accumulated into the obj-writer.
+;; Close an obj-writer or subtype.
+;; Calls (close-proc tx) to release any resource owned by the obj-writer.
+;; Returns the value returned by (close-proc tx), which is expected to be
+;; the value accumulated into the obj-writer, if any.
 ;;
-;; further calls to (obj-writer-close tx) on the same tx have no effect:
-;; they do not call (close-proc tx) again, and always return the same value as the first call.
+;; Multiple calls to (obj-writer-close rx) on the same obj-writer are allowed:
+;; they are equivalent to a single call, and always return the same value as the first call.
+;;
+;; Note: if obj-writer or subtype constructor accepts as argument some EXISTING resource(s),
+;;   for example an input port, then the obj-writer does not OWN the resource(s) - it merely borrows them -
+;;   and closing the obj-writer must NOT close those resource(s).
+;;
+;; If instead obj-writer or subtype creates some resource(s) internally,
+;; or is specifically instructed to take ownership of some existing resource(s)
+;; (for example by passing a truish value for an optional constructor argument close?),
+;; then it OWNS such resource(s) and closing the obj-writer MUST close them.
+;;
+;; Implementation note: calls the close-proc stored in obj-writer at its creation,
+;;   to release any resource OWNED by the obj-writer.
+;;   close-proc is guaranteed to be called at most once per obj-writer,
+;;   even if (obj-writer-close rx) is called concurrently on the same object from multiple threads.
 (define (obj-writer-close tx)
   (obj-writer-eof?-set! tx #t)
   (assert* 'obj-writer-close (obj-writer? tx))
   (let* ((close-box  (obj-writer-close-box tx))
-         (close-proc (unbox close-box))
-         (consumed?  (and close-proc (box-cas! close-box close-proc #f))))
-    (when consumed?
+         (close-proc (unbox close-box)))
+    (when (and close-proc (box-cas! close-box close-proc #f))
       (obj-writer-result-set! tx (close-proc tx))))
   (obj-writer-result tx))
 

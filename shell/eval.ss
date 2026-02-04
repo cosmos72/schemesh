@@ -249,7 +249,9 @@
 
 
 ;; extension of (dynamic-wind):
-;;   call (before) then call (proc), finally always call (after) and (on-finish)
+;;   call (before) before entering (proc),
+;;   then call (proc),
+;;   finally always call (after) and (on-finish) before leaving (proc),
 ;;   even if (proc) raises a condition or calls a continuation.
 ;;
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
@@ -257,6 +259,7 @@
 ;;
 ;; if (sh-current-job) is a sh-expr, behaves as dynamic-wind:
 ;;   (before) is called again before re-entering (proc),
+;;   (after) is called again before re-leaving (proc),
 ;;   and (on-finish) is called only when (sh-current-job) finishes.
 ;;
 ;; if (sh-current-job) is not a sh-expr,

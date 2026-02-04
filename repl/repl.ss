@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all close copy dir eof? get put with-closable
+          all close copy copy/close dir eof? get put with-sh-closable
           from-stdin from-json from-queue from-wire
            to-stdout   to-json   to-queue   to-wire
 

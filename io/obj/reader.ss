@@ -43,13 +43,21 @@
 ;; and are equivalent to a single call.
 ;;
 ;; After an obj-reader has been closed,
-;;  (obj-reader-get rx) will always return (values #<unspecified> #f) without calling its get-proc procedure,
-;;  and (obj-reader-eof? rx) will always return #t
+;;   (obj-reader-get rx) will always return (values #<unspecified> #f) without calling its get-proc procedure,
+;;   and (obj-reader-eof? rx) will always return #t
+;;
+;; Note: if obj-reader or subtype constructor accepts as argument some EXISTING resource(s),
+;;   for example an input port, then the obj-reader does not OWN the resource(s) - it merely borrows them -
+;;   and closing the obj-reader must NOT close those resource(s).
+;;
+;; If instead obj-reader or subtype creates some resource(s) internally,
+;; or is specifically instructed to take ownership of some existing resource(s)
+;; (for example by passing a truish value for an optional constructor argument close?),
 ;;
 ;; Implementation note: calls the close-proc stored in obj-reader at its creation,
-;; to release any resource held by the obj-reader.
-;; close-proc is guaranteed to be called at most once per obj-reader,
-;; even if (obj-reader-close rx) is called concurrently on the same object from multiple threads.
+;;   to release any resource OWNED by the obj-reader.
+;;   close-proc is guaranteed to be called at most once per obj-reader,
+;;   even if (obj-reader-close rx) is called concurrently on the same object from multiple threads.
 (define (obj-reader-close rx)
   (assert* 'obj-reader-close (obj-reader? rx))
   (let* ((close-box  (obj-reader-close-box rx))

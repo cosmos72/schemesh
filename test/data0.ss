@@ -28,7 +28,7 @@
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
 
-  (==> + 1 2 => / 4)                               4/3
+  (==> + 1 2 => / 4)                               3/4
   (==> + 2 3 => / _ 4)                             5/4
   (==> and 1 2 ?=> or _ 3)                         2
   (==> and 1 #f ?=> (error 'test-arrow))           #f

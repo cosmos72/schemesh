@@ -14,7 +14,7 @@
 
 (define-syntax type-sym (identifier-syntax '\x40;type))
 
-(define (deserialize-time plist)
+(define (construct-time plist)
   (let ((type  (string->symbol (plist-ref plist type-sym)))
         (value (plist-ref plist 'value)))
     (let-values (((second nanosecond) (div-and-mod value 1)))
@@ -25,15 +25,29 @@
 (define (add-time-info cache)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! cache rtd
-      (make-record-info #f deserialize-time
+      (make-record-info #f
         type-sym  time-type
         'value    (lambda (obj) (+ (time-second obj)
                                    (/ (time-nanosecond obj) 1000000000))))))
+  ;; hack: put in the same eq-hashtable associations rtd -> record-info
+  ;; and associations symbol -> constructor
+  (hashtable-set! cache 'time-duration construct-time)
+  (hashtable-set! cache 'time-monotonic construct-time)
+  (hashtable-set! cache 'time-utc        construct-time)
+  (hashtable-set! cache 'time-process     construct-time)
+  (hashtable-set! cache 'time-thread       construct-time)
+  (hashtable-set! cache 'time-collector-cpu construct-time)
+  (hashtable-set! cache 'time-collector-real construct-time)
   cache)
 
 
 (define (add-date-info cache)
-  cache)
+  (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
+    (hashtable-set! cache rtd
+      (make-record-info #f
+        type-sym  (lambda (obj) 'date)
+        'value    date->string))
+    cache))
 
 
 (define record-info-table

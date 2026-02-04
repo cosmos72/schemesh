@@ -266,9 +266,10 @@
 
 
 ;; version of (begin) that also accepts empty body
+;; currently always expands to (begin ...) as the latter also accepts empty body on Chez
 (define-syntax begin^
   (syntax-rules ()
-    ((_)                 (void))
+    ((_)                 (begin))
     ((_ body)            body)
     ((_ body1 body2 ...) (begin body1 body2 ...))))
 
@@ -365,16 +366,19 @@
 
 
 (define-syntax reverse-macro
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_)
-        #'(void))
-      ((_ body1)
-        #'body1)
-      ((_ body1 body2)
-        #`(begin body2 body1))
-      ((_ body1 body2 body3 body4 ...)
-        #`(begin (reverse-macro body4 ...) body3 body2 body1)))))
+  (syntax-rules ()
+    ((_ body1 body2 body3 body4 body5 body6 body7 body8 body9 ...)
+      (begin (reverse-macro body9 ...) body8 body7 body6 body5 body4 body3 body2 body1))
+    ((_ body1 body2 body3 body4 body5 ...)
+      (begin (reverse-macro body5 ...) body4 body3 body2 body1))
+    ((_ body1 body2 body3)
+      (begin body3 body2 body1))
+    ((_ body1 body2)
+      (begin body2 body1))
+    ((_ body1)
+      body1)
+    ((_)
+      (begin^))))
 
 
 (define-syntax with-locked-objects
@@ -445,8 +449,16 @@
        form1 form2 ...))))
 
 
-;; symplify procedure chaining, allows writing (==> proc1 a => proc2 _ b c => proc3 d ...)
-;; instead of (proc3 d ... (proc2 (proc1 a) b c))
+;; symplify procedure chaining, allows writing (==> proc1 a => proc2 b _ c => proc3 d ...)
+;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
+;;
+;; Replaces the placeholder _ with the previous form.
+;;
+;; If the placeholder _ is not present, the previous form is inserted as first argument.
+;; Example:
+;;   (==> proc1 a => proc2 b c)
+;; expands to
+;;   (proc2 (proc1 a) b c)
 (define-syntax ==>
   (lambda (stx)
     (syntax-case stx ()

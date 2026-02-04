@@ -19,7 +19,7 @@
                           (get-string-all obj)))
     ((obj-reader? obj)  (reader->list obj))))
 
-  
+
 ;; easy wrapper for (fd-close) (close-port) (obj-reader-close) (obj-writer-close)
 (define (close obj)
   (cond
@@ -100,14 +100,31 @@
       (copy from to))))
 
 
-;; evaluate body ... with var ... bound to expr ... then always call (close var)
-;; ... even if body raises a condition or calls a continuation
-(define-syntax with-closable
+;; iterate (get from) then (put to) until from is exhausted.
+;;
+;; then always call (close from) and (close to),
+;; even if (get from) or (put to) raise a condition or call a continuation
+;;
+;; return value of (close to)
+(define (copy/close from to)
+  (let ((ret #f))
+    (dynamic-wind
+      void  ; before
+      (lambda () (copy from to))
+      (lambda () (close from) (set! ret (close to))))
+    ret))
+
+
+;; evaluate body ... with var ... bound to expr ... then always call (close expr-value) ...
+;; even if body raises a condition or calls a continuation
+;;
+;; If used from a sh-expr, (close expr-value) ... will be called when job finishes.
+(define-syntax with-sh-closable
   (syntax-rules ()
     ((_ () body ...)
       (begin^ body ...))
     ((_ ((var expr) ...) body ...)
-      (with-resource ((var expr close) ...) body ...))))
+      (with-sh-resource ((var expr close) ...) body ...))))
 
 
 ;; easy wrapper for (make-json-reader)
@@ -157,10 +174,8 @@
       (make-wire-writer (sh-port #f 1 'binary)))))
 
 
-;; lazily create a reader that autodetects protocol upon the first call to (obj-reader-get)
-;;
-;; TODO: this must be a thread parameter.
-;; further calls must return the same reader until current job changes
+;; create a reader that autodetects protocol upon the first call to (obj-reader-get)
+;; FIXME: currently always creates a json-reader
 (define (from-stdin)
   (from-json))
 
@@ -169,8 +184,5 @@
 ;;   tty    => make-tabular-writer
 ;;   socket => make-wire-writer
 ;;   else   => make-json-writer
-;;
-;; TODO: this must be a thread parameter.
-;; further calls must return the same writer until current job changes
 (define (to-stdout)
   (to-json))

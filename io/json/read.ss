@@ -29,29 +29,42 @@
     in              ; binary input port
     stack           ; bytespan contaning stack of states
     buffer          ; bytespan buffer for parsing strings and numbers
-    cache)          ; #f or eq-hashtable containing rtd -> rtd->info
+    cache)          ; #f or eq-hashtable containing rtd -> record-info
   (protocol
     (lambda (args->new)
-      (lambda (in cache)
-        ((args->new %json-reader-get %json-reader-close)
+      (lambda (in close-in? cache)
+        ((args->new %json-reader-get (and close-in? %json-reader-close))
           in (bytespan $top) (bytespan) cache))))
   (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
+;; Create a json-reader that reads bytes from a binary input port,
+;; parses them in streaming mode, and returns a chunk of parsed json data
+;; at each call to one of (json-reader-get) (json-reader-get-value) or (json-reader-get-token)
+;;
+;; Note: as per obj-reader contract, by default closing a json-reader does NOT close the underlying binary input port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a json-reader should take ownership of the binary input port passed to the constructor,
+;; then the optional argument close-in? must be truish.
+;;
+;; Optional argument cache must be #f or a a possibly empty eq-hashtable containing rtd -> record-info
 (define make-json-reader
   (case-lambda
-    ((in cache)
+    ((in close-in? cache)
       (assert* 'make-json-reader (port? in))
       (assert* 'make-json-reader (binary-port? in))
       (assert* 'make-json-reader (input-port? in))
       (when cache
         (assert* 'make-json-reader (hashtable? cache))
         (assert* 'make-json-reader (eq? eq? (hashtable-equivalence-function cache))))
-      (%make-json-reader in cache))
+      (%make-json-reader in cache close-in?))
+    ((in close-in?)
+      (make-json-reader in close-in? #f))
     ((in)
-      (make-json-reader in #f))
+      (make-json-reader in #f #f))
     (()
-      (make-json-reader (sh-stdin) #f))))
+      (make-json-reader (sh-stdin) #f #f))))
 
 
 (define (json-reader-depth rx)
@@ -69,6 +82,7 @@
 
 
 ;; called by (json-reader-close) -> (obj-reader-close)
+;; only if json-reader constructor was called with truish close-in?
 (define (%json-reader-close rx)
   (close-port (json-reader-in rx)))
 
@@ -515,7 +529,7 @@
                 (span-insert-right! sp elem))
               (%read-array rx sp (json-reader-get-value rx))))))
       ((#\{)
-        (let %read-object ((rx rx) (plist '()) (key (json-reader-get-value rx)))
+        (let %read-object ((rx rx) (plist '()) (key (json-reader-get-token rx)))
           (cond
             ((or (eof-object? key) (eqv? key #\}))
               (reverse! plist))
@@ -592,13 +606,6 @@
                                 $top))))
 
 
-;; return obj as obj-reader should do:
-;;   either (values obj #t) if it's a valid item
-;;   or (values #<unspecified> #f) if it's #!eof
-(define (to-item obj)
-  (values obj (not (eof-object? obj))))
-
-
 ;; autotect json variant present in input port, read and deserialize next datum from it:
 ;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially:
 ;;   if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
@@ -614,6 +621,64 @@
   (obj-reader-get rx))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; low-leves deserialization functions called by (json-reader-get) and (obj-reader-get)
+
+
+;; return datum as obj-reader should do:
+;;   either (values datum #t) if it's a valid item
+;;   or (values #<unspecified> #f) if it's #!eof
+(define (to-item datum)
+  (values datum (not (eof-object? datum))))
+
+
+;; find constructor in record-info-table for creating an object from deserialized plist, and call it.
+;; return constructed object, or plist itself if no constructor was found.
+(define (call-constructor plist)
+  (let* ((xtype       (plist-ref plist type-sym))
+         (type        (and (string? xtype) (string->symbol xtype)))
+         (constructor (and type (hashtable-ref record-info-table type #f))))
+    (if (and constructor (procedure? constructor))
+      (constructor plist)
+      plist)))
+
+
+;; read and deserialize one json value and return it as a single item
+(define (deserialize rx)
+  (let ((tok0 (json-reader-get-token rx)))
+    (case tok0
+      ((#\[)
+        (let %deserialize-array ((rx rx) (sp (span)) (elem (deserialize rx)))
+          (cond
+            ((or (eof-object? elem) (eqv? elem #\]))
+              sp)
+            (else
+              (unless (eqv? #\, elem)
+                (span-insert-right! sp elem))
+              (%deserialize-array rx sp (deserialize rx))))))
+      ((#\{)
+        (let %deserialize-object ((rx rx) (plist '()) (key (json-reader-get-token rx)))
+          (cond
+            ((or (eof-object? key) (eqv? key #\}))
+              (call-constructor (reverse! plist)))
+            ((eqv? #\, key)
+              (%deserialize-object rx plist (deserialize rx)))
+            (else
+              (assert* 'json-reader-get (string? key))
+              (let ((key   (string->symbol key))
+                    (colon (json-reader-get-token rx)))
+                (assert* 'json-reader-get (eqv? #\: colon))
+                (let ((value (deserialize rx)))
+                  (assert-not* 'json-reader-get (eof-object? value))
+                  (assert-not* 'json-reader-get (char? value))
+                  ;; plist will be reversed before returning it => insert value before key,
+                  ;; then iterate to read more key+value pairs
+                  (%deserialize-object rx (plist-add plist value key)
+                                          (deserialize rx))))))))
+      (else
+        tok0))))
+
+
 ;; called by (json-reader-get) -> (obj-reader-get)
 (define (%json-reader-get rx)
   (let ((in    (json-reader-in rx))
@@ -625,15 +690,11 @@
       (skip-ws in))
     (case (lookahead-u8 in)
       ((91)  ; #\[
-        (cond
-          ((fxzero? depth)
-            ;; json document is a json array => return its elements one by one as items
-            (json-reader-skip-token rx)
-            (%json-reader-get rx))
-          (else
-            ;; found a json array => return it as a single item
-            ;; TODO: call (%json-reader-get) recursively on array elements
-            (to-item (json-reader-get-value rx)))))
+        (when (fxzero? depth)
+          ;; skip start of top-level json array, we want its elements one by one
+          (json-reader-skip-token rx))
+        ;; deserialize one json value
+        (to-item (deserialize rx)))
       ((44 93) ; #\, #\]
         ;; found end of top-level json array,
         ;; or separator between elements in top-level json array.
@@ -641,9 +702,9 @@
         (json-reader-skip-token rx)
         (%json-reader-get rx))
       (else
-        ;; top-level value is an object, or an atomic value, or a syntax error => return it as a single item
-        ;; TODO: call (%json-reader-get) recursively on json object values
-        (to-item (json-reader-get-value rx))))))
+        ;; top-level value is an an object, or an atomic value, or a syntax error
+        ;; => deserialize it as a single item
+        (to-item (deserialize rx))))))
 
 
 
