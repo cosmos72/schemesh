@@ -33,9 +33,9 @@
   (protocol
     (lambda (args->new)
       (lambda (in close-in? cache)
-        ((args->new %json-reader-get (and close-in? %json-reader-close))
+        ((args->new %json-reader-get %json-reader-skip (and close-in? %json-reader-close))
           in (bytespan $top) (bytespan) cache))))
-  (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %json-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;; Create a json-reader that reads bytes from a binary input port,
@@ -81,7 +81,7 @@
   (obj-reader-close rx))
 
 
-;; called by (json-reader-close) -> (obj-reader-close)
+;; called by (json-reader-close) and (obj-reader-close)
 ;; only if json-reader constructor was called with truish close-in?
 (define (%json-reader-close rx)
   (close-port (json-reader-in rx)))
@@ -606,19 +606,30 @@
                                 $top))))
 
 
-;; autotect json variant present in input port, read and deserialize next datum from it:
+;; autodetect json variant present in input port, read and deserialize next datum from it.
+;;   return either (values datum #t) i.e. next datum
+;;   or (values #<unspecified> #f) if end-of-file is reached
+;;
 ;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially:
 ;;   if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
 ;;   if next top-level value is a json array, then return its elements one by one as items
-;;   otherwise return next top-level value as a single item
+;;   otherwise return next top-level value as a single item.
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; TODO: if a json object contains the "@type" key, lookup its associated value in record-info-table and,
-;;       if found, call the registered deserializer, passing the json object as the only argument, represented as a plist.
+;; If a json object contains the "@type" key, looks up its associated value in record-info-table and,
+;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
   (obj-reader-get rx))
+
+
+;; analogous to (json-reader-get), except that it skips next datum instead of parsing and returning it.
+;;   return either (values #<unspecified> #t) if next datum was skipped,
+;;   or (values #<unspecified> #f) if end-of-file is reached
+(define (json-reader-skip rx)
+  (assert* 'json-reader-skip (json-reader? rx))
+  (obj-reader-skip rx))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -679,7 +690,7 @@
         tok0))))
 
 
-;; called by (json-reader-get) -> (obj-reader-get)
+;; called by (json-reader-get) and (obj-reader-get)
 (define (%json-reader-get rx)
   (let ((in    (json-reader-in rx))
         (depth (json-reader-depth rx)))
@@ -707,5 +718,31 @@
         (to-item (deserialize rx))))))
 
 
+;; called by (json-reader-skip) and (obj-reader-skip)
+(define (%json-reader-skip rx)
+  (let ((in    (json-reader-in rx))
+        (depth (json-reader-depth rx)))
+    (assert* 'json-reader-skip (fx<=? depth 1))
+    (if (fxzero? depth)
+       ;; in case we already read some previous json document. also skips whitespace.
+      (json-reader-restart rx)
+      (skip-ws in))
+    (case (lookahead-u8 in)
+      ((91)  ; #\[
+        (when (fxzero? depth)
+          ;; skip start of top-level json array, we want its elements one by one
+          (json-reader-skip-token rx))
+        ;; skip one json value
+        (to-item (json-reader-skip-value rx)))
+      ((44 93) ; #\, #\]
+        ;; found end of top-level json array,
+        ;; or separator between elements in top-level json array.
+        ;; skip it and retry.
+        (json-reader-skip-token rx)
+        (%json-reader-skip rx))
+      (else
+        ;; top-level value is an an object, or an atomic value, or a syntax error
+        ;; => skip it as a single item
+        (to-item (json-reader-skip-value rx))))))
 
 

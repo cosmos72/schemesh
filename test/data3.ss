@@ -146,29 +146,30 @@
                            "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
                  (tx (make-json-writer)))
         (let-values (((tok ok?) (json-reader-get rx)))
-          (cond
-            (ok?
+          (if ok?
+            (begin
               (json-writer-put tx tok)
               (loop rx tx))
-            (else
-              (json-writer-close tx)))))))              "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
+            (json-writer-close tx))))))                 "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
 
-  ;; json-reader-get looks inside top-level arrays and returns their elements one by one.
+
+  ;; (json-reader-get) and (json-reader-skip) look inside top-level arrays and return their elements one by one.
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
                   ;; we parse json numbers as inexact only if number contains "e..."
-                  "[1, 2.3, 2.3e0, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
+                  "[1, 2.3, true, [0], {}] {\"a\": \"\\u20ac\"} \"foo\"")))))
     (let*-values (((obj1 ok1) (json-reader-get rx))
                   ((obj2 ok2) (json-reader-get rx))
                   ((obj3 ok3) (json-reader-get rx))
                   ((obj4 ok4) (json-reader-get rx))
+                  ((obj_ ok_) (json-reader-skip rx))
                   ((obj5 ok5) (json-reader-get rx))
                   ((obj6 ok6) (json-reader-get rx))
-                  ((obj7 ok7) (json-reader-get rx))
-                  ((obj8 ok8) (json-reader-get rx)))
+                  ((obj7 ok7) (json-reader-get rx)))
       (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4 obj5 ok5
-            obj6 ok6 obj7 ok7 #|obj8|# ok8)))           (1 #t 23/10 #t 2.3 #t #t #t #f #t (a "\x20ac;") #t "foo" #t #f)
+            obj6 ok6 #|obj7|# ok7)))                    ,(1 #t 23/10 #t #t #t (span 0) #t (a "\x20ac;") #t "foo" #t #f)
+
 
   ;; json-reader-get also looks inside json objects (at any depth) for key "@type" and,
   ;; if the value is registered into json's internal record-info-table,

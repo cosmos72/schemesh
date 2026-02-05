@@ -13,7 +13,7 @@
 ;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
 (library (scheme2k ipc wire (0 9 3))
-  (export make-wire-reader wire-reader wire-reader? wire-reader-get wire-reader-eof? wire-reader-close
+  (export make-wire-reader wire-reader wire-reader? wire-reader-get wire-reader-eof? wire-reader-close wire-reader-skip
           make-wire-writer wire-writer wire-writer? wire-writer-put wire-writer-eof? wire-writer-close
           in-wire-reader wire-pipe-pair wire-socketpair-pair)
   (import
@@ -23,7 +23,7 @@
           (scheme2k containers bytespan)
           (scheme2k posix fd)
     (only (scheme2k posix socket)        socketpair-fds)
-    (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close
+    (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
                                          obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k io port)             read-bytes-insert-right!)
           (scheme2k io wire))
@@ -38,9 +38,9 @@
   (protocol
     (lambda (args->new)
       (lambda (in-box rbuf close-in?)
-        ((args->new %wire-reader-get %wire-reader-close)
+        ((args->new %wire-reader-get %wire-reader-skip %wire-reader-close)
           in-box rbuf (and close-in? #t)))))
-  (nongenerative wire-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative wire-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 (define-record-type (wire-writer %make-wire-writer wire-writer?)
@@ -190,12 +190,12 @@
   (obj-writer-close rx))
 
 
-;; called by (wire-reader-close) -> (obj-reader-close)
+;; called by (wire-reader-close) and (obj-reader-close)
 (define (%wire-reader-close rx)
   (%close-box (wire-reader-in-box rx) (wire-reader-close-in? rx)))
 
 
-;; called by (wire-writer-close) -> (obj-writer-close)
+;; called by (wire-writer-close) and (obj-writer-close)
 ;; Helps detecting end-of-file at the receiver side.
 (define (%wire-writer-close tx)
   (%close-box (wire-writer-out-box tx) (wire-writer-close-out? tx)))
@@ -220,6 +220,41 @@
     out))
 
 
+;; called by (%wire-reader-get) and (%wire-reader-skip)
+(define (%wire-reader-get-or-skip rx caller skip?)
+  (let ((rbuf (wire-reader-rbuf rx)))
+    (let-values (((datum pos) (wire-get-from-bytespan rbuf 0 (bytespan-length rbuf) skip?)))
+      (cond
+        ((not (fixnum? pos))
+          (raise-errorf caller "failed parsing wire data read from ~s" rx))
+        ((fx>=? pos 0)
+          (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
+            (bytespan-delete-left! rbuf consumed-n))
+          (values datum #t))
+        (datum ; must discard (fx- pos) bytes and retry
+          (bytespan-delete-left! rbuf (fx- pos))
+          (%wire-reader-get-or-skip rx caller skip?))
+        (else
+          (let* ((in     (unbox (wire-reader-in-box rx)))
+                 (read-n (%in-read-insert-right! in rbuf)))
+            (if (fxzero? read-n)
+              (begin
+                (wire-reader-close rx)
+                (bytespan-clear! rbuf)
+                (values #f #f))
+              (%wire-reader-get-or-skip rx caller skip?))))))))
+
+
+;; called by (wire-reader-get) and (obj-reader-get)
+(define (%wire-reader-get rx)
+  (%wire-reader-get-or-skip rx 'wire-reader-get #f))
+
+
+;; called by (wire-reader-skip) and (obj-reader-skip)
+(define (%wire-reader-skip rx)
+  (%wire-reader-get-or-skip rx 'wire-reader-skip #t))
+
+
 ;; read serialized data from the wire-reader's in,
 ;; repeating until a whole wire message is available,
 ;; then deserialize the message and return it.
@@ -235,29 +270,19 @@
   (obj-reader-get rx))
 
 
-;; called by (wire-reader-get) -> (obj-reader-get)
-(define (%wire-reader-get rx)
-  (let ((rbuf (wire-reader-rbuf rx)))
-    (let-values (((datum pos) (wire-get-from-bytespan rbuf)))
-      (cond
-        ((not (fixnum? pos))
-          (raise-errorf 'wire-reader-get "failed parsing wire data read from ~s" rx))
-        ((fx>=? pos 0)
-          (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
-            (bytespan-delete-left! rbuf consumed-n))
-          (values datum #t))
-        (datum ; must discard (fx- pos) bytes and retry
-          (bytespan-delete-left! rbuf (fx- pos))
-          (%wire-reader-get rx))
-        (else
-          (let* ((in     (unbox (wire-reader-in-box rx)))
-                 (read-n (%in-read-insert-right! in rbuf)))
-            (if (fxzero? read-n)
-              (begin
-                (wire-reader-close rx)
-                (bytespan-clear! rbuf)
-                (values #f #f))
-              (%wire-reader-get rx))))))))
+;; read serialized data from the wire-reader's in,
+;; repeating until a whole wire message is available,
+;; then skip the message.
+;; may block while reading from file descriptor or port.
+;;
+;; return two values:
+;;   either #<unspecified>, and #t
+;;   or #<unspecified> and #f on end-of-file, or if wire-reader's in is closed or not set.
+;;
+;; raise exception on I/O error or if serialized data cannot be parsed.
+(define (wire-reader-skip rx)
+  (assert* 'wire-reader-skip (wire-reader? rx))
+  (obj-reader-skip rx))
 
 
 ;; read some bytes from in and append them to rbuf.
@@ -304,7 +329,7 @@
         (put-bytevector out bv start (fx- end start))))))
 
 
-;; called by (wire-writer-put) -> (obj-writer-put)
+;; called by (wire-writer-put) and (obj-writer-put)
 (define (%wire-writer-put tx datum)
   (unbox-raise-if-closed tx)
   (let* ((wbuf         (wire-writer-wbuf tx))

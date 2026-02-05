@@ -228,6 +228,15 @@ static void c_dir_close(void* dir) {
   }
 }
 
+static int c_dir_skip(void* dir) {
+  if (!dir) {
+    return c_errno_set(EINVAL);
+  }
+  errno = 0;
+  (void)readdir((DIR*)dir);
+  return -errno; /* 0 if end if dir, otherwise error */
+}
+
 static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   struct stat    st;
   struct dirent* entry;
@@ -245,9 +254,10 @@ static int c_dir_next(void* dir, ptr vec, unsigned flags) {
   flags = (flags & c_dir_flag_hidden) | (flags & ((1 << vec_n) - 1));
 
   do {
+    errno = 0;
     entry = readdir((DIR*)dir);
     if (!entry) {
-      return 0; // end of dir
+      return -errno; /* 0 if end if dir, otherwise error */
     }
   } while ((flags & c_dir_flag_hidden) == 0 && entry->d_name[0] == '.');
 

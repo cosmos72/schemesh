@@ -8,7 +8,7 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export make-json-reader json-reader json-reader? json-reader-eof? json-reader-close json-reader-depth json-reader-restart
+  (export make-json-reader json-reader json-reader? json-reader-eof? json-reader-close json-reader-depth json-reader-restart json-reader-skip
           make-json-writer json-writer json-writer? json-writer-eof? json-writer-close
 
           json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
@@ -27,7 +27,7 @@
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers string)    string-index-right)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string utf8b->string)
-    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close
+    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
                                           obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k io stdio)             sh-stdin)
     (scheme2k reflect))

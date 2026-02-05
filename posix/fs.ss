@@ -44,9 +44,9 @@
   (protocol
     (lambda (args->new)
       (lambda (handle path)
-        ((args->new %dir-reader-get %dir-reader-close)
+        ((args->new %dir-reader-get %dir-reader-skip %dir-reader-close)
           handle (make-vector 12 (void)) #f #f path))))
-  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define make-dir-reader
@@ -74,7 +74,7 @@
   (obj-reader-get rx))
 
 
-;; called by (dir-reader-get) -> (obj-reader-get)
+;; called by (dir-reader-get) and (obj-reader-get)
 (define %dir-reader-get
   (let ((c-dir-next (foreign-procedure "c_dir_next" (void* ptr unsigned) int)))
     (lambda (rx)
@@ -91,7 +91,22 @@
           (values #f #f)))))) ;; dir-reader is closed
 
 
-;; called by (dir-reader-close) -> (obj-reader-close)
+;; called by (dir-reader-skip) and (obj-reader-skip)
+(define %dir-reader-skip
+  (let ((c-dir-skip (foreign-procedure "c_dir_skip" (void*) int)))
+    (lambda (rx)
+      (let ((handle (dir-reader-handle rx)))
+        (if handle
+          (let ((err (c-dir-skip handle)))
+            (unless (and (fixnum? err) (fx>=? err 0))
+              (raise-c-errno 'dir-reader-get 'readdir err handle))
+            (if (fx>? err 0)
+              (values #t #t)
+              (values #f #f)))) ;; dir-reader is exhausted
+        (values #f #f))))) ;; dir-reader is closed
+
+
+;; called by (dir-reader-close) and (obj-reader-close)
 (define %dir-reader-close
   (let ((c-dir-close (foreign-procedure "c_dir_close" (void*) void)))
     (lambda (rx)

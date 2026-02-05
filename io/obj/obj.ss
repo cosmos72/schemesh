@@ -31,7 +31,7 @@
 ;;;                       or waiting simultaneously on multiple generators
 (library (scheme2k io obj (0 9 3))
   (export
-    make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close
+    make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
     make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
 
     in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector

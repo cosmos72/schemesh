@@ -63,7 +63,7 @@
   (obj-writer-close tx))
 
 
-;; called by (json-writer-close) -> (obj-writer-close)
+;; called by (json-writer-close) and (obj-writer-close)
 (define (%json-writer-close tx)
   (let ((out (json-writer-out tx)))
     (when (json-writer-epilogue? tx)
@@ -340,7 +340,7 @@
       (raise-errorf 'json-writer-put "unsupported datum: ~s" obj))))
 
 
-;; called by (json-writer-put) -> (obj-writer-put)
+;; called by (json-writer-put) and (obj-writer-put)
 (define (%json-writer-put tx obj)
   (let ((out (json-writer-out tx)))
     (if (json-writer-prologue? tx)

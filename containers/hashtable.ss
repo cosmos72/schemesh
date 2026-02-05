@@ -153,7 +153,7 @@
            (lambda (p)
              (let ((cell (hash-cursor-next! iter)))
                (values cell (and cell #t))))))
-    (make-obj-reader %hash-reader #f)))
+    (make-obj-reader %hash-reader #f #f)))
 
 
 ;; create and return a sequence that iterates on elements of hashtable t.

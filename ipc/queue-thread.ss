@@ -12,7 +12,7 @@
 ;;; exchanges arbitrary objects through thread-safe in-memory queue
 ;;;
 (library (scheme2k ipc queue (0 9 3))
-  (export make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close
+  (export make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close (rename (queue-reader-get queue-reader-skip))
           make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close
           queue-reader-timed-get queue-reader-try-get in-queue-reader)
   (import
@@ -60,7 +60,7 @@
   (obj-writer-close tx))
 
 
-;; called by (queue-writer-close) -> (obj-writer-close)
+;; called by (queue-writer-close) and (obj-writer-close)
 (define (%queue-writer-close tx)
   (with-mutex (queue-writer-mutex tx)
     (set-cdr! (queue-writer-tail tx) #f))
@@ -79,7 +79,7 @@
   (obj-writer-put tx obj))
 
 
-;; called by (queue-writer-put) -> (obj-writer-put)
+;; called by (queue-writer-put) and (obj-writer-put)
 (define (%queue-writer-put tx obj)
   (let ((new-tail (cons #f '())))
     (with-mutex (queue-writer-mutex tx)
@@ -162,7 +162,7 @@
   (obj-reader-get rx))
 
 
-;; called by (queue-reader-get) -> (obj-reader-get)
+;; called by (queue-reader-get) and (obj-reader-get)
 (define (%queue-reader-get rx)
   (let-values (((datum flag) (queue-reader-timed-get-once rx short-timeout)))
     (if (eq? flag 'timeout)

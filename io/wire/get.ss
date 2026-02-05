@@ -434,8 +434,7 @@
     (values #f #f)))
 
 
-
-;; read byte range [start, end) from bytevector bv and deserialize an object from it.
+;; read byte range [start, end) from bytevector bv and deserialize or skip an object from it.
 ;; Return two values:
 ;;   either object and updated start position in range [start, end)
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
@@ -443,7 +442,7 @@
 ;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
 (define wire-get-from-bytevector
   (case-lambda
-    ((bv start end)
+    ((bv start end skip?)
       (assert* 'wire-get-from-bytevector (fx<=?* 0 start end (bytevector-length bv)))
       (let-values (((len pos) (get/vlen bv start end)))
         (cond
@@ -453,12 +452,14 @@
                 (if (fxzero? len)
                   (values (void) pos) ; (void) can be encoded as header = 0
                   (let ((end0 (fx+ pos len)))
-                    (let-values (((ret end1) (get/any bv pos end)))
-                      (if (and end1 (fx=? end0 end1))
-                        (values ret end1)
-                        ;; message deserialized, but it ends at unexpected position:
-                        ;; discard it, and tell how many bytes should be discarded.
-                        (values #t (fx- (fx+ len pos)))))))
+                    (if skip?
+                      (values #t end0)
+                      (let-values (((ret end1) (get/any bv pos end)))
+                        (if (and end1 (fx=? end0 end1))
+                          (values ret end1)
+                          ;; message deserialized, but it ends at unexpected position:
+                          ;; discard it, and tell how many bytes should be discarded.
+                          (values #t (fx- (fx+ len pos))))))))
                 ;; not enough bytes to deserialize message: tell how many more bytes are needed
                 (values #f (fx- available len)))))
           ((fx>=? start end)
@@ -470,11 +471,13 @@
           (else
             ;; could not deserialize vlen
             (values #f #f)))))
+    ((bv start end)
+      (wire-get-from-bytevector bv start end #f))
     ((bv)
-      (wire-get-from-bytevector bv 0 (bytevector-length bv)))))
+      (wire-get-from-bytevector bv 0 (bytevector-length bv) #f))))
 
 
-;; read byte range [start, end) from bytespan bsp and deserialize an object from it.
+;; read byte range [start, end) from bytespan bsp and deserialize or skip an object from it.
 ;; Return two values:
 ;;   either object and updated start position in range [start, end)
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
@@ -482,12 +485,14 @@
 ;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
 (define wire-get-from-bytespan
   (case-lambda
-    ((bsp start end)
+    ((bsp start end skip?)
       (assert* 'wire-get-from-bytespan (fx<=?* 0 start end (bytespan-length bsp)))
       (let ((offset (bytespan-peek-beg bsp)))
         (wire-get-from-bytevector (bytespan-peek-data bsp) (fx+ start offset) (fx+ end offset))))
+    ((bsp start end)
+      (wire-get-from-bytespan bsp start end #f))
     ((bsp)
-      (wire-get-from-bytevector (bytespan-peek-data bsp) (bytespan-peek-beg bsp) (bytespan-peek-end bsp)))))
+      (wire-get-from-bytespan bsp 0 (bytespan-length bsp) #f))))
 
 
 ;; read bytes from bytevector or bytespan src and deserialize an object from it.

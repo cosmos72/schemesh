@@ -19,8 +19,8 @@
   (protocol
     (lambda (args->new)
       (lambda (head mutex changed)
-        ((args->new %queue-reader-get #f) head mutex changed))))
-  (nongenerative queue-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+        ((args->new %queue-reader-get #f #f) head mutex changed))))
+  (nongenerative queue-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define-record-type (queue-writer %make-queue-writer queue-writer?)

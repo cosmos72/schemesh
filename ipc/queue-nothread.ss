@@ -56,7 +56,7 @@
   (obj-writer-close tx))
 
 
-;; called by (queue-writer-close) -> (obj-writer-close)
+;; called by (queue-writer-close) and (obj-writer-close)
 (define (%queue-writer-close tx)
   (set-cdr! (queue-writer-tail tx) #f))
 
@@ -72,7 +72,7 @@
   (obj-writer-put tx obj))
 
 
-;; called by (queue-writer-put) -> (obj-writer-put)
+;; called by (queue-writer-put) and (obj-writer-put)
 (define (%queue-writer-put tx obj)
   (let ((old-tail (queue-writer-tail tx)))
     (unless (null? (cdr old-tail))
@@ -143,7 +143,7 @@
   (obj-reader-get rx))
 
 
-;; called by (queue-reader-get) -> (obj-reader-get)
+;; called by (queue-reader-get) and (obj-reader-get)
 (define (%queue-reader-get rx)
   (let-values (((datum flag) (queue-reader-timed-get-once rx huge-timeout)))
     (if (eq? flag 'timeout)

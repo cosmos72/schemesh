@@ -11,29 +11,34 @@
 
 (define-record-type obj-reader
   (fields
-    ;; procedure for generating next element.
+    ;; procedure for reading next element.
     get-proc
+    ;; procedure for skipping next element.
+    skip-proc
     ;; box containing #f or procedure for closing this reader.
     ;; if box contains #f, it means reader is closed:
     ;;   (obj-reader-get) will return (values #<unspecified> #f)
     ;;   and (obj-reader-eof?) will return true
     close-box)
-  ;; (make-obj-reader get-proc close-proc)
+  ;; (make-obj-reader get-proc skip-proc close-proc)
   (protocol
     (lambda (new)
-      (lambda (get-proc close-proc)
-        (%make-obj-reader new get-proc close-proc))))
-  (nongenerative %obj-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+      (lambda (get-proc skip-proc close-proc)
+        (%make-obj-reader new get-proc skip-proc close-proc))))
+  (nongenerative %obj-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; called internally by make-obj-reader: create and return an obj-reader
-(define (%make-obj-reader new get-proc close-proc)
+(define (%make-obj-reader new get-proc skip-proc close-proc)
   (assert* 'make-obj-reader (procedure? get-proc))
   (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask get-proc)))
+  (when skip-proc
+    (assert* 'make-obj-reader (procedure? skip-proc))
+    (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask skip-proc))))
   (when close-proc
     (assert* 'make-obj-reader (procedure? close-proc))
     (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask close-proc))))
-  (new get-proc (box (or close-proc void1))))
+  (new get-proc (or skip-proc get-proc) (box (or close-proc void1))))
 
 
 ;; Close an obj-reader or subtype.
@@ -72,13 +77,13 @@
   (not (unbox (obj-reader-close-box rx))))
 
 
-;; Generate one more element and return it.
+;; Read one element and return it.
 ;; each call will return two values:
-;;  either (values elem #t) i.e. the next generated element,
+;;  either (values elem #t) i.e. the next read element,
 ;;  or (values #<unspecified> #f) when the reader is exhausted or has been closed.
 ;;
 ;; Implementation note: if reader is closed, always returns (values #<unspecified> #f) without calling (get-proc rx).
-;; Otherwise calls (get-proc rx) to generate the next element.
+;; Otherwise calls (get-proc rx) to read the next element.
 ;; If (get-proc rx) returns (values #<unspecified> #f) i.e. is exhausted,
 ;; this function will close the reader before returning such values.
 (define (obj-reader-get rx)
@@ -86,6 +91,25 @@
   (if (obj-reader-eof? rx)
     (values #f #f)
     (let-values (((obj ok?) ((obj-reader-get-proc rx) rx)))
+      (unless ok?
+        (obj-reader-close rx))
+      (values obj ok?))))
+
+
+;; Skip one element and return it.
+;; each call will return two values:
+;;  either (values #<unspecified> #t) if an element was successfully skipped,
+;;  or (values #<unspecified> #f) when the reader is exhausted or has been closed.
+;;
+;; Implementation note: if reader is closed, always returns (values #<unspecified> #f) without calling (skip-proc rx).
+;; Otherwise calls (skip-proc rx) to read the next element.
+;; If (skip-proc rx) returns (values #<unspecified> #f) i.e. is exhausted,
+;; this function will close the reader before returning such values.
+(define (obj-reader-skip rx)
+  (assert* 'obj-reader-skip (obj-reader? rx))
+  (if (obj-reader-eof? rx)
+    (values #f #f)
+    (let-values (((obj ok?) ((obj-reader-skip-proc rx) rx)))
       (unless ok?
         (obj-reader-close rx))
       (values obj ok?))))
@@ -101,7 +125,7 @@
   (let ((%constant-reader ;; name shown when displaying the closure
           (lambda (rx)
             (values const #t))))
-    (make-obj-reader %constant-reader #f)))
+    (make-obj-reader %constant-reader #f #f)))
 
 
 ;; create and return an exhausted obj-reader.
@@ -111,7 +135,7 @@
   (let ((%empty-reader ;; name shown when displaying the closure
           (lambda (rx)
             (values #f #f))))
-    (make-obj-reader %empty-reader #f)))
+    (make-obj-reader %empty-reader #f #f)))
 
 
 ;; create and return an obj-reader that generates the elements of specified list.
@@ -129,7 +153,7 @@
               (let ((elem (car l)))
                 (set! l (cdr l))
                 (values elem #t))))))
-    (make-obj-reader %list-reader #f)))
+    (make-obj-reader %list-reader #f #f)))
 
 
 ;; create and return an obj-reader that generates the elements of specified vector.
@@ -150,7 +174,7 @@
                   (let ((elem (vector-ref v start)))
                     (set! start (fx1+ start))
                     (values elem #t))))))
-        (make-obj-reader %vector-reader #f)))
+        (make-obj-reader %vector-reader #f #f)))
     ((v)
       (vector-reader v 0 (vector-length v)))))
 
@@ -167,7 +191,7 @@
   (assert* 'sequence-reader (logbit? 0 (procedure-arity-mask seq)))
   (let ((%sequence-reader ;; name shown when displaying the closure
           (lambda (rx) (seq))))
-    (make-obj-reader %sequence-reader #f)))
+    (make-obj-reader %sequence-reader #f #f)))
 
 
 ;; create and return a sequence, i.e. a closure that accepts zero arguments and, at each call,
