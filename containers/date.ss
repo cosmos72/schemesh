@@ -9,17 +9,19 @@
 #!r6rs
 
 (library (scheme2k containers date (0 9 3))
-  (export date date-systz date->string string->date)
+  (export date date-or-false date-systz date->string string->date)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) date-year date-month date-day date-hour date-minute date-second date-nanosecond
-                       date-zone-name date-zone-offset
-                       foreign-procedure fx/ fx1+ make-date record-rtd record-writer string-copy!))
+                       date-zone-name date-zone-offset     foreign-procedure fx/ fx1+
+                       logand make-date meta-cond record-rtd record-writer string-copy!)
+    (only (scheme2k bootstrap) raise-errorf))
 
 
 ;; create and return a date with specified fields.
 ;; time zone offset is represented in seconds, as (make-date) expects
+;; raise condition if fields represent an invalid date.
 (define date
   (case-lambda
     ((year month day offset)
@@ -32,6 +34,7 @@
 
 ;; create and return a date with specified fields.
 ;; uses system default time zone
+;; raise condition if fields represent an invalid date.
 (define date-systz
   (case-lambda
     ((year month day)
@@ -42,6 +45,66 @@
       (make-date nanosecond second minute hour day month year))))
 
 
+(define (leap-year? year)
+  (and (fxzero? (logand year 3))
+       (if (fxzero? (mod year 100))
+         (fxzero? (mod year 400))
+         #t)))
+
+
+(define (exact-integer? n)
+  (or (fixnum? n)
+      (and (integer? n) (exact? n))))
+
+
+(define (valid-date? year month day)
+  ;; Chez Scheme requires (fixnum? year) and also 1900 < year < 2^31 in date objects
+  (and (fixnum? year)
+       (meta-cond
+         ((fixnum? #x7fffffff)
+           (fx<=? 1901 year #x7fffffff))
+         (else
+           (fx<=? 1901 year)))
+       (fixnum? month) (fx<=? 1 month 12)
+       (fixnum? day)   (fx<=? 1 day 31)
+       (cond
+         ((fx<=? day 28)
+           #t)
+         ((fx=? month 2)
+           (and (fx=? day 29) (leap-year? year)))
+         (else
+           (fx<=? day (bytevector-u8-ref #vu8(0 31 28 31 30 31 30 31 31 30 31 30 31) month))))))
+
+
+(define (valid-time? hour minute second)
+  (and (fixnum? hour)   (fx<=? 0 hour 23)
+       (fixnum? minute) (fx<=? 0 minute 59)
+       (fixnum? second) (fx<=? 0 second 59))) ; don't allow leap seconds
+
+
+(define (valid-nanosecond? ns)
+  (meta-cond
+    ((fixnum? 999999999)
+      (and (fixnum? ns) (fx<=? 0 ns 999999999)))
+    (else
+      (and (exact? ns) (integer? ns) (<= 0 ns 999999999)))))
+
+
+;; create and return a date with specified fields.
+;; time zone offset is represented in seconds, as (make-date) expects
+;; return #f if fields represent an invalid date.
+(define (date-or-false year month day hour minute second nanosecond offset)
+  (and (valid-date? year month  day)
+       (valid-time? hour minute second)
+       (valid-nanosecond? nanosecond)
+       (fixnum? offset) (fx<=? -86400 offset 86400)
+
+       (make-date nanosecond second minute hour day month year offset)))
+
+
+;; convert a date to RFC 3339 string, which is stricter than ISO 8601
+;; return string
+;; raise condition if d is not a date
 (define date->string
   (let ((c-date->string (foreign-procedure "c_date_to_string" (integer-32 unsigned-8 unsigned-8
                                                                unsigned-8 unsigned-8 unsigned-8
@@ -53,8 +116,23 @@
 
 
 ;; convert a date from RFC 3339 string, which is stricter than ISO 8601
-;; TODO finish implementing
-(define string->date (foreign-procedure "c_string_to_date" (ptr ptr) int))
+;; return date, or #f if string could not be parsed
+;; raise condition if s is not a string
+(define string->date
+  (let ((c-string->date (foreign-procedure "c_string_to_date" (ptr ptr) int)))
+    (lambda (s)
+      (unless (string? s)
+        (raise-errorf 'string->date "~s is not a string" s))
+      (let ((bv (make-bytevector 20)))
+        (and (fxzero? (c-string->date s bv))
+             (date-or-false (bytevector-s32-native-ref bv 0)  ; year
+                            (bytevector-u8-ref         bv 4)  ; month
+                            (bytevector-u8-ref         bv 5)  ; day
+                            (bytevector-u8-ref         bv 6)  ; hour
+                            (bytevector-u8-ref         bv 7)  ; minute
+                            (bytevector-u8-ref         bv 8)  ; second
+                            (bytevector-u32-native-ref bv 12) ; nanosecond
+                            (bytevector-s32-native-ref bv 16))))))) ; timezone offset, in seconds
 
 
 ;; customize how "date" objects are printed

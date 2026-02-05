@@ -180,6 +180,15 @@
     (let-values (((obj ok) (json-reader-get rx)))
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
+  (let-values (((port to-string) (open-string-output-port)))
+    (let ((tx (make-json-writer port)))
+      (json-writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
+      (json-writer-close tx)
+      (let* ((str (to-string))
+             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+        (first-value (json-reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
+
+
   ;; ---------------------------- lineedit io ----------------------------------
   (read
     (open-vlines-input-port

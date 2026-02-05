@@ -40,36 +40,8 @@
                 ((second pos)     (get/u8  bv pos end))
                 ((nanosecond pos) (get/any bv pos end))
                 ((offset pos)     (get/any bv pos end)))
-    (if (and pos
-             (integer? year) (exact? year) (valid-date? year month day)
-             (fx<=? 0 hour 23) (fx<=? 0 minute 59) (fx<=? 0 second 61) ; allow leap seconds
-             (integer? nanosecond) (exact? nanosecond) (<= 0 nanosecond 999999999)
-             (fixnum? offset) (<= -86400 offset 86400))
-      (values
-        (date year month day hour minute second nanosecond offset)
-        pos)
-      (values #f #f))))
-
-
-(define (valid-date? year month day)
-  (and (<= 1901 year) ;; Chez Scheme requires year >= 1901 in date objects
-       (fx<=? 1 month 12)
-       (fx<=? 1 day 31)
-       (cond
-         ((fx<=? day 28)
-           #t)
-         ((fx=? month 2)
-           (and (fx=? day 29) (leap-year? year)))
-         (else
-           (fx<=? day (bytevector-u8-ref #vu8(0 31 28 31 30 31 30 31 31 30 31 30 31) month))))))
-
-
-(define (leap-year? year)
-  (and (fxzero? (fxand year 3))
-       (if (fxzero? (fxmod year 100))
-         (fxzero? (fxmod year 400))
-         #t)))
-
+    (let ((d (and pos (date-or-false year month day hour minute second nanosecond offset))))
+      (values d (and d pos)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; customize how "time" objects are serialized/deserialized

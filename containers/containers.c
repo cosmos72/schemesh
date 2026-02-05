@@ -676,10 +676,6 @@ static uint32_t min_uint32(uint32_t a, uint32_t b) {
   return a < b ? a : b;
 }
 
-static iptr min_iptr(iptr a, iptr b) {
-  return a < b ? a : b;
-}
-
 static char* put_year(char* pos, int32_t year) {
   /* work with unsigned years: wider range */
   unsigned y = year < 0 ? (unsigned)-year : (unsigned)year;
@@ -742,128 +738,131 @@ static ptr c_date_to_string(int32_t  year,
   pos = put_2digits(pos, '-', min_uint8(day, 31));
   pos = put_2digits(pos, '-', min_uint8(month, 12));
   pos = put_year(pos, year);
+  /* Sstring_of_length() works as expected only for ASCII chars i.e. 0 < buf[i] < 128 for every i */
   return Sstring_of_length(pos, buf + sizeof(buf) - pos);
 }
 
 typedef struct {
+  ptr      str;
   iptr     offset;
+  iptr     end;
   uint32_t value;
-} atod_result;
+} atod_params;
 
-static int consume_char(ptr str, char ch, atod_result* res, iptr end) {
-  iptr offset = res->offset;
-  if (offset < end && Sstring_ref(str, offset) == (unsigned char)ch) {
-    res->offset = offset + 1;
+static int consume_char(atod_params* p, char ch) {
+  iptr offset = p->offset;
+  if (offset < p->end && Sstring_ref(p->str, offset) == (unsigned char)ch) {
+    p->offset = offset + 1;
     return 1; /* ok */
   }
   return 0; /* error */
 }
 
-static int parse_uint32(ptr str, char prefix, atod_result* res, iptr end) {
+static int parse_uint32(atod_params* p, char prefix, iptr min_digit_n, iptr max_digit_n) {
+  ptr      str;
+  iptr     end;
   iptr     offset;
+  iptr     consumed;
   uint32_t value;
 
-  if (prefix && !consume_char(str, prefix, res, end)) {
+  if (prefix && !consume_char(p, prefix)) {
     return 0; /* error */
   }
+  str   = p->str;
   value = 0;
-  for (offset = res->offset; offset < end; ++offset) {
+  for (offset = p->offset, end = p->end; offset < end; ++offset) {
     string_char ch = Sstring_ref(str, offset);
     if (ch < (uint8_t)'0' || ch > (uint8_t)'9') {
       break;
     }
     value = value * 10 + (ch - '0');
   }
-  if (res->offset == offset) {
-    /* no digits parsed */
+  consumed = offset - p->offset;
+  if (consumed < min_digit_n || consumed > max_digit_n) {
     return 0; /* error */
   }
-  res->offset = offset;
-  res->value  = value;
+  p->offset = offset;
+  p->value  = value;
   return 1; /* ok */
 }
 
 static int c_string_to_date(ptr str, ptr bvec) {
-  atod_result res;
+  atod_params p;
   octet*      addr;
-  iptr        end;
   uint8_t     yneg;
   uint8_t     tz_neg;
 
-  if (!Sstringp(str) || (end = Sstring_length(str)) < 10 || /*        */
+  if (!Sstringp(p.str = str) || (p.end = Sstring_length(str)) < 10 || /*        */
       !Sbytevectorp(bvec) || Sbytevector_length(bvec) != 20) {
     return -1;
   }
-  addr       = Sbytevector_data(bvec);
-  res.offset = yneg = (Sstring_ref(str, 0) == '-');
+  addr     = Sbytevector_data(bvec);
+  p.offset = yneg = (Sstring_ref(str, 0) == '-');
 
   /* parse year */
-  if (parse_uint32(str, '\0', &res, min_iptr(res.offset + 9, end))) {
-    int32_t year = yneg ? -(int32_t)res.value : (int32_t)res.value;
+  if (parse_uint32(&p, '\0', 4, 9)) {
+    int32_t year = yneg ? -(int32_t)p.value : (int32_t)p.value;
     memcpy(addr, &year, 4);
   } else {
     return -1;
   }
 
   /* parse month */
-  if (!parse_uint32(str, '-', &res, min_iptr(res.offset + 3, end))) {
+  if (!parse_uint32(&p, '-', 2, 2)) {
     return -1;
   }
-  addr[4] = (uint8_t)res.value;
+  addr[4] = (uint8_t)p.value;
 
   /* parse day */
-  if (!parse_uint32(str, '-', &res, min_iptr(res.offset + 3, end))) {
+  if (!parse_uint32(&p, '-', 2, 2)) {
     return -1;
   }
-  addr[5] = (uint8_t)res.value;
+  addr[5] = (uint8_t)p.value;
 
-  if (consume_char(str, 'T', &res, end)) {
+  if (consume_char(&p, 'T')) {
     /* parse hour */
-    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 2, end))) {
+    if (!parse_uint32(&p, '\0', 2, 2)) {
       return -1;
     }
-    addr[6] = (uint8_t)res.value;
+    addr[6] = (uint8_t)p.value;
 
     /* parse minute */
-    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end))) {
+    if (!parse_uint32(&p, ':', 2, 2)) {
       return -1;
     }
-    addr[7] = (uint8_t)res.value;
+    addr[7] = (uint8_t)p.value;
 
     /* parse second */
-    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end))) {
+    if (!parse_uint32(&p, ':', 2, 2)) {
       return -1;
     }
-    addr[8] = (uint8_t)res.value;
+    addr[8] = (uint8_t)p.value;
   } else {
     addr[8] = addr[7] = addr[6] = 0;
   }
 
-  if (consume_char(str, '.', &res, end)) {
+  if (consume_char(&p, '.')) {
     /* parse nanosecond */
-    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 9, end))) {
+    if (!parse_uint32(&p, '\0', 1, 9)) {
       return -1;
     }
-    memcpy(addr + 12, &res.value, 4);
+    memcpy(addr + 12, &p.value, 4);
   } else {
     memset(addr + 12, 0, 4);
   }
 
-  if ((tz_neg = 0, consume_char(str, '+', &res, end)) || /*            */
-      (consume_char(str, '-', &res, end) && (tz_neg = 1))) {
-
+  if ((tz_neg = 0, consume_char(&p, '+')) || /*            */
+      (consume_char(&p, '-') && (tz_neg = 1))) {
     int32_t tz_second;
     uint8_t tz_hour, tz_minute;
 
     /* parse tz_hour */
-    if (!parse_uint32(str, '\0', &res, min_iptr(res.offset + 2, end)) ||
-        (tz_hour = (uint8_t)res.value) > 24) {
+    if (!parse_uint32(&p, '\0', 2, 2) || (tz_hour = (uint8_t)p.value) > 24) {
       return -1;
     }
 
     /* parse tz_minute */
-    if (!parse_uint32(str, ':', &res, min_iptr(res.offset + 3, end)) ||
-        (tz_minute = (uint8_t)res.value) > 59) {
+    if (!parse_uint32(&p, ':', 2, 2) || (tz_minute = (uint8_t)p.value) > 59) {
       return -1;
     }
     tz_second = (int32_t)tz_hour * 3600 + (int32_t)tz_minute * 60;
@@ -872,11 +871,11 @@ static int c_string_to_date(ptr str, ptr bvec) {
     }
     memcpy(addr + 16, &tz_second, 4);
 
-  } else if (consume_char(str, 'Z', &res, end)) {
+  } else if (consume_char(&p, 'Z')) {
     /* 'Z' means UTC */
     memset(addr + 16, 0, 4);
   }
-  if (res.offset != end) {
+  if (p.offset != p.end) {
     return -1;
   }
   /* consumed all characters */

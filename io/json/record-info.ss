@@ -22,6 +22,13 @@
                       (exact second)))))
 
 
+(define (construct-date plist)
+  (let ((value (plist-ref plist 'value)))
+    (or (and (string? value)
+             (string->date value))
+        (raise-errorf 'json-reader-get "invalid RFC 3339 date string: ~s" value))))
+
+
 (define (add-time-info cache)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! cache rtd
@@ -29,8 +36,7 @@
         type-sym  time-type
         'value    (lambda (obj) (+ (time-second obj)
                                    (/ (time-nanosecond obj) 1000000000))))))
-  ;; hack: put in the same eq-hashtable associations rtd -> record-info
-  ;; and associations symbol -> constructor
+  ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> constructor
   (hashtable-set! cache 'time-duration construct-time)
   (hashtable-set! cache 'time-monotonic construct-time)
   (hashtable-set! cache 'time-utc        construct-time)
@@ -46,8 +52,10 @@
     (hashtable-set! cache rtd
       (make-record-info #f
         type-sym  (lambda (obj) 'date)
-        'value    date->string))
-    cache))
+        'value    date->string)))
+  ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> constructor
+  (hashtable-set! cache 'date construct-date)
+  cache)
 
 
 (define record-info-table
