@@ -12,7 +12,7 @@
 ;;; exchanges arbitrary objects through thread-safe in-memory queue
 ;;;
 (library (scheme2k ipc queue (0 9 3))
-  (export make-queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close
+  (export make-queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close (rename (queue-reader-get queue-reader-skip))
           make-queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close
           queue-reader-timed-get queue-reader-try-get in-queue-reader)
   (import
