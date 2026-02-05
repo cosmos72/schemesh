@@ -758,6 +758,7 @@ static int consume_char(atod_params* p, char ch) {
   return 0; /* error */
 }
 
+/* return number of consumed digits, or -1 on error */
 static int parse_uint32(atod_params* p, char prefix, iptr min_digit_n, iptr max_digit_n) {
   ptr      str;
   iptr     end;
@@ -766,7 +767,7 @@ static int parse_uint32(atod_params* p, char prefix, iptr min_digit_n, iptr max_
   uint32_t value;
 
   if (prefix && !consume_char(p, prefix)) {
-    return 0; /* error */
+    return -1; /* error */
   }
   str   = p->str;
   value = 0;
@@ -779,11 +780,11 @@ static int parse_uint32(atod_params* p, char prefix, iptr min_digit_n, iptr max_
   }
   consumed = offset - p->offset;
   if (consumed < min_digit_n || consumed > max_digit_n) {
-    return 0; /* error */
+    return -1; /* error */
   }
   p->offset = offset;
   p->value  = value;
-  return 1; /* ok */
+  return consumed; /* ok */
 }
 
 static int c_string_to_date(ptr str, ptr bvec) {
@@ -800,40 +801,40 @@ static int c_string_to_date(ptr str, ptr bvec) {
   p.offset = yneg = (Sstring_ref(str, 0) == '-');
 
   /* parse year */
-  if (parse_uint32(&p, '\0', 4, 9)) {
+  if (parse_uint32(&p, '\0', 4, 9) < 0) {
+    return -1;
+  } else {
     int32_t year = yneg ? -(int32_t)p.value : (int32_t)p.value;
     memcpy(addr, &year, 4);
-  } else {
-    return -1;
   }
 
   /* parse month */
-  if (!parse_uint32(&p, '-', 2, 2)) {
+  if (parse_uint32(&p, '-', 2, 2) < 0) {
     return -1;
   }
   addr[4] = (uint8_t)p.value;
 
   /* parse day */
-  if (!parse_uint32(&p, '-', 2, 2)) {
+  if (parse_uint32(&p, '-', 2, 2) < 0) {
     return -1;
   }
   addr[5] = (uint8_t)p.value;
 
   if (consume_char(&p, 'T')) {
     /* parse hour */
-    if (!parse_uint32(&p, '\0', 2, 2)) {
+    if (parse_uint32(&p, '\0', 2, 2) < 0) {
       return -1;
     }
     addr[6] = (uint8_t)p.value;
 
     /* parse minute */
-    if (!parse_uint32(&p, ':', 2, 2)) {
+    if (parse_uint32(&p, ':', 2, 2) < 0) {
       return -1;
     }
     addr[7] = (uint8_t)p.value;
 
     /* parse second */
-    if (!parse_uint32(&p, ':', 2, 2)) {
+    if (parse_uint32(&p, ':', 2, 2) < 0) {
       return -1;
     }
     addr[8] = (uint8_t)p.value;
@@ -842,9 +843,14 @@ static int c_string_to_date(ptr str, ptr bvec) {
   }
 
   if (consume_char(&p, '.')) {
-    /* parse nanosecond */
-    if (!parse_uint32(&p, '\0', 1, 9)) {
+    /* parse fractional seconds */
+    int digit_n;
+    if ((digit_n = parse_uint32(&p, '\0', 1, 9)) < 0) {
       return -1;
+    }
+    /* convert fraction to nanoseconds */
+    while (digit_n++ < 9) {
+      p.value *= 10;
     }
     memcpy(addr + 12, &p.value, 4);
   } else {
@@ -857,12 +863,12 @@ static int c_string_to_date(ptr str, ptr bvec) {
     uint8_t tz_hour, tz_minute;
 
     /* parse tz_hour */
-    if (!parse_uint32(&p, '\0', 2, 2) || (tz_hour = (uint8_t)p.value) > 24) {
+    if (parse_uint32(&p, '\0', 2, 2) < 0 || (tz_hour = (uint8_t)p.value) > 24) {
       return -1;
     }
 
     /* parse tz_minute */
-    if (!parse_uint32(&p, ':', 2, 2) || (tz_minute = (uint8_t)p.value) > 59) {
+    if (parse_uint32(&p, ':', 2, 2) < 0 || (tz_minute = (uint8_t)p.value) > 59) {
       return -1;
     }
     tz_second = (int32_t)tz_hour * 3600 + (int32_t)tz_minute * 60;

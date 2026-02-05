@@ -391,14 +391,14 @@
     (ordered-hash-delete! h #\b)
     (ordered-hash-set!    h #\b -2)
     (ordered-hash-set!    h #\d 'D)
-    h)                                                ,(eqv-ordered-hash #\c 3 #\a 1 #\b -2 #\d D)
+    h)                                                 ,(eqv-ordered-hash #\c 3 #\a 1 #\b -2 #\d D)
 
   ;; test function (in-ordered-hash)
   (let ((h (plist->eqv-ordered-hash
              '(#\x 1 #\y 2 #\z 3))))
     (for ((k v (in-ordered-hash h)))
       (ordered-hash-set! h v k))
-    h)                                                ,(eqv-ordered-hash #\x 1 #\y 2 #\z 3 1 #\x 2 #\y 3 #\z)
+    h)                                                 ,(eqv-ordered-hash #\x 1 #\y 2 #\z 3 1 #\x 2 #\y 3 #\z)
 
   ;; test that functions (in-ordered-hash-keys) and (in-ordered-hash-values)
   ;; return keys and values in the same order
@@ -416,7 +416,7 @@
              '(#\x 1 #\y 2 #\z 3))))
     (for ((cell (in-ordered-hash-cells h)))
       (set-cdr! cell (fx* 5 (cdr cell))))
-    h)                                                ,(eqv-ordered-hash #\x 5 #\y 10 #\z 15)
+    h)                                                 ,(eqv-ordered-hash #\x 5 #\y 10 #\z 15)
 
 
   ;; ---------------------------- vector ---------------------------------------
@@ -427,10 +427,10 @@
 
   ;; ---------------------------- date -----------------------------------------
   (date->string (date
-    1901 01 02  03 04 05  123456789 -86400))           "1901-01-02T03:04:05.123456789-24:00"
+    1901 01 02  03 04 05  012345678 -86400))           "1901-01-02T03:04:05.012345678-24:00"
 
   (string->date
-    "536870911-12-31T23:59:59.987654321+24:00")        ,@"(date 536870911 12 31  23 59 59  987654321 +86400)"
+    "536870911-12-31T23:59:59.987+24:00")              ,@"(date 536870911 12 31  23 59 59  987000000 +86400)"
 
 ) #!eof
 
