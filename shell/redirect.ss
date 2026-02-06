@@ -552,9 +552,9 @@
               (if (bytevector? bv0)
                 (let* ((str (utf8b->string bv0))
                        (len (string-length str)))
-                  (when (and (not (fxzero? len)) (char=? #\x0 (string-ref str (fx1- len))))
-                    (string-truncate! str (fx1- n)))
-                  str)))))))))
+                  (if (and (not (fxzero? len)) (char=? #\x0 (string-ref str (fx1- len))))
+                    (string-truncate! str (fx1- n)) ;; returns truncated str
+                    str))))))))))
 
 
 

@@ -714,7 +714,7 @@ int scheme2k_register_c_functions(void) {
 
   Sregister_symbol("c_chdir", &c_chdir);
   Sregister_symbol("c_dir_open", &c_dir_open);
-  Sregister_symbol("c_dir_next", &c_dir_next);
+  Sregister_symbol("c_dir_get", &c_dir_get);
   Sregister_symbol("c_dir_skip", &c_dir_skip);
   Sregister_symbol("c_dir_close", &c_dir_close);
   Sregister_symbol("c_environ_ref", &c_environ_ref);

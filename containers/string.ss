@@ -260,9 +260,7 @@
   (let %loop ((end (string-length str)))
     (if (and (fx>? end 0) (char=? #\newline (string-ref str (fx1- end))))
       (%loop (fx1- end))
-      (begin
-        (string-truncate! str end)
-        str))))
+      (string-truncate! str end))))
 
 
 ;; return #t if character is a decimal digit 0..9

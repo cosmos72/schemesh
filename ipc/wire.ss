@@ -54,7 +54,7 @@
       (lambda (out-box wbuf close-out?)
         ((args->new %wire-writer-put %wire-writer-close)
           out-box wbuf (and close-out? #t)))))
-  (nongenerative wire-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative wire-writer-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;; Create and return a wire-reader that, at each call to
@@ -252,17 +252,18 @@
 
 ;; called by (wire-reader-skip) and (obj-reader-skip)
 (define (%wire-reader-skip rx)
-  (%wire-reader-get-or-skip rx 'wire-reader-skip #t))
+  (let-values (((obj ok?) (%wire-reader-get-or-skip rx 'wire-reader-skip #t)))
+    ok?))
 
 
 ;; read serialized data from the wire-reader's in,
 ;; repeating until a whole wire message is available,
-;; then deserialize the message and return it.
+;; then deserialize the message and return the corresponding datum.
 ;; may block while reading from file descriptor or port.
 ;;
 ;; return two values:
-;;   deserialized datum, and #t
-;;   or <unspecified> and #f on end-of-file, or if wire-reader's in is closed or not set.
+;;   either (values datum #t) i.e. deserialized datum,
+;;   or (values #<unspecified> #f) on end-of-file, or if wire-reader is closed.
 ;;
 ;; raise exception on I/O error or if serialized data cannot be parsed.
 (define (wire-reader-get rx)
@@ -275,9 +276,8 @@
 ;; then skip the message.
 ;; may block while reading from file descriptor or port.
 ;;
-;; return two values:
-;;   either #<unspecified>, and #t
-;;   or #<unspecified> and #f on end-of-file, or if wire-reader's in is closed or not set.
+;; return #t if one message was skipped,
+;; or #f on end-of-file, or if wire-reader is closed.
 ;;
 ;; raise exception on I/O error or if serialized data cannot be parsed.
 (define (wire-reader-skip rx)

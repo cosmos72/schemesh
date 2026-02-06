@@ -92,9 +92,7 @@
 (define (charspan->string*! sp)
   (if (or (charspan-empty? sp) (not (fxzero? (charspan-beg sp))))
     (charspan->string sp)
-    (let ((str (charspan-str sp)))
-      (string-truncate! str (charspan-end sp))
-      str)))
+    (string-truncate! (charspan-str sp) (charspan-end sp))))
 
 (define (charspan . charlist)
   (list->charspan charlist))

@@ -625,8 +625,8 @@
 
 
 ;; analogous to (json-reader-get), except that it skips next datum instead of parsing and returning it.
-;;   return either (values #<unspecified> #t) if next datum was skipped,
-;;   or (values #<unspecified> #f) if end-of-file is reached
+;;   return #t if next datum was skipped,
+;;   or #f if end-of-file is reached
 (define (json-reader-skip rx)
   (assert* 'json-reader-skip (json-reader? rx))
   (obj-reader-skip rx))
@@ -733,7 +733,7 @@
           ;; skip start of top-level json array, we want its elements one by one
           (json-reader-skip-token rx))
         ;; skip one json value
-        (to-item (json-reader-skip-value rx)))
+        (not (eof-object? (json-reader-skip-value rx))))
       ((44 93) ; #\, #\]
         ;; found end of top-level json array,
         ;; or separator between elements in top-level json array.
@@ -743,6 +743,6 @@
       (else
         ;; top-level value is an an object, or an atomic value, or a syntax error
         ;; => skip it as a single item
-        (to-item (json-reader-skip-value rx))))))
+        (not (eof-object? (json-reader-skip-value rx)))))))
 
 

@@ -13,13 +13,12 @@
   (fields
     put-proc
     close-box            ; box containing #f or procedure
-    (mutable result)     ; returned by (close-proc tx)
-    (mutable eof?))      ; boolean
+    (mutable result))    ; returned by (close-proc tx)
   (protocol
     (lambda (new)
       (lambda (put-proc close-proc)
         (%make-obj-writer new put-proc close-proc))))
-  (nongenerative %obj-writer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %obj-writer-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; called internally by make-obj-writer: create and return an obj-writer
@@ -29,7 +28,16 @@
   (when close-proc
     (assert* 'make-obj-writer (procedure? close-proc))
     (assert* 'make-obj-writer (logbit? 1 (procedure-arity-mask close-proc))))
-  (new put-proc  (box close-proc) (void) #f))
+  (new put-proc (box (or close-proc void1)) (void)))
+
+
+;; return #t if obj-writer was closed,
+;; otherwise return #f
+;;
+;; Calling (obj-writer-put tx obj) on a closed obj-writer always raises a condition.
+(define (obj-writer-eof? tx)
+  (assert* 'obj-writer-put (obj-writer? tx))
+  (not (unbox (obj-writer-close-box tx))))
 
 
 ;; Put one more value into an obj-writer.
@@ -67,7 +75,6 @@
 ;;   close-proc is guaranteed to be called at most once per obj-writer,
 ;;   even if (obj-writer-close rx) is called concurrently on the same object from multiple threads.
 (define (obj-writer-close tx)
-  (obj-writer-eof?-set! tx #t)
   (assert* 'obj-writer-close (obj-writer? tx))
   (let* ((close-box  (obj-writer-close-box tx))
          (close-proc (unbox close-box)))
@@ -79,7 +86,7 @@
 ;; create and return an obj-writer that does nothing
 ;; each call to (obj-writer-put tx obj) will discard obj,
 ;; or raise a condition after (obj-writer-close tx) has been called.
-(define (discard-writer const)
+(define (discard-writer)
   (let ((%discard-writer-put ;; name shown when displaying the closure
           (lambda (tx obj) (void))))
     (make-obj-writer %discard-writer-put #f)))
@@ -87,7 +94,7 @@
 
 ;; create and return an obj-writer that is already closed and cannot be written to:
 ;; each call to (obj-writer-put tx obj) will raise a condition.
-(define (full-writer const)
+(define (full-writer)
   (let* ((%full-writer-put ;; name shown when displaying the closure
            (lambda (tx obj) (void)))
          (tx (make-obj-writer %full-writer-put #f)))
@@ -107,6 +114,21 @@
              (set! l (cons obj l))))
          (%list-writer-close ;; name shown when displaying the closure
            (lambda (tx)
-             (set! l (reverse! l))
-             l)))
+             (reverse! l))))
     (make-obj-writer %list-writer-put %list-writer-close)))
+
+
+;; create and return an obj-writer accumulates values into an internal vector.
+;; each call to (obj-writer-put tx obj) will add an element to such vector,
+;; or raise a condition after (obj-writer-close tx) has been called.
+;;
+;; (obj-writer-close tx) will return the accumulated vector, which can be modified by the caller.
+(define (vector-writer)
+  (let* ((l '())
+         (%vector-writer-put ;; name shown when displaying the closure
+           (lambda (tx obj)
+             (set! l (cons obj l))))
+         (%vector-writer-close ;; name shown when displaying the closure
+           (lambda (tx)
+             (list-reverse->vector l))))
+    (make-obj-writer %vector-writer-put %vector-writer-close)))

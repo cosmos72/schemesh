@@ -11,13 +11,27 @@
 
 
 ;; easy wrapper for (fd-read-all) (get-bytevector-all) (get-string-all) (reader->list)
-(define (all obj)
+(define (all from)
   (cond
-    ((fixnum? obj)      (fd-read-all obj))
-    ((port? obj)        (if (binary-port? obj)
-                          (get-bytevector-all obj)
-                          (get-string-all obj)))
-    ((obj-reader? obj)  (reader->list obj))))
+    ((fixnum? from)      (fd-read-all from))
+    ((port? from)        (if (binary-port? from)
+                          (get-bytevector-all from)
+                          (get-string-all from)))
+    ((obj-reader? from)  (reader->list from))
+    (else
+      (raise-errorf 'all "unsupported reader: ~s" from))))
+
+
+;; easy wrapper for (fd-read-all) (get-bytevector-all) (get-string-all) (reader->vector)
+(define (all/vector from)
+  (cond
+    ((fixnum? from)      (fd-read-all from))
+    ((port? from)        (if (binary-port? from)
+                          (get-bytevector-all from)
+                          (get-string-all from)))
+    ((obj-reader? from)  (reader->vector from))
+    (else
+      (raise-errorf 'all/vector "unsupported reader: ~s" from))))
 
 
 ;; easy wrapper for (fd-close) (close-port) (obj-reader-close) (obj-writer-close)
@@ -92,6 +106,20 @@
       (raise-errorf 'put "unsupported writer: ~s" to))))
 
 
+;; easy wrapper for (get-line) (obj-reader-skip)
+;; always returns one value:
+;;   #t if one element was skipped,
+;;   or #f if reader is exhausted
+(define (skip from)
+  (cond
+    ((and (port? from) (textual-port? from))
+      (not (eof-object? (get-line from))))
+    ((obj-reader? from)
+      (obj-reader-skip from))
+    (else
+      (raise-errorf 'skip "unsupported reader: ~s" from))))
+
+
 ;; iterate (get from) then (put to) until from is exhausted
 (define (copy from to)
   (let-values (((datum ok?) (get from)))
@@ -136,10 +164,22 @@
       (make-json-reader (sh-port #f 0 'binary)))))
 
 
+;; easy wrapper for (list-reader)
+;; l must be a list
+(define (from-list l)
+  (list-reader l))
+
+
 ;; easy wrapper for (make-queue-reader)
 ;; q must be a queue-writer
 (define (from-queue q)
   (make-queue-reader q))
+
+
+;; easy wrapper for (vector-reader)
+;; v must be a vector
+(define (from-vector l)
+  (vector-reader l))
 
 
 ;; easy wrapper for (make-wire-reader)
@@ -160,9 +200,19 @@
       (make-json-writer (sh-port #f 1 'textual)))))
 
 
+;; easy wrappwe for (list-writer)
+(define (to-list)
+  (list-writer))
+
+
 ;; easy wrapper for (make-queue-writer)
 (define (to-queue)
   (make-queue-writer))
+
+
+;; easy wrapper for (vector-writer)
+(define (to-vector)
+  (vector-writer))
 
 
 ;; easy wrapper for (make-wire-writer)

@@ -163,7 +163,7 @@
                   ((obj2 ok2) (json-reader-get rx))
                   ((obj3 ok3) (json-reader-get rx))
                   ((obj4 ok4) (json-reader-get rx))
-                  ((obj_ ok_) (json-reader-skip rx))
+                  ((ok_)      (json-reader-skip rx))
                   ((obj5 ok5) (json-reader-get rx))
                   ((obj6 ok6) (json-reader-get rx))
                   ((obj7 ok7) (json-reader-get rx)))

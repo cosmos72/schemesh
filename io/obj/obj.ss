@@ -35,12 +35,29 @@
     make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
 
     in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector
-    discard-writer full-writer list-writer)
+    discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
-    (only (chezscheme)                    box box-cas! fx1+ include logbit? procedure-arity-mask
+    (only (chezscheme)                    box box-cas! fx1+ fx1- include logbit? procedure-arity-mask
                                           record-type-descriptor record-writer reverse! unbox void)
     (only (scheme2k bootstrap)            assert* forever fx<=?* raise-errorf void1))
+
+
+;; private reimplementation of (list-reverse->vector)
+;; avoids circular dependency with (scheme2k containser list)
+;;
+;; create and return a vector that contains
+;; list elements in reverse order.
+;; does not modify list.
+(define (list-reverse->vector l)
+  (let* ((n (length l))
+         (v (make-vector n)))
+    (do ((i (fx1- n) (fx1- i))
+         (l l (cdr l)))
+        ((null? l) v)
+      (vector-set! v i (car l)))))
+
+
 
 
 (include "io/obj/reader.ss")

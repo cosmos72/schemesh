@@ -11,7 +11,7 @@
   (export
     any count every for-alist for-list for-plist in-alist in-list in-plist on-list
 
-    list-copy* list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
+    list-copy* list-index list-quoteq! list-reverse*! list-reverse->vector list-remove-consecutive-duplicates!
 
     plist? plist-add plist-ref plist-delete plist-delete/pred)
 
@@ -279,6 +279,18 @@
                 (new-tail (cdr tail)))
             (set-cdr! new-head head)
             (%step new-head new-tail)))))))
+
+
+;; create and return a vector that contains
+;; list elements in reverse order.
+;; does not modify list.
+(define (list-reverse->vector l)
+  (let* ((n (length l))
+         (v (make-vector n)))
+    (do ((i (fx1- n) (fx1- i))
+         (l l (cdr l)))
+        ((null? l) v)
+      (vector-set! v i (car l)))))
 
 
 ;; in-place remove consecutive duplicates from a list, and return it.

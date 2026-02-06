@@ -158,9 +158,9 @@
           (let ((byte-n (car pair))
                 (char-n (cdr pair)))
             (assert* 'utf8b->string (fx<=?* 0 char-n byte-n max-n))
-            (when (fx<? char-n max-n)
-              (string-truncate! str char-n))
-            str)))
+            (if (fx<? char-n max-n)
+              (string-truncate! str char-n) ;; returns truncated string
+              str))))
       ((bvec)
          (utf8b->string bvec 0 (bytevector-length bvec))))))
 

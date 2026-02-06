@@ -38,7 +38,15 @@
   (when close-proc
     (assert* 'make-obj-reader (procedure? close-proc))
     (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask close-proc))))
-  (new get-proc (or skip-proc get-proc) (box (or close-proc void1))))
+  (new get-proc (%make-skip-proc get-proc skip-proc) (box (or close-proc void1))))
+
+
+(define (%make-skip-proc get-proc skip-proc)
+  (if skip-proc
+    skip-proc
+    (lambda (rx)
+      (let-values (((obj ok?) (get-proc rx)))
+        ok?))))
 
 
 ;; Close an obj-reader or subtype.
@@ -97,22 +105,22 @@
 
 
 ;; Skip one element and return it.
-;; each call will return two values:
-;;  either (values #<unspecified> #t) if an element was successfully skipped,
-;;  or (values #<unspecified> #f) when the reader is exhausted or has been closed.
+;; each call will return one value:
+;;  #t if an element was successfully skipped,
+;;  or #f when the reader is exhausted or has been closed.
 ;;
-;; Implementation note: if reader is closed, always returns (values #<unspecified> #f) without calling (skip-proc rx).
-;; Otherwise calls (skip-proc rx) to read the next element.
-;; If (skip-proc rx) returns (values #<unspecified> #f) i.e. is exhausted,
+;; Implementation note: if reader is closed, always returns #f without calling (skip-proc rx).
+;; Otherwise calls (skip-proc rx) to skip the next element.
+;; If (skip-proc rx) returns #f i.e. is exhausted,
 ;; this function will close the reader before returning such values.
 (define (obj-reader-skip rx)
   (assert* 'obj-reader-skip (obj-reader? rx))
   (if (obj-reader-eof? rx)
     (values #f #f)
-    (let-values (((obj ok?) ((obj-reader-skip-proc rx) rx)))
+    (let ((ok? ((obj-reader-skip-proc rx) rx)))
       (unless ok?
         (obj-reader-close rx))
-      (values obj ok?))))
+      (and ok? #t)))) ;; replace truish -> #t
 
 
 ;; create and return an obj-reader that generates always the same value.
@@ -218,4 +226,8 @@
 
 ;; Read all elements from specified obj-reader, collect them into a vector, and return such vector.
 (define (reader->vector rx)
-  (list->vector (reader->list rx)))
+  (let %reader->vector ((rx rx) (l '()))
+    (let-values (((elem ok?) (obj-reader-get rx)))
+      (if ok?
+        (%reader->vector rx (cons elem l))
+        (list-reverse->vector l)))))

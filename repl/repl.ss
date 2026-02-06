@@ -12,9 +12,9 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all close copy copy/close dir eof? get put with-sh-closable
-          from-stdin from-json from-queue from-wire
-           to-stdout   to-json   to-queue   to-wire
+          all all/vector close copy copy/close dir eof? get put skip with-sh-closable
+          from-stdin from-json from-list from-queue from-vector from-wire
+           to-stdout   to-json   to-list   to-queue   to-vector   to-wire
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
@@ -35,9 +35,9 @@
           (scheme2k containers macros)
           (scheme2k containers span)
           (scheme2k lineedit lineedit)
-    (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get
+    (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
                                      obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
-                                     reader->list)
+                                     list-reader list-writer reader->list reader->vector vector-reader vector-writer)
     (only (scheme2k io json)         make-json-reader  make-json-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)

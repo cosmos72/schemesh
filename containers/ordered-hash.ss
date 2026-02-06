@@ -219,7 +219,7 @@
 
 ;; Always O(1)
 (define (ordered-hash-empty? oht)
-  (fxzero? (ordered-hash-size oht)))
+  (null? (ord-hash-head oht)))
 
 
 (define (node-key node)

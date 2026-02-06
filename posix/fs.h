@@ -233,11 +233,13 @@ static int c_dir_skip(void* dir) {
     return c_errno_set(EINVAL);
   }
   errno = 0;
-  (void)readdir((DIR*)dir);
-  return -errno; /* 0 if end if dir, otherwise error */
+  if (readdir((DIR*)dir) == NULL) {
+    return -errno; /* 0 if end of dir, otherwise error */
+  }
+  return 1; /* skipped one dir entry */
 }
 
-static int c_dir_next(void* dir, ptr vec, unsigned flags) {
+static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   struct stat    st;
   struct dirent* entry;
   iptr           vec_n;

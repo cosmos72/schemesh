@@ -23,7 +23,7 @@
       (lambda (out close-out? cache)
         ((args->new %json-writer-put %json-writer-close)
           out #f #t #f (and close-out? #t)))))
-  (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+  (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
 ;; Create a json-writer that, at each call to one of

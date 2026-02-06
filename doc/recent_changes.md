@@ -2,11 +2,9 @@
 
 ### TO DO
 
-* add function `(obj-reader-skip)` to obj-reader and subclasses
-* finish `(string->date)`
-* extend `reflect` library with new functions `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
+* extend `reflect` library with new functions `(compare)` `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
   that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
-* extend library `(scheme2k io wire)` to serialize/deserialize stencil vectors
+* extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry` objects and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
@@ -16,13 +14,14 @@
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
 * add types `json-reader` and `json-writer` and their functions in new library `(scheme2k io json)`
 * add functions `(field)` `(field-names)` `(fields-cursor)` in new library `(scheme2k reflect)`
-* pretty-print types `time` and `date` and add convenience functions to create them
-* rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
+* pretty-print types `time` and `date` and add convenience functions to create and convert them
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
 * rename functions `(...producer...)` -> `(...queue-reader...)`
 * rename functions `(...consumer...)` -> `(...queue-writer...)`
 * rename function `(...channel...)` -> `(...wire-reader...)` or `(...wire-writer...)`
+* rename library `(schemesh ipc fifo)` -> `(scheme2k ipc queue)`
+* rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
 
 ### release v0.9.3, 2025-12-26
 

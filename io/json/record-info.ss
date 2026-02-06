@@ -32,7 +32,7 @@
 (define (add-time-info cache)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! cache rtd
-      (make-record-info #f
+      (make-record-info #f #f
         type-sym  time-type
         'value    (lambda (obj) (+ (time-second obj)
                                    (/ (time-nanosecond obj) 1000000000))))))
@@ -50,7 +50,7 @@
 (define (add-date-info cache)
   (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
     (hashtable-set! cache rtd
-      (make-record-info #f
+      (make-record-info #f #f
         type-sym  (lambda (obj) 'date)
         'value    date->string)))
   ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> constructor

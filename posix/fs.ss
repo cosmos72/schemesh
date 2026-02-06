@@ -9,7 +9,7 @@
 
 (library (scheme2k posix fs (0 9 3))
   (export
-      make-dir-reader dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get
+      make-dir-reader dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get dir-reader-skip
 
       make-dir-entry dir-entry
 
@@ -26,7 +26,7 @@
     (only (scheme2k containers)      bytevector<? charspan? for-list string->utf8b)
     (only (scheme2k containers time) make-time-utc)
     (only (scheme2k conversions)     text->bytevector text->bytevector0 text->string)
-    (only (scheme2k io obj)          obj-reader obj-reader-get obj-reader-eof? obj-reader-close)
+    (only (scheme2k io obj)          obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
     (only (scheme2k posix fd)        c-errno->string raise-c-errno))
 
 
@@ -37,7 +37,7 @@
   (parent obj-reader)
   (fields
     (mutable handle)    ; #f or integer containing C DIR*
-    vec                 ; vector, used as buffer for C function c_dir_next()
+    vec                 ; vector, used as buffer for C function c_dir_get()
     (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
     (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
     path)               ; directory being read
@@ -74,15 +74,20 @@
   (obj-reader-get rx))
 
 
+(define (dir-reader-skip rx)
+  (assert* 'dir-reader-skip (dir-reader? rx))
+  (obj-reader-skip rx))
+
+
 ;; called by (dir-reader-get) and (obj-reader-get)
 (define %dir-reader-get
-  (let ((c-dir-next (foreign-procedure "c_dir_next" (void* ptr unsigned) int)))
+  (let ((c-dir-get (foreign-procedure "c_dir_get" (void* ptr unsigned) int)))
     (lambda (rx)
       (let ((handle (dir-reader-handle rx)))
         (if handle
           (let ((vec (dir-reader-vec rx)))
             (vector-fill! vec (void))
-            (let ((err (c-dir-next handle vec #x3fff)))
+            (let ((err (c-dir-get handle vec #x3fff)))
               (unless (and (fixnum? err) (fx>=? err 0))
                 (raise-c-errno 'dir-reader-get 'readdir err handle))
               (if (fx>? err 0)
@@ -99,11 +104,9 @@
         (if handle
           (let ((err (c-dir-skip handle)))
             (unless (and (fixnum? err) (fx>=? err 0))
-              (raise-c-errno 'dir-reader-get 'readdir err handle))
-            (if (fx>? err 0)
-              (values #t #t)
-              (values #f #f)))) ;; dir-reader is exhausted
-        (values #f #f))))) ;; dir-reader is closed
+              (raise-c-errno 'dir-reader-skip 'readdir err handle))
+            (fx>? err 0))
+          #f))))) ;; dir-reader is closed
 
 
 ;; called by (dir-reader-close) and (obj-reader-close)
