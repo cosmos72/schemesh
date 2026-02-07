@@ -115,8 +115,8 @@
 ;;   return -1 if a is smaller than b
 ;;   return 0  if a and b are equivalent
 ;;   return 1  if a is greater than b
-;;   return #f if they are not comparable (example: times with different time-type)
-;;                      or not ordered (example: complex numbers, not-a-number)
+;;   return #f if they are not ordered
+;;             (examples: times with different time-type, complex numbers, not-a-number)
 ;;
 ;; should never raise condition
 (define (compare a b)
@@ -164,7 +164,7 @@
 ;; otherwise compare them according to comparison for their type, and
 ;;   return #t if a is less than b
 ;;   return #f in all other cases: a is equivalent to or greater than b,
-;;                                 or they are not comparable, or not ordered
+;;                                 or they are not ordered
 ;;
 ;; same semantic as (eqv? -1 (compare a b))
 ;; should never raise condition
@@ -178,7 +178,7 @@
 ;; otherwise compare them according to comparison for their type, and
 ;;   return #t if a is less than or equivalent to b
 ;;   return #f in all other cases: a is greater than b,
-;;                                 or they are not comparable, or not ordered
+;;                                 or they are not ordered
 ;;
 ;; same semantic as (memv (compare a b) (-1 0))
 ;; should never raise condition
@@ -192,7 +192,7 @@
 ;; otherwise compare them according to comparison for their type, and
 ;;   return #t if a is greater than or equivalent to b
 ;;   return #f in all other cases: a is less than b,
-;;                                 or they are not comparable, or not ordered
+;;                                 or they are not ordered
 ;;
 ;; same semantic as (memv (compare a b) (0 1))
 ;; should never raise condition
@@ -206,7 +206,7 @@
 ;; otherwise compare them according to comparison for their type, and
 ;;   return #t if a is greater than b
 ;;   return #f in all other cases: a is less than or equivalent to b,
-;;                                 or they are not comparable, or not ordered
+;;                                 or they are not ordered
 ;;
 ;; same semantic as (eqv? 1 (compare a b))
 ;; should never raise condition
@@ -218,7 +218,7 @@
 ;;
 ;; if a and b have different type, return #t.
 ;; otherwise compare them according to comparison for their type, and
-;;   return #t if they are or not comparable or not ordered
+;;   return #t if they are or not ordered
 ;;   return #f in all other cases: a is less than, or equivalent to, or greater than b
 ;;
 ;; same semantic as (not (compare a b)) i.e. (eq? #f (compare a b))
