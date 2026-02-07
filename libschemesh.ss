@@ -58,6 +58,8 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
+  (include "os/process.ss")
+
   (include "io/http.ss")            ; requires io/posix/posix.ss
   (include "io/redir.ss")
   (include "io/stdio.ss")

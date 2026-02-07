@@ -61,6 +61,8 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
+  (include "os/process.ss")
+
   (include "io/http.ss")            ; requires io/posix/posix.ss
   (include "io/redir.ss")
   (include "io/stdio.ss")
@@ -118,6 +120,7 @@
       (scheme2k ipc)
       (scheme2k lineedit)
       (scheme2k io)
+      (scheme2k os)
       (scheme2k posix)
       (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
       (scheme2k reflect)

@@ -51,12 +51,11 @@
 
 (define make-dir-reader
   (let ((c-dir-open (foreign-procedure "c_dir_open" (ptr) ptr)))
-    (case-lambda
-      ((path)
-        (let ((obj (c-dir-open (text->bytevector0 path))))
-          (unless (and (integer? obj) (exact? obj) (> obj 0))
-            (raise-c-errno 'make-dir-reader 'opendir obj path))
-          (%make-dir-reader obj (text->string path)))))))
+    (lambda (path)
+      (let ((obj (c-dir-open (text->bytevector0 path))))
+        (unless (and (integer? obj) (exact? obj) (> obj 0))
+          (raise-c-errno 'make-dir-reader 'opendir obj path))
+        (%make-dir-reader obj (text->string path))))))
 
 
 (define (dir-reader-eof? rx)

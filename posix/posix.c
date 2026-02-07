@@ -19,6 +19,7 @@
 
 #include "../containers/containers.h" /* scheme2k_Sbytevector(), scheme2k_Sstring_utf8b() */
 #include "../eval.h"                  /* eval() */
+#include "../os/os.h"                 /* scheme2k_register_c_functions_os() */
 
 #include <arpa/inet.h> /* inet_pton(), ntohs() */
 #include <dirent.h>    /* opendir(), readdir(), closedir() */
@@ -700,6 +701,7 @@ int scheme2k_register_c_functions(void) {
   }
 
   scheme2k_register_c_functions_containers();
+  scheme2k_register_c_functions_os();
 
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_errno_eagain", &c_errno_eagain);

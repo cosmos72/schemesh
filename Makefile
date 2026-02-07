@@ -63,7 +63,7 @@ LDFLAGS_SO=-shared
 SCHEMESH_SO=libschemesh_0.9.3.so
 
 SRCS=containers/containers.c eval.c posix/posix.c
-OBJS=containers.o eval.o posix.o
+OBJS=containers.o eval.o os.o posix.o
 
 all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 
@@ -78,7 +78,10 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
-posix.o: posix/posix.c eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/signal.h posix/socket.h posix/tty.h
+posix.o: posix/posix.c containers/containers.h eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/signal.h posix/socket.h posix/tty.h os/os.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
+
+os.o: os/process.c os/os.h os/process_all.h os/process_linux.h os/process_unsupported.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h
