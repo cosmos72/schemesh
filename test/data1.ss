@@ -217,11 +217,13 @@
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen 9 30 "abcdefgh0" "12\n" "qwerty"))
 
   ;; ---------------------- reflect ---------------------------------------
+  ;; test array-...
   (list
     (array? 7) (array? #vu8()) (array? (bytespan))
     (array? "") (array? (charspan))
     (array? '#()) (array? (span)) (array? (gbuffer)))  (#f #f #f #f #f #t #t #t)
 
+  ;; test array-...
   (let ((gb  (list->gbuffer '(a bc def |.| 0.0+12.5i)))
         (l   '()))
     (do ((i 0 (fx1+ i))
@@ -230,6 +232,7 @@
         ((fx>=? i n) (reverse! l))
       (set! l (cons (ref gb i) l))))                   (a bc def |.| 0.0+12.5i)
 
+  ;; test htable-cursor
   (let ((ht (ordered-hash char->integer char=?
                #\a 1 #\b 2 #\C 3 #\space 4))
         (l   '()))
@@ -238,15 +241,23 @@
           ((not cell) (reverse! l))
         (set! l (cons cell l)))))                      ((#\a . 1) (#\b . 2) (#\C . 3) (#\space . 4))
 
-  (let ((d1 (date 1970 1 1 0)) (d2 (date 1970 1 1 1)))
-    (list (compare d1 d2)
-          (less? d1 d2) (less-equiv? d1 d2)
-          (equiv? d1 d2)
-          (greater-equiv? d1 d2) (greater? d1 d2)
-          (unordered? d1 d2)))                         (1 #f #f #f #t #t #f)
+  ;; test comparison functions
+  (let ((a (date 1970 1 1 0)) (b (date 1970 1 1 1)))
+    (list (compare a b)
+          (less? a b) (less-equiv? a b)
+          (equiv? a b)
+          (greater-equiv? a b) (greater? a b)
+          (unordered? a b)))                           (1 #f #f #f #t #t #f)
+
+  (let ((a 0.33333) (b 1/3))
+    (list (compare a b)
+          (less? a b) (less-equiv? a b)
+          (equiv? a b)
+          (greater-equiv? a b) (greater? a b)
+          (unordered? a b)))                           (-1 #t #t #f #f #f #f)
 
 
-  ;; (field-names) and (field) accept record types
+  ;; test (field-names) and (field) - they accept any record type
   (field-names (make-vscreen))                         #(left right dirty-start-y dirty-end-y dirty? width height
                                                          prompt-end-x prompt-end-y cursor-ix cursor-iy)
   (let ((v (make-vscreen)))
