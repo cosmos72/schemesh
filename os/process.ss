@@ -112,7 +112,7 @@
     (mutable pid)           ; (void) or exact integer
     (mutable name)          ; string
     (mutable tty)           ; (void) or string
-    (mutable status)        ; (void) or char
+    (mutable state)         ; (void) or symbol
     (mutable user)          ; (void) or immutable string
     (mutable group)         ; (void) or immutable string
     (mutable uid)           ; (void) or exact integer
@@ -177,6 +177,9 @@
       (make-time type (if carry? 0 ns)
                       (if carry? (1+ s) s)))))
 
+(define (u8->symbol u8)
+  (string->symbol (string (integer->char u8))))
+
 (define-syntax bvec-ref/s64 (identifier-syntax bytevector-s64-native-ref))
 (define-syntax bvec-ref/u64 (identifier-syntax bytevector-u64-native-ref))
 
@@ -189,8 +192,8 @@
       (bvec-ref/s64 bvec 0)                     ; pid,   int64
       (car l)       ; process name, string
       (cdr l)       ; tty, #f or string
-      (integer->char
-        (bytevector-u8-ref bvec (fx* 21 8)))                 ; status, char
+      (u8->symbol
+        (bytevector-u8-ref bvec (fx* 21 8)))    ; state, symbol
       (if-uid->username rx uid)         ; user name, string or (void)
       (if-uid->username rx gid)         ; group name, string or (void)
       uid                               ; uid,   uint64
@@ -231,7 +234,7 @@
                             (writer (process-entry-pid e) port)
     (put-char port #\space) (writer (process-entry-name e) port)
     (put-char port #\space) (writer (process-entry-tty e) port)
-    (put-char port #\space) (writer (process-entry-status e) port)
+    (put-char port #\space) (writer (process-entry-state e) port)
     (put-char port #\space) (writer (process-entry-user e) port)
     (put-char port #\space) (writer (process-entry-group e) port)
     (put-char port #\space) (writer (process-entry-uid e) port)

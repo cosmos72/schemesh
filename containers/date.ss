@@ -9,14 +9,69 @@
 #!r6rs
 
 (library (scheme2k containers date (0 9 3))
-  (export date date-or-false date-systz date->string string->date)
+  (export date date<? date<=? date=? date>=? date>? date-compare
+          date-or-false date-systz date->string string->date)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) date-year date-month date-day date-hour date-minute date-second date-nanosecond
-                       date-zone-name date-zone-offset     foreign-procedure fx/ fx1+
-                       logand make-date meta-cond record-rtd record-writer string-copy!)
-    (only (scheme2k bootstrap) raise-errorf))
+                       date-zone-name date-zone-offset date->time-utc    foreign-procedure fx/ fx1+
+                       logand make-date meta-cond print-radix record-rtd record-writer string-copy!)
+    (only (scheme2k bootstrap)       raise-errorf)
+    (only (scheme2k containers time) time-compare))
+
+
+;; compare two dates.
+;;   return -1 if first date is earlier,
+;;   return 0 if dates are equal,
+;;   return 1 if first date is later
+;;
+;; Note: dates are fully ordered, never returns #f or other results.
+;; should never raise condition
+(define (date-compare d1 d2)
+  (if (fx=? (date-zone-offset d1) (date-zone-offset d2))
+    ;; same time zone => compare each field
+    (let ((year1   (date-year   d1)) (year2   (date-year   d2))
+          (month1  (date-month  d1)) (month2  (date-month  d2))
+          (day1    (date-day    d1)) (day2    (date-day    d2))
+          (hour1   (date-hour   d1)) (hour2   (date-hour   d2))
+          (minute1 (date-minute d1)) (minute2 (date-minute d2))
+          (second1 (date-second d1)) (second2 (date-second d2))
+          (ns1 (date-nanosecond d1)) (ns2 (date-nanosecond d2)))
+      (cond
+        ((< year1   year2)   -1)
+        ((> year1   year2)   1)
+        ((< month1  month2)  -1)
+        ((> month1  month2)  1)
+        ((< day1    day2)    -1)
+        ((> day1    day2)    1)
+        ((< hour1   hour2)   -1)
+        ((> hour1   hour2)   1)
+        ((< minute1 minute2) -1)
+        ((> minute1 minute2) 1)
+        ((< second1 second2) -1)
+        ((> second1 second2) 1)
+        ((< ns1     ns2)     -1)
+        ((> ns1     ns2)     1)
+        (else                0)))
+    ;; different time zones => convert to time-utc and compare them
+    (or (time-compare (date->time-utc d1) (date->time-utc d2)) 0)))
+
+
+(define (date<? d1 d2)
+  (fx<? (date-compare d1 d2) 0))
+
+(define (date<=? d1 d2)
+  (fx<=? (date-compare d1 d2) 0))
+
+(define (date=? d1 d2)
+  (fxzero? (date-compare d1 d2)))
+
+(define (date>=? d1 d2)
+  (fx>=? (date-compare d1 d2) 0))
+
+(define (date>? d1 d2)
+  (fx>? (date-compare d1 d2) 0))
 
 
 ;; create and return a date with specified fields.
@@ -135,28 +190,35 @@
                             (bytevector-s32-native-ref bv 16))))))) ; timezone offset, in seconds
 
 
+(define (write-digits nn out writer base10?)
+  (when (and base10? (fx<? nn 10))
+    (put-char out #\0))
+  (writer nn out))
+
+
 ;; customize how "date" objects are printed
 ;; time zone offset is represented in seconds, as (make-date) and (date) expect
 (record-writer (record-rtd (make-date 0 0 0 0 1 1 1970 0))
   (lambda (d out writer)
-    (let ((default-tz? (date-zone-name d))) ; truish if timezone is the system default
+    (let ((default-tz? (date-zone-name d)) ; truish if timezone is the system default
+          (base10? (fx=? 10 (print-radix))))
       (put-string out (if default-tz? "(date-systz " "(date "))
       (writer (date-year d) out)
       (put-char out #\space)
-      (writer (date-month d) out)
+      (write-digits (date-month d) out writer base10?)
       (put-char out #\space)
-      (writer (date-day d) out)
+      (write-digits (date-day d) out writer base10?)
       (let ((hour   (date-hour d))
             (minute (date-minute d))
             (second (date-second d))
             (ns     (date-nanosecond d)))
         (unless (and (fxzero? hour) (fxzero? minute) (fxzero? second) (zero? ns))
           (put-string out "  ")
-          (writer hour out)
+          (write-digits hour out writer base10?)
           (put-char out #\space)
-          (writer minute out)
+          (write-digits minute out writer base10?)
           (put-char out #\space)
-          (writer second out)
+          (write-digits second out writer base10?)
           (unless (zero? ns)
             (put-string out "  ")
             (writer ns out))))

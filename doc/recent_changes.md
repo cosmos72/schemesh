@@ -4,7 +4,7 @@
 
 * extend `reflect` library with new functions `(compare)` `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
   that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
-* extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry` objects and stencil vectors
+* extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing

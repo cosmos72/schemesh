@@ -14,52 +14,187 @@
   (export     array?     array-accessor     array-length
           chararray? chararray-accessor chararray-length
              htable?     htable-cursor     htable-size
+             compare  equiv? greater-equiv? greater? less? less-equiv? unordered?
           field field-cursor field-cursor-next! field-names
           make-record-info record-info record-info? record-info-field-names record-info-serializer record-info-type-name)
   (import
     (rnrs)
-    (only (chezscheme)                       fx1+ fx/ logbit? procedure-arity-mask void)
+    (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
     (only (scheme2k bootstrap)               assert*)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
+    (only (scheme2k containers date)         date-compare)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
     (only (scheme2k containers hashtable)    hash-cursor hash-cursor-next!)
     (only (scheme2k containers list)         plist? plist-ref)
           (scheme2k containers ordered-hash)
+    (only (scheme2k containers time)         time-compare)
     (only (scheme2k containers span)         span span? span-insert-left/vector! span-insert-right/vector! span-length
                                              span-ref span->vector)
     (only (scheme2k containers vector)       vector-every))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; reflection on hashtable-like containers
+;;; compare value-like objects: booleans, characters, numbers, strings, symbols, times, dates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; return #t if obj is an associative container for arbitrary values.
-;; currently returns #t for: hashtable, ordered-hash
-(define (htable? obj)
-  (or (hashtable? obj) (ordered-hash? obj)))
+
+;; convention: #f is less than #t
+(define (boolean-compare a b)
+  (cond ((eq? a b) 0)
+        (a         1)
+        (else     -1)))
 
 
-;; if obj is an associative container for arbitrary values,
-;; return its size. otherwise return #f
-(define (htable-size obj)
+(define (char-compare a b)
+  (cond ((char=? a b) 0)
+        ((char>? a b) 1)
+        (else         -1)))
+
+
+(define (number-compare a b)
   (cond
-    ((hashtable? obj)    (hashtable-size obj))
-    ((ordered-hash? obj) (ordered-hash-size obj))
+    ((= a b)
+      0)
+    ((and (real? a) (real? b))
+      (cond ((> a b) 1)
+            ((< a b) -1)
+            (else #f))) ;; not-a-numbers are unordered
+    (else
+      #f))) ;; complex numbers are unordered
+
+
+(define (string-compare a b)
+  (cond ((string=? a b) 0)
+        ((string>? a b) 1)
+        (else           -1)))
+
+
+(define (symbol-compare a b)
+  (if (eq? a b)
+    0
+    ;; compare symbol names
+    (string-compare (symbol->string a) (symbol->string b))))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return -1 if a is smaller than b
+;;   return 0  if a and b are equivalent
+;;   return 1  if a is greater than b
+;;   return #f if they are not comparable (example: times with different time-type)
+;;                      or not ordered (example: complex numbers, not-a-number)
+;;
+;; should never raise condition
+(define (compare a b)
+  (cond
+    ((boolean? a)   (and (boolean? b) (boolean-compare a b)))
+    ((char?   a)    (and (char?   b)  (char-compare    a b)))
+    ((number? a)    (and (number? b)  (number-compare  a b)))
+    ((string? a)    (and (string? b)  (string-compare  a b)))
+    ((symbol? a)    (and (symbol? b)  (symbol-compare  a b)))
+    ((record? a)
+      (cond
+        ((date? a)  (and (date? b)    (date-compare a b)))
+        ((time? a)  (and (time? b)    (time-compare a b)))
+        (else       #f)))
     (else           #f)))
 
 
-;; if obj is an associative container for arbitrary values,
-;; return two values:
-;;   a cursor object,
-;;   and a procedure that accepts such cursor and returns the next entry in obj as a pair (key . value),
-;;     or #f if cursor reached the end of obj.
-;; otherwise return (values #f #f)
-(define (htable-cursor obj)
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if they are equivalent
+;;   return #f if they are different or not comparable
+;;
+;; same semantic as (eqv? 0 (compare a b)), but often faster
+;; should never raise condition
+(define (equiv? a b)
   (cond
-    ((hashtable? obj)     (values (hash-cursor obj) hash-cursor-next!))
-    ((ordered-hash? obj)  (values (ordered-hash-cursor obj) ordered-hash-cursor-next!))
-    (else                 (values #f #f))))
+    ((boolean? a)   (eq? a b))
+    ((char? a)      (and (char? b)    (char=? a b)))
+    ((number? a)    (and (number? b)  (= a b)))
+    ((string? a)    (and (string? b)  (string=? a b)))
+    ((symbol? a)    (or (eq? a b)
+                        ;; compare symbol names
+                        (and (symbol? b) (string=? (symbol->string a) (symbol->string b)))))
+    ((record? a)
+      (cond
+        ((date? a)  (and (date? b)    (eqv? 0 (date-compare a b))))
+        ((time? a)  (and (time? b)    (eqv? 0 (time-compare a b))))
+        (else       #f)))
+    (else           #f)))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if a is less than b
+;;   return #f in all other cases: a is equivalent to or greater than b,
+;;                                 or they are not comparable, or not ordered
+;;
+;; same semantic as (eqv? -1 (compare a b))
+;; should never raise condition
+(define (less? a b)
+  (eqv? -1 (compare a b)))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if a is less than or equivalent to b
+;;   return #f in all other cases: a is greater than b,
+;;                                 or they are not comparable, or not ordered
+;;
+;; same semantic as (memv (compare a b) (-1 0))
+;; should never raise condition
+(define (less-equiv? a b)
+  (memv (compare a b) (-1 0)))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if a is greater than or equivalent to b
+;;   return #f in all other cases: a is less than b,
+;;                                 or they are not comparable, or not ordered
+;;
+;; same semantic as (memv (compare a b) (0 1))
+;; should never raise condition
+(define (greater-equiv? a b)
+  (memv (compare a b) (0 1)))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #f.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if a is greater than b
+;;   return #f in all other cases: a is less than or equivalent to b,
+;;                                 or they are not comparable, or not ordered
+;;
+;; same semantic as (eqv? 1 (compare a b))
+;; should never raise condition
+(define (greater? a b)
+  (eqv? 1 (compare a b)))
+
+
+;; compare two arbitrary datum a and b.
+;;
+;; if a and b have different type, return #t.
+;; otherwise compare them according to comparison for their type, and
+;;   return #t if they are or not comparable or not ordered
+;;   return #f in all other cases: a is less than, or equivalent to, or greater than b
+;;
+;; same semantic as (not (compare a b)) i.e. (eq? #f (compare a b))
+;; should never raise condition
+(define (unordered? a b)
+  (not (compare a b)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,9 +254,41 @@
 ;; otherwise return #f
 (define (chararray-accessor obj)
   (cond
-    ((vector? obj)   string-ref)
+    ((string? obj)   string-ref)
     ((charspan? obj) charspan-ref)
     (else           #f)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; reflection on hashtable-like containers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; return #t if obj is an associative container for arbitrary values.
+;; currently returns #t for: hashtable, ordered-hash
+(define (htable? obj)
+  (or (hashtable? obj) (ordered-hash? obj)))
+
+
+;; if obj is an associative container for arbitrary values,
+;; return its size. otherwise return #f
+(define (htable-size obj)
+  (cond
+    ((hashtable? obj)    (hashtable-size obj))
+    ((ordered-hash? obj) (ordered-hash-size obj))
+    (else           #f)))
+
+
+;; if obj is an associative container for arbitrary values,
+;; return two values:
+;;   a cursor object,
+;;   and a procedure that accepts such cursor and returns the next entry in obj as a pair (key . value),
+;;     or #f if cursor reached the end of obj.
+;; otherwise return (values #f #f)
+(define (htable-cursor obj)
+  (cond
+    ((hashtable? obj)     (values (hash-cursor obj) hash-cursor-next!))
+    ((ordered-hash? obj)  (values (ordered-hash-cursor obj) ordered-hash-cursor-next!))
+    (else                 (values #f #f))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

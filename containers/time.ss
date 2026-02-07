@@ -11,7 +11,8 @@
 (library (scheme2k containers time (0 9 3))
   (export
       (rename (make-time-duration duration))
-      make-time-duration make-time-monotonic make-time-utc make-time-process make-time-thread make-time-collector-cpu make-time-collector-real)
+      make-time-duration make-time-monotonic make-time-utc make-time-process make-time-thread make-time-collector-cpu make-time-collector-real
+      time-compare)
   (import
     (rnrs)
     (only (chezscheme)   make-time record-rtd record-writer time-second time-nanosecond time-type))
@@ -43,6 +44,24 @@
 
 (define (make-time-collector-real s ns)
   (make-time 'time-collector-real ns s))
+
+
+;; compare two times.
+;;   return #f if times have different type,
+;;   return -1 if first time is earlier,
+;;   return 0 if times are equal,
+;;   return 1 if first time is later
+(define (time-compare t1 t2)
+  (and (eq? (time-type t1) (time-type t2))
+       ;; same time-type
+       (let ((s1  (time-second t1))     (s2  (time-second t2))
+             (ns1 (time-nanosecond t1)) (ns2 (time-nanosecond t2)))
+         (cond
+           ((< s1  s2)  -1)
+           ((> s1  s2)  1)
+           ((< ns1 ns2) -1)
+           ((> ns1 ns2) 1)
+           (else        0)))))
 
 
 ;; customize how "time" objects are printed
