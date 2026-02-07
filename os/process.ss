@@ -71,6 +71,8 @@
               (cond
                 ((pair? ret)
                   (values (c->process-entry ret bvec) #t))
+                ((not ret)
+                  (%process-reader-get rx)) ;; error parsing /proc/pid/stat, skip it
                 ((eqv? 0 ret)
                   (values #f #f)) ;; process-reader is exhausted
                 (else
@@ -164,26 +166,26 @@
 
 (define (c->process-entry l bvec)
   (make-process-entry
-    (bytevector-u64-native-ref bvec 0)                  ; pid
+    (bytevector-s64-native-ref bvec 0)                  ; pid,   int64
     (car l)       ; process name, string
     (cadr l)      ; tty, #f or string,
     (caddr l)     ; status, char,   
     (void)        ; TODO: user name, string
     (void)        ; TODO: group name, string
-    (bytevector-u64-native-ref bvec (fx* 1 8))          ; uid
-    (bytevector-u64-native-ref bvec (fx* 2 8))          ; gid
-    (bytevector-u64-native-ref bvec (fx* 3 8))          ; ppid
-    (bytevector-u64-native-ref bvec (fx* 4 8))          ; pgrp
-    (bytevector-u64-native-ref bvec (fx* 5 8))          ; sid
-    (bytevector-u64-native-ref bvec (fx* 6 8))          ; flags
-    (bytevector-u64-native-ref bvec (fx* 7 8))          ; mem-resident
-    (bytevector-u64-native-ref bvec (fx* 8 8))          ; mem-virtual
-    (bytevector-ieee-double-native-ref bvec (fx* 9 8))  ; start-time
-    (bytevector-ieee-double-native-ref bvec (fx* 10 8)) ; user-time
-    (bytevector-ieee-double-native-ref bvec (fx* 11 8)) ; system-time
-    (bytevector-u64-native-ref bvec (fx* 12 8))         ; priority
-    (bytevector-s64-native-ref bvec (fx* 13 8))         ; nice
-    (bytevector-u64-native-ref bvec (fx* 14 8))         ; num-threads
+    (bytevector-u64-native-ref bvec (fx* 1 8))          ; uid,   uint64
+    (bytevector-u64-native-ref bvec (fx* 2 8))          ; gid,   uint64
+    (bytevector-s64-native-ref bvec (fx* 3 8))          ; ppid,  int64
+    (bytevector-s64-native-ref bvec (fx* 4 8))          ; pgrp,  int64
+    (bytevector-s64-native-ref bvec (fx* 5 8))          ; sid,   int64
+    (bytevector-u64-native-ref bvec (fx* 6 8))          ; flags, uint64
+    (bytevector-u64-native-ref bvec (fx* 7 8))          ; mem-resident, uint64
+    (bytevector-u64-native-ref bvec (fx* 8 8))          ; mem-virtual,  uint64
+    (bytevector-ieee-double-native-ref bvec (fx* 9 8))  ; start-time,   double
+    (bytevector-ieee-double-native-ref bvec (fx* 10 8)) ; user-time,    double
+    (bytevector-ieee-double-native-ref bvec (fx* 11 8)) ; system-time,  double
+    (bytevector-s64-native-ref bvec (fx* 12 8))         ; priority,     int64
+    (bytevector-s64-native-ref bvec (fx* 13 8))         ; nice,         int64
+    (bytevector-s64-native-ref bvec (fx* 14 8))         ; num-threads,  int64
     (bytevector-u64-native-ref bvec (fx* 15 8))         ; min-fault
     (bytevector-u64-native-ref bvec (fx* 16 8))))       ; maj-fault
 

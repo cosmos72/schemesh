@@ -91,8 +91,8 @@ enum {
   e_start_time   = 9,  /* in clock ticks since boot */
   e_user_time    = 10, /* in clock ticks */
   e_sys_time     = 11, /* in clock ticks */
-  e_priority     = 12,
-  e_nice         = 13,
+  e_priority     = 12, /* signed */
+  e_nice         = 13, /* signed */
   e_num_threads  = 14,
   e_min_fault    = 15,
   e_maj_fault    = 16,

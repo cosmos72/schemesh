@@ -165,7 +165,8 @@ static void uint64_pages_to_bytes(uint8_t vec[], size_t i) {
  * read one process from /proc.
  *   on success, return list (command_string, status_char, tty_string) and fill bvec.
  *   on end-of-dir, return 0
- *   on error, return c_errno() < 0
+ *   on I/O error, return c_errno() < 0
+ *   on parsing errors, return #f
  */
 static ptr c_process_get(ptr dir_s, ptr bvec) {
   char                 buf[4096];
@@ -173,6 +174,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   const unsigned char* src;
   const unsigned char* src_end;
   uint8_t*             vec;
+  struct dirent*       entry;
   int64_t              uid, gid, tty_nr;
   int                  buf_written;
   char                 state;
@@ -184,28 +186,26 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   vec = Sbytevector_data(bvec);
 
   // ---- Read next /proc/<pid>/stat ----
-  {
-    struct dirent* entry = c_process_get_next_pid(dir_s);
-    if (!entry) {
-      return Sinteger(c_errno()); /* 0 if end of dir, otherwise error */
-    }
-    buf_written = snprintf(buf, sizeof(buf), "/proc/%s/stat", entry->d_name);
+  entry = c_process_get_next_pid(dir_s);
+  if (!entry) {
+    return Sinteger(c_errno()); /* 0 if end of dir, otherwise error */
   }
+  buf_written = snprintf(buf, sizeof(buf), "/proc/%s/stat", entry->d_name);
 
   src_end = src = (const unsigned char*)buf;
 
   ok = buf_written > 0 && (unsigned)buf_written < sizeof(buf) &&
        (src_end = read_file(buf, (unsigned char*)buf, sizeof(buf), &uid, &gid)) &&
-       parse_uint64(&src, vec, e_pid) && parse_linux_command(&src, src_end, comm, sizeof(comm)) &&
-       parse_char(&src, &state) && parse_uint64(&src, vec, e_ppid) &&
-       parse_uint64(&src, vec, e_pgrp) && parse_uint64(&src, vec, e_sid) &&
+       parse_int64(&src, vec, e_pid) && parse_linux_command(&src, src_end, comm, sizeof(comm)) &&
+       parse_char(&src, &state) && parse_int64(&src, vec, e_ppid) &&
+       parse_int64(&src, vec, e_pgrp) && parse_int64(&src, vec, e_sid) &&
        parse_int64(&src, &tty_nr, 0) && parse_int64(&src, NULL, 0 /*tty_pgrp*/) &&
        parse_uint64(&src, vec, e_flags) && parse_uint64(&src, vec, e_min_fault) &&
        parse_uint64(&src, NULL, 0 /*child_min_fault*/) && parse_uint64(&src, vec, e_maj_fault) &&
        parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, vec, e_user_time) &&
-       parse_uint64(&src, vec, e_sys_time) && parse_uint64(&src, NULL, 0 /*child_user_time*/) &&
-       parse_uint64(&src, NULL, 0 /*child_sys_time*/) && parse_uint64(&src, vec, e_priority) &&
-       parse_int64(&src, vec, e_nice) && parse_uint64(&src, vec, e_num_threads) &&
+       parse_uint64(&src, vec, e_sys_time) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
+       parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
+       parse_int64(&src, vec, e_nice) && parse_int64(&src, vec, e_num_threads) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, vec, e_start_time) &&
        parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
 
@@ -226,5 +226,9 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
                  Scons(make_tty_name(tty_nr),              /*            */
                        Scons(Schar((unsigned char)state), Snil)));
   }
-  return Sinteger(c_errno_set(EIO));
+#if 0
+  fprintf(stderr, "error parsing %s\n", entry->d_name);
+  fflush(stderr);
+#endif /* 0 */
+  return Sfalse;
 }
