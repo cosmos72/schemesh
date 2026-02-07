@@ -12,7 +12,7 @@
   (export
       (rename (make-time-duration duration))
       make-time-duration make-time-monotonic make-time-utc make-time-process make-time-thread make-time-collector-cpu make-time-collector-real
-      time-compare)
+      time-compare time-equiv?)
   (import
     (rnrs)
     (only (chezscheme)   make-time record-rtd record-writer time-second time-nanosecond time-type))
@@ -62,6 +62,16 @@
            ((< ns1 ns2) -1)
            ((> ns1 ns2) 1)
            (else        0)))))
+
+
+;; compare two times.
+;;   return #t if both times have same type, second and nanosecond,
+;;   return #f in all other cases
+(define (time-equiv? t1 t2)
+  (or (eq? t1 t2)
+      (and (eq? (time-type t1) (time-type t2))
+           (=   (time-second t1) (time-second t2))
+           (=   (time-nanosecond t1) (time-nanosecond t2)))))
 
 
 ;; customize how "time" objects are printed

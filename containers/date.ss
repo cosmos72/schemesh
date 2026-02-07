@@ -9,7 +9,7 @@
 #!r6rs
 
 (library (scheme2k containers date (0 9 3))
-  (export date date<? date<=? date=? date>=? date>? date-compare
+  (export date date<? date<=? date=? date>=? date>? date-compare (rename (date=? date-equiv?))
           date-or-false date-systz date->string string->date)
   (import
     (rnrs)
@@ -29,33 +29,49 @@
 ;; Note: dates are fully ordered, never returns #f or other results.
 ;; should never raise condition
 (define (date-compare d1 d2)
-  (if (fx=? (date-zone-offset d1) (date-zone-offset d2))
-    ;; same time zone => compare each field
-    (let ((year1   (date-year   d1)) (year2   (date-year   d2))
-          (month1  (date-month  d1)) (month2  (date-month  d2))
-          (day1    (date-day    d1)) (day2    (date-day    d2))
-          (hour1   (date-hour   d1)) (hour2   (date-hour   d2))
-          (minute1 (date-minute d1)) (minute2 (date-minute d2))
-          (second1 (date-second d1)) (second2 (date-second d2))
-          (ns1 (date-nanosecond d1)) (ns2 (date-nanosecond d2)))
-      (cond
-        ((< year1   year2)   -1)
-        ((> year1   year2)   1)
-        ((< month1  month2)  -1)
-        ((> month1  month2)  1)
-        ((< day1    day2)    -1)
-        ((> day1    day2)    1)
-        ((< hour1   hour2)   -1)
-        ((> hour1   hour2)   1)
-        ((< minute1 minute2) -1)
-        ((> minute1 minute2) 1)
-        ((< second1 second2) -1)
-        ((> second1 second2) 1)
-        ((< ns1     ns2)     -1)
-        ((> ns1     ns2)     1)
-        (else                0)))
-    ;; different time zones => convert to time-utc and compare them
-    (or (time-compare (date->time-utc d1) (date->time-utc d2)) 0)))
+  (cond
+    ((eq? d1 d2)
+      0)
+    ((fx=? (date-zone-offset d1) (date-zone-offset d2))
+      ;; same time zone => compare each field
+      (let ((year1 (date-year d1)) (year2 (date-year d2)))
+        (cond
+          ((< year1 year2) -1)
+          ((> year1 year2) 1)
+          (else
+            (let ((month1 (date-month  d1)) (month2 (date-month  d2)))
+              (cond
+                ((< month1  month2) -1)
+                ((> month1  month2) 1)
+                (else
+                  (let ((day1 (date-day d1)) (day2 (date-day d2)))
+                    (cond
+                      ((< day1 day2) -1)
+                      ((> day1 day2) 1)
+                      (else
+                        (let ((hour1 (date-hour d1)) (hour2 (date-hour d2)))
+                          (cond
+                            ((< hour1 hour2) -1)
+                            ((> hour1 hour2) 1)
+                            (else
+                              (let ((minute1 (date-minute d1)) (minute2 (date-minute d2)))
+                                (cond
+                                  ((< minute1 minute2) -1)
+                                  ((> minute1 minute2) 1)
+                                  (else
+                                    (let ((second1 (date-second d1)) (second2 (date-second d2)))
+                                      (cond
+                                        ((< second1 second2) -1)
+                                        ((> second1 second2) 1)
+                                        (else
+                                          (let ((ns1 (date-nanosecond d1)) (ns2 (date-nanosecond d2)))
+                                            (cond
+                                              ((< ns1 ns2) -1)
+                                              ((> ns1 ns2) 1)
+                                              (else 0))))))))))))))))))))))
+    (else
+      ;; different time zones => convert to time-utc and compare them
+      (or (time-compare (date->time-utc d1) (date->time-utc d2)) 0))))
 
 
 (define (date<? d1 d2)

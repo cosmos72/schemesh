@@ -14,7 +14,7 @@
   (export     array?     array-accessor     array-length
           chararray? chararray-accessor chararray-length
              htable?     htable-cursor     htable-size
-             compare  equiv? greater-equiv? greater? less? less-equiv? unordered?
+             compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-function record-equivalence-function
           field field-cursor field-cursor-next! field-names
           make-record-info record-info record-info? record-info-field-names record-info-serializer record-info-type-name)
   (import
@@ -22,12 +22,12 @@
     (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
     (only (scheme2k bootstrap)               assert*)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
-    (only (scheme2k containers date)         date-compare)
+    (only (scheme2k containers date)         date date-compare date-equiv?)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
-    (only (scheme2k containers hashtable)    hash-cursor hash-cursor-next!)
+    (only (scheme2k containers hashtable)    eq-hashtable hash-cursor hash-cursor-next!)
     (only (scheme2k containers list)         plist? plist-ref)
           (scheme2k containers ordered-hash)
-    (only (scheme2k containers time)         time-compare)
+    (only (scheme2k containers time)         make-time-utc time-compare time-equiv?)
     (only (scheme2k containers span)         span span? span-insert-left/vector! span-insert-right/vector! span-length
                                              span-ref span->vector)
     (only (scheme2k containers vector)       vector-every))
@@ -36,6 +36,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; compare value-like objects: booleans, characters, numbers, strings, symbols, times, dates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; retrieve or set the function for comparing with (compare) records having specified rtd
+(define record-compare-function
+  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   date-compare
+                          (record-rtd (make-time-utc 0 0)) time-compare)))
+    (case-lambda
+      ((rtd)
+        (hashtable-ref ht rtd #f))
+      ((rtd proc)
+        (assert* 'record-compare-function (record-type-descriptor? rtd))
+        (assert* 'record-compare-function (procedure? proc))
+        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask proc)))
+        (hashtable-set! ht rtd proc)))))
+
+
+;; retrieve or set the function for comparing with (equiv?) records having specified rtd
+(define record-equivalence-function
+  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   date-equiv?
+                          (record-rtd (make-time-utc 0 0)) time-equiv?)))
+    (case-lambda
+      ((rtd)
+        (hashtable-ref ht rtd #f))
+      ((rtd proc)
+        (assert* 'record-equivalence-function (record-type-descriptor? rtd))
+        (assert* 'record-equivalence-function (procedure? proc))
+        (assert* 'record-equivalence-function (logbit? 2 (procedure-arity-mask proc)))
+        (hashtable-set! ht rtd proc)))))
 
 
 ;; convention: #f is less than #t
@@ -76,6 +104,10 @@
     (string-compare (symbol->string a) (symbol->string b))))
 
 
+(define (symbol-equiv? a b)
+  (eqv? 0 (symbol-compare a b)))
+
+
 ;; compare two arbitrary datum a and b.
 ;;
 ;; if a and b have different type, return #f.
@@ -92,14 +124,14 @@
     ((boolean? a)   (and (boolean? b) (boolean-compare a b)))
     ((char?   a)    (and (char?   b)  (char-compare    a b)))
     ((number? a)    (and (number? b)  (number-compare  a b)))
-    ((string? a)    (and (string? b)  (string-compare  a b)))
     ((symbol? a)    (and (symbol? b)  (symbol-compare  a b)))
-    ((record? a)
-      (cond
-        ((date? a)  (and (date? b)    (date-compare a b)))
-        ((time? a)  (and (time? b)    (time-compare a b)))
-        (else       #f)))
-    (else           #f)))
+    ((string? a)    (and (string? b)  (string-compare  a b)))
+    (else
+      (let* ((rtd  (record-rtd a))
+             (proc (record-compare-function rtd)))
+        (and proc
+             (eq? rtd (record-rtd b))
+             (proc a b))))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -116,16 +148,14 @@
     ((boolean? a)   (eq? a b))
     ((char? a)      (and (char? b)    (char=? a b)))
     ((number? a)    (and (number? b)  (= a b)))
+    ((symbol? a)    (and (symbol? b)  (symbol-equiv? a b)))
     ((string? a)    (and (string? b)  (string=? a b)))
-    ((symbol? a)    (or (eq? a b)
-                        ;; compare symbol names
-                        (and (symbol? b) (string=? (symbol->string a) (symbol->string b)))))
-    ((record? a)
-      (cond
-        ((date? a)  (and (date? b)    (eqv? 0 (date-compare a b))))
-        ((time? a)  (and (time? b)    (eqv? 0 (time-compare a b))))
-        (else       #f)))
-    (else           #f)))
+    (else
+      (let* ((rtd  (record-rtd a))
+             (proc (record-equivalence-function rtd)))
+        (and proc
+             (eq? rtd (record-rtd b))
+             (proc a b))))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -153,7 +183,7 @@
 ;; same semantic as (memv (compare a b) (-1 0))
 ;; should never raise condition
 (define (less-equiv? a b)
-  (memv (compare a b) (-1 0)))
+  (and (memv (compare a b) '(-1 0)) #t))
 
 
 ;; compare two arbitrary datum a and b.
@@ -167,7 +197,7 @@
 ;; same semantic as (memv (compare a b) (0 1))
 ;; should never raise condition
 (define (greater-equiv? a b)
-  (memv (compare a b) (0 1)))
+  (and (memv (compare a b) '(0 1)) #t))
 
 
 ;; compare two arbitrary datum a and b.
