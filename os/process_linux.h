@@ -114,9 +114,8 @@ static void c_process_close(ptr dir_s) {
  *   on end-of-dir, set errno = 0 and return NULL
  *   on error, set errno > 0 and return NULL
  */
-static struct dirent* c_process_get_next_pid(ptr dir_s) {
+static struct dirent* c_process_get_next_pid(DIR* dir) {
   struct dirent* entry;
-  DIR*           dir = to_dir(dir_s);
   if (!dir) {
     c_errno_set(EINVAL);
     return NULL;
@@ -135,30 +134,11 @@ static struct dirent* c_process_get_next_pid(ptr dir_s) {
  *   on error, return c_errno() < 0
  */
 static int c_process_skip(ptr dir_s) {
-  struct dirent* entry = c_process_get_next_pid(dir_s);
+  struct dirent* entry = c_process_get_next_pid(to_dir(dir_s));
   if (!entry) {
     return c_errno(); /* 0 if end of dir, otherwise error */
   }
   return 1; /* ok, skipped one pid */
-}
-
-static uint64_t os_pagesize         = 0;
-static double   os_ticks_per_second = 0.0;
-
-static void uint64_to_time(uint8_t vec[], size_t i) {
-  double val;
-  if (os_ticks_per_second <= 0.0) {
-    os_ticks_per_second = (double)sysconf(_SC_CLK_TCK);
-  }
-  val = get_uint64(vec, i);
-  set_double(vec, i, val / os_ticks_per_second);
-}
-
-static void uint64_pages_to_bytes(uint8_t vec[], size_t i) {
-  if (os_pagesize == 0) {
-    os_pagesize = (uint64_t)sysconf(_SC_PAGESIZE);
-  }
-  uint64_multiply(vec, i, os_pagesize);
 }
 
 /*
@@ -174,28 +154,32 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   const unsigned char* src;
   const unsigned char* src_end;
   uint8_t*             vec;
+  DIR*                 dir;
   struct dirent*       entry;
   int64_t              uid, gid, tty_nr;
   int                  buf_written;
   char                 state;
   uint8_t              ok;
 
-  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_count * 8) {
+  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
   }
   vec = Sbytevector_data(bvec);
 
   // ---- Read next /proc/<pid>/stat ----
-  entry = c_process_get_next_pid(dir_s);
+  dir   = to_dir(dir_s);
+  entry = c_process_get_next_pid(dir);
   if (!entry) {
     return Sinteger(c_errno()); /* 0 if end of dir, otherwise error */
   }
-  buf_written = snprintf(buf, sizeof(buf), "/proc/%s/stat", entry->d_name);
+  memset(vec, '\0', e_byte_n);
+
+  buf_written = snprintf(buf, sizeof(buf), "%s/stat", entry->d_name);
 
   src_end = src = (const unsigned char*)buf;
 
   ok = buf_written > 0 && (unsigned)buf_written < sizeof(buf) &&
-       (src_end = read_file(buf, (unsigned char*)buf, sizeof(buf), &uid, &gid)) &&
+       (src_end = read_file_at(dirfd(dir), buf, (unsigned char*)buf, sizeof(buf), &uid, &gid)) &&
        parse_int64(&src, vec, e_pid) && parse_linux_command(&src, src_end, comm, sizeof(comm)) &&
        parse_char(&src, &state) && parse_int64(&src, vec, e_ppid) &&
        parse_int64(&src, vec, e_pgrp) && parse_int64(&src, vec, e_sid) &&
@@ -210,21 +194,26 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
 
   if (ok) {
-
-    /* convert times from ticks to seconds */
-    uint64_to_time(vec, e_user_time);
-    uint64_to_time(vec, e_sys_time);
-    uint64_to_time(vec, e_start_time);
+    unsigned i;
+    /* skip fields 25...39 */
+    for (i = 25; i < 40 && parse_uint64(&src, NULL, 0); i++) {
+    }
+    if (i == 40) {
+      ok = parse_uint64(&src, vec, e_rt_priority) && parse_uint64(&src, vec, e_rt_policy) &&
+           parse_uint64(&src, vec, e_iowait_time);
+    }
 
     set_int64(vec, e_uid, uid);
     set_int64(vec, e_gid, gid);
 
-    /* convert mem_resident from pages to bytes */
-    uint64_pages_to_bytes(vec, e_mem_resident);
+    set_uint64(vec, e_tick_per_s, get_os_tick_per_s());
 
-    return Scons(scheme2k_Sstring_utf8b(comm, (size_t)-1), /*            */
-                 Scons(make_tty_name(tty_nr),              /*            */
-                       Scons(Schar((unsigned char)state), Snil)));
+    /* convert mem_resident from pages to bytes */
+    uint64_multiply(vec, e_mem_resident, get_os_pagesize());
+
+    vec[e_state * 8] = (uint8_t)state;
+
+    return Scons(scheme2k_Sstring_utf8b(comm, (size_t)-1), make_tty_name(tty_nr));
   }
 #if 0
   fprintf(stderr, "error parsing %s\n", entry->d_name);

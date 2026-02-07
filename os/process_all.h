@@ -19,12 +19,15 @@
 #include "../containers/containers.h"
 
 /* return dst + read_len, or NULL on error */
-static unsigned char*
-read_file(const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid);
+static unsigned char* read_file_at(
+    int dir_fd, const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid);
 static void   skip_ws(const unsigned char** src);
 static size_t parse_char(const unsigned char** src, char ret[1]);
 static size_t parse_int64(const unsigned char** src, void* dst, size_t i);
 static size_t parse_uint64(const unsigned char** src, void* dst, size_t i);
+
+static uint64_t get_os_tick_per_s(void);
+static uint64_t get_os_pagesize(void);
 
 typedef char sizeof_int64_is_8[sizeof(int64_t) == 8 ? 1 : -1];
 typedef char sizeof_uint64_is_8[sizeof(uint64_t) == 8 ? 1 : -1];
@@ -37,12 +40,6 @@ static void set_int64(void* dst, size_t i, int64_t val) {
 }
 
 static void set_uint64(void* dst, size_t i, uint64_t val) {
-  if (dst) {
-    memcpy((uint8_t*)dst + i * 8, &val, 8);
-  }
-}
-
-static void set_double(void* dst, size_t i, double val) {
   if (dst) {
     memcpy((uint8_t*)dst + i * 8, &val, 8);
   }
@@ -86,17 +83,22 @@ enum {
   e_pgrp         = 4,
   e_sid          = 5,
   e_flags        = 6,
-  e_mem_resident = 7,  /* in bytes */
-  e_mem_virtual  = 8,  /* in bytes */
-  e_start_time   = 9,  /* in clock ticks since boot */
-  e_user_time    = 10, /* in clock ticks */
-  e_sys_time     = 11, /* in clock ticks */
-  e_priority     = 12, /* signed */
-  e_nice         = 13, /* signed */
-  e_num_threads  = 14,
-  e_min_fault    = 15,
-  e_maj_fault    = 16,
-  e_count        = 17,
+  e_mem_resident = 7,  /* bytes, uint64,  */
+  e_mem_virtual  = 8,  /* bytes, uint64 */
+  e_tick_per_s   = 9,  /* ticks per second, uint64 */
+  e_start_time   = 10, /* ticks since boot, uint64 */
+  e_user_time    = 11, /* ticks, uint64 */
+  e_sys_time     = 12, /* ticks, uint64 */
+  e_iowait_time  = 13, /* ticks, uint64 */
+  e_priority     = 14, /* int64 */
+  e_nice         = 15, /* int64 */
+  e_rt_priority  = 16,
+  e_rt_policy    = 17,
+  e_num_threads  = 18,
+  e_min_fault    = 19,
+  e_maj_fault    = 20,
+  e_state        = 21,
+  e_byte_n       = e_state * 8 + 1,
 };
 
 #ifdef __linux__
@@ -118,11 +120,11 @@ static void stat_fd(int fd, int64_t* uid, int64_t* gid) {
   }
 }
 
-static unsigned char*
-read_file(const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid) {
+static unsigned char* read_file_at(
+    int dir_fd, const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid) {
   ssize_t n;
   size_t  end;
-  int     fd = open(path, O_RDONLY);
+  int     fd = openat(dir_fd, path, O_RDONLY);
   if (fd < 0) {
     return NULL;
   }
@@ -230,3 +232,50 @@ static size_t parse_string(const unsigned char** src, char dst[], size_t dstlen)
   return len;
 }
 #endif /* 0 */
+
+static uint64_t os_pagesize   = 0; /* OS page size, in bytes */
+static uint64_t os_tick_per_s = 0; /* OS clock ticks per second */
+
+static uint64_t get_os_tick_per_s(void) {
+  uint64_t n = os_tick_per_s;
+  if (n == 0) {
+#ifdef _SC_CLK_TCK
+    long val = sysconf(_SC_CLK_TCK);
+    if (val > 0) {
+      n = (uint64_t)val;
+    } else
+#endif
+
+    /*else */ {
+#if defined(CLK_TCK) && CLK_TCK > 0
+      n = CLK_TCK;
+#else
+      n = 100; /* guess */
+#endif
+    }
+    os_tick_per_s = n; /* cache for future calls */
+  }
+  return n;
+}
+
+static uint64_t get_os_pagesize(void) {
+  uint64_t n = os_pagesize;
+  if (n == 0) {
+#ifdef _SC_PAGESIZE
+    long val = sysconf(_SC_PAGESIZE);
+    if (val > 0) {
+      n = (uint64_t)val;
+    } else
+#endif
+
+    /*else */ {
+#if defined(PAGESIZE) && PAGESIZE > 0
+      n = PAGESIZE;
+#else
+      n = 4096; /* guess */
+#endif
+    }
+    os_pagesize = n; /* cache for future calls */
+  }
+  return n;
+}

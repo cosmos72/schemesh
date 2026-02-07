@@ -9,26 +9,30 @@
 ;;; collect information about system processes
 ;;;
 (library (scheme2k os (0 9 3))
-  (export make-process-reader process-reader process-reader? process-reader-get process-reader-eof? process-reader-close process-reader-skip)
+  (export make-process-reader process-reader process-reader? process-reader-get process-reader-eof? process-reader-close process-reader-skip
+          make-process-entry  process-entry  process-entry?)
   (import
     (rnrs)
-    (only (chezscheme)                   foreign-procedure record-writer void)
+    (only (chezscheme)                   1+ foreign-procedure fx1+ make-time record-writer string->immutable-string void)
     (only (scheme2k bootstrap)           assert*)
     (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
-    (only (scheme2k posix)               raise-c-errno))
+    (only (scheme2k posix fd)            raise-c-errno)
+    (only (scheme2k posix fs)            gid->groupname uid->username))
 
 
 (define-record-type (process-reader %make-process-reader process-reader?)
   (parent obj-reader)
   (fields
-    (mutable handle)    ; #f or integer containing C DIR*
-    bvec)               ; bytevector, used as buffer for C function c_process_get()
+    (mutable handle)     ; #f or integer containing C DIR*
+    bvec                 ; bytevector, used as buffer for C function c_process_get()
+    (mutable uid-cache)  ; #f or eqv-hashtable uid -> user name
+    (mutable gid-cache)) ; #f or eqv-hashtable gid -> group name
   (protocol
     (lambda (args->new)
       (lambda (handle)
         ((args->new %process-reader-get %process-reader-skip %process-reader-close)
-          handle (make-bytevector (fx* 17 8))))))
-  (nongenerative %process-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+          handle (make-bytevector (fx1+ (fx* 21 8))) #f #f))))
+  (nongenerative %process-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define make-process-reader
@@ -70,7 +74,7 @@
             (let ((ret (c-process-get handle bvec)))
               (cond
                 ((pair? ret)
-                  (values (c->process-entry ret bvec) #t))
+                  (values (c->process-entry rx ret bvec) #t))
                 ((not ret)
                   (%process-reader-get rx)) ;; error parsing /proc/pid/stat, skip it
                 ((eqv? 0 ret)
@@ -122,15 +126,17 @@
     (mutable start-time)    ; (void) or time-utc
     (mutable user-time)     ; (void) or time-duration
     (mutable sys-time)      ; (void) or time-duration
+    (mutable iowait-time)   ; (void) or time-duration
     (mutable priority)      ; (void) or exact integer
     (mutable nice)          ; (void) or exact integer
+    (mutable rt-priority)   ; (void) or exact integer
+    (mutable rt-policy)     ; (void) or exact integer
     (mutable num-threads)   ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
-  ; (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be39)
-)
+  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
-#|
+
 (define (if-uid->username rx uid)
   (if (and (integer? uid) (exact? uid))
     ;; use short-lived cache uid -> username stored in process-reader
@@ -161,33 +167,55 @@
             (hashtable-set! cache gid name) ;; also cache lookup failures
             name)))
     (void)))
-|#
 
 
-(define (c->process-entry l bvec)
-  (make-process-entry
-    (bytevector-s64-native-ref bvec 0)                  ; pid,   int64
-    (car l)       ; process name, string
-    (cadr l)      ; tty, #f or string,
-    (caddr l)     ; status, char,   
-    (void)        ; TODO: user name, string
-    (void)        ; TODO: group name, string
-    (bytevector-u64-native-ref bvec (fx* 1 8))          ; uid,   uint64
-    (bytevector-u64-native-ref bvec (fx* 2 8))          ; gid,   uint64
-    (bytevector-s64-native-ref bvec (fx* 3 8))          ; ppid,  int64
-    (bytevector-s64-native-ref bvec (fx* 4 8))          ; pgrp,  int64
-    (bytevector-s64-native-ref bvec (fx* 5 8))          ; sid,   int64
-    (bytevector-u64-native-ref bvec (fx* 6 8))          ; flags, uint64
-    (bytevector-u64-native-ref bvec (fx* 7 8))          ; mem-resident, uint64
-    (bytevector-u64-native-ref bvec (fx* 8 8))          ; mem-virtual,  uint64
-    (bytevector-ieee-double-native-ref bvec (fx* 9 8))  ; start-time,   double
-    (bytevector-ieee-double-native-ref bvec (fx* 10 8)) ; user-time,    double
-    (bytevector-ieee-double-native-ref bvec (fx* 11 8)) ; system-time,  double
-    (bytevector-s64-native-ref bvec (fx* 12 8))         ; priority,     int64
-    (bytevector-s64-native-ref bvec (fx* 13 8))         ; nice,         int64
-    (bytevector-s64-native-ref bvec (fx* 14 8))         ; num-threads,  int64
-    (bytevector-u64-native-ref bvec (fx* 15 8))         ; min-fault
-    (bytevector-u64-native-ref bvec (fx* 16 8))))       ; maj-fault
+(define (ticks->time type tick/s ticks)
+  (let-values (((s fraction) (div-and-mod (/ ticks tick/s) 1)))
+    (let* ((e9     1000000000)
+           (ns     (round (* fraction e9)))
+           (carry? (>= ns e9)))
+      (make-time type (if carry? 0 ns)
+                      (if carry? (1+ s) s)))))
+
+(define-syntax bvec-ref/s64 (identifier-syntax bytevector-s64-native-ref))
+(define-syntax bvec-ref/u64 (identifier-syntax bytevector-u64-native-ref))
+
+
+(define (c->process-entry rx l bvec)
+  (let ((uid    (bvec-ref/u64 bvec (fx* 1 8)))
+        (gid    (bvec-ref/u64 bvec (fx* 2 8)))
+        (tick/s (bvec-ref/u64 bvec (fx* 9 8))))
+    (make-process-entry
+      (bvec-ref/s64 bvec 0)                     ; pid,   int64
+      (car l)       ; process name, string
+      (cdr l)       ; tty, #f or string
+      (integer->char
+        (bytevector-u8-ref bvec (fx* 21 8)))                 ; status, char
+      (if-uid->username rx uid)         ; user name, string or (void)
+      (if-uid->username rx gid)         ; group name, string or (void)
+      uid                               ; uid,   uint64
+      gid                               ; gid,   uint64
+      (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,  int64
+      (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,  int64
+      (bvec-ref/s64 bvec (fx* 5 8))     ; sid,   int64
+      (bvec-ref/u64 bvec (fx* 6 8))     ; flags, uint64
+      (bvec-ref/u64 bvec (fx* 7 8))     ; mem-resident, uint64
+      (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
+      (ticks->time 'time-monotonic tick/s
+        (bvec-ref/u64 bvec (fx* 10 8))) ; start-time,   time-monotonic, seconds after system boot
+      (ticks->time 'time-duration tick/s
+        (bvec-ref/u64 bvec (fx* 11 8))) ; user-time,    time-duration
+      (ticks->time 'time-duration tick/s
+        (bvec-ref/u64 bvec (fx* 12 8))) ; system-time,  time-duration
+      (ticks->time 'time-duration tick/s
+        (bvec-ref/u64 bvec (fx* 13 8))) ; iowait-time,  time-duration
+      (bvec-ref/s64 bvec (fx* 14 8))    ; priority,     int64
+      (bvec-ref/s64 bvec (fx* 15 8))    ; nice,         int64
+      (bvec-ref/u64 bvec (fx* 16 8))    ; rt-priority,  uint64
+      (bvec-ref/u64 bvec (fx* 17 8))    ; rt-policy,    uint64
+      (bvec-ref/s64 bvec (fx* 18 8))    ; num-threads,  int64
+      (bvec-ref/u64 bvec (fx* 19 8))    ; min-fault,    uint64
+      (bvec-ref/u64 bvec (fx* 20 8))))) ; maj-fault,    uint64
 
 
 ;; customize how "process-reader" objects are printed
@@ -196,39 +224,35 @@
     (put-string port "(make-process-reader)")))
 
 
-#|
 ;; customize how "process-entry" objects are printed
 (record-writer (record-type-descriptor process-entry)
   (lambda (e port writer)
     (put-string port "(make-process-entry ")
-    (writer (process-entry-name e) port)
-    (put-char port #\space)
-    (writer (process-entry-type e) port)
-    (put-char port #\space)
-    (writer (process-entry-size e) port)
-    (put-char port #\space)
-    (writer (process-entry-target e) port)
-    (put-char port #\space)
-    (writer (process-entry-mode e) port)
-    (put-char port #\space)
-    (writer (process-entry-accessed e) port)
-    (put-char port #\space)
-    (writer (process-entry-modified e) port)
-    (put-char port #\space)
-    (writer (process-entry-inode-changed e) port)
-    (put-char port #\space)
-    (writer (process-entry-user e) port)
-    (put-char port #\space)
-    (writer (process-entry-group e) port)
-    (put-char port #\space)
-    (writer (process-entry-uid e) port)
-    (put-char port #\space)
-    (writer (process-entry-gid e) port)
-    (put-char port #\space)
-    (writer (process-entry-inode e) port)
-    (put-char port #\space)
-    (writer (process-entry-nlink e) port)
+                            (writer (process-entry-pid e) port)
+    (put-char port #\space) (writer (process-entry-name e) port)
+    (put-char port #\space) (writer (process-entry-tty e) port)
+    (put-char port #\space) (writer (process-entry-status e) port)
+    (put-char port #\space) (writer (process-entry-user e) port)
+    (put-char port #\space) (writer (process-entry-group e) port)
+    (put-char port #\space) (writer (process-entry-uid e) port)
+    (put-char port #\space) (writer (process-entry-gid e) port)
+    (put-char port #\space) (writer (process-entry-ppid e) port)
+    (put-char port #\space) (writer (process-entry-pgrp e) port)
+    (put-char port #\space) (writer (process-entry-sid e) port)
+    (put-char port #\space) (writer (process-entry-flags e) port)
+    (put-char port #\space) (writer (process-entry-mem-resident e) port)
+    (put-char port #\space) (writer (process-entry-mem-virtual e) port)
+    (put-char port #\space) (writer (process-entry-start-time e) port)
+    (put-char port #\space) (writer (process-entry-user-time e) port)
+    (put-char port #\space) (writer (process-entry-sys-time e) port)
+    (put-char port #\space) (writer (process-entry-iowait-time e) port)
+    (put-char port #\space) (writer (process-entry-priority e) port)
+    (put-char port #\space) (writer (process-entry-nice e) port)
+    (put-char port #\space) (writer (process-entry-rt-priority e) port)
+    (put-char port #\space) (writer (process-entry-rt-policy e) port)
+    (put-char port #\space) (writer (process-entry-num-threads e) port)
+    (put-char port #\space) (writer (process-entry-min-fault e) port)
+    (put-char port #\space) (writer (process-entry-maj-fault e) port)
     (put-string port ")")))
-|#
 
 ) ; close library

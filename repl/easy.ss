@@ -106,6 +106,11 @@
       (raise-errorf 'put "unsupported writer: ~s" to))))
 
 
+;; easy wrapper for (make-process-reader)
+(define (proc)
+  (make-process-reader))
+
+
 ;; easy wrapper for (get-line) (obj-reader-skip)
 ;; always returns one value:
 ;;   #t if one element was skipped,
