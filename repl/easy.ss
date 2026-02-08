@@ -250,9 +250,10 @@
 
 ;; create and return a filter reader wrapping a user-provided reader.
 ;; usage: (where reader expression)
-;;   expression should contain one or more forms ,name i.e. (unquote name) that will be expanded
-;;   to the value of (field elem 'name) for each processed element,
-;;   or one or more symbols ^^ that will be expanded the element being processed.
+;;   expression will be called once for each processed element,
+;;   and should contain one or more forms ,name i.e. (unquote name) that will be expanded
+;;   to the value of (field elem 'name) of the element being processed,
+;;   or one or more symbols ^^ that will be expanded to the element being processed.
 ;;
 ;; Note: works, but changes the meaning of unquote, and forces user-provided code to insert unquote in unexpected places,
 ;; thus breaks quasiquoting, both inside (where) own's definition and inside expressions passed to (where)
@@ -269,14 +270,16 @@
 
 ;; create a filter reader wrapping a user-provided reader.
 ;; usage: (where^ reader expression)
-;;   expression should contain one or more forms (^ name) that will be expanded
-;;   to the value of (field elem 'name) for each processed element,
-;;   or one or more symbols ^^ that will be expanded the element being processed.
+;;   expression will be called once for each processed element,
+;;   and should contain one or more forms (^ name) that will be expanded
+;;   to the value of (field elem 'name) of the element being processed,
+;;   or one or more symbols ^^ that will be expanded to the element being processed.
 ;;
 ;; Cleaner than (where), as it only changes the meaning of seldom-used ^ and ^^
 (define-macro (where^ rx expr)
   `(make-filter-reader ,rx
      (lambda (elem cache)
-       (let-syntax ((^^ (identifier-syntax elem)))
-         (let-macro ((^ name) `(field elem ',name cache))
-            ,expr)))))
+       (let-syntax ((^^ (identifier-syntax elem))
+                    (^  (syntax-rules ()
+                          ((_ name) (field elem 'name cache)))))
+         ,expr))))
