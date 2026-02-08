@@ -24,7 +24,7 @@ provides basic utility functions and macros.
 
 ### Functions and macros
 
-#### (==>)
+##### (==>)
 Macro `==>` introduces a DSL for chaining/threading multiple functions or macro invocations.
 
 Recognizes the following auxiliary keywords:
@@ -114,44 +114,44 @@ Note: the keywords `=>` `?=>` `_` are recognized by symbol `eq?`, i.e. the ident
 
 The keywords `=>` `?=>` `_` are recognized **only** if they appear at top level. They are **not** recognized if they appear inside parentheses.
 
-#### (assert*)
+##### (assert*)
 TO BE DOCUMENTED
 
-#### (assert-not*)
+##### (assert-not*)
 TO BE DOCUMENTED
 
-#### (catch)
+##### (catch)
 Auxiliary keyword recognized by `(try)`
 
-#### (define-macro)
+##### (define-macro)
 TO BE DOCUMENTED
 
-#### (forever)
+##### (forever)
 TO BE DOCUMENTED
 
-#### (first-value)
+##### (first-value)
 TO BE DOCUMENTED
 
-#### (let-macro)
+##### (let-macro)
 TO BE DOCUMENTED
 
-#### (list->values)
+##### (list->values)
 TO BE DOCUMENTED
 
-#### (repeat)
+##### (repeat)
 TO BE DOCUMENTED
 
-#### (second-value)
+##### (second-value)
 TO BE DOCUMENTED
 
-#### (with-locked-objects)
+##### (with-locked-objects)
 TO BE DOCUMENTED
 
-#### (until)
+##### (until)
 TO BE DOCUMENTED
 
-#### (try)
+##### (try)
 TO BE DOCUMENTED
 
-#### (values->list)
+##### (values->list)
 TO BE DOCUMENTED
