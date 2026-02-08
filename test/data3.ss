@@ -76,10 +76,10 @@
     (obj-writer-close tx))                              (97 98)
 
 
-  ;; -------------------- filter-reader and list-reader ----------------------------
+  ;; -------------------- list-reader, filter-reader, where ----------------------------
 
   (let* ((r (list-reader '(1 2 3 4 5)))
-         (f (make-filter-reader r (lambda (obj) (fxodd? obj)))))
+         (f (where r (fxodd? ^^))))
     (let*-values (((obj1 ok1) (obj-reader-get f))
                   ((obj2 ok2) (obj-reader-get f))
                   ((obj3 ok3) (obj-reader-get f))

@@ -251,26 +251,32 @@
 ;; create and return a filter reader wrapping a user-provided reader.
 ;; usage: (where reader expression)
 ;;   expression should contain one or more forms ,name i.e. (unquote name) that will be expanded
-;;   to the value of (field elem 'name) for each processed element.
+;;   to the value of (field elem 'name) for each processed element,
+;;   or one or more symbols ^^ that will be expanded the element being processed.
 ;;
 ;; Note: works, but changes the meaning of unquote, and forces user-provided code to insert unquote in unexpected places,
-;; thus breaks quasiquoting, both inside (where) own's definition and inside user-provided expressions.
+;; thus breaks quasiquoting, both inside (where) own's definition and inside expressions passed to (where)
 ;; Also breaks (expand `(where rx user-provided-form-containing-unquote))
+;;
+;; See (where^) for a cleaner alternative.
 (define-macro (where rx expr)
   (list 'make-filter-reader rx
      (list 'lambda '(elem cache)
-       (list 'let-macro '((unquote name) (list 'field 'elem name 'cache))
-          expr))))
+       (list 'let-syntax '((^^ (identifier-syntax elem)))
+         (list 'let-macro '((unquote name) (list 'field 'elem (list 'quote name) 'cache))
+            expr)))))
 
 
 ;; create a filter reader wrapping a user-provided reader.
-;; usage: (where reader expression)
+;; usage: (where^ reader expression)
 ;;   expression should contain one or more forms (^ name) that will be expanded
-;;   to the value of (field elem 'name) for each processed element.
+;;   to the value of (field elem 'name) for each processed element,
+;;   or one or more symbols ^^ that will be expanded the element being processed.
 ;;
-;; safer than (where), as it only changes the meaning of seldom-used ^
+;; Cleaner than (where), as it only changes the meaning of seldom-used ^ and ^^
 (define-macro (where^ rx expr)
   `(make-filter-reader ,rx
      (lambda (elem cache)
-       (let-macro ((^ name) `(field elem ,name cache))
-          ,expr))))
+       (let-syntax ((^^ (identifier-syntax elem)))
+         (let-macro ((^ name) `(field elem ',name cache))
+            ,expr)))))

@@ -2,8 +2,6 @@
 
 ### TO DO
 
-* extend `reflect` library with new functions `(compare)` `(equiv?)` `(less?)` `(less-equiv?)` `(greater?)` `(greater-equiv?)` `(unordered?)`
-  that work on as many comparable types as possible: at least booleans, characters, numbers, strings, symbols, times, dates
 * extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
 
@@ -12,8 +10,9 @@
 ### git main branch
 
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add types `json-reader` and `json-writer` and their functions in new library `(scheme2k io json)`
-* add functions `(field)` `(field-names)` `(fields-cursor)` in new library `(scheme2k reflect)`
+* add type `filter-reader`
+* add types `json-reader` and `json-writer`
+* add library `(scheme2k reflect)` with functions for simplifing reflection
 * pretty-print types `time` and `date` and add convenience functions to create and convert them
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
