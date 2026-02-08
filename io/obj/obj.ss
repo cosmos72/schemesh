@@ -31,10 +31,15 @@
 ;;;                       or waiting simultaneously on multiple generators
 (library (scheme2k io obj (0 9 3))
   (export
+    ;; obj/reader.ss
     make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
-    make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
-
     in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector
+
+    ;; obj/filter.ss
+    make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip
+
+    ;; obj/writer.ss
+    make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
@@ -62,6 +67,8 @@
 
 (include "io/obj/reader.ss")
 (include "io/obj/writer.ss")
+
+(include "io/obj/filter-reader.ss")
 
 
 ;; customize how "obj-reader" objects are printed

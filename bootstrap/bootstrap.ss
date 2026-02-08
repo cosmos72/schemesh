@@ -438,15 +438,15 @@
 (define-syntax let-macro
   (syntax-rules ()
     ((_ ((name . args) body1 body2 ...) form1 form2 ...)
-     (let-macro name (lambda args body1 body2 ...) form1 form2 ...))
+      (let-macro name (lambda args body1 body2 ...) form1 form2 ...))
     ((_ name transformer form1 form2 ...)
-     (let-syntax ((name
-       (lambda (stx)
-         (syntax-case stx ()
-           ((xname . args)
-             (datum->syntax (syntax xname)
-               (apply transformer (syntax->datum (syntax args)))))))))
-       form1 form2 ...))))
+      (let-syntax ((name
+        (lambda (stx)
+          (syntax-case stx ()
+            ((xname . args)
+              (datum->syntax (syntax xname)
+                (apply transformer (syntax->datum (syntax args)))))))))
+        form1 form2 ...))))
 
 
 ;; symplify procedure chaining, allows writing (==> proc1 a => proc2 b _ c => proc3 d ...)

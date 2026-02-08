@@ -11,16 +11,14 @@
 ;;;
 
 (library (scheme2k reflect (0 9 3))
-  (export     array?     array-accessor     array-length
-          chararray? chararray-accessor chararray-length
-             htable?     htable-cursor     htable-size
-             compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
+  (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-cursor htable-size
+          compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
           field field-cursor field-cursor-next! field-names
           make-record-info record-info record-info? record-info-field-names record-info-serializer record-info-type-name)
   (import
     (rnrs)
     (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
-    (only (scheme2k bootstrap)               assert*)
+    (only (scheme2k bootstrap)               assert* let-macro)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers date)         date date-compare date-equiv?)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)

@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy copy/close dir eof? get put proc skip with-sh-closable
+          all all/vector close copy copy/close dir eof? get put proc skip where where^ with-sh-closable
           from-stdin from-json from-list from-queue from-vector from-wire
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire
 
@@ -37,7 +37,8 @@
           (scheme2k lineedit lineedit)
     (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
                                      obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
-                                     list-reader list-writer reader->list reader->vector vector-reader vector-writer)
+                                     list-reader list-writer make-filter-reader
+                                     reader->list reader->vector vector-reader vector-writer)
     (only (scheme2k io json)         make-json-reader  make-json-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
