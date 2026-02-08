@@ -17,17 +17,20 @@
       file-delete file-rename file-type mkdir
       gid->groupname uid->username)
   (import
-    (rename (rnrs)                   (fxarithmetic-shift-right fx>>))
+    (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)               foreign-procedure fx1+ make-continuation-condition
-                                     make-format-condition record-writer sort! string->immutable-string void)
-    (only (scheme2k bootstrap)       assert* catch raise-assertf try)
-    (only (scheme2k containers)      bytevector<? charspan? for-list string->utf8b)
-    (only (scheme2k containers time) make-time-utc)
-    (only (scheme2k conversions)     text->bytevector text->bytevector0 text->string)
-    (only (scheme2k io obj)          obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
-    (only (scheme2k posix fd)        c-errno->string raise-c-errno))
+    (only (chezscheme)                     foreign-procedure fx1+ make-continuation-condition
+                                           make-format-condition record-writer sort! string->immutable-string void)
+    (only (scheme2k bootstrap)             assert* catch raise-assertf try)
+    (only (scheme2k containers bytevector) bytevector<?)
+    (only (scheme2k containers charspan)   charspan?)
+    (only (scheme2k containers list)       for-list)
+    (only (scheme2k containers time)       make-time-utc)
+    (only (scheme2k containers utf8b)      string->utf8b)
+    (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
+    (only (scheme2k io obj)                obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
+    (only (scheme2k posix fd)              c-errno->string raise-c-errno))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -116,9 +116,23 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (scheme2k bootstrap) assert* bwp-object fx<=?*)
-    (scheme2k containers)
-    (scheme2k posix status))
+    (only (scheme2k bootstrap)               assert* bwp-object fx<=?*)
+    (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-length bytespan-peek-beg bytespan-peek-data
+                                             bytespan-reserve-right! bytespan-resize-right! bytevector->bytespan*)
+    (only (scheme2k containers bytevector)   bytevector-hash bytevector-sint-ref* bytevector-sint-set*!)
+    (only (scheme2k containers charspan)     charspan charspan-length charspan-ref charspan-set! make-charspan)
+    (only (scheme2k containers date)         date date-or-false)
+    (only (scheme2k containers flvector)     flvector? flvector-length flvector-ref flvector-set! make-flvector)
+    (only (scheme2k containers gbuffer)      gbuffer gbuffer-length gbuffer-ref gbuffer-set! make-gbuffer)
+    (only (scheme2k containers list)         for-plist list-reverse*!)
+    (only (scheme2k containers hashtable)    eq-hashtable for-hash hashtable-transpose plist->eq-hashtable)
+    (only (scheme2k containers ordered-hash) for-ordered-hash make-eq-ordered-hash make-eqv-ordered-hash make-ordered-hash
+                                             ordered-hash? ordered-hash-equivalence-function ordered-hash-hash-function
+                                             ordered-hash-set! ordered-hash-size)
+    (only (scheme2k containers span)         make-span span span-length span-ref span-set!)
+    (only (scheme2k containers time)         duration)
+    (only (scheme2k containers utf8b)        integer->char*)
+          (scheme2k posix status))
 
 
 (include "io/wire/constants.ss")

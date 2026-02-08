@@ -68,15 +68,22 @@
     (only (chezscheme)    break-handler console-output-port console-error-port
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
-    (scheme2k bootstrap)
-    (scheme2k containers)
-    (scheme2k posix fd)
-    (only (scheme2k posix signal) countdown signal-consume-sigwinch)
-    (scheme2k posix tty)
-    (scheme2k vscreen)
-    (scheme2k lineedit ansi)
-    (scheme2k lineedit paren)
-    (scheme2k lineedit parenmatcher)
+          (scheme2k bootstrap)
+    (only (scheme2k containers bytespan) bytespan bytespan? bytespan-clear! bytespan-delete-left! bytespan-empty?
+                                         bytespan-insert-right/bytespan! bytespan-insert-right/bytevector! bytespan-insert-right/u8! bytespan-length
+                                         bytespan-peek-beg bytespan-peek-data bytespan-peek-end
+                                         bytespan-ref/u8 bytespan-reserve-right! bytespan-resize-right!)
+    (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-length charspan-ref)
+    (only (scheme2k containers span)     span span-iterate span-length span-ref)
+    (only (scheme2k containers utf8b)    bytespan-display-right/fixnum! bytespan-insert-right/charspan! bytespan-insert-right/string!
+                                         bytespan-ref/char string->utf8b)
+          (scheme2k posix fd)
+    (only (scheme2k posix signal)        countdown signal-consume-sigwinch)
+          (scheme2k posix tty)
+          (scheme2k vscreen)
+          (scheme2k lineedit ansi)
+          (scheme2k lineedit paren)
+          (scheme2k lineedit parenmatcher)
     (only (scheme2k lineedit parser) make-parsectx*))
 
 

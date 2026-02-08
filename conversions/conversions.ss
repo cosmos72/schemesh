@@ -18,16 +18,19 @@
     char-display-wide?)
   (import
     (rnrs)
-    (only (rnrs mutable-pairs)   set-car!)
-    (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (scheme2k bootstrap)   assert* fx<=?* raise-assertf)
-    (only (scheme2k containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
-                                 bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
-                                 bytevector<? bytevector-index
-                                 charspan? charspan-empty? charspan-index/char charspan->string charspan->utf8b charspan->utf8b/0
-                                 for-hash for-list make-bytespan string-index
-                                 string->utf8b string->utf8b/0 utf8b->string utf8b->string
-                                 subvector-sort! utf8b-bytespan->string)
+    (only (rnrs mutable-pairs)             set-car!)
+    (only (chezscheme)                     condition-continuation continuation-condition? fx1+ fx1- void)
+    (only (scheme2k bootstrap)             assert* fx<=?* raise-assertf)
+    (only (scheme2k containers bytespan)   bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
+                                           bytespan-reserve-right! bytespan-insert-right/u8! make-bytespan)
+    (only (scheme2k containers bytevector) bytevector<? bytevector-index)
+    (only (scheme2k containers charspan)   charspan? charspan-empty? charspan-index/char charspan->string)
+    (only (scheme2k containers hashtable)  for-hash)
+    (only (scheme2k containers list)       for-list)
+    (only (scheme2k containers string)     string-index)
+    (only (scheme2k containers sort)       subvector-sort!)
+    (only (scheme2k containers utf8b)      bytespan-insert-right/string! charspan->utf8b charspan->utf8b/0
+                                           string->utf8b string->utf8b/0 utf8b-bytespan->string utf8b->string)
     (scheme2k conversions unicode))
 
 
