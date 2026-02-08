@@ -76,6 +76,18 @@
     (obj-writer-close tx))                              (97 98)
 
 
+  ;; -------------------- filter-reader and list-reader ----------------------------
+
+  (let* ((r (list-reader '(1 2 3 4 5)))
+         (f (make-filter-reader r (lambda (obj) (fxodd? obj)))))
+    (let*-values (((obj1 ok1) (obj-reader-get f))
+                  ((obj2 ok2) (obj-reader-get f))
+                  ((obj3 ok3) (obj-reader-get f))
+                  ((obj4 ok4) (obj-reader-get f)))
+      ;; ignore obj4, it has unspecified value
+      (list obj1 obj2 obj3 ok4)))                       (1 3 5 #f)
+
+
   ;; ------------------ queue-reader and queue-writer --------------------------
 
   (let* ((tx (make-queue-writer))
