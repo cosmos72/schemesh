@@ -648,6 +648,8 @@ The documentation currently include:
 
 * Filesystem access, see [doc/posix/fs.md](doc/posix/fs.md)
 
+* Basic utility macros and functions, see [doc/bootstrap/bootstrap.md](doc/bootstrap/bootstrap.md)
+
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
 

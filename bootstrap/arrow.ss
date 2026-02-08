@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi, all rights reserved
 ;;;
 ;;; This library is free software; you can redistribute it and/or
 ;;; modify it under the terms of the GNU Library General Public
@@ -15,19 +15,70 @@
     (only (chezscheme) fx1+ gensym list-copy list-head))
 
 
-
-;; Simplify procedure chaining, allows writing (==> proc1 a => proc2 b _ c => proc3 d ...)
-;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
-;;
-;; Replaces the placeholder _ with the previous form.
-;;
-;; If the placeholder _ is not present, the previous form is inserted as first argument.
-;; Example:
-;;   (==> proc1 a => proc2 b c)
-;; expands to
-;;   (proc2 (proc1 a) b c)
-;;
-;; If ?=> is used instead of => then evaluation stops when the expression before ?=> evaluates to #f
+;;; Macro: ==>
+;;;
+;;; Purpose:
+;;;   DSL for chaining/threading multiple functions or macro invocations.
+;;;
+;;; Aux keywords:
+;;;   =>     : unconditional chaining
+;;;   ?=>    : conditional chaining
+;;;   _      : placeholder for inserting an expression into a template
+;;;
+;;; Description:
+;;;   ==> must be followed by one or more function or macro invocations.
+;;;
+;;;   Each functions or macro invocation is **not** enclosed in parentheses:
+;;;   it is instead delimited by the keywords => ?=>
+;;;
+;;;   The call to each function or macro is inserted literally
+;;;   into the next one, before the first argument of the next function or macro or,
+;;;   if present, at the position of placeholder _
+;;;
+;;; Examples:
+;;;   (==> a foo)                      expands to (a foo)
+;;;
+;;;   (==> a foo => b)                 expands to (b (a foo))
+;;;
+;;;   (==> a => b bar)                 expands to (b (a) bar)
+;;;
+;;;   (==> a => b _ bar)               expands to (b (a) bar) i.e. identical to previous one
+;;;
+;;;   (==> a => b bar _)               expands to (b bar (a))
+;;;
+;;;   (==> a foo => b bar)             expands to (b (a foo) bar)
+;;;
+;;;   (==> a foo => b bar => c baz)    expands to (c (b (a foo) bar) baz)
+;;;
+;;;   (==> a foo => b bar _ => c baz)  expands to (c (b bar (a foo)) baz)
+;;;
+;;; Keyword ?=> adds short-circuit logic,
+;;; i.e. if the function call at its left evaluates to #f,
+;;; does not execute the rest of the chain and evaluates to #f.
+;;;
+;;; Examples:
+;;;   (==> a ?=> b)       expands to (let ((tmp (a)))
+;;;                                    (and tmp (b tmp)))
+;;;
+;;;   (==> a ?=> b ?=> c) expands to (let ((tmp-a (a)))
+;;;                                    (and tmp-a
+;;;                                         (let ((tmp-b (b tmp-a)))
+;;;                                           (and tmp-b (c tmp-b)))))
+;;;
+;;; The three keywords => ?=> _ can be used simultaneously.
+;;; Example:
+;;;   (==> a foo ?=> b bar _ => c)
+;;; expands to
+;;;   (let ((tmp-a (a foo)))
+;;;     (and tmp-a
+;;;          (c (b bar tmp-a))))
+;;;
+;;; Note: the keywords => ?=> _ are recognized by symbol eq?, i.e. the identifiers
+;;;       in user-provided form are compared with eq? against the symbols => ?=> _
+;;;       This means macro ==> **ignores** any definition for the symbols => ?=> _
+;;;
+;;; The keywords => ?=> _ are recognized **only** if they appear at top level.
+;;; They are **not** recognized if they appear inside parentheses.
 (define-syntax ==>
   (lambda (stx)
     (syntax-case stx ()
@@ -112,7 +163,7 @@
         (expand==> #'xname #'(args ...)))))))
 
 
-;; Racket-compatible threading arrow:
+;; Racket-compatible threading:
 ;;
 ;; Simplify procedure chaining, allows writing (~> (proc1 a) (proc2 b _ c) (proc3 d ...))
 ;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
@@ -124,6 +175,8 @@
 ;;   (~> (proc1 a) (proc2 b c))
 ;; expands to
 ;;   (proc2 (proc1 a) b c)
+;;
+;; Also see the more general macro ==>
 (define-syntax ~>
   (lambda (stx)
     (syntax-case stx ()

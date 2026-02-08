@@ -14,7 +14,7 @@
 
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
-      first-value first-value-or-void forever let1 let-macro raise-assert* repeat reverse-macro
+      forever first-value first-value-or-void let1 let-macro raise-assert* repeat reverse-macro
       second-value with-locked-objects while until with-while-until
       throws? trace-call trace-define try list->values values->list
 
