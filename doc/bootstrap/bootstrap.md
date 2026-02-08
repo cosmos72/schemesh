@@ -5,9 +5,9 @@ provides basic utility functions and macros.
 
 ### Alphabetical index
 
-* [`(==>)`](#==>)
-* [`(assert*)`](#assert*)
-* [`(assert-not*)`](#assert-not*)
+* [`(==>)`](#arrow)
+* [`(assert*)`](#assert)
+* [`(assert-not*)`](#assert-not)
 * [`(catch)`](#catch)
 * [`(define-macro)`](#define-macro)
 * [`(forever)`](#forever)
@@ -114,7 +114,7 @@ Note: the keywords `=>` `?=>` `_` are recognized by symbol `eq?`, i.e. the ident
 
 The keywords `=>` `?=>` `_` are recognized **only** if they appear at top level. They are **not** recognized if they appear inside parentheses.
 
-##### (assert*)
+##### <span id="arrow">(assert*)</span>
 TO BE DOCUMENTED
 
 ##### (assert-not*)
