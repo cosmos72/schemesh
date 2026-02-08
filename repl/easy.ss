@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-#!r6rs
+;; #!r6rs ;; does not allow symbol @
 
 ;; this file should be included only by file repl/repl.ss
 
@@ -155,7 +155,7 @@
 (define-syntax with-sh-closable
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((var expr) ...) body ...)
       (with-sh-resource ((var expr close) ...) body ...))))
 
@@ -253,33 +253,33 @@
 ;;   expression will be called once for each processed element,
 ;;   and should contain one or more forms ,name i.e. (unquote name) that will be expanded
 ;;   to the value of (field elem 'name) of the element being processed,
-;;   or one or more symbols ^^ that will be expanded to the element being processed.
+;;   or one or more symbols @@ that will be expanded to the element being processed.
 ;;
 ;; Note: works, but changes the meaning of unquote, and forces user-provided code to insert unquote in unexpected places,
 ;; thus breaks quasiquoting, both inside (where) own's definition and inside expressions passed to (where)
 ;; Also breaks (expand `(where rx user-provided-form-containing-unquote))
 ;;
-;; See (where^) for a cleaner alternative.
+;; See (where@) for a cleaner alternative.
 (define-macro (where rx expr)
   (list 'make-filter-reader rx
      (list 'lambda '(elem cache)
-       (list 'let-syntax '((^^ (identifier-syntax elem)))
+       (list 'let-syntax '((@@ (identifier-syntax elem)))
          (list 'let-macro '((unquote name) (list 'field 'elem (list 'quote name) 'cache))
             expr)))))
 
 
 ;; create a filter reader wrapping a user-provided reader.
-;; usage: (where^ reader expression)
+;; usage: (where@ reader expression)
 ;;   expression will be called once for each processed element,
-;;   and should contain one or more forms (^ name) that will be expanded
+;;   and should contain one or more forms (@ name) that will be expanded
 ;;   to the value of (field elem 'name) of the element being processed,
-;;   or one or more symbols ^^ that will be expanded to the element being processed.
+;;   or one or more symbols @@ that will be expanded to the element being processed.
 ;;
-;; Cleaner than (where), as it only changes the meaning of seldom-used ^ and ^^
-(define-macro (where^ rx expr)
+;; Cleaner than (where), as it only changes the meaning of seldom-used @ and @@
+(define-macro (where@ rx expr)
   `(make-filter-reader ,rx
      (lambda (elem cache)
-       (let-syntax ((^^ (identifier-syntax elem))
-                    (^  (syntax-rules ()
+       (let-syntax ((@@ (identifier-syntax elem))
+                    (@  (syntax-rules ()
                           ((_ name) (field elem 'name cache)))))
          ,expr))))

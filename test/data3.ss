@@ -79,7 +79,7 @@
   ;; -------------------- list-reader, filter-reader, where ----------------------------
 
   (let* ((r (list-reader '(1 2 3 4 5)))
-         (f (where r (fxodd? ^^))))
+         (f (where r (fxodd? @@))))
     (let*-values (((obj1 ok1) (obj-reader-get f))
                   ((obj2 ok2) (obj-reader-get f))
                   ((obj3 ok3) (obj-reader-get f))

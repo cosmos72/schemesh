@@ -17,7 +17,7 @@
     (only (chezscheme)                 datum format fx1- meta parameterize reverse! void)
     (scheme2k bootstrap)
     (only (scheme2k containers list)   for-list in-list)
-    (only (scheme2k containers macros) begin^ lambda^ let^ let-pairs)
+    (only (scheme2k containers macros) begin0 lambda0 let0 let*-pairs0)
     (only (scheme2k posix fd)          fd-close)
     (only (scheme2k posix pattern)     wildcard?)
     (schemesh shell job)
@@ -268,14 +268,14 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #`(begin^ body ...))
+        #`(begin0 body ...))
       ((_ ((var expr close-proc) ...) body ...)
         (with-syntax (((obj   ...) (generate-pretty-temporaries #'(var ...)))
                       ((close ...) (generate-pretty-temporaries #'(close-proc ...))))
-          #`(let-pairs ((obj expr close close-proc) ...)
+          #`(let*-pairs0 ((obj expr close close-proc) ...)
               (sh-dynamic-wind
                 void
-                (lambda () (let^ ((var obj) ...) body ...))
+                (lambda () (let0 ((var obj) ...) body ...))
                 void
                 (lambda () (reverse-macro (close obj) ...)))))))))
 
@@ -288,7 +288,7 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #`(begin^ body ...))
+        #`(begin0 body ...))
       ((_ ((param expr close) ...) body ...)
         (with-syntax (((tparam ...) (generate-pretty-temporaries #'(param ...)))
                       ((tobj   ...) (generate-pretty-temporaries #'(expr  ...)))
@@ -306,7 +306,7 @@
                          (set! tsave tcurr) ...))))
               (sh-dynamic-wind
                 swap
-                (lambda^ () body ...)
+                (lambda0 () body ...)
                 swap
                 (lambda () (reverse-macro (tclose tobj) ...)))))))))
 
@@ -316,7 +316,7 @@
 (define-syntax with-fd
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((var expr) ...) body ...)
       (with-sh-resource ((var expr fd-close) ...) body ...))))
 
@@ -326,7 +326,7 @@
 (define-syntax with-port
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((var expr) ...) body ...)
       (with-sh-resource ((var expr close-port) ...) body ...))))
 

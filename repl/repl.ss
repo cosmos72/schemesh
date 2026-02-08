@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy copy/close dir eof? get put proc skip where where^ with-sh-closable
+          all all/vector close copy copy/close dir eof? get put proc skip where where@ with-sh-closable
           from-stdin from-json from-list from-queue from-vector from-wire
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire
 

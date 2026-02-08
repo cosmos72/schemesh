@@ -267,7 +267,7 @@
 
 ;; version of (begin) that also accepts empty body
 ;; currently always expands to (begin ...) as the latter also accepts empty body on Chez
-(define-syntax begin^
+(define-syntax begin0
   (syntax-rules ()
     ((_)                 (begin))
     ((_ body)            body)
@@ -275,7 +275,7 @@
 
 
 ;; version of (lambda) that also accepts empty body
-(define-syntax lambda^
+(define-syntax lambda0
   (syntax-rules ()
     ((_ args)                 (lambda args void))
     ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
@@ -341,7 +341,7 @@
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin^ catch-body ...)))
+              (k-exit (begin0 catch-body ...)))
             (lambda ()
               try-body1 try-body2 ...)))))
     ((_ bad-body ...)
@@ -378,7 +378,7 @@
     ((_ body1)
       body1)
     ((_)
-      (begin^))))
+      (begin0))))
 
 
 (define-syntax with-locked-objects

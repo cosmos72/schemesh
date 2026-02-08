@@ -9,7 +9,7 @@
 
 (library (scheme2k containers macros (0 9 3))
   (export
-    begin^ for for* if^ lambda^ let^ let-pairs let-values^ unless^ when^)
+    begin0 for for* if0 lambda0 let0 let*-pairs0 let-values0 unless0 when0)
   (import
     (rnrs)
     (only (chezscheme) void)
@@ -17,7 +17,7 @@
 
 
 ;; extended (begin body ...) that also accepts empty body
-(define-syntax begin^
+(define-syntax begin0
   (syntax-rules ()
     ((_)          (void))
     ((_ body)     body)
@@ -25,14 +25,14 @@
 
 
 ;; extended (lambda args body ...) that also accepts empty body
-(define-syntax lambda^
+(define-syntax lambda0
   (syntax-rules ()
     ((_ args)                 (lambda args (void)))
     ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
 
 
 ;; extended (if expr then else) that also accepts empty then and else
-(define-syntax if^
+(define-syntax if0
   (syntax-rules ()
     ((_ expr)           (begin expr (void)))
     ((_ expr then)      (if expr then (void)))
@@ -40,24 +40,24 @@
 
 
 ;; extended (unless expr body ...) that also accepts empty body
-(define-syntax unless^
+(define-syntax unless0
   (syntax-rules ()
     ((_ expr)          (begin expr (void)))
-    ((_ expr body ...) (if expr (void) (begin^ body ...)))))
+    ((_ expr body ...) (if expr (void) (begin0 body ...)))))
 
 
 ;; extended (when expr body ...) that also accepts empty body
-(define-syntax when^
+(define-syntax when0
   (syntax-rules ()
     ((_ expr)          (begin expr (void)))
-    ((_ expr body ...) (if expr (begin^ body ...) (void)))))
+    ((_ expr body ...) (if expr (begin0 body ...) (void)))))
 
 
 ;; extended (let ((var expr) ...) body ...) that also accepts empty body
-(define-syntax let^
+(define-syntax let0
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((var expr) ...))
       (let ((var expr) ...)
         (void)))
@@ -68,34 +68,34 @@
 
 ;; extended (let-values (((var ...) expr) ...) body ...)
 ;; that optimizes single-value bindings and also accepts empty body
-(define-syntax let-values^
+(define-syntax let-values0
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ (((var) expr) more-vars ...) body ...)
       (let ((var expr))
-        (let-values^ (more-vars ...)
+        (let-values0 (more-vars ...)
           body ...)))
     ((_ (((var vars ...) expr) more-vars ...) body ...)
       (let-values (((var vars ...) expr))
-        (let-values^ (more-vars ...)
+        (let-values0 (more-vars ...)
           body ...)))))
 
 
-;; (let-pairs ((var1 expr1 var2 expr2) (var3 expr3 var4 expr4) ...) body ...)
+;; (let*-pairs0 ((var1 expr1 var2 expr2) (var3 expr3 var4 expr4) ...) body ...)
 ;; expands to
 ;; (let* ((var1 expr1)
 ;;        (var2 expr2))
-;;   (let-pairs ((var3 expr3 var4 expr4)...)
+;;   (let*-pairs0 ((var3 expr3 var4 expr4)...)
 ;;     body ...))
-(define-syntax let-pairs
+(define-syntax let*-pairs0
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((var1 expr1 var2 expr2) (var3 expr3 var4 expr4) ...) body ...)
       (let* ((var1 expr1)
              (var2 expr2))
-        (let-pairs ((var3 expr3 var4 expr4) ...)
+        (let*-pairs0 ((var3 expr3 var4 expr4) ...)
           body ...)))))
 
 
@@ -104,8 +104,8 @@
     ((_ for-loop () body ...)
       (with-while-until body ... (for-loop)))
     ((_ for-loop ((vars ... flag iter) more-vars ...) body ...)
-      (let-values^ (((vars ... flag) (iter)))
-        (when^ flag
+      (let-values0 (((vars ... flag) (iter)))
+        (when0 flag
           (%for-body for-loop (more-vars ...)
             body ...))))))
 
@@ -147,14 +147,14 @@
 (define-syntax %for*-inner-part
   (syntax-rules ()
     ((_ () body ...)
-      (begin^ body ...))
+      (begin0 body ...))
     ((_ ((vars ... flag iter)) body ...)
-      (let-values^ (((vars ... flag) (iter)))
-        (when^ flag
+      (let-values0 (((vars ... flag) (iter)))
+        (when0 flag
           body ...)))
     ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
-      (let-values^ (((vars ... flag) (iter)))
-        (when^ flag
+      (let-values0 (((vars ... flag) (iter)))
+        (when0 flag
           (%for*-inner-part ((vars2 ... flag2 iter2) ...)
             body ...))))))
 
