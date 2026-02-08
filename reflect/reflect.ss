@@ -14,7 +14,7 @@
   (export     array?     array-accessor     array-length
           chararray? chararray-accessor chararray-length
              htable?     htable-cursor     htable-size
-             compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-function record-equivalence-function
+             compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
           field field-cursor field-cursor-next! field-names
           make-record-info record-info record-info? record-info-field-names record-info-serializer record-info-type-name)
   (import
@@ -38,32 +38,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; retrieve or set the function for comparing with (compare) records having specified rtd
-(define record-compare-function
-  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   date-compare
-                          (record-rtd (make-time-utc 0 0)) time-compare)))
+;; retrieve or set the functions for comparing with (compare) and (equiv?) records having specified rtd
+(define record-compare-functions
+  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   (cons date-compare date-equiv?)
+                          (record-rtd (make-time-utc 0 0)) (cons time-compare time-equiv?))))
     (case-lambda
       ((rtd)
-        (hashtable-ref ht rtd #f))
-      ((rtd proc)
+        (let ((pair (hashtable-ref ht rtd #f)))
+          (and pair (cons (car pair) (cdr pair))))) ; make a copy
+      ((rtd compare-proc)
+        (record-compare-functions rtd compare-proc
+          (lambda (a b) (eqv? 0 (compare-proc a b)))))
+      ((rtd compare-proc equiv-proc)
         (assert* 'record-compare-function (record-type-descriptor? rtd))
-        (assert* 'record-compare-function (procedure? proc))
-        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask proc)))
-        (hashtable-set! ht rtd proc)))))
-
-
-;; retrieve or set the function for comparing with (equiv?) records having specified rtd
-(define record-equivalence-function
-  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   date-equiv?
-                          (record-rtd (make-time-utc 0 0)) time-equiv?)))
-    (case-lambda
-      ((rtd)
-        (hashtable-ref ht rtd #f))
-      ((rtd proc)
-        (assert* 'record-equivalence-function (record-type-descriptor? rtd))
-        (assert* 'record-equivalence-function (procedure? proc))
-        (assert* 'record-equivalence-function (logbit? 2 (procedure-arity-mask proc)))
-        (hashtable-set! ht rtd proc)))))
+        (assert* 'record-compare-function (procedure? compare-proc))
+        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask compare-proc)))
+        (assert* 'record-compare-function (procedure? equiv-proc))
+        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask equiv-proc)))
+        (hashtable-set! ht rtd (cons compare-proc equiv-proc))))))
 
 
 ;; convention: #f is less than #t
@@ -128,10 +120,10 @@
     ((string? a)    (and (string? b)  (string-compare  a b)))
     (else
       (let* ((rtd  (record-rtd a))
-             (proc (record-compare-function rtd)))
-        (and proc
+             (pair (record-compare-functions rtd)))
+        (and pair
              (eq? rtd (record-rtd b))
-             (proc a b))))))
+             ((car pair) a b))))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -152,10 +144,10 @@
     ((string? a)    (and (string? b)  (string=? a b)))
     (else
       (let* ((rtd  (record-rtd a))
-             (proc (record-equivalence-function rtd)))
-        (and proc
+             (pair (record-compare-functions rtd)))
+        (and pair
              (eq? rtd (record-rtd b))
-             (proc a b))))))
+             ((cdr pair) a b))))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -180,7 +172,7 @@
 ;;   return #f in all other cases: a is greater than b,
 ;;                                 or they are not ordered
 ;;
-;; same semantic as (memv (compare a b) (-1 0))
+;; same semantic as (memv (compare a b) '(-1 0))
 ;; should never raise condition
 (define (less-equiv? a b)
   (and (memv (compare a b) '(-1 0)) #t))
@@ -194,7 +186,7 @@
 ;;   return #f in all other cases: a is less than b,
 ;;                                 or they are not ordered
 ;;
-;; same semantic as (memv (compare a b) (0 1))
+;; same semantic as (memv (compare a b) '(0 1))
 ;; should never raise condition
 (define (greater-equiv? a b)
   (and (memv (compare a b) '(0 1)) #t))
