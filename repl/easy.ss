@@ -126,11 +126,11 @@
 
 
 ;; iterate (get from) then (put to) until from is exhausted
-(define (copy from to)
+(define (copy-all from to)
   (let-values (((datum ok?) (get from)))
     (when ok?
       (put to datum)
-      (copy from to))))
+      (copy-all from to))))
 
 
 ;; iterate (get from) then (put to) until from is exhausted.
@@ -139,11 +139,11 @@
 ;; even if (get from) or (put to) raise a condition or call a continuation
 ;;
 ;; return value of (close to)
-(define (copy/close from to)
+(define (copy-all/close from to)
   (let ((ret #f))
     (dynamic-wind
       void  ; before
-      (lambda () (copy from to))
+      (lambda () (copy-all from to))
       (lambda () (close from) (set! ret (close to))))
     ret))
 
