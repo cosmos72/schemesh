@@ -43,6 +43,7 @@
 (library-reexport (schemesh (0 9 3))
   (import
     (scheme2k bootstrap)
+    (scheme2k bootstrap arrow)
     (scheme2k containers)
     (scheme2k containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (scheme2k conversions)

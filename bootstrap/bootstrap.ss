@@ -9,8 +9,10 @@
 
 (library (scheme2k bootstrap (0 9 3))
   (export
+      ;; arrow.ss
+      ==> ~>
+
       ;; bootstrap.ss
-      ==> ;; _ is already exported by (rnrs)
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let1 let-macro raise-assert* repeat reverse-macro
       second-value with-locked-objects while until with-while-until
@@ -447,23 +449,6 @@
               (datum->syntax (syntax xname)
                 (apply transformer (syntax->datum (syntax args)))))))))
         form1 form2 ...))))
-
-
-;; symplify procedure chaining, allows writing (==> proc1 a => proc2 b _ c => proc3 d ...)
-;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
-;;
-;; Replaces the placeholder _ with the previous form.
-;;
-;; If the placeholder _ is not present, the previous form is inserted as first argument.
-;; Example:
-;;   (==> proc1 a => proc2 b c)
-;; expands to
-;;   (proc2 (proc1 a) b c)
-(define-syntax ==>
-  (lambda (stx)
-    (syntax-case stx ()
-      ((xname . args)
-        (datum->syntax #'xname (expand==> (syntax->datum #'args)))))))
 
 
 #|

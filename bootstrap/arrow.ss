@@ -8,88 +8,138 @@
 #!r6rs
 
 (library (scheme2k bootstrap arrow (0 9 3))
-  (export expand==>)
+  (export ==> ~>)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! fx1+ gensym list-copy list-head))
+    (only (chezscheme) fx1+ gensym list-copy list-head))
 
 
-;; scan template for '_ and replace '_ with item.
-;; if template contains no '_ then insert item into template as first argument
+
+;; Simplify procedure chaining, allows writing (==> proc1 a => proc2 b _ c => proc3 d ...)
+;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
 ;;
-;; return template, modified in-place
-(define (replace_! item template)
-  (let ((place (memq '_ template)))
-    (if place
-      (begin
-        (set-car! place item)
-        template)
-      (cons (car template) (cons item (cdr template))))))
-
-
-
-;; helper function used by expand==>
+;; Replaces the placeholder _ with the previous form.
 ;;
-;; traverse list, find first element eq? to '=> or '?=> and return two values:
-;;  its position in the list and the symbol found,
-;;  or #f #f if no such element was found
-(define (scan=> l)
-  (let %scan=> ((l l) (pos 0))
-    (cond
-      ((null? l)
-        (values #f #f))
-      ((memq (car l) '(=> ?=>))
-        (values pos (car l)))
-      (else
-        (%scan=> (cdr l) (fx1+ pos))))))
+;; If the placeholder _ is not present, the previous form is inserted as first argument.
+;; Example:
+;;   (==> proc1 a => proc2 b c)
+;; expands to
+;;   (proc2 (proc1 a) b c)
+;;
+;; If ?=> is used instead of => then evaluation stops when the expression before ?=> evaluates to #f
+(define-syntax ==>
+  (lambda (stx)
+    (syntax-case stx ()
+      ((xname args ...)
+        (letrec
+
+          ;; traverse list, find first identifier whose syntax->datum is eq? to sym0 or sym1 and return two values:
+          ;;  if sym0 appears first, return its position in the list and 0,
+          ;;  if sym1 appears first, return its position in the list and 1,
+          ;;  otherwise #f #f
+          ((scan=> (lambda (l sym0 sym1)
+            (let %scan=> ((l l) (pos 0))
+              (cond
+                ((null? l)
+                  (values #f #f))
+                ((and (identifier? (car l)) (eq? (syntax->datum (car l)) sym0))
+                  (values pos 0))
+                ((and (identifier? (car l)) (eq? (syntax->datum (car l)) sym1))
+                  (values pos 1))
+                (else
+                  (%scan=> (cdr l) (fx1+ pos)))))))
 
 
-;; expand (=> head rest)
-(define (compose=> head rest)
-  (let-values (((pos sym) (scan=> rest)))
-    (if pos
-      (let* ((mid  (list-head rest pos))
-             (mid* (replace_! head mid))
-             (tail (list-tail rest (fx1+ pos))))
-        (if (eq? sym '=>)
-          (compose=> mid* tail)
-          (compose?=> mid* tail)))
-      (replace_! head (list-copy rest)))))
+          ;; scan template for #'_ and replace it with item.
+          ;; if template contains no #'_ then insert item into template as first argument
+          ;;
+          ;; return template, modified in-place
+          (replace_! (lambda (item template)
+            (let-values (((pos dummy) (scan=> template '_ '_)))
+              (if pos
+                (begin
+                  (set-car! (list-tail template pos) item)
+                  template)
+                (cons (car template) (cons item (cdr template)))))))
 
 
-;; expand (?=> head rest)
-(define (compose?=> head rest)
-  (let-values (((pos sym) (scan=> rest)))
-    (if pos
-      (let* ((g    (gensym))
-             (mid  (list-head rest pos))
-             (mid* (replace_! g mid))
-             (tail (list-tail rest (fx1+ pos))))
-        `(let ((,g ,head))
-           (and ,g ,(if (eq? sym '=>)
-                      (compose=> mid* tail)
-                      (compose?=> mid* tail)))))
-      (let* ((g     (gensym))
-             (rest* (replace_! g (list-copy rest))))
-         `(let ((,g ,head))
-            (and ,g ,rest*))))))
+          ;; expand (=> head rest)
+          (compose=> (lambda (k head rest)
+            (let-values (((pos sym) (scan=> rest '=> '?=>)))
+              (if pos
+                (let* ((mid  (list-head rest pos))
+                       (mid* (replace_! head mid))
+                       (tail (list-tail rest (fx1+ pos))))
+                  (if (fxzero? sym)
+                    (compose=>  k mid* tail)
+                    (compose?=> k mid* tail)))
+                (replace_! head (list-copy rest))))))
 
 
-;; implementation of macro ==>
-(define (expand==> l)
-  (when (null? l)
-    (syntax-violation "" "invalid syntax, need at least one argument after" '==>))
-  (let-values (((pos sym) (scan=> l)))
-    (case sym
-      ((=>)
-        (compose=> (list-head l pos) (list-tail l (fx1+ pos))))
-      ((?=>)
-        (compose?=> (list-head l pos) (list-tail l (fx1+ pos))))
-      (else
-        l))))
+          ;; expand (?=> head rest)
+          (compose?=> (lambda (k head rest)
+            (let-values (((pos sym) (scan=> rest '=> '?=>)))
+              (if pos
+                (let* ((g    (datum->syntax k (gensym)))
+                       (mid  (list-head rest pos))
+                       (mid* (replace_! g mid))
+                       (tail (list-tail rest (fx1+ pos))))
+                  #`(let ((#,g #,head))
+                      (and #,g #,(if (fxzero? sym)
+                                   (compose=>  k mid* tail)
+                                   (compose?=> k mid* tail)))))
+                (let* ((g     (datum->syntax k (gensym)))
+                       (rest* (replace_! g (list-copy rest))))
+                   #`(let ((#,g #,head))
+                       (and #,g #,rest*)))))))
 
 
+          ;; implementation of macro ==>
+          (expand==> (lambda (k l)
+            (when (null? l)
+              (syntax-violation "" "invalid syntax, need at least one argument after" '==>))
+            (let-values (((pos sym) (scan=> l '=> '?=>)))
+              (case sym
+                ((0)
+                  (compose=> k (list-head l pos) (list-tail l (fx1+ pos))))
+                ((1)
+                  (compose?=> k (list-head l pos) (list-tail l (fx1+ pos))))
+                (else
+                  l))))))
+
+        ;; finally, the macro ==> definition
+        (expand==> #'xname #'(args ...)))))))
+
+
+;; Racket-compatible threading arrow:
+;;
+;; Simplify procedure chaining, allows writing (~> (proc1 a) (proc2 b _ c) (proc3 d ...))
+;; instead of nested calls: (proc3 (proc2 b (proc1 a) c) d ...)
+;;
+;; Replaces the placeholder _ with the previous form.
+;;
+;; If the placeholder _ is not present, the previous form is inserted as first argument.
+;; Example:
+;;   (~> (proc1 a) (proc2 b c))
+;; expands to
+;;   (proc2 (proc1 a) b c)
+(define-syntax ~>
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (proc expr ...) ...)
+        (letrec
+          ((inner-expand~> (lambda (l)
+             (if (null? l)
+               '()
+               (append (list #'=>) (car l) (inner-expand~> (cdr l))))))
+
+           (expand~> (lambda (l)
+             (when (null? l)
+               (syntax-violation "" "invalid syntax, need at least one argument after" '~>))
+             (append (list #'==>) (car l) (inner-expand~> (cdr l))))))
+
+          (expand~> #'((proc expr ...) ...)))))))
 
 
 ) ; close library

@@ -28,10 +28,16 @@
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
 
+  ;; arrows
   (==> + 1 2 => / 4)                               3/4
   (==> + 2 3 => / _ 4)                             5/4
+  (==> and 1 2 => or _ 3)                          2
   (==> and 1 2 ?=> or _ 3)                         2
   (==> and 1 #f ?=> (error 'test-arrow))           #f
+
+  (~> (+ 1 2) (/ 4))                               3/4
+  (~> (+ 2 3) (/ _ 4))                             5/4
+  (~> (and 1 2) (or _ 3))                          2
 
   (let ((x 10))
     (forever (set! x (fx1- x)) until (fxzero? x))
