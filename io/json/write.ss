@@ -310,7 +310,7 @@
 
 (define (put/record tx obj)
   (let* ((cache  (ensure-cache tx))
-         (iter   (json-field-cursor obj cache))
+         (iter   (record-json-field-cursor obj cache))
          (out    (json-writer-out tx)))
     (put-char out #\{)
     (do ((first? #t #f)

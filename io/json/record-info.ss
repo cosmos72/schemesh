@@ -58,14 +58,18 @@
   cache)
 
 
-(define record-info-table
+;; hashtable rtd -> record-info and symbol -> constructor,
+;;
+;; describes how to serialize/deserialize records from/to json
+;; and overrides fields autodiscovery via reflection with (field-cursor)
+(define record-json-table
   (add-date-info
     (add-time-info
       (make-eq-hashtable))))
 
 
-(define (json-field-cursor obj rtd-cache)
-  (let ((info (hashtable-ref record-info-table (record-rtd obj) #f)))
+(define (record-json-field-cursor obj rtd-cache)
+  (let ((info (hashtable-ref record-json-table (record-rtd obj) #f)))
     (if info
       (ordered-hash-cursor info)
       (field-cursor obj rtd-cache))))

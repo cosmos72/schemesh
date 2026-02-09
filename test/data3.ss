@@ -184,7 +184,7 @@
 
 
   ;; json-reader-get also looks inside json objects (at any depth) for key "@type" and,
-  ;; if the value is registered into json's internal record-info-table,
+  ;; if the value is registered into record-json-table,
   ;; calls the registered constructor passing as the only argument the json object, converted to a plist.
   (let ((rx (make-json-reader
               (open-bytevector-input-port
