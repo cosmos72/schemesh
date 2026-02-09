@@ -202,6 +202,24 @@
         (first-value (json-reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
 
 
+  ;; serialize and deserialize a process-entry
+  (let-values (((port to-string) (open-string-output-port)))
+    (let ((tx (make-json-writer port)))
+      (json-writer-put tx
+        (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
+          (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
+          (make-time-duration 0 0) 20 0 0 0 1 10839 160))
+      (json-writer-close tx)
+      (let* ((str (to-string))
+             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+        (list
+          str
+          (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"@type\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"@type\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"@type\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"@type\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
+                                                          (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
+                                                            (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
+                                                            (make-time-duration 0 0) 20 0 0 0 1 10839 160))
+
+
   ;; ---------------------------- lineedit io ----------------------------------
   (read
     (open-vlines-input-port

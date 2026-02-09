@@ -42,8 +42,6 @@
   (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")
 
-  (include "reflect/reflect.ss")
-
   (include "posix/fd.ss")
   (include "posix/fs.ss")
   (include "posix/io.ss")
@@ -58,7 +56,7 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "os/process.ss")
+  (include "reflect/reflect.ss")
 
   (include "io/field.ss")           ; requires reflect/reflect.ss
   (include "io/http.ss")            ; requires io/posix/posix.ss
@@ -74,6 +72,8 @@
     (else        (include "ipc/queue-nothread.ss")))
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
   (include "ipc/ipc.ss")
+
+  (include "os/process.ss")
 
   (include "vscreen/all.ss")
 

@@ -13,9 +13,11 @@
           make-process-entry  process-entry  process-entry?)
   (import
     (rnrs)
-    (only (chezscheme)                   1+ foreign-procedure fx1+ make-time record-writer string->immutable-string void)
+    (only (chezscheme)                   1+ foreign-procedure fx1+ fx1- make-time record-writer string->immutable-string void)
     (only (scheme2k bootstrap)           assert*)
+    (only (scheme2k containers list)     plist-ref)
     (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
+    (only (scheme2k io json)             json-record-info-set!)
     (only (scheme2k posix fd)            raise-c-errno)
     (only (scheme2k posix fs)            gid->groupname uid->username))
 
@@ -219,6 +221,25 @@
       (bvec-ref/s64 bvec (fx* 18 8))    ; num-threads,  int64
       (bvec-ref/u64 bvec (fx* 19 8))    ; min-fault,    uint64
       (bvec-ref/u64 bvec (fx* 20 8))))) ; maj-fault,    uint64
+
+
+;; construct a process-entry from json deserialized plist
+(define construct-process-entry
+  (let ((keys '#(pid name tty state user group uid gid ppid pgrp sid flags mem-resident mem-virtual
+                 start-time user-time sys-time iowait-time priority nice rt-priority rt-policy num-threads min-fault maj-fault)))
+    (lambda (plist)
+      (let %construct-process-entry ((i (fx1- (vector-length keys)))
+                                     (args '()))
+        (if (fx<? i 0)
+          (apply make-process-entry args)
+          (%construct-process-entry
+            (fx1- i)
+            (cons (plist-ref plist (vector-ref keys i) (void)) args)))))))
+
+
+;; customize how "process-entry" objects are serialized to / deserialized from json
+(json-record-info-set! (record-type-descriptor process-entry)
+  'process-entry construct-process-entry '())
 
 
 ;; customize how "process-reader" objects are printed

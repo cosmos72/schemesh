@@ -14,7 +14,7 @@
           json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
           json-writer-put json-writer-put-token json-writer-put-value
 
-          json-record-info-set!)
+          json-record-info-set! json-record-table)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                    fx1+ fx1- include logbit? make-time port-closed? procedure-arity-mask ratnum?
