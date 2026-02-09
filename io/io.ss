@@ -12,6 +12,7 @@
 ;;;
 (library-reexport (scheme2k io (0 9 3))
   (import
+    (scheme2k io field)
     (scheme2k io json)
     (scheme2k io http)
     (scheme2k io obj)

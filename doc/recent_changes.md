@@ -2,6 +2,7 @@
 
 ### TO DO
 
+* add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
 * extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
 
@@ -10,7 +11,7 @@
 ### git main branch
 
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add type `filter-reader`
+* add types `field-reader` and `filter-reader`
 * add types `json-reader` and `json-writer`
 * add library `(scheme2k reflect)` with functions for simplifing reflection
 * pretty-print types `time` and `date` and add convenience functions to create and convert them
@@ -21,6 +22,7 @@
 * rename function `(...channel...)` -> `(...wire-reader...)` or `(...wire-writer...)`
 * rename library `(schemesh ipc fifo)` -> `(scheme2k ipc queue)`
 * rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
+* add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
 
 ### release v0.9.3, 2025-12-26
 

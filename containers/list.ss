@@ -13,7 +13,9 @@
 
     list-copy* list-index list-quoteq! list-reverse*! list-reverse->vector list-remove-consecutive-duplicates!
 
-    plist? plist-add plist-ref plist-delete plist-delete/pred)
+    plist? plist-add plist-ref plist-delete plist-delete/pred
+
+    symbol-list?)
 
   (import
     (rnrs)
@@ -459,5 +461,13 @@
                     (with-while-until
                       body ...
                       (%for-plist (cddr tail) ...)))))))))))
+
+
+;; return #t if l is a list of symbols, otherwise return #f
+;; Note: return #f for all improper lists, including cyclic lists.
+(define (symbol-list? l)
+  (and (list? l)
+       (every symbol? l)))
+
 
 ) ; close library

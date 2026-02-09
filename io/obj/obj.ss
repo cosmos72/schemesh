@@ -35,8 +35,11 @@
     make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
     in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector
 
-    ;; obj/filter.ss
-    make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip
+    ;; obj/filter-reader.ss
+    make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip filter-reader-inner
+
+    ;; obj/nested-reader.ss
+    nested-reader nested-reader? nested-reader-inner nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
 
     ;; obj/writer.ss
     make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
@@ -68,19 +71,33 @@
 (include "io/obj/reader.ss")
 (include "io/obj/writer.ss")
 
+(include "io/obj/nested-reader.ss")
 (include "io/obj/filter-reader.ss")
 
 
-;; customize how "obj-reader" objects are printed
-(record-writer (record-type-descriptor obj-reader)
+(define (filter-reader-display r port writer label)
   (lambda (r port writer)
-    (put-string port "#<obj-reader ")
+    (put-string port "#<")
+    (put-string port label)
+    (put-char port #\space)
     (writer (obj-reader-get-proc r) port)
     (put-char port #\space)
     (writer (unbox (obj-reader-close-box r)) port)
     (put-char port #\space)
     (writer (if (obj-reader-eof? r) 'eof #f) port)
     (put-string port ">")))
+
+
+;; customize how "obj-reader" objects are printed
+(record-writer (record-type-descriptor obj-reader)
+  (lambda (r port writer)
+    (filter-reader-display r port writer "obj-reader")))
+
+
+;; customize how "filter-reader" objects are printed
+(record-writer (record-type-descriptor filter-reader)
+  (lambda (r port writer)
+    (filter-reader-display r port writer "filter-reader")))
 
 
 ;; customize how "obj-writer" objects are printed
