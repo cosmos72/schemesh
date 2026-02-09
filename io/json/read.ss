@@ -617,7 +617,7 @@
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; If a json object contains the "@type" key, looks up its associated value in record-json-table and,
+;; If a json object contains the "@type" key, looks up its associated value in json-record-table and,
 ;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
@@ -643,12 +643,12 @@
   (values datum (not (eof-object? datum))))
 
 
-;; find constructor in record-json-table for creating an object from deserialized plist, and call it.
+;; find constructor in json-record-table for creating an object from deserialized plist, and call it.
 ;; return constructed object, or plist itself if no constructor was found.
 (define (call-constructor plist)
-  (let* ((xtype       (plist-ref plist type-sym))
+  (let* ((xtype       (plist-ref plist _type))
          (type        (and (string? xtype) (string->symbol xtype)))
-         (constructor (and type (hashtable-ref record-json-table type #f))))
+         (constructor (and type (hashtable-ref json-record-table type #f))))
     (if (and constructor (procedure? constructor))
       (constructor plist)
       plist)))

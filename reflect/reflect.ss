@@ -14,7 +14,7 @@
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-cursor htable-size
           compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
           field field-cursor field-cursor-next! field-names
-          make-record-info record-info record-info? record-info-field-names record-info-serializer record-info-type-name)
+          make-record-info record-info record-info? record-info-field-names record-info-fill!)
   (import
     (rnrs)
     (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
@@ -323,22 +323,17 @@
 (define-record-type (record-info %make-record-info record-info?)
   (parent ordered-hash-type)
   (fields
-    (immutable type-name    record-info-type-name)                                  ; #f or user-set value, usually a symbol or list of symbols
-    (immutable serializer   record-info-serializer)                                 ; #f or procedure
     (mutable   field-names  record-info-field-names %record-info-field-names-set!)) ; vector of symbols
-  (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; create and return a record-info containing caller-specified type-name, serializer and fields
-(define (make-record-info type-name serializer . names-and-accessors)
-  (when serializer
-    ;; serializer will be called with two arguments: obj-writer and the object to serialize
-    (assert* 'make-record-info (procedure? serializer))
-    (assert* 'make-record-info (logbit? 2 (procedure-arity-mask serializer))))
+;; create and return a record-info containing caller-specified field names and accessors.
+;; names-and-accessors must be a plist alternating field-name and accessor.
+(define (make-record-info names-and-accessors)
   (assert* 'make-record-info (plist? names-and-accessors))
   (let* ((len   (fx/ (length names-and-accessors) 2))
          (names (make-vector len))
-         (info  (%make-record-info (make-eq-hashtable) #f #f type-name serializer names)))
+         (info  (%make-record-info (make-eq-hashtable) #f #f names)))
     (do ((i 0 (fx1+ i))
          (l names-and-accessors (cddr l)))
         ((null? l) info)
@@ -350,26 +345,34 @@
         (ordered-hash-set! info name accessor)))))
 
 
-;; collect all accessors for fields in specified record-type-descriptor
-;; and add them to info.
-;; Return unspecified value.
-;;
-;; Also collect accessors for fields in parent record-type-descriptors,
-;; unless they conflict with a field in a child record-type-descriptor.
-(define (fill-record-info info rtd)
+;; recursive implementation of (record-info-fill!)
+(define (%record-info-fill! info rtd)
   (let ((parent-rtd (record-type-parent rtd)))
     (when parent-rtd
       ;; first, collect fields from parent record-type-descriptors
-      (fill-record-info info parent-rtd)))
+      (%record-info-fill! info parent-rtd)))
   (let ((this-field-names (record-type-field-names rtd)))
-    (span-insert-right/vector! (record-info-field-names info) this-field-names)
     (do ((i   0 (fx1+ i))
          (len (vector-length this-field-names)))
         ((fx>=? i len))
       (let ((field-name (vector-ref this-field-names i)))
         ;; field-name may conflict with some eq? field name from parents rtd
+        ;; remove any existing field-name from its position
         (ordered-hash-delete! info field-name)
+        ;; and insert the field-name at the end: ordered-hash remembers insertion order
         (ordered-hash-set!    info field-name (record-accessor rtd i))))))
+
+
+;; collect via reflection accessors for all fields in specified record-type-descriptor,
+;; and add them to info.
+;; Return unspecified value.
+;;
+;; Also collect accessors for fields in parent record-type-descriptors,
+;; unless they conflict with a field in a child record-type-descriptor.
+(define (record-info-fill! info rtd)
+  (%record-info-fill! info rtd)
+  ;; create and store vector of field-names
+  (%record-info-field-names-set! info (ordered-hash-keys info)))
 
 
 ;; collect all accessors for fields in specified record-type-descriptor,
@@ -381,10 +384,8 @@
 ;; finally, also collect field names from specified record-type-descriptor and its parents,
 ;; and add them to the returned accessors hashtable with the key (void)
 (define (make-record-info/reflect cache rtd)
-  (let ((info (%make-record-info (make-eq-hashtable) #f #f #f #f (span))))
-    (fill-record-info info rtd)
-    ;; convert field names span -> vector
-    (%record-info-field-names-set! info (span->vector (record-info-field-names info)))
+  (let ((info (%make-record-info (make-eq-hashtable) #f #f #f)))
+    (record-info-fill! info rtd)
     (hashtable-set! cache rtd info)
     info))
 
