@@ -33,7 +33,7 @@
     (scheme2k reflect))
 
 
-(include "io/json/record-info.ss")
+(include "io/json/record-json-info.ss")
 (include "io/json/read.ss")
 (include "io/json/write.ss")
 
