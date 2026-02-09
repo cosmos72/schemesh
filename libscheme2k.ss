@@ -66,7 +66,7 @@
   (include "io/redir.ss")
   (include "io/stdio.ss")
   (include "io/port.ss")            ; requires io/stdio.ss
-  (include "io/json/json.ss")       ; requires io/stdio.ss
+  (include "io/json/json.ss")       ; requires posix/fs.ss io/stdio.ss
   (include "io/wire/wire.ss")       ; requires io/posix/status.ss
   (include "io/io.ss")
 

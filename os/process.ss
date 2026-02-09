@@ -109,6 +109,8 @@
           (c-process-close handle))))))
 
 
+;; info about a running process.
+;; TODO validate args in (make-process-entry)
 (define-record-type process-entry
   (fields
     (mutable pid)           ; (void) or exact integer
@@ -223,23 +225,9 @@
       (bvec-ref/u64 bvec (fx* 20 8))))) ; maj-fault,    uint64
 
 
-;; construct a process-entry from json deserialized plist
-(define construct-process-entry
-  (let ((keys '#(pid name tty state user group uid gid ppid pgrp sid flags mem-resident mem-virtual
-                 start-time user-time sys-time iowait-time priority nice rt-priority rt-policy num-threads min-fault maj-fault)))
-    (lambda (plist)
-      (let %construct-process-entry ((i (fx1- (vector-length keys)))
-                                     (args '()))
-        (if (fx<? i 0)
-          (apply make-process-entry args)
-          (%construct-process-entry
-            (fx1- i)
-            (cons (plist-ref plist (vector-ref keys i) (void)) args)))))))
-
-
 ;; customize how "process-entry" objects are serialized to / deserialized from json
 (json-record-info-set! (record-type-descriptor process-entry)
-  'process-entry construct-process-entry '())
+  'process-entry #f make-process-entry '())
 
 
 ;; customize how "process-reader" objects are printed

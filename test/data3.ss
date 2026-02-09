@@ -183,9 +183,11 @@
             obj6 ok6 #|obj7|# ok7)))                    ,(1 #t 23/10 #t #t #t (span 0) #t (a "\x20ac;") #t "foo" #t #f)
 
 
-  ;; json-reader-get also looks inside json objects (at any depth) for key "@type" and,
+  ;; json-reader-get looks inside json objects (at any depth) for key "@type" and,
   ;; if the value is registered into json-record-table,
-  ;; calls the registered constructor passing as the only argument the json object, converted to a plist.
+  ;; calls the registered deserializer passing as the only argument the json object, converted to a plist.
+
+  ;; serialize and deserialize a `time`
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
@@ -193,6 +195,7 @@
     (let-values (((obj ok) (json-reader-get rx)))
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
+  ;; serialize and deserialize a `date`
   (let-values (((port to-string) (open-string-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
@@ -202,7 +205,22 @@
         (first-value (json-reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
 
 
-  ;; serialize and deserialize a process-entry
+  ;; serialize and deserialize a `dir-entry`
+  (let-values (((port to-string) (open-string-output-port)))
+    (let ((tx (make-json-writer port)))
+      (json-writer-put tx
+        (make-dir-entry "." 'dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476) (make-time-utc 1768467392 0)
+                        (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
+      (json-writer-close tx)
+      (let* ((str (to-string))
+             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+        (list
+          str
+          (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":false,\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"@type\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"@type\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"@type\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+                                                           (make-dir-entry "." dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
+                                                             (make-time-utc 1768467392 0) (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
+
+  ;; serialize and deserialize a `process-entry`
   (let-values (((port to-string) (open-string-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx

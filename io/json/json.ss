@@ -32,6 +32,7 @@
     (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
                                           obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k io stdio)             sh-stdin)
+    (only (scheme2k posix fs)             dir-entry make-dir-entry)
     (scheme2k reflect))
 
 

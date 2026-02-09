@@ -11,7 +11,7 @@
   (export
       make-dir-reader dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get dir-reader-skip
 
-      make-dir-entry dir-entry
+      make-dir-entry dir-entry dir-entry?
 
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir
@@ -21,7 +21,7 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme)                     foreign-procedure fx1+ make-continuation-condition
-                                           make-format-condition record-writer sort! string->immutable-string void)
+                                           make-format-condition record-writer sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
@@ -31,6 +31,61 @@
     (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
     (only (scheme2k io obj)                obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
     (only (scheme2k posix fd)              c-errno->string raise-c-errno))
+
+
+;; info about a filesystem entry: a file, dir, socket, pipe, symlink...
+(define-record-type (dir-entry %make-dir-entry dir-entry?)
+  (fields
+    (mutable name)     ; string
+    (mutable type)     ; (void) or symbol
+    (mutable size)     ; (void) or size in bytes
+    (mutable target)   ; (void) or #f or string: symlink target
+    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
+    (mutable accessed) ; (void) or time-utc
+    (mutable modified) ; (void) or time-utc
+    (mutable inode-changed) ; (void) or time-utc
+    (mutable user)     ; (void) or immutable string
+    (mutable group)    ; (void) or immutable string
+    (mutable uid)      ; (void) or exact integer
+    (mutable gid)      ; (void) or exact integer
+    (mutable inode)    ; (void) or exact integer
+    (mutable nlink))   ; (void) or exact integer
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+
+
+(define (exact-integer-or-void? obj)
+  (or (eq? (void) obj) (and (integer? obj) (exact? obj))))
+
+(define (string-or-false-or-void? obj)
+  (or (eq? (void) obj) (not obj) (string? obj)))
+
+(define (string-or-symbol-or-void? obj)
+  (or (eq? (void) obj) (symbol? obj) (string? obj)))
+
+(define (string-or-void? obj)
+  (or (eq? (void) obj) (string? obj)))
+
+(define (time-or-void? obj)
+  (or (eq? (void) obj) (time? obj)))
+
+
+(define (make-dir-entry name type size target mode accessed modified inode-changed user group uid gid inode nlink)
+  (assert* 'make-dir-entry (string? name))
+  (assert* 'make-dir-entry (string-or-symbol-or-void? type))
+  (assert* 'make-dir-entry (exact-integer-or-void? size))
+  (assert* 'make-dir-entry (string-or-false-or-void? target))
+  (assert* 'make-dir-entry (string-or-void? mode))
+  (assert* 'make-dir-entry (time-or-void? accessed))
+  (assert* 'make-dir-entry (time-or-void? modified))
+  (assert* 'make-dir-entry (time-or-void? inode-changed))
+  (assert* 'make-dir-entry (string-or-void? user))
+  (assert* 'make-dir-entry (string-or-void? group))
+  (assert* 'make-dir-entry (exact-integer-or-void? uid))
+  (assert* 'make-dir-entry (exact-integer-or-void? gid))
+  (assert* 'make-dir-entry (exact-integer-or-void? inode))
+  (assert* 'make-dir-entry (exact-integer-or-void? nlink))
+  (let ((type (if (string? type) (string->symbol type) type)))
+    (%make-dir-entry name type size target mode accessed modified inode-changed user group uid gid inode nlink)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,25 +174,6 @@
         (when handle
           (dir-reader-handle-set! rx #f)
           (c-dir-close handle))))))
-
-
-(define-record-type dir-entry
-  (fields
-    (mutable name)     ; string
-    (mutable type)     ; (void) or symbol
-    (mutable size)     ; (void) or size in bytes
-    (mutable target)   ; (void) or #f or string: symlink target
-    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
-    (mutable accessed) ; (void) or time-utc
-    (mutable modified) ; (void) or time-utc
-    (mutable inode-changed) ; (void) or time-utc
-    (mutable user)     ; (void) or immutable string
-    (mutable group)    ; (void) or immutable string
-    (mutable uid)      ; (void) or exact integer
-    (mutable gid)      ; (void) or exact integer
-    (mutable inode)    ; (void) or exact integer
-    (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define if-fixnum->type
