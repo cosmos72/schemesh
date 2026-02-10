@@ -243,7 +243,18 @@
     (bytespan-insert-left/char! sp (integer->char #x10348)) sp)      ,(bytespan 240 144 141 136)
   (let ((sp (bytespan)))
     (bytespan-insert-left/char! sp (integer->char #x10ffff)) sp)     ,(bytespan 244 143 191 191)
-  ;; ----------------- bytespan-display-right/fixnum! --------------------------
+
+  ;; ----------------- bytespan-display-... ------------------------------------------------------
+  (let ((sp (bytespan)))
+    (for ((n (in-list (reverse '(#t #f 0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
+                       9999998 10000000 123456789 -1 -9 -10 -536870912)))))
+      while (fixnum? n)
+      (bytespan-display-left/fixnum! sp n)
+      (bytespan-insert-left/u8! sp 32))
+    (utf8b-bytespan->string sp))
+              " 0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 123456789 -1 -9 -10 -536870912"
+
+
   (let ((sp (bytespan)))
     (for ((n (in-list '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
                        9999998 10000000 123456789 -1 -9 -10 -536870912 #f #t))))
@@ -253,7 +264,13 @@
     (utf8b-bytespan->string sp))
               "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 123456789 -1 -9 -10 -536870912 "
 
-  ;; ----------------- bytespan-display-right/integer! -------------------------
+  (let ((sp (bytespan)))
+    (for-list ((n (reverse '(69070296726778056 -36789276097260750726076250762 -987654321099887766554433221100))))
+      (bytespan-display-left/integer! sp n)
+      (bytespan-insert-left/u8! sp 32))
+    (utf8b-bytespan->string sp))
+              " 69070296726778056 -36789276097260750726076250762 -987654321099887766554433221100"
+
   (let ((sp (bytespan)))
     (for-list ((n '(1152921504606846976 -98765432109753186420 69875967826075676715087643098984)))
       (bytespan-display-right/integer! sp n)

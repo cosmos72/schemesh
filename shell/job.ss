@@ -101,6 +101,7 @@
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
           (scheme2k bootstrap)
     (only (scheme2k containers bytespan)  bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!
+                                          bytespan-display-right/fixnum! bytespan-display-right/integer!
                                           bytespan-empty? bytespan-insert-right/bytevector! bytespan-insert-right/u8!
                                           bytespan-length bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                           bytespan-ref-right/u8 bytespan-reserve-right! bytespan-resize-right! make-bytespan)
@@ -117,7 +118,7 @@
     (only (scheme2k containers string)    assert-string-list? string-index string-is-signed-base10-integer? string-is-unsigned-base10-integer?
                                           string-list? string-list-split-after-nuls string-rtrim-newlines! string-split-after-nuls
                                           string-prefix/char? string-suffix? string-suffix/char?)
-    (only (scheme2k containers utf8b)     bytespan-display-right/fixnum! bytespan-display-right/integer! bytespan-insert-right/string! bytespan-insert-right/charspan!
+    (only (scheme2k containers utf8b)     bytespan-insert-right/string! bytespan-insert-right/charspan!
                                           charspan->utf8b charspan->utf8b/0
                                           string->utf8b string->utf8b/0 utf8b->string)
     (only (scheme2k containers vector)    for-vector vector-iterate)

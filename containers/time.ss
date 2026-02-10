@@ -12,10 +12,14 @@
   (export
       (rename (make-time-duration duration))
       make-time-duration make-time-monotonic make-time-utc make-time-process make-time-thread make-time-collector-cpu make-time-collector-real
-      time-compare time-equiv?)
+      time-compare time-equiv? time->string)
   (import
     (rnrs)
-    (only (chezscheme)   make-time record-rtd record-writer time-second time-nanosecond time-type))
+    (only (chezscheme)                   fx1+ fx1- make-time record-rtd record-writer time-second time-nanosecond time-type)
+    (only (scheme2k containers bytespan) bytespan bytespan-delete-right!
+                                         bytespan-display-left/integer! bytespan-display-right/integer!
+                                         bytespan-empty? bytespan-length bytespan-insert-left/u8! bytespan-ref/u8
+                                         latin1-bytespan->string))
 
 
 (define (make-time-duration s ns)
@@ -72,6 +76,24 @@
       (and (eq? (time-type t1) (time-type t2))
            (=   (time-second t1) (time-second t2))
            (=   (time-nanosecond t1) (time-nanosecond t2)))))
+
+
+;; convert a time to string "SECOND.FRACTION"
+(define (time->string t)
+  (let ((wbuf (bytespan)))
+    (bytespan-display-right/integer! wbuf (time-nanosecond t))
+    (do ((i (bytespan-length wbuf) (fx1+ i)))
+        ((fx>=? i 9))
+      (bytespan-insert-left/u8! wbuf 48)) ; #\0
+    (do ((i 8 (fx1- i)))
+        ((or (fx<? i 0) (not (fx=? (bytespan-ref/u8 wbuf i) 48)))) ; #\0
+      (bytespan-delete-right! wbuf 1))
+    (unless (bytespan-empty? wbuf)
+      (bytespan-insert-left/u8! wbuf 46)) ; #\.
+    (bytespan-display-left/integer! wbuf (time-second t))
+    (latin1-bytespan->string wbuf)))
+
+
 
 
 ;; customize how "time" objects are printed

@@ -103,14 +103,14 @@
 ;;
 ;; describes how to serialize/deserialize records from/to json
 ;; and overrides fields autodiscovery via reflection with (field-cursor)
-(define json-record-table
+(define json-record-infos
   (add-date-info
     (add-dir-entry-info
       (add-time-info
         (make-eq-hashtable)))))
 
 
-;; add a record-info entry to json-record-table
+;; add a record-info entry to json-record-infos
 ;; for serializing/deserializing objects with specified rtd.
 ;;
 ;; lets external code define how to serialize/deserialize custom types from/to json.
@@ -134,7 +134,7 @@
       (assert* 'json-record-info-set! (logbit? 1 (procedure-arity-mask deserializer))))
     (assert* 'json-record-info-set! (procedure? constructor)))
   ;; (plist? field-names-and-accessors) is already checked by (make-record-info)
-  (let ((table json-record-table)
+  (let ((table json-record-infos)
         (info (if (null? field-names-and-accessors)
                 (make-record-info/autodetect rtd type-symbol)
                 (make-record-info
@@ -144,10 +144,10 @@
     (hashtable-set! table type-symbol (or deserializer (make-deserializer constructor info)))))
 
 
-;; search for obj's rtd in json-record-table and if a record-info is found, return a cursor on it.
-;; otherwise return a cursor on obj's reflect fields via (field-cursor obj rtd-cache)
-(define (record-json-field-cursor obj rtd-cache)
-  (let ((info (hashtable-ref json-record-table (record-rtd obj) #f)))
+;; search for obj's rtd in json-record-infos and if a record-info is found, return a cursor on it.
+;; otherwise return a cursor on obj's reflect fields via (field-cursor obj cache)
+(define (json-record-info-cursor obj cache)
+  (let ((info (hashtable-ref json-record-infos (record-rtd obj) #f)))
     (if info
       (ordered-hash-cursor info)
-      (field-cursor obj rtd-cache))))
+      (field-cursor obj cache))))

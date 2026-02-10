@@ -69,13 +69,13 @@
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
           (scheme2k bootstrap)
-    (only (scheme2k containers bytespan) bytespan bytespan? bytespan-clear! bytespan-delete-left! bytespan-empty?
+    (only (scheme2k containers bytespan) bytespan bytespan? bytespan-clear! bytespan-delete-left! bytespan-display-right/fixnum! bytespan-empty?
                                          bytespan-insert-right/bytespan! bytespan-insert-right/bytevector! bytespan-insert-right/u8! bytespan-length
                                          bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                          bytespan-ref/u8 bytespan-reserve-right! bytespan-resize-right!)
     (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-length charspan-ref)
     (only (scheme2k containers span)     span span-iterate span-length span-ref)
-    (only (scheme2k containers utf8b)    bytespan-display-right/fixnum! bytespan-insert-right/charspan! bytespan-insert-right/string!
+    (only (scheme2k containers utf8b)    bytespan-insert-right/charspan! bytespan-insert-right/string!
                                          bytespan-ref/char string->utf8b)
           (scheme2k posix fd)
     (only (scheme2k posix signal)        countdown signal-consume-sigwinch)

@@ -61,7 +61,7 @@
       (%make-field-reader
         inner
         (list-reverse->vector
-          ;; always field field '@type
+          ;; always select field '@type
           (if (memq '\x40;type field-names)
             field-names
             (cons '\x40;type field-names)))

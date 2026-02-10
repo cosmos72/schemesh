@@ -16,8 +16,7 @@
     ;; utf8b-utils.ss
     bytevector-char-ref bytevector-char-set! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
-    bytespan-insert-right/charspan!
-    bytespan-display-right/fixnum! bytespan-display-right/integer! bytespan-insert-right/string!
+    bytespan-insert-right/charspan! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
 
   (import

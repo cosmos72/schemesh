@@ -14,24 +14,27 @@
           json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
           json-writer-put json-writer-put-token json-writer-put-value
 
-          json-record-info-set! json-record-table)
+          json-record-info-set!)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                    fx1+ fx1- include logbit? make-time port-closed? procedure-arity-mask ratnum?
                                           record-writer reverse! string-truncate! time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
-    (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right! bytespan-insert-right/u8!
-                                          bytespan-length bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
+    (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right! bytespan-display-right/integer!
+                                          bytespan-insert-right/bytevector! bytespan-insert-right/u8!
+                                          bytespan-length bytespan-peek-beg bytespan-peek-data
+                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
     (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add plist-ref)
     (only (scheme2k containers ordered-hash) ordered-hash-cursor ordered-hash-keys ordered-hash-set!)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers string)    string-index-right)
-    (only (scheme2k containers utf8b)     bytespan-insert-right/char! utf8b-bytespan->string utf8b->string)
+    (only (scheme2k containers utf8b)     bytespan-insert-right/char! bytespan-insert-right/string!
+                                          utf8b-bytespan->string utf8b->string)
     (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
                                           obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
-    (only (scheme2k io stdio)             sh-stdin)
+    (only (scheme2k io stdio)             sh-stdin sh-stdout)
     (only (scheme2k posix fs)             dir-entry make-dir-entry)
     (scheme2k reflect))
 

@@ -202,7 +202,7 @@
     ((out)
       (make-json-writer out))
     (()
-      (make-json-writer (sh-port #f 1 'textual)))))
+      (make-json-writer (sh-port #f 1 'binary)))))
 
 
 ;; easy wrappwe for (list-writer)

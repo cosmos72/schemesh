@@ -149,20 +149,20 @@
             (eof-object? obj4))))                       ,(#t (span 1 23/10 2.3 #t #f) (a "\x20ac;") "foo" #t)
 
 
-  (with-output-to-string
-    (lambda ()
-      (let loop ((rx (make-json-reader
-                       (open-bytevector-input-port
-                         (string->utf8b
-                           ;; we parse json numbers as inexact only if number contains "e..."
-                           "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
-                 (tx (make-json-writer)))
-        (let-values (((tok ok?) (json-reader-get rx)))
-          (if ok?
-            (begin
-              (json-writer-put tx tok)
-              (loop rx tx))
-            (json-writer-close tx))))))                 "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
+  (let-values (((out bv-proc) (open-bytevector-output-port)))
+    (let loop ((rx (make-json-reader
+                     (open-bytevector-input-port
+                       (string->utf8b
+                         ;; we parse json numbers as inexact only if number contains "e..."
+                         "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
+               (tx (make-json-writer out)))
+      (let-values (((tok ok?) (json-reader-get rx)))
+        (if ok?
+          (begin
+            (json-writer-put tx tok)
+            (loop rx tx))
+          (json-writer-close tx))))
+    (utf8->string (bv-proc)))                           "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
 
 
   ;; (json-reader-get) and (json-reader-skip) look inside top-level arrays and return their elements one by one.
@@ -184,7 +184,7 @@
 
 
   ;; json-reader-get looks inside json objects (at any depth) for key "@type" and,
-  ;; if the value is registered into json-record-table,
+  ;; if the value is registered into json-record-infos,
   ;; calls the registered deserializer passing as the only argument the json object, converted to a plist.
 
   ;; serialize and deserialize a `time`
@@ -196,42 +196,42 @@
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
   ;; serialize and deserialize a `date`
-  (let-values (((port to-string) (open-string-output-port)))
+  (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
       (json-writer-close tx)
-      (let* ((str (to-string))
-             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+      (let* ((bv (to-bytevector))
+             (rx (make-json-reader (open-bytevector-input-port bv))))
         (first-value (json-reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
 
 
   ;; serialize and deserialize a `dir-entry`
-  (let-values (((port to-string) (open-string-output-port)))
+  (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx
         (make-dir-entry "." 'dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476) (make-time-utc 1768467392 0)
                         (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
       (json-writer-close tx)
-      (let* ((str (to-string))
-             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+      (let* ((bv (to-bytevector))
+             (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
-          str
+          (utf8->string bv)
           (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":false,\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"@type\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"@type\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"@type\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
                                                            (make-dir-entry "." dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
                                                              (make-time-utc 1768467392 0) (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
 
   ;; serialize and deserialize a `process-entry`
-  (let-values (((port to-string) (open-string-output-port)))
+  (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx
         (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
           (make-time-duration 0 0) 20 0 0 0 1 10839 160))
       (json-writer-close tx)
-      (let* ((str (to-string))
-             (rx  (make-json-reader (open-bytevector-input-port (string->utf8b str)))))
+      (let* ((bv (to-bytevector))
+             (rx (make-json-reader (open-bytevector-input-port bv))))
         (list
-          str
+          (utf8->string bv)
           (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"@type\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"@type\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"@type\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"@type\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
                                                           (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
                                                             (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)

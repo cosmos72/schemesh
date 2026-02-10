@@ -166,14 +166,14 @@
         (let ((e (get-u8 in)))
           (cond
             ((not (fixnum? e)) (raise-json "unexpected EOF in json string"))
-            ((fx=? e 34)  (bytes-append! bytes e)  (parse-string in bytes))
-            ((fx=? e 47)  (bytes-append! bytes e)  (parse-string in bytes))
-            ((fx=? e 92)  (bytes-append! bytes e)  (parse-string in bytes))
-            ((fx=? e 98)  (bytes-append! bytes 8)  (parse-string in bytes))
-            ((fx=? e 102) (bytes-append! bytes 12) (parse-string in bytes))
-            ((fx=? e 110) (bytes-append! bytes 10) (parse-string in bytes))
-            ((fx=? e 114) (bytes-append! bytes 13) (parse-string in bytes))
-            ((fx=? e 116) (bytes-append! bytes 9)  (parse-string in bytes))
+            ((fx=? e 34)  (bytes-append! bytes e)  (parse-string in bytes)) ; #\"
+            ((fx=? e 47)  (bytes-append! bytes e)  (parse-string in bytes)) ; #\/
+            ((fx=? e 92)  (bytes-append! bytes e)  (parse-string in bytes)) ; #\\
+            ((fx=? e 98)  (bytes-append! bytes 8)  (parse-string in bytes)) ; #\b
+            ((fx=? e 102) (bytes-append! bytes 12) (parse-string in bytes)) ; #\f
+            ((fx=? e 110) (bytes-append! bytes 10) (parse-string in bytes)) ; #\n
+            ((fx=? e 114) (bytes-append! bytes 13) (parse-string in bytes)) ; #\r
+            ((fx=? e 116) (bytes-append! bytes 9)  (parse-string in bytes)) ; #\t
             ((fx=? e 117) ;; \uXXXX
               (let* ((u16 (parse-string-hex4 in))
                      (ch
@@ -617,7 +617,7 @@
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; If a json object contains the "@type" key, looks up its associated value in json-record-table and,
+;; If a json object contains the "@type" key, looks up its associated value in json-record-infos and,
 ;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
@@ -643,12 +643,12 @@
   (values datum (not (eof-object? datum))))
 
 
-;; find constructor in json-record-table for creating an object from deserialized plist, and call it.
+;; find constructor in json-record-infos for creating an object from deserialized plist, and call it.
 ;; return constructed object, or plist itself if no constructor was found.
 (define (call-constructor plist)
   (let* ((xtype       (plist-ref plist _type))
          (type        (and (string? xtype) (string->symbol xtype)))
-         (constructor (and type (hashtable-ref json-record-table type #f))))
+         (constructor (and type (hashtable-ref json-record-infos type #f))))
     (if (and constructor (procedure? constructor))
       (constructor plist)
       plist)))

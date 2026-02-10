@@ -12,7 +12,8 @@
 ;;; exchanges arbitrary objects through thread-safe in-memory queue
 ;;;
 (library (scheme2k ipc queue (0 9 3))
-  (export make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close (rename (queue-reader-get queue-reader-skip))
+  (export make-queue-pair
+          make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close (rename (queue-reader-get queue-reader-skip))
           make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close
           queue-reader-timed-get queue-reader-try-get in-queue-reader)
   (import
@@ -30,7 +31,10 @@
 (include "ipc/queue-common.ss")
 
 
-;; create and return a queue-writer, which is a subtype of obj-writer
+;; Create and return a queue-writer, which is a subtype of obj-writer,
+;; and writes arbitrary datum to a thread-safe, in-memory unlimited queue.
+;;
+;; Not used often, most of the time (make-queue-pair) is a better choice.
 (define make-queue-writer
   (case-lambda
     ((name)
@@ -50,11 +54,11 @@
 
 
 ;; Close specified queue-writer.
-;; Notifies all attached consumers that no more data can be received.
+;; Notifies all attached queue-readers that no more data can be received.
 ;; Each attached queue-reader will still receive any pending data.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-close) on the same or different producers.
+;; call (queue-writer-close) on the same or different queue-readers.
 (define (queue-writer-close tx)
   (assert* 'queue-writer-close (queue-writer? tx))
   (obj-writer-close tx))
@@ -68,12 +72,12 @@
 
 
 ;; put a datum into the queue-writer, which will be visible to all
-;; consumers attached *before* this call to (queue-writer-put).
+;; queue-readers attached *before* this call to (queue-writer-put).
 ;;
 ;; raises exception if queue-writer is closed
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-put) on the same or different producers.
+;; call (queue-writer-put) on the same or different queue-readers.
 (define (queue-writer-put tx obj)
   (assert* 'queue-writer-put (queue-writer? tx))
   (obj-writer-put tx obj))
@@ -93,13 +97,17 @@
 
 
 ;; Create and return a queue-reader, which is a subtype of obj-writer.
-;; Receives in order each datum put to the specified queue-writer *after* the queue-reader was created.
+;; Connects to specified queue-writer, and receives in order each datum
+;; put to the queue-writer *after* the queue-reader was created.
 ;;
 ;; Multiple queue-readers can be attached to the same queue-writer, and each queue-reader
-;; receives in order each datum put to the queue-writer *after* that queue-reader was created.
+;; receives in order each datum put to the queue-writer *after* that queue-reader was created,
+;; in publish-and-subscribe style.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-reader) on the same or different producers.
+;; call (make-queue-reader) and connect to the same or different queue-writers.
+;;
+;; Not used often, most of the time (make-queue-pair) is a better choice.
 (define (make-queue-reader tx)
   (with-mutex (queue-writer-mutex tx)
     (%make-queue-reader (queue-writer-tail tx) (queue-writer-mutex tx) (queue-writer-changed tx))))
@@ -150,13 +158,13 @@
 
 
 
-;; block until a datum is received from queue-writer, and return two values:
+;; block until a datum is received from the connected queue-writer, and return two values:
 ;;   datum and #t
 ;;   or <unspecified> and #f if queue-writer has been closed and all data has been received.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
 ;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
-;; on the same or different consumers.
+;; on the same or different queue-readers.
 (define (queue-reader-get rx)
   (assert* 'queue-reader-get (queue-reader? rx))
   (obj-reader-get rx))
@@ -182,7 +190,7 @@
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
 ;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
-;; on the same or different consumers.
+;; on the same or different queue-readers.
 (define (queue-reader-timed-get rx timeout)
   (assert* 'queue-reader-timed-get (queue-reader? rx))
   (let ((timeout (make-time-duration timeout)))
@@ -208,7 +216,7 @@
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
 ;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
-;; on the same or different consumers.
+;; on the same or different queue-readers.
 (define (queue-reader-try-get rx)
   (assert* 'queue-reader-try-get (queue-reader? rx))
   (if (queue-reader-eof? rx)

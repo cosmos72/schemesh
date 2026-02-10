@@ -21,9 +21,7 @@
   (include "containers/in.ss")
   (include "containers/list.ss")
   (include "containers/string.ss")
-  (include "containers/time.ss")
   (include "containers/vector.ss")
-  (include "containers/date.ss")        ; requires containers/time.ss
   (include "containers/hashtable.ss")   ; requires containers/list.ss  containers/string.ss  containers/vector.ss
   (include "containers/ordered-hash.ss")
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
@@ -36,6 +34,8 @@
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
   (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
   (include "containers/macros.ss")
+  (include "containers/time.ss")        ; requires containers/utf8b.ss
+  (include "containers/date.ss")        ; requires containers/time.ss
   (include "containers/containers.ss")
   (include "containers/replacements.ss")
 
@@ -63,7 +63,8 @@
   (include "io/redir.ss")
   (include "io/stdio.ss")
   (include "io/port.ss")            ; requires io/stdio.ss
-  (include "io/json/json.ss")       ; requires io/stdio.ss
+  (include "io/json/json.ss")       ; requires io/stdio.ss posix/fs.ss
+  (include "io/table/table.ss")     ; requires reflect/reflect.ss
   (include "io/wire/wire.ss")       ; requires io/posix/status.ss
   (include "io/io.ss")
 

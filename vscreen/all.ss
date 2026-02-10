@@ -108,13 +108,13 @@
     (only (scheme2k bootstrap)              assert* assert-not* catch fx<=?* raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)
-    (scheme2k containers bytespan)
-    (scheme2k containers charspan)
+          (scheme2k containers bytespan)
+          (scheme2k containers charspan)
     (only (scheme2k containers list)        for-list list-index)
     (only (scheme2k containers hashtable)   eqv-hashtable)
-    (scheme2k containers span)
-    (scheme2k containers gbuffer)
-    (only (scheme2k containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!
+          (scheme2k containers span)
+          (scheme2k containers gbuffer)
+    (only (scheme2k containers utf8b)       integer->char* bytespan-insert-right/char!
                                             string->utf8b utf8b-bytespan->string)
     (only (scheme2k posix fs)               file-delete file-rename)
     (only (scheme2k posix io)               file->port)

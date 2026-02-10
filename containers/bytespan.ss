@@ -20,14 +20,23 @@
     bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8!
     bytespan-fill! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-left! bytespan-reserve-right! bytespan-resize-left! bytespan-resize-right!
+
+    bytespan-delete-left! bytespan-delete-right! bytespan-index/u8
+
+    bytespan-display-left/fixnum! bytespan-display-left/integer!
+    bytespan-display-right/fixnum! bytespan-display-right/integer!
+
     bytespan-insert-left/u8! bytespan-insert-right/u8!
     bytespan-insert-left/bytespan! bytespan-insert-right/bytespan!
     bytespan-insert-left/bytevector! bytespan-insert-right/bytevector!
-    bytespan-delete-left! bytespan-delete-right! bytespan-index/u8
+
     in-bytespan bytespan-iterate
-    bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
+    bytespan-peek-beg bytespan-peek-end bytespan-peek-data
+
+    latin1-bytespan->string)
   (import
     (rnrs)
+    (rnrs mutable-strings)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
@@ -399,7 +408,156 @@
     ((sp predicate)
       (bytespan-index/u8 sp 0 (bytespan-length sp) predicate))))
 
-;; customize how "bytespan" objects are printed
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; bytespan-display-left/... ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; convert a negative fixnum to decimal digits and write such digits to bytevector,
+;; starting at position (fx1- pos) and moving leftward.
+;; return position before leftmost written digit.
+;;
+;; ignores n sign. does not support n >= 0.
+(define (%bytevector-display-left/-fixnum! bv pos n)
+  ;; (debugf "%bytevector-display-left/-fixnum! bv=~s pos=~s n=~s" bv pos n)
+  (if (fxzero? n)
+    pos
+    (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
+      (let ((n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
+            (pos  (fx1- pos)))
+        (bytevector-u8-set! bv pos (fx+ 48 n%10))
+        (%bytevector-display-left/-fixnum!
+            bv pos (if (fxzero? n%10) n/10 (fx1+ n/10)))))))
+
+
+;; convert an unsigned exact integer to decimal digits and write such digits to bytevector,
+;; starting at position (fx1- pos) and moving leftward.
+;; return position before leftmost written digit.
+(define (%bytevector-display-left/unsigned! bv pos n)
+  ;; (debugf "%bytevector-display-left/unsigned! bv=~s pos=~s n=~s" bv pos n)
+  (cond
+    ((not (fixnum? n))
+      (let-values (((n/10 n%10) (div-and-mod n 10)))
+        (let ((pos (fx1- pos)))
+          (bytevector-u8-set! bv pos (fx+ 48 n%10))
+          (%bytevector-display-left/unsigned! bv pos n/10))))
+    ((fxzero? n)
+      pos)
+    (else
+      (%bytevector-display-left/-fixnum! bv pos (fx- n)))))
+
+
+;; convert a fixnum to decimal digits and prefix such digits to bytespan.
+(define (bytespan-display-left/fixnum! sp n)
+  (let* ((neg? (fx<? n 0))
+         (n    (if neg? n (fx- n)))) ; always work with negative fixnum: wider range
+    (if (fx>=? n -9)
+      (bytespan-insert-left/u8! sp (fx- 48 n))  ; |n| + '0'
+      (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+            (len         (bytespan-length sp)))
+        (bytespan-reserve-left! sp (fx+ len max-digit-n))
+        (let* ((bv      (bytespan-peek-data sp))
+               (end     (bytespan-peek-beg sp)) ; we write before bytespan-peek-beg
+               (wpos    (%bytevector-display-left/-fixnum! bv end n))
+               (digit-n (fx- end wpos)))
+          (assert* 'bytespan-display-left/fixnum! (fx>=? wpos 0))
+          (bytespan-resize-left! sp (fx+ len digit-n)))))
+    (when neg?
+      (bytespan-insert-left/u8! sp 45)))) ; #\-
+
+
+;; convert an exact integer to decimal digits and prefix the digits to bytespan.
+(define (bytespan-display-left/integer! sp n)
+  (assert* 'bytespan-display-left/integer! (exact? n))
+  (assert* 'bytespan-display-left/integer! (integer? n))
+  (if (fixnum? n)
+    (bytespan-display-left/fixnum! sp n)
+    (let* ((neg? (< n 0))
+           (n    (if neg? (- n) n)) ; always work with unsigned integers: easier
+           (max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+           (len (bytespan-length sp)))
+      (bytespan-reserve-left! sp (fx+ len max-digit-n))
+      (let* ((end     (bytespan-peek-beg sp)) ; we write before bytespan-peek-beg
+             (bv      (bytespan-peek-data sp)) ; bytevector
+             (wpos    (%bytevector-display-left/unsigned! bv end n))
+             (digit-n (fx- end wpos)))
+        (assert* 'bytespan-display-left/integer! (fx>=? wpos 0))
+        (bytespan-resize-left! sp (fx+ len digit-n)))
+      (when neg?
+        (bytespan-insert-left/u8! sp 45))))) ; #\-
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; bytespan-display-right/... ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; convert a fixnum to decimal digits and append such digits to bytespan.
+(define (bytespan-display-right/fixnum! sp n)
+  (let ((n (if (fx<? n 0)
+             (begin
+               (bytespan-insert-right/u8! sp 45) ; append '-'
+               n)
+             (fx- n)))) ; always work with negative fixnum: wider range
+    (if (fx>=? n -9)
+      (bytespan-insert-right/u8! sp (fx- 48 n))  ; |n| + '0'
+      (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+            (len         (bytespan-length sp)))
+        (bytespan-reserve-right! sp (fx+ len max-digit-n))
+        (let* ((bv      (bytespan-peek-data sp))
+               (beg     (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+               (end     (fx+ beg max-digit-n))
+               (wpos    (%bytevector-display-left/-fixnum! bv end n))
+               (digit-n (fx- end wpos)))
+          (assert* 'bytespan-display-right/fixnum! (fx>=? wpos beg))
+          (when (fx>? wpos beg)
+            (bytevector-copy! bv wpos bv beg digit-n))
+          (bytespan-resize-right! sp (fx+ len digit-n)))))))
+
+
+;; convert an exact integer to decimal digits and append the digits to bytespan.
+(define (bytespan-display-right/integer! sp n)
+  (assert* 'bytespan-display-right/integer! (exact? n))
+  (assert* 'bytespan-display-right/integer! (integer? n))
+  (if (fixnum? n)
+    (bytespan-display-right/fixnum! sp n)
+    (let* ((n (if (< n 0)
+               (begin
+                 (bytespan-insert-right/u8! sp 45) ; append '-'
+                 (- n))       ; always work with unsigned integers: easier
+               n))
+           (max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+           (len (bytespan-length sp)))
+      (bytespan-reserve-right! sp (fx+ len max-digit-n))
+      (let* ((beg     (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+             (end     (fx+ beg max-digit-n))
+             (bv      (bytespan-peek-data sp)) ; bytevector
+             (wpos    (%bytevector-display-left/unsigned! bv end n))
+             (digit-n (fx- end wpos)))
+        (assert* 'bytespan-display-right/integer! (fx>=? wpos beg))
+        (when (fx>? wpos beg)
+          (bytevector-copy! bv wpos bv beg digit-n))
+        (bytespan-resize-right! sp (fx+ len digit-n))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; latin1-bytespan->string ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (latin1-bytespan->string sp)
+  (do ((i   0  (fx1+ i))
+       (pos (bytespan-peek-beg sp) (fx1+ pos))
+       (end (bytespan-peek-end sp))
+       (bv  (bytespan-peek-data sp))
+       (str (make-string (bytespan-length sp))))
+      ((fx>=? pos end) str)
+    (string-set! str i (integer->char (bytevector-u8-ref bv pos)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;; customize how `bytespan` objects are printed ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (record-writer (record-type-descriptor %bytespan)
   (lambda (sp port writer)
     (display "(bytespan" port)

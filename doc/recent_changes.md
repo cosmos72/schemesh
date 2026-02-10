@@ -2,9 +2,11 @@
 
 ### TO DO
 
-* add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
+* fix fs-related functions to honor current job's current directory
+* refactor `json-writer` to write to a binary port, not to a textual one
 * extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
+* add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
