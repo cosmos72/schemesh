@@ -135,7 +135,6 @@
     ((string? key) (write/string out wbuf key))
     (else          (raise-errorf 'json-writer-put "unsupported object key: ~s" key))))
 
-
 (define (write/ratio out wbuf ratio)
   (bytespan-clear! wbuf)
   (let* ((neg?  (< ratio 0))
@@ -144,18 +143,15 @@
       (bytespan-insert-right/u8! wbuf 45)) ; #\-
     (let-values (((integer fraction) (div-and-mod ratio 1)))
       (bytespan-display-right/integer! wbuf integer)
-      (bytespan-insert-right/u8! wbuf 46) ; #\.
-      (let* ((fraction*1e16          (div (* fraction 10000000000000000) 1))
-             (fraction-string        (number->string fraction*1e16))
-             (fraction-string-length (string-length fraction-string)))
-        (do ((i 16 (fx1- i)))
-            ((fx<=? i fraction-string-length))
-          (bytespan-insert-right/u8! wbuf 48)) ; #\0
-        (let ((reduced-length
-                (do ((i fraction-string-length (fx1- i)))
-                    ((or (fx<=? i 0) (not (char=? #\0 (string-ref fraction-string (fx1- i)))))
-                      i))))
-          (bytespan-insert-right/string! wbuf fraction-string 0 reduced-length)))))
+      (unless (zero? fraction)
+        (let ((fraction*1e16 (div (* fraction 10000000000000000) 1)))
+          (unless (zero? fraction*1e16)
+            (bytespan-insert-right/u8! wbuf 46) ; #\.
+            (bytespan-display-right/unsigned-k-digits! wbuf fraction*1e16 16)
+            ;; remove least significant zeroes
+            (do ()
+                ((not (fx=? 48 (bytespan-ref-right/u8 wbuf))))
+              (bytespan-delete-right! wbuf 1)))))))
   (put-bytespan out wbuf))
 
 

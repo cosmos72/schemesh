@@ -80,19 +80,21 @@
 
 ;; convert a time to string "SECOND.FRACTION"
 (define (time->string t)
-  (let ((wbuf (bytespan)))
-    (bytespan-display-right/integer! wbuf (time-nanosecond t))
-    (do ((i (bytespan-length wbuf) (fx1+ i)))
-        ((fx>=? i 9))
-      (bytespan-insert-left/u8! wbuf 48)) ; #\0
-    (do ((i 8 (fx1- i)))
-        ((or (fx<? i 0) (not (fx=? (bytespan-ref/u8 wbuf i) 48)))) ; #\0
-      (bytespan-delete-right! wbuf 1))
-    (unless (bytespan-empty? wbuf)
+  (let ((wbuf (bytespan))
+        (ns   (time-nanosecond t)))
+    (unless (zero? ns)
+      (bytespan-display-right/integer! wbuf ns)
+      ;; zero-pad fraction to 9 digits
+      (do ((i (bytespan-length wbuf) (fx1+ i)))
+          ((fx>=? i 9))
+        (bytespan-insert-left/u8! wbuf 48)) ; #\0
+      ;; remove least significant zeroes in fraction
+      (do ((i 8 (fx1- i)))
+          ((or (fx<? i 0) (not (fx=? (bytespan-ref/u8 wbuf i) 48)))) ; #\0
+        (bytespan-delete-right! wbuf 1))
       (bytespan-insert-left/u8! wbuf 46)) ; #\.
     (bytespan-display-left/integer! wbuf (time-second t))
     (latin1-bytespan->string wbuf)))
-
 
 
 

@@ -25,6 +25,7 @@
 
     bytespan-display-left/fixnum! bytespan-display-left/integer!
     bytespan-display-right/fixnum! bytespan-display-right/integer!
+    bytespan-display-right/unsigned-k-digits!
 
     bytespan-insert-left/u8! bytespan-insert-right/u8!
     bytespan-insert-left/bytespan! bytespan-insert-right/bytespan!
@@ -37,7 +38,7 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
+    (only (chezscheme)         bytevector-truncate! fx1+ fx1- meta-cond record-writer void)
     (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
@@ -418,7 +419,7 @@
 ;; starting at position (fx1- pos) and moving leftward.
 ;; return position before leftmost written digit.
 ;;
-;; ignores n sign. does not support n >= 0.
+;; ignores n sign. does not support n > 0, does nothing if n = 0
 (define (%bytevector-display-left/-fixnum! bv pos n)
   ;; (debugf "%bytevector-display-left/-fixnum! bv=~s pos=~s n=~s" bv pos n)
   (if (fxzero? n)
@@ -431,6 +432,25 @@
             bv pos (if (fxzero? n%10) n/10 (fx1+ n/10)))))))
 
 
+;; convert a fixnum to k decimal digits and write such digits to bytevector.
+;; always writes exactly k digits.
+;; return (fx- pos k)
+(define (%bytevector-display-left/fixnum-k-digits! bv pos n k)
+  (if (fxzero? k)
+    pos
+    (let-values (((hi lo) (fxdiv-and-mod n 10)))
+      (bytevector-u8-set! bv (fx1- pos) (fx+ 48 lo))
+      (%bytevector-display-left/fixnum-k-digits! bv (fx1- pos) hi (fx1- k)))))
+
+
+;; in 32 bit Chez Scheme, (greatest-fixnum) is 536870911, 9 decimal digits
+;; in 64 bit Chez Scheme, (greatest-fixnum) is 1152921504606846975, 19 decimal digits
+(define exponent-of-ten (meta-cond ((fixnum? 1000000000000000000) 18)
+                                    (else 8)))
+(define power-of-ten    (meta-cond ((fixnum? 1000000000000000000) 1000000000000000000)
+                                    (else 100000000)))
+
+
 ;; convert an unsigned exact integer to decimal digits and write such digits to bytevector,
 ;; starting at position (fx1- pos) and moving leftward.
 ;; return position before leftmost written digit.
@@ -438,10 +458,9 @@
   ;; (debugf "%bytevector-display-left/unsigned! bv=~s pos=~s n=~s" bv pos n)
   (cond
     ((not (fixnum? n))
-      (let-values (((n/10 n%10) (div-and-mod n 10)))
-        (let ((pos (fx1- pos)))
-          (bytevector-u8-set! bv pos (fx+ 48 n%10))
-          (%bytevector-display-left/unsigned! bv pos n/10))))
+      (let-values (((hi lo) (div-and-mod n power-of-ten)))
+        (let ((pos (%bytevector-display-left/fixnum-k-digits! bv pos lo exponent-of-ten)))
+          (%bytevector-display-left/unsigned! bv pos hi))))
     ((fxzero? n)
       pos)
     (else
@@ -476,7 +495,7 @@
     (let* ((neg? (< n 0))
            (n    (if neg? (- n) n)) ; always work with unsigned integers: easier
            (max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
-           (len (bytespan-length sp)))
+           (len  (bytespan-length sp)))
       (bytespan-reserve-left! sp (fx+ len max-digit-n))
       (let* ((end     (bytespan-peek-beg sp)) ; we write before bytespan-peek-beg
              (bv      (bytespan-peek-data sp)) ; bytevector
@@ -538,6 +557,20 @@
         (when (fx>? wpos beg)
           (bytevector-copy! bv wpos bv beg digit-n))
         (bytespan-resize-right! sp (fx+ len digit-n))))))
+
+
+;; convert an exact unsigned integer to decimal digits and append the digits to bytespan.
+;; always writes exactly k digits
+(define (bytespan-display-right/unsigned-k-digits! sp n k)
+  (assert* 'bytespan-display-right/unsigned-k-digits! (fixnum? n))
+  (assert* 'bytespan-display-right/unsigned-k-digits! (fx>=? k 0))
+  (bytespan-resize-right! sp (fx+ (bytespan-length sp) k))
+  (let* ((bv  (bytespan-peek-data sp))
+         (end (bytespan-peek-end sp))
+         (pos (%bytevector-display-left/unsigned! bv end n)))
+    (do ((pos pos (fx1- pos)))
+        ((fx<=? pos (fx- end k)))
+      (bytevector-u8-set! bv (fx1- pos) 48))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
