@@ -562,7 +562,10 @@
 ;; convert an exact unsigned integer to decimal digits and append the digits to bytespan.
 ;; always writes exactly k digits
 (define (bytespan-display-right/unsigned-k-digits! sp n k)
-  (assert* 'bytespan-display-right/unsigned-k-digits! (fixnum? n))
+  (assert* 'bytespan-display-right/unsigned-k-digits! (exact? n))
+  (assert* 'bytespan-display-right/unsigned-k-digits! (integer? n))
+  (assert* 'bytespan-display-right/unsigned-k-digits! (>= n 0))
+  (assert* 'bytespan-display-right/unsigned-k-digits! (fixnum? k))
   (assert* 'bytespan-display-right/unsigned-k-digits! (fx>=? k 0))
   (bytespan-resize-right! sp (fx+ (bytespan-length sp) k))
   (let* ((bv  (bytespan-peek-data sp))
