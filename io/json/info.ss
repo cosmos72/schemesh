@@ -22,21 +22,13 @@
     (lambda (plist)
       (let %deserialize ((i (fx1- (vector-length keys)))
                          (args '()))
-        (if (fx<=? i 0) ;; ignore field name '@type
+        (if (fx<? i 0)
           (apply constructor args)
           (%deserialize (fx1- i)
-            (cons (plist-ref plist (vector-ref keys i) (void)) args)))))))
-
-
-;; create and return a record-info describing how to serialize/deserialize objects with specified rtd from/to json
-;; uses reflection to obtain field names and accessors.
-(define (make-record-info/autodetect rtd type-symbol)
-  (let ((info (make-record-info '())))
-    ;; _type -> (lambda (obj) type-symbol) must be inserted as first
-    (ordered-hash-set! info _type (lambda (obj) type-symbol))
-    ;; followed by field names and accessors detected via reflection
-    (record-info-fill! info rtd)
-    info))
+            (let ((key (vector-ref keys i)))
+              (if (eq? key _type)
+                args
+                (cons (plist-ref plist key (void)) args)))))))))
 
 
 ;; construct a `date` from json deserialized plist
@@ -60,9 +52,8 @@
 (define (add-date-info table)
   (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
     (hashtable-set! table rtd
-      (make-record-info
+      (make-record-info 'date
         (list
-          _type  (lambda (obj) 'date)
           'value    date->string))))
   ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
   (hashtable-set! table 'date deserialize-date)
@@ -72,7 +63,7 @@
 ;; customize how `dir-entry` objects are serialized to / deserialized from json
 (define (add-dir-entry-info table)
   (let* ((rtd  (record-type-descriptor dir-entry))
-         (info (make-record-info/autodetect rtd 'dir-entry)))
+         (info (make-record-info-autodetect rtd 'dir-entry)))
     (hashtable-set! table rtd info)
     ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
     (hashtable-set! table 'dir-entry (make-deserializer make-dir-entry info)))
@@ -83,9 +74,8 @@
 (define (add-time-info table)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! table rtd
-      (make-record-info
+      (make-record-info time-type
         (list
-          _type  time-type
           'value    (lambda (obj) (+ (time-second obj)
                                      (/ (time-nanosecond obj) 1000000000)))))))
   ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
@@ -136,9 +126,8 @@
   ;; (plist? field-names-and-accessors) is already checked by (make-record-info)
   (let ((table json-record-infos)
         (info (if (null? field-names-and-accessors)
-                (make-record-info/autodetect rtd type-symbol)
-                (make-record-info
-                  (cons _type (cons (lambda (obj) type-symbol) field-names-and-accessors))))))
+                (make-record-info-autodetect rtd type-symbol)
+                (make-record-info                type-symbol field-names-and-accessors))))
     (hashtable-set! table rtd info)
     ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
     (hashtable-set! table type-symbol (or deserializer (make-deserializer constructor info)))))

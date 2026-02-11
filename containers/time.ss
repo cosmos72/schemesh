@@ -17,7 +17,7 @@
     (rnrs)
     (only (chezscheme)                   fx1+ fx1- make-time record-rtd record-writer time-second time-nanosecond time-type)
     (only (scheme2k containers bytespan) bytespan bytespan-delete-right!
-                                         bytespan-display-left/integer! bytespan-display-right/integer!
+                                         bytespan-display-left/integer! bytespan-display-right/unsigned-k-digits!
                                          bytespan-empty? bytespan-length bytespan-insert-left/u8! bytespan-ref/u8
                                          latin1-bytespan->string))
 
@@ -78,16 +78,13 @@
            (=   (time-nanosecond t1) (time-nanosecond t2)))))
 
 
-;; convert a time to string "SECOND.FRACTION"
+;; convert a time to string "SECOND.FRACTION" containing decimal digits
 (define (time->string t)
   (let ((wbuf (bytespan))
         (ns   (time-nanosecond t)))
     (unless (zero? ns)
-      (bytespan-display-right/integer! wbuf ns)
       ;; zero-pad fraction to 9 digits
-      (do ((i (bytespan-length wbuf) (fx1+ i)))
-          ((fx>=? i 9))
-        (bytespan-insert-left/u8! wbuf 48)) ; #\0
+      (bytespan-display-right/unsigned-k-digits! wbuf ns 9)
       ;; remove least significant zeroes in fraction
       (do ((i 8 (fx1- i)))
           ((or (fx<? i 0) (not (fx=? (bytespan-ref/u8 wbuf i) 48)))) ; #\0

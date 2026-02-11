@@ -21,7 +21,7 @@
     (only (scheme2k containers span)         span span-insert-right! span-length)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
-    (only (scheme2k reflect)                 field-cursor field-cursor-next! make-record-info record-info-fill!))
+    (only (scheme2k reflect)                 field-cursor field-cursor-next! make-record-info make-record-info-autodetect record-info-fill!))
 
 
 (define-record-type (table-writer %make-table-writer table-writer?)
@@ -88,23 +88,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; record-info
 
-;; create and return a record-info describing how to pretty-pring objects with specified rtd to tabular form.
-;; uses reflection to obtain field names and accessors.
-(define (make-record-info/autodetect rtd)
-  (let ((info (make-record-info '())))
-    (record-info-fill! info rtd)
-    info))
-
-
 (define table-record-infos (make-eq-hashtable))
 
-(define (table-record-info-set! rtd field-names-and-accessors)
+(define (table-record-info-set! rtd type-symbol-or-proc field-names-and-accessors)
   (assert* 'table-record-info-set! (record-type-descriptor? rtd))
   ;; (plist? field-names-and-accessors) is already checked by (make-record-info)
   (let ((table table-record-infos)
         (info (if (null? field-names-and-accessors)
-                (make-record-info/autodetect rtd)
-                (make-record-info field-names-and-accessors))))
+                (make-record-info-autodetect rtd type-symbol-or-proc)
+                (make-record-info                type-symbol-or-proc field-names-and-accessors))))
     (hashtable-set! table rtd info)))
 
 

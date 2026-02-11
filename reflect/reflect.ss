@@ -14,7 +14,8 @@
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-cursor htable-size
           compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
           field field-cursor field-cursor-next! field-names
-          make-record-info record-info record-info? record-info-field-names record-info-fill!)
+          make-record-info make-record-info-autodetect
+          record-info record-info? record-info-field-names record-info-fill!)
   (import
     (rnrs)
     (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
@@ -26,8 +27,8 @@
     (only (scheme2k containers list)         plist? plist-ref)
           (scheme2k containers ordered-hash)
     (only (scheme2k containers time)         make-time-utc time-compare time-equiv?)
-    (only (scheme2k containers span)         span span? span-insert-left/vector! span-insert-right/vector! span-length
-                                             span-ref span->vector)
+    (only (scheme2k containers span)         span span? span-insert-left! span-insert-left/vector! span-insert-right/vector!
+                                             span-length span-ref span->vector)
     (only (scheme2k containers vector)       vector-every))
 
 
@@ -320,6 +321,10 @@
 ;;; caching
 
 
+; (define _type (begin '\x40;type))
+(define-syntax _type (identifier-syntax '\x40;type))
+
+
 (define-record-type (record-info %make-record-info record-info?)
   (parent ordered-hash-type)
   (fields
@@ -327,14 +332,29 @@
   (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; create and return a record-info containing caller-specified field names and accessors.
+;; insert '@type -> type-symbol-or-proc into specified record-info
+(define (record-info-insert-type! info type-symbol-or-proc)
+  (ordered-hash-set! info _type
+    (cond
+      ((symbol? type-symbol-or-proc)
+        (lambda (obj) type-symbol-or-proc))
+      (else
+        (assert* 'make-record-info (procedure? type-symbol-or-proc))
+        (assert* 'make-record-info (logbit? 1 (procedure-arity-mask type-symbol-or-proc)))
+        type-symbol-or-proc))))
+
+
+;; create and return a record-info containing caller-specified type-symbol, field names and their accessors.
 ;; names-and-accessors must be a plist alternating field-name and accessor.
-(define (make-record-info names-and-accessors)
+(define (make-record-info type-symbol-or-proc names-and-accessors)
   (assert* 'make-record-info (plist? names-and-accessors))
   (let* ((len   (fx/ (length names-and-accessors) 2))
-         (names (make-vector len))
+         (names (make-vector (fx1+ len)))
          (info  (%make-record-info (make-eq-hashtable) #f #f names)))
-    (do ((i 0 (fx1+ i))
+    ;; insert '@type -> type-symbol-or-proc as first entry in ordered-hash
+    (record-info-insert-type! info type-symbol-or-proc)
+    ;; followed by field names and accessors
+    (do ((i 1 (fx1+ i))
          (l names-and-accessors (cddr l)))
         ((null? l) info)
       (let ((name     (car l))
@@ -342,7 +362,23 @@
         (assert* 'make-record-info (symbol? name))
         (assert* 'make-record-info (procedure? accessor))
         (assert* 'make-record-info (logbit? 1 (procedure-arity-mask accessor)))
+        (vector-set! names i name)
         (ordered-hash-set! info name accessor)))))
+
+
+;; create and return a record-info describing the fields of objects with specified rtd.
+;; uses reflection to obtain field names and accessors.
+(define make-record-info-autodetect
+  (case-lambda
+    ((rtd type-symbol-or-proc)
+      (let ((info (%make-record-info (make-eq-hashtable) #f #f #f)))
+        ;; insert '@type -> type-symbol-or-proc as first entry in ordered-hash
+        (record-info-insert-type! info type-symbol-or-proc)
+        ;; followed by field names and accessors detected via reflection
+        (record-info-fill! info rtd)
+        info))
+    ((rtd)
+      (make-record-info-autodetect rtd (record-type-name rtd)))))
 
 
 ;; recursive implementation of (record-info-fill!)
@@ -384,7 +420,7 @@
 ;; finally, also collect field names from specified record-type-descriptor and its parents,
 ;; and add them to the returned accessors hashtable with the key (void)
 (define (make-record-info/reflect cache rtd)
-  (let ((info (%make-record-info (make-eq-hashtable) #f #f #f)))
+  (let ((info (make-record-info-autodetect rtd)))
     (record-info-fill! info rtd)
     (hashtable-set! cache rtd info)
     info))
@@ -442,15 +478,19 @@
  (record-info-field-names (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd))))
 
 
+(define (%uncached-record-field-names obj sp rtd)
+  (when rtd
+    ;; insert fields from this record-type-descriptor *before* the subtypes field names
+    (span-insert-left/vector! sp (record-type-field-names rtd))
+    ;; then iterate on parent record-type-descriptor
+    (%uncached-record-field-names obj sp (record-type-parent rtd))))
+
+
 (define (uncached-record-field-names obj sp rtd)
-  (if rtd
-    (begin
-      ;; insert fields from this record-type-descriptor *before* the subtypes field names
-      (span-insert-left/vector! sp (record-type-field-names rtd))
-      ;; then iterate on parent record-type-descriptor
-      (uncached-record-field-names obj sp (record-type-parent rtd)))
-    ;; no more parent record-type-descriptors, convert filled span to vector
-    (span->vector sp)))
+  (%uncached-record-field-names obj sp rtd)
+  ;; insert type's symbolic name as first field name
+  (span-insert-left! sp _type)
+  (span->vector sp))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
