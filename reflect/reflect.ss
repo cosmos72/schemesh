@@ -649,6 +649,7 @@
 
 ;; return a cursor that iterates on all field names of of obj, in natural order.
 ;; obj must be a record type.
+;; Caller must repeatedly invoke (field-cursor-next!) on returned cursor - see its description.
 (define (field-cursor obj cache)
   (let ((rtd   (record-rtd obj)))
     (if rtd
