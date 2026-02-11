@@ -13,22 +13,6 @@
 (define-syntax _type (identifier-syntax '<type>))
 
 
-;; create and return a deserializer that extracts field values from json deserialized plist
-;; and passes them to specified constructor.
-(define (make-deserializer constructor info)
-  (let ((keys (ordered-hash-keys info)))
-    (lambda (plist)
-      (let %deserialize ((i (fx1- (vector-length keys)))
-                         (args '()))
-        (if (fx<? i 0)
-          (apply constructor args)
-          (%deserialize (fx1- i)
-            (let ((key (vector-ref keys i)))
-              (if (eq? key _type)
-                args
-                (cons (plist-ref plist key (void)) args)))))))))
-
-
 ;; construct a `date` from json deserialized plist
 (define (deserialize-date plist)
   (let ((value (plist-ref plist 'value)))
@@ -50,21 +34,9 @@
 (define (add-date-info table)
   (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
     (hashtable-set! table rtd
-      (make-record-info 'date
-        (list
-          'value    date->string))))
+      (make-record-info 'date (list 'value date->string))))
   ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
   (hashtable-set! table 'date deserialize-date)
-  table)
-
-
-;; customize how `dir-entry` objects are serialized to / deserialized from json
-(define (add-dir-entry-info table)
-  (let* ((rtd  (record-type-descriptor dir-entry))
-         (info (make-record-info-autodetect rtd 'dir-entry)))
-    (hashtable-set! table rtd info)
-    ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
-    (hashtable-set! table 'dir-entry (make-deserializer make-dir-entry info)))
   table)
 
 
@@ -93,9 +65,8 @@
 ;; and overrides fields autodiscovery via reflection with (field-cursor)
 (define json-record-infos
   (add-date-info
-    (add-dir-entry-info
-      (add-time-info
-        (make-eq-hashtable)))))
+    (add-time-info
+      (make-eq-hashtable))))
 
 
 ;; add a record-info entry to json-record-infos
@@ -128,7 +99,7 @@
                 (make-record-info                type-symbol field-names-and-accessors))))
     (hashtable-set! table rtd info)
     ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
-    (hashtable-set! table type-symbol (or deserializer (make-deserializer constructor info)))))
+    (hashtable-set! table type-symbol (or deserializer (make-record-deserializer constructor info)))))
 
 
 ;; search for obj's rtd in json-record-infos and if a record-info is found, return a cursor on it.

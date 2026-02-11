@@ -643,14 +643,15 @@
   (values datum (not (eof-object? datum))))
 
 
-;; find constructor in json-record-infos for creating an object from deserialized plist, and call it.
-;; return constructed object, or plist itself if no constructor was found.
-(define (call-constructor plist)
-  (let* ((xtype       (plist-ref plist _type))
-         (type        (and (string? xtype) (string->symbol xtype)))
-         (constructor (and type (hashtable-ref json-record-infos type #f))))
-    (if (and constructor (procedure? constructor))
-      (constructor plist)
+;; find deserialized in json-record-infos, or in record-infos, and call it passing plist as the only argument.
+;; return constructed object, or plist itself if no deserializer was found.
+(define (call-deserializer plist)
+  (let* ((xtype        (plist-ref plist _type))
+         (type         (and (string? xtype) (string->symbol xtype)))
+         (deserializer (and type (or (hashtable-ref json-record-infos type #f)
+                                     (record-info-deserializer type)))))
+    (if (and deserializer (procedure? deserializer))
+      (deserializer plist)
       plist)))
 
 
@@ -671,7 +672,7 @@
         (let %deserialize-object ((rx rx) (plist '()) (key (json-reader-get-token rx)))
           (cond
             ((or (eof-object? key) (eqv? key #\}))
-              (call-constructor (reverse! plist)))
+              (call-deserializer (reverse! plist)))
             ((eqv? #\, key)
               (%deserialize-object rx plist (deserialize rx)))
             (else

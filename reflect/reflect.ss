@@ -13,12 +13,14 @@
 (library (scheme2k reflect (0 9 3))
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-cursor htable-size
           compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
-          field field-cursor field-cursor-next! field-names
-          make-record-info make-record-info-autodetect
-          record-info record-info? record-info-field-names record-info-fill!)
+          field field-cursor field-cursor-next! field-names fields->plist
+          make-record-info make-record-info-autodetect make-record-deserializer
+          record-info record-info? record-info-deserializer record-info-fill! record-info-set! record-infos)
   (import
     (rnrs)
-    (only (chezscheme)                       date? fx1+ fx/ logbit? procedure-arity-mask time? void)
+    (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset 
+                                             fx1+ fx1- fx/ list-copy logbit? make-date make-time procedure-arity-mask reverse!
+                                             time? time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)               assert* let-macro)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers date)         date date-compare date-equiv?)
@@ -29,7 +31,8 @@
     (only (scheme2k containers time)         make-time-utc time-compare time-equiv?)
     (only (scheme2k containers span)         span span? span-insert-left! span-insert-left/vector! span-insert-right/vector!
                                              span-length span-ref span->vector)
-    (only (scheme2k containers vector)       vector-every))
+    (only (scheme2k containers vector)       vector-every)
+    (only (scheme2k posix fs)                dir-entry make-dir-entry))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -318,7 +321,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; caching
+;;; record-info
 
 
 (define-syntax _type (identifier-syntax '<type>))
@@ -352,6 +355,8 @@
          (info  (%make-record-info (make-eq-hashtable) #f #f names)))
     ;; insert '<type> -> type-symbol-or-proc as first entry in ordered-hash
     (record-info-insert-type! info type-symbol-or-proc)
+    ;; and insert '<type> as first field name
+    (vector-set! names 0 _type)
     ;; followed by field names and accessors
     (do ((i 1 (fx1+ i))
          (l names-and-accessors (cddr l)))
@@ -361,7 +366,9 @@
         (assert* 'make-record-info (symbol? name))
         (assert* 'make-record-info (procedure? accessor))
         (assert* 'make-record-info (logbit? 1 (procedure-arity-mask accessor)))
+        ;; insert name into field names
         (vector-set! names i name)
+        ;; insert name -> accessor into info's ordered-hash
         (ordered-hash-set! info name accessor)))))
 
 
@@ -425,6 +432,99 @@
     info))
 
 
+;; create and return a deserializer that scans a plist,
+;; extracts the field values corresponding to fields contained in info,
+;; and passes them to specified constructor, which is supposed to create and return an object
+(define (make-record-deserializer constructor info)
+  (let ((keys (ordered-hash-keys info)))
+    (lambda (plist)
+      (let %deserialize ((i (fx1- (vector-length keys)))
+                         (args '()))
+        (if (fx<? i 0)
+          (apply constructor args)
+          (%deserialize (fx1- i)
+            (let ((key (vector-ref keys i)))
+              (if (eq? key _type)
+                args
+                (cons (plist-ref plist key (void)) args)))))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; record-infos
+
+
+;; customize visible fields and deserializer for `date` objects
+(define (add-date-info table)
+  (let* ((rtd  (record-rtd (date 1970 1 1 +0)))
+         (info (make-record-info 'date
+                 (list 'year date-year 'month date-month   'day date-day
+                       'hour date-hour 'minute date-minute 'second date-second
+                       'nanosecond date-nanosecond 'zone-offset date-zone-offset))))
+    (hashtable-set! table rtd info)
+    (hashtable-set! table 'date
+      (make-record-deserializer make-date info)))
+  table)
+
+
+;; customize visible fields and deserializer for `dir-entry` objects
+(define (add-dir-entry-info table)
+  (let* ((rtd  (record-type-descriptor dir-entry))
+         (info (make-record-info-autodetect rtd)))
+    (hashtable-set! table rtd info)
+    (hashtable-set! table 'dir-entry
+      (make-record-deserializer make-dir-entry info)))
+  table)
+
+
+;; construct a `time` objects from a plist
+(define (deserialize-time plist)
+  (let ((type (plist-ref plist _type)))
+    (make-time (if (symbol? type) type (string->symbol type))
+               (plist-ref plist 'nanosecond)
+               (plist-ref plist 'second))))
+
+
+;; customize visible fields and deserializer for `time` objects
+(define (add-time-info table)
+  (let* ((rtd  (record-rtd (make-time 'time-duration 0 0)))
+         (info (make-record-info time-type ;; lambda obj -> type-symbol
+                 ;; customize visible fields
+                 (list 'second time-second 'nanosecond time-nanosecond))))
+    (hashtable-set! table rtd info))
+  (do ((l '(time-duration time-monotonic time-utc time-process time-thread time-collector-cpu time-collector-real)
+           (cdr l)))
+      ((null? l) table)
+    (hashtable-set! table (car l) deserialize-time)))
+
+
+;; global table record-infos, contains user-provided record-info and deserializer
+;; that customize how objects having user-provided rtd are serialized / deserialized
+(define record-infos
+  (add-date-info
+    (add-dir-entry-info
+      (add-time-info
+        (make-eq-hashtable)))))
+
+
+;; customize visible fields and deserializer of objects having specified rtd:
+;; stores info and user-specified deserializer into global table record-infos.
+(define (record-info-set! rtd info deserializer)
+  (let ((type-symbol (ordered-hash-ref info _type)))
+    (assert* 'record-info-set! (symbol? type-symbol))
+    (assert* 'record-info-set! (procedure? deserializer))
+    (assert* 'record-info-set! (logbit? 1 (procedure-arity-mask deserializer)))
+    ;; put in record-infos both rtd -> info and type-symbol -> deserializer
+    (hashtable-set! record-infos rtd info)
+    (hashtable-set! record-infos type-symbol deserializer)))
+
+
+;; return user-added deserializer for specified type-symbol, or #f if not found
+(define (record-info-deserializer type-symbol)
+   (assert* 'record-info-deserializer (symbol? type-symbol))
+   (hashtable-ref record-infos type-symbol #f))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; find first element in vector that is eq? to key,
 ;; and return its position in 0 ... (fx1- (vector-length vec))
 ;;
@@ -492,7 +592,7 @@
 
 (define (uncached-record-field-names obj sp rtd)
   (%uncached-record-field-names obj sp rtd)
-  ;; insert type's symbolic name as first field name
+  ;; insert '<type> as synthetic first field name
   (span-insert-left! sp _type)
   (span->vector sp))
 
@@ -521,10 +621,18 @@
           ;; do not allow field-name's type and raise a condition
           (ordered-hash-ref obj field-name default))
         ((record? obj)
-          (let ((rtd (record-rtd obj)))
-            (if cache
-              (cached-record-field   obj field-name cache default rtd)
-              (uncached-record-field obj field-name default rtd))))
+          (let* ((rtd   (record-rtd obj))
+                 (xinfo (and rtd (hashtable-ref record-infos rtd #f))))
+            (cond
+              (xinfo ; found override in record-infos, use it
+                (let ((accessor (ordered-hash-ref xinfo field-name #f)))
+                  (if accessor
+                    (accessor obj)
+                    default)))
+              (cache ; search in cache, autogenerating and storing a record-info for future calls if not present
+                (cached-record-field obj field-name cache default rtd))
+              (else
+                (uncached-record-field obj field-name default rtd)))))
         ((plist? obj)
           (plist-ref obj field-name default))
         (else
@@ -540,10 +648,15 @@
 
 
 ;; return a cursor that iterates on all field names of of obj, in natural order.
+;; obj must be a record type.
 (define (field-cursor obj cache)
-  (let ((rtd (record-rtd obj)))
+  (let ((rtd   (record-rtd obj)))
     (if rtd
-      (let ((info (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd))))
+      ;; first search in override in record-infos, then seacrh in cache if not found,
+      ;; finally autogenerate via reflection if both searches failed.
+      (let ((info (or (hashtable-ref record-infos rtd #f)
+                      (hashtable-ref cache        rtd #f) 
+                      (make-record-info/reflect cache rtd))))
         (ordered-hash-cursor info))
       (ordered-hash-cursor-empty))))
 
@@ -556,6 +669,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; field-names
+
 
 ;; return a vector containing the field names of obj, in natural order.
 ;; each field name is represented as a symbol.
@@ -583,18 +697,18 @@
         ;; in Chez Scheme, hashtable and ordered-hash are record types
         ;; => must checked for them before (record?)
         ((hashtable? obj)
-          (let ((v (hashtable-keys obj)))
-            (when (vector-every symbol? v)
-              (vector-sort! (lambda (sym1 sym2) (string<? (symbol->string sym1) (symbol->string sym2))) v))
-            v))
+          (hashtable-keys obj))
         ((ordered-hash? obj)
           (ordered-hash-keys obj))
         ((record? obj)
-          (let ((rtd (record-rtd obj)))
+          (let* ((rtd   (record-rtd obj))
+                 (xinfo (and rtd (hashtable-ref record-infos rtd #f))))
             (cond
               ((not rtd)
                 '#())
-              (cache
+              (xinfo ; found override in record-infos, use it
+                (record-info-field-names xinfo))
+              (cache ; search in cache, autogenerating a record-info for future calls if not found
                 (cached-record-field-names obj cache rtd))
               (else
                 (uncached-record-field-names obj (span) rtd)))))
@@ -613,6 +727,40 @@
           '#())))
     ((obj)
       (field-names obj #f))))
+
+
+;; return a freshly allocated plist containing alternating field names and field values of obj, in natural order.
+;; each field name is represented as a symbol.
+;;
+;; if obj is a hashtable, return its keys.
+;;   if all the keys are symbols, they are are returned in lexicographic order.
+;;
+;; if obj is a ordered-hash, returns its keys in insertion order.
+;;
+;; if obj is a list, assume it is a plist and return a copy of it.
+;;
+;; if obj is a record, return its field names and field values, interleaved.
+;;   the returned vector contains as **last** ones the field names
+;;   of its record-rtd, preceded by the fields names of its parent-rtd,
+;;   preceded by the fields names of its parent's parent-rtd, and so on.
+;;
+;; if field names cannot be retrieved, return an empty plist i.e. '().
+(define fields->plist
+  (case-lambda
+    ((obj cache)
+      (cond
+        ((list? obj)
+          (list-copy obj))
+        (else
+          (let ((names (field-names obj)))
+            (let %field-names->plist ((i (fx1- (vector-length names)))
+                                      (plist '()))
+              (if (fx<? i 0)
+                plist
+                (let ((name (vector-ref names i)))
+                  (%field-names->plist (fx1- i) (cons name (cons (field obj name) plist))))))))))
+    ((obj)
+      (fields->plist obj #f))))
 
 
 ) ; close library

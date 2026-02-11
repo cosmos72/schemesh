@@ -263,18 +263,22 @@
   (let ((v (make-vscreen)))
     (list (field v 'width) (field v 'height)))         (80 24)
 
-  ;; (field-names) and (field) accept plists
-  (field-names '(a 1 b 2 c 3))                         #(a b c)
-  (field       '(a 1 b 2 c 3) 'c)                      3
+  ;; (field) (field-names) and (fields->plist) accept plists
+  (field         '(a 1 b 2 c 3) 'c)                    3
+  (field-names   '(a 1 b 2 c 3))                       #(a b c)
+  (fields->plist '(x 0 y 1 z 2))                       (x 0 y 1 z 2)
 
   ;; (field-names) and (field) accept hashtables
-  ;; (field-names) sorts the returned hashtable keys if they all are symbols
-  (field-names (eq-hashtable 'x 1 '|| 2))              #(|| x)
   (field (eq-hashtable 'x 1 'y #\2 'z '(3)) 'z)        (3)
 
   ;; (field-names) and (field) accept ordered-hash
   (field-names (eq-ordered-hash 'x 1 '|| 2))           #(x ||)
   (field (eq-ordered-hash 'x 1 'y #\2 'z '(3)) 'z)     (3)
+
+  ;; (fields->plist) accepts records, hashtables, ordered-hashes, plists
+  (let ((d (date 1970 01 02  03 04 05  123456789 -86400)))
+    (fields->plist d))                                 (<type> date year 1970 month 1 day 2 hour 3 minute 4 second 5
+                                                        nanosecond 123456789 zone-offset -86400)
 
   (let ((v (make-vscreen)))
     (list
