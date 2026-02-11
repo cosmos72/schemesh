@@ -288,7 +288,7 @@
             expr)))))
 
 
-;; create a filter reader wrapping a user-provided reader.
+;; create a where reader wrapping a user-provided reader.
 ;; usage: (where@ reader expression)
 ;;   expression will be called once for each processed element,
 ;;   and should contain one or more forms (@ name) that will be expanded

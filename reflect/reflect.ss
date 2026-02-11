@@ -321,8 +321,7 @@
 ;;; caching
 
 
-; (define _type (begin '\x40;type))
-(define-syntax _type (identifier-syntax '\x40;type))
+(define-syntax _type (identifier-syntax '<type>))
 
 
 (define-record-type (record-info %make-record-info record-info?)
@@ -332,7 +331,7 @@
   (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; insert '@type -> type-symbol-or-proc into specified record-info
+;; insert '<type> -> type-symbol-or-proc into specified record-info
 (define (record-info-insert-type! info type-symbol-or-proc)
   (ordered-hash-set! info _type
     (cond
@@ -351,7 +350,7 @@
   (let* ((len   (fx/ (length names-and-accessors) 2))
          (names (make-vector (fx1+ len)))
          (info  (%make-record-info (make-eq-hashtable) #f #f names)))
-    ;; insert '@type -> type-symbol-or-proc as first entry in ordered-hash
+    ;; insert '<type> -> type-symbol-or-proc as first entry in ordered-hash
     (record-info-insert-type! info type-symbol-or-proc)
     ;; followed by field names and accessors
     (do ((i 1 (fx1+ i))
@@ -372,7 +371,7 @@
   (case-lambda
     ((rtd type-symbol-or-proc)
       (let ((info (%make-record-info (make-eq-hashtable) #f #f #f)))
-        ;; insert '@type -> type-symbol-or-proc as first entry in ordered-hash
+        ;; insert '<type> -> type-symbol-or-proc as first entry in ordered-hash
         (record-info-insert-type! info type-symbol-or-proc)
         ;; followed by field names and accessors detected via reflection
         (record-info-fill! info rtd)
@@ -446,32 +445,37 @@
 ;;
 ;; return field's value, or default if not found.
 (define (uncached-record-field obj field-name default rtd)
-  (if rtd
-    (let* ((field-names (record-type-field-names rtd))
-           (i (and (symbol? field-name)
-                   (vector-index/eq field-names field-name))))
-      (if i
-        ((record-accessor rtd i) obj)
-        ;; field name not found in rtd => search in parent rtd
-        (uncached-record-field obj field-name default (record-type-parent rtd))))
-    ;; no rtd => cannot access fields
-    default))
-
+  (cond
+    ((not rtd) ;; no rtd => cannot access fields
+      default)
+    ((eq? field-name _type) ;; synthetic field '<type> always has value = record type name
+      (record-type-name rtd))
+    (else
+      (let* ((field-names (record-type-field-names rtd))
+             (i (and (symbol? field-name)
+                     (vector-index/eq field-names field-name))))
+        (if i
+          ((record-accessor rtd i) obj)
+          ;; field name not found in rtd => search in parent rtd
+          (uncached-record-field obj field-name default (record-type-parent rtd)))))))
 
 
 ;; implementation of (field) for record types.
 ;; returns value of specified field name in obj, or default
 (define (cached-record-field obj field-name cache default rtd)
-  (if rtd
-    (let* ((info     (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd)))
-           (accessor (ordered-hash-ref info field-name #f)))
-      (if accessor
-        (accessor obj)
-        ;; all fields of rtd and its parents are present in cached info
-        ;; => requested field-name is not present
-        default))
-    ;; no rtd => cannot access fields
-    default))
+  (cond
+    ((not rtd) ;; no rtd => cannot access fields
+      default)
+    ((eq? field-name _type) ;; synthetic field '<type> always has value = record type name
+      (record-type-name rtd))
+    (else
+      (let* ((info     (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd)))
+             (accessor (ordered-hash-ref info field-name #f)))
+        (if accessor
+          (accessor obj)
+          ;; all fields of rtd and its parents are present in cached info
+          ;; => requested field-name is not present
+          default)))))
 
 
 (define (cached-record-field-names obj cache rtd)

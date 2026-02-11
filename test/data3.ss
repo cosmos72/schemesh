@@ -183,7 +183,7 @@
             obj6 ok6 #|obj7|# ok7)))                    ,(1 #t 23/10 #t #t #t (span 0) #t (a "\x20ac;") #t "foo" #t #f)
 
 
-  ;; json-reader-get looks inside json objects (at any depth) for key "@type" and,
+  ;; json-reader-get looks inside json objects (at any depth) for key "<type>" and,
   ;; if the value is registered into json-record-infos,
   ;; calls the registered deserializer passing as the only argument the json object, converted to a plist.
 
@@ -191,7 +191,7 @@
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
-                  "[{\"@type\":\"time-utc\",\"value\":1770224910.283978890}]")))))
+                  "[{\"<type>\":\"time-utc\",\"value\":1770224910.283978890}]")))))
     (let-values (((obj ok) (json-reader-get rx)))
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
@@ -216,7 +216,7 @@
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":false,\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"@type\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"@type\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"@type\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":false,\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
                                                            (make-dir-entry "." dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
                                                              (make-time-utc 1768467392 0) (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
 
@@ -232,7 +232,7 @@
              (rx (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (json-reader-get rx))))))        ,("[{\"@type\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"@type\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"@type\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"@type\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"@type\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
+          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
                                                           (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
                                                             (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
                                                             (make-time-duration 0 0) 20 0 0 0 1 10839 160))

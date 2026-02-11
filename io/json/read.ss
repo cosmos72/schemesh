@@ -617,7 +617,7 @@
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; If a json object contains the "@type" key, looks up its associated value in json-record-infos and,
+;; If a json object contains the "<type>" key, looks up its associated value in json-record-infos and,
 ;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))

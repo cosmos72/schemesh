@@ -35,6 +35,9 @@
   (nongenerative %field-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
+(define-syntax _type (identifier-syntax '<type>))
+
+
 ;; Create and return a field-reader that wraps a user-provided reader.
 ;;
 ;; At each call to (obj-reader-get) or (field-reader-get)
@@ -61,10 +64,10 @@
       (%make-field-reader
         inner
         (list-reverse->vector
-          ;; always select field '@type
-          (if (memq '\x40;type field-names)
+          ;; always select field '<type>
+          (if (memq _type field-names)
             field-names
-            (cons '\x40;type field-names)))
+            (cons _type field-names)))
         close-inner?))
     ((inner field-names)
       (make-field-reader inner field-names #f))))

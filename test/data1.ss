@@ -258,7 +258,7 @@
 
 
   ;; test (field-names) and (field) - they accept any record type
-  (field-names (make-vscreen))                         #(@type left right dirty-start-y dirty-end-y dirty? width height
+  (field-names (make-vscreen))                         #(<type> left right dirty-start-y dirty-end-y dirty? width height
                                                          prompt-end-x prompt-end-y cursor-ix cursor-iy)
   (let ((v (make-vscreen)))
     (list (field v 'width) (field v 'height)))         (80 24)
@@ -280,9 +280,9 @@
     (list
       (field-names v) ;; uncached
       (field-names v (eq-hashtable)))) ; cached
-                                                       (#(@type left right dirty-start-y dirty-end-y dirty? width
+                                                       (#(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy)
-                                                        #(@type left right dirty-start-y dirty-end-y dirty? width
+                                                        #(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy))
 
   ;; ------------------------ wire ----------------------------------------

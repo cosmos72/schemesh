@@ -10,9 +10,7 @@
 ;; this file should be included only by file io/json/json.ss
 
 
-; (define _type (begin '\x40;type))
-
-(define-syntax _type (identifier-syntax '\x40;type))
+(define-syntax _type (identifier-syntax '<type>))
 
 
 ;; create and return a deserializer that extracts field values from json deserialized plist
@@ -106,14 +104,14 @@
 ;; lets external code define how to serialize/deserialize custom types from/to json.
 ;;
 ;; Mandatory arguments:
-;;   type-symbol - the symbolic name of the type, will be stored in json under the key "@type"
+;;   type-symbol - the symbolic name of the type, will be stored in json under the key "<type>"
 ;;   deserializer - Either #f or a one-argument procedure, will be called with a plist
 ;;                  of deserialized key/value pairs and must create and return an object having specified rtd
 ;;   constructor - Ignored if deserializer is truthy.
 ;;                 Otherwise must be a procedure, will be called with N arguments - the deserialized fields -
 ;;                 and must create and return an object having specified rtd
 ;;   field-names-and-accessors - a plist containing alternating field-name and accessor.
-;;                               It must NOT contain the key '@type, because it's added automatically.
+;;                               It must NOT contain the key '<type>, because it's added automatically.
 ;;                               If empty, it will be autodetected via reflection.
 (define (json-record-info-set! rtd type-symbol deserializer constructor field-names-and-accessors)
   (assert* 'json-record-info-set! (record-type-descriptor? rtd))
