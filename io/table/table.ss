@@ -152,9 +152,15 @@
 
 
 (define (column-dashes-put col out)
-  (put-char out #\-)
+  (put-char out #\+)
   (let ((width (or (column-width col) (column-maxlen col))))
     (put-dashes out width)))
+
+
+(define (table-dashes-put tx)
+  (let ((cols (table-writer-cols tx))
+        (out  (table-writer-out tx)))
+    (for-ordered-hash ((k col cols)) (column-dashes-put col out)) (put-string out "+\n")))
 
 
 (define (column-name-put col out)
@@ -197,9 +203,9 @@
                 (column-maxlen-set! col (fxmax (column-maxlen col)
                                                (string-length v)))))))
 
-        (for-ordered-hash ((k col cols)) (column-dashes-put col out)) (put-string out "-\n")
+        (table-dashes-put tx)
         (for-ordered-hash ((k col cols)) (column-name-put   col out)) (put-string out "|\n")
-        (for-ordered-hash ((k col cols)) (column-dashes-put col out)) (put-string out "-\n")))
+        (table-dashes-put tx)))
     (table-writer-header?-set! tx #f)
     (table-writer-footer?-set! tx #t)))
 
@@ -214,11 +220,10 @@
     (newline out)))
 
 
+
 (define (display-footer tx)
   (when (table-writer-footer? tx)
-    (let ((cols (table-writer-cols tx))
-          (out  (table-writer-out tx)))
-      (for-ordered-hash ((k col cols)) (column-dashes-put col out)) (put-string out "-\n"))
+    (table-dashes-put tx)
     (table-writer-footer?-set! tx #f)
     (table-writer-header?-set! tx #t)))
 

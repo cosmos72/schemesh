@@ -27,8 +27,8 @@
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
     (only (chezscheme)  abort base-exception-handler break-handler bytevector-truncate! console-input-port console-output-port
-                        console-error-port default-exception-handler display-condition eval exit-handler fx1+
-                        include inspect make-parameter parameterize pretty-print read-token reset reset-handler void)
+                        console-error-port default-exception-handler display-condition eval exit-handler fx1+ include inspect
+                        make-parameter optimize-level parameterize pretty-print read-token reset reset-handler void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers list) for-list)
@@ -258,7 +258,8 @@
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
-        (parameterize ((repl-args  my-repl-args)
+        (parameterize ((optimize-level 2)
+                       (repl-args  my-repl-args)
                        (base-exception-handler repl-exception-handler)
                        (break-handler
                          (lambda break-args
