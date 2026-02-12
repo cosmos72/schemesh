@@ -184,7 +184,7 @@
 
 
   ;; json-reader-get looks inside json objects (at any depth) for key "<type>" and,
-  ;; if the value is registered into json-record-infos,
+  ;; if the value is registered into json-reflect-infos,
   ;; calls the registered deserializer passing as the only argument the json object, converted to a plist.
 
   ;; serialize and deserialize a `time`

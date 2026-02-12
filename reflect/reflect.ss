@@ -11,11 +11,11 @@
 ;;;
 
 (library (scheme2k reflect (0 9 3))
-  (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-cursor htable-size
-          compare  equiv? greater-equiv? greater? less? less-equiv? unordered? record-compare-functions
-          field field-cursor field-cursor-next! field-names fields->plist
-          make-record-info make-record-info-autodetect make-record-deserializer
-          record-info record-info? record-info-deserializer record-info-fill! record-info-set! record-infos)
+  (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-size in-htable
+          compare  equiv? greater-equiv? greater? less? less-equiv? unordered? reflect-compare-functions
+          field field-names fields->plist in-fields
+          make-reflect-info make-reflect-info-autodetect make-reflect-deserializer
+          reflect-info reflect-info? reflect-info-deserializer reflect-info-fill! reflect-info-set! reflect-info-set-autodetect! reflect-infos)
   (import
     (rnrs)
     (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset 
@@ -25,15 +25,19 @@
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers date)         date date-compare date-equiv?)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
-    (only (scheme2k containers hashtable)    eq-hashtable hash-cursor hash-cursor-next!)
-    (only (scheme2k containers list)         plist? plist-ref)
+    (only (scheme2k containers hashtable)    eq-hashtable hash-cursor hash-cursor-next! in-hash)
+    (only (scheme2k containers list)         plist? plist-ref in-plist)
+    (only (scheme2k containers macros)       for)
           (scheme2k containers ordered-hash)
     (only (scheme2k containers time)         make-time-utc time-compare time-equiv?)
     (only (scheme2k containers span)         span span? span-insert-left! span-insert-left/vector! span-insert-right/vector!
                                              span-length span-ref span->vector)
-    (only (scheme2k containers vector)       vector-every)
-    (only (scheme2k posix fs)                dir-entry make-dir-entry))
+    (only (scheme2k containers vector)       vector-every))
 
+
+;; an exhausted sequence
+(define (empty-sequence)
+  (values #f #f #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; compare value-like objects: booleans, characters, numbers, strings, symbols, times, dates
@@ -41,7 +45,7 @@
 
 
 ;; retrieve or set the functions for comparing with (compare) and (equiv?) records having specified rtd
-(define record-compare-functions
+(define reflect-compare-functions
   (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   (cons date-compare date-equiv?)
                           (record-rtd (make-time-utc 0 0)) (cons time-compare time-equiv?))))
     (case-lambda
@@ -49,14 +53,16 @@
         (let ((pair (hashtable-ref ht rtd #f)))
           (and pair (cons (car pair) (cdr pair))))) ; make a copy
       ((rtd compare-proc)
-        (record-compare-functions rtd compare-proc
-          (lambda (a b) (eqv? 0 (compare-proc a b)))))
+        (reflect-compare-functions rtd compare-proc
+          (let ((%reflect-equiv-proc ;; name shown when displaying the closure
+                  (lambda (a b) (eqv? 0 (compare-proc a b)))))
+            %reflect-equiv-proc)))
       ((rtd compare-proc equiv-proc)
-        (assert* 'record-compare-function (record-type-descriptor? rtd))
-        (assert* 'record-compare-function (procedure? compare-proc))
-        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask compare-proc)))
-        (assert* 'record-compare-function (procedure? equiv-proc))
-        (assert* 'record-compare-function (logbit? 2 (procedure-arity-mask equiv-proc)))
+        (assert* 'reflect-compare-functions (record-type-descriptor? rtd))
+        (assert* 'reflect-compare-functions (procedure? compare-proc))
+        (assert* 'reflect-compare-functions (logbit? 2 (procedure-arity-mask compare-proc)))
+        (assert* 'reflect-compare-functions (procedure? equiv-proc))
+        (assert* 'reflect-compare-functions (logbit? 2 (procedure-arity-mask equiv-proc)))
         (hashtable-set! ht rtd (cons compare-proc equiv-proc))))))
 
 
@@ -122,7 +128,7 @@
     ((string? a)    (and (string? b)  (string-compare  a b)))
     (else
       (let* ((rtd  (record-rtd a))
-             (pair (record-compare-functions rtd)))
+             (pair (reflect-compare-functions rtd)))
         (and pair
              (eq? rtd (record-rtd b))
              ((car pair) a b))))))
@@ -146,7 +152,7 @@
     ((string? a)    (and (string? b)  (string=? a b)))
     (else
       (let* ((rtd  (record-rtd a))
-             (pair (record-compare-functions rtd)))
+             (pair (reflect-compare-functions rtd)))
         (and pair
              (eq? rtd (record-rtd b))
              ((cdr pair) a b))))))
@@ -295,6 +301,10 @@
 
 ;; if obj is an associative container for arbitrary values,
 ;; return its size. otherwise return #f
+;;
+;; supported associative containers are:
+;;   hashtable
+;;   ordered-hash
 (define (htable-size obj)
   (cond
     ((hashtable? obj)    (hashtable-size obj))
@@ -302,17 +312,19 @@
     (else           #f)))
 
 
-;; if obj is an associative container for arbitrary values,
-;; return two values:
-;;   a cursor object,
-;;   and a procedure that accepts such cursor and returns the next entry in obj as a pair (key . value),
-;;     or #f if cursor reached the end of obj.
-;; otherwise return (values #f #f)
-(define (htable-cursor obj)
+;; if obj is an associative container for arbitrary values, return a sequence on it.
+;; supported associative containers are:
+;;   hashtable
+;;   ordered-hash
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in associative container and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of associative container is reached.
+(define (in-htable obj)
   (cond
-    ((hashtable? obj)     (values (hash-cursor obj) hash-cursor-next!))
-    ((ordered-hash? obj)  (values (ordered-hash-cursor obj) ordered-hash-cursor-next!))
-    (else                 (values #f #f))))
+    ((hashtable? obj)     (in-hash obj))
+    ((ordered-hash? obj)  (in-ordered-hash obj))
+    (else                 empty-sequence)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -321,40 +333,42 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; record-info
+;;; reflect-info
 
 
 (define-syntax _type (identifier-syntax '<type>))
 
 
-(define-record-type (record-info %make-record-info record-info?)
+(define-record-type (reflect-info %make-reflect-info reflect-info?)
   (parent ordered-hash-type)
   (fields
-    (mutable   field-names  record-info-field-names %record-info-field-names-set!)) ; vector of symbols
-  (nongenerative %record-info-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+    (mutable   field-names  reflect-info-field-names %reflect-info-field-names-set!)) ; vector of symbols
+  (nongenerative %reflect-info-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; insert '<type> -> type-symbol-or-proc into specified record-info
-(define (record-info-insert-type! info type-symbol-or-proc)
+;; insert '<type> -> type-symbol-or-proc into specified reflect-info
+(define (reflect-info-insert-type! info type-symbol-or-proc)
   (ordered-hash-set! info _type
     (cond
       ((symbol? type-symbol-or-proc)
-        (lambda (obj) type-symbol-or-proc))
+        (let ((%reflect-type-proc ;; name shown when displaying the closure
+                (lambda (obj) type-symbol-or-proc)))
+          %reflect-type-proc))
       (else
-        (assert* 'make-record-info (procedure? type-symbol-or-proc))
-        (assert* 'make-record-info (logbit? 1 (procedure-arity-mask type-symbol-or-proc)))
+        (assert* 'make-reflect-info (procedure? type-symbol-or-proc))
+        (assert* 'make-reflect-info (logbit? 1 (procedure-arity-mask type-symbol-or-proc)))
         type-symbol-or-proc))))
 
 
-;; create and return a record-info containing caller-specified type-symbol, field names and their accessors.
+;; create and return a reflect-info containing caller-specified type-symbol, field names and their accessors.
 ;; names-and-accessors must be a plist alternating field-name and accessor.
-(define (make-record-info type-symbol-or-proc names-and-accessors)
-  (assert* 'make-record-info (plist? names-and-accessors))
+(define (make-reflect-info type-symbol-or-proc names-and-accessors)
+  (assert* 'make-reflect-info (plist? names-and-accessors))
   (let* ((len   (fx/ (length names-and-accessors) 2))
          (names (make-vector (fx1+ len)))
-         (info  (%make-record-info (make-eq-hashtable) #f #f names)))
+         (info  (%make-reflect-info (make-eq-hashtable) #f #f names)))
     ;; insert '<type> -> type-symbol-or-proc as first entry in ordered-hash
-    (record-info-insert-type! info type-symbol-or-proc)
+    (reflect-info-insert-type! info type-symbol-or-proc)
     ;; and insert '<type> as first field name
     (vector-set! names 0 _type)
     ;; followed by field names and accessors
@@ -363,36 +377,36 @@
         ((null? l) info)
       (let ((name     (car l))
             (accessor (cadr l)))
-        (assert* 'make-record-info (symbol? name))
-        (assert* 'make-record-info (procedure? accessor))
-        (assert* 'make-record-info (logbit? 1 (procedure-arity-mask accessor)))
+        (assert* 'make-reflect-info (symbol? name))
+        (assert* 'make-reflect-info (procedure? accessor))
+        (assert* 'make-reflect-info (logbit? 1 (procedure-arity-mask accessor)))
         ;; insert name into field names
         (vector-set! names i name)
         ;; insert name -> accessor into info's ordered-hash
         (ordered-hash-set! info name accessor)))))
 
 
-;; create and return a record-info describing the fields of objects with specified rtd.
+;; create and return a reflect-info describing the fields of objects with specified rtd.
 ;; uses reflection to obtain field names and accessors.
-(define make-record-info-autodetect
+(define make-reflect-info-autodetect
   (case-lambda
     ((rtd type-symbol-or-proc)
-      (let ((info (%make-record-info (make-eq-hashtable) #f #f #f)))
+      (let ((info (%make-reflect-info (make-eq-hashtable) #f #f #f)))
         ;; insert '<type> -> type-symbol-or-proc as first entry in ordered-hash
-        (record-info-insert-type! info type-symbol-or-proc)
+        (reflect-info-insert-type! info type-symbol-or-proc)
         ;; followed by field names and accessors detected via reflection
-        (record-info-fill! info rtd)
+        (reflect-info-fill! info rtd)
         info))
     ((rtd)
-      (make-record-info-autodetect rtd (record-type-name rtd)))))
+      (make-reflect-info-autodetect rtd (record-type-name rtd)))))
 
 
-;; recursive implementation of (record-info-fill!)
-(define (%record-info-fill! info rtd)
+;; recursive implementation of (reflect-info-fill!)
+(define (%reflect-info-fill! info rtd)
   (let ((parent-rtd (record-type-parent rtd)))
     (when parent-rtd
       ;; first, collect fields from parent record-type-descriptors
-      (%record-info-fill! info parent-rtd)))
+      (%reflect-info-fill! info parent-rtd)))
   (let ((this-field-names (record-type-field-names rtd)))
     (do ((i   0 (fx1+ i))
          (len (vector-length this-field-names)))
@@ -411,68 +425,61 @@
 ;;
 ;; Also collect accessors for fields in parent record-type-descriptors,
 ;; unless they conflict with a field in a child record-type-descriptor.
-(define (record-info-fill! info rtd)
-  (%record-info-fill! info rtd)
+(define (reflect-info-fill! info rtd)
+  (%reflect-info-fill! info rtd)
   ;; create and store vector of field-names
-  (%record-info-field-names-set! info (ordered-hash-keys info)))
+  (%reflect-info-field-names-set! info (ordered-hash-keys info)))
 
 
 ;; collect all accessors for fields in specified record-type-descriptor,
-;; add them to cache, and return them as a record-info
+;; add them to cache, and return them as a reflect-info
 ;;
 ;; also collect accessors for fields in parent record-type-descriptors,
 ;; unless they conflict with a field name in a child record-type-descriptor.
 ;;
 ;; finally, also collect field names from specified record-type-descriptor and its parents,
 ;; and add them to the returned accessors hashtable with the key (void)
-(define (make-record-info/reflect cache rtd)
-  (let ((info (make-record-info-autodetect rtd)))
-    (record-info-fill! info rtd)
-    (hashtable-set! cache rtd info)
+(define (make-reflect-info/reflect cache-or-false rtd)
+  (let ((info (make-reflect-info-autodetect rtd)))
+    (when cache-or-false
+      (hashtable-set! cache-or-false rtd info))
     info))
 
 
 ;; create and return a deserializer that scans a plist,
 ;; extracts the field values corresponding to fields contained in info,
 ;; and passes them to specified constructor, which is supposed to create and return an object
-(define (make-record-deserializer constructor info)
-  (let ((keys (ordered-hash-keys info)))
-    (lambda (plist)
-      (let %deserialize ((i (fx1- (vector-length keys)))
-                         (args '()))
-        (if (fx<? i 0)
-          (apply constructor args)
-          (%deserialize (fx1- i)
-            (let ((key (vector-ref keys i)))
-              (if (eq? key _type)
-                args
-                (cons (plist-ref plist key (void)) args)))))))))
+(define (make-reflect-deserializer constructor info)
+  (let* ((keys (ordered-hash-keys info))
+         (%reflect-deserialize ;; name name shown when displaying the closure
+           (lambda (plist)
+             (let %reflect-deserialize-loop ((i (fx1- (vector-length keys)))
+                                             (args '()))
+               (if (fx<? i 0)
+                 (apply constructor args)
+                 (%reflect-deserialize-loop
+                   (fx1- i)
+                   (let ((key (vector-ref keys i)))
+                     (if (eq? key _type)
+                       args
+                       (cons (plist-ref plist key (void)) args)))))))))
+    %reflect-deserialize))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; record-infos
+;; reflect-infos
 
 
 ;; customize visible fields and deserializer for `date` objects
 (define (add-date-info table)
   (let* ((rtd  (record-rtd (date 1970 1 1 +0)))
-         (info (make-record-info 'date
+         (info (make-reflect-info 'date
                  (list 'year date-year 'month date-month   'day date-day
                        'hour date-hour 'minute date-minute 'second date-second
                        'nanosecond date-nanosecond 'zone-offset date-zone-offset))))
     (hashtable-set! table rtd info)
     (hashtable-set! table 'date
-      (make-record-deserializer make-date info)))
-  table)
-
-
-;; customize visible fields and deserializer for `dir-entry` objects
-(define (add-dir-entry-info table)
-  (let* ((rtd  (record-type-descriptor dir-entry))
-         (info (make-record-info-autodetect rtd)))
-    (hashtable-set! table rtd info)
-    (hashtable-set! table 'dir-entry
-      (make-record-deserializer make-dir-entry info)))
+      (make-reflect-deserializer make-date info)))
   table)
 
 
@@ -487,7 +494,7 @@
 ;; customize visible fields and deserializer for `time` objects
 (define (add-time-info table)
   (let* ((rtd  (record-rtd (make-time 'time-duration 0 0)))
-         (info (make-record-info time-type ;; lambda obj -> type-symbol
+         (info (make-reflect-info time-type ;; lambda obj -> type-symbol
                  ;; customize visible fields
                  (list 'second time-second 'nanosecond time-nanosecond))))
     (hashtable-set! table rtd info))
@@ -497,31 +504,47 @@
     (hashtable-set! table (car l) deserialize-time)))
 
 
-;; global table record-infos, contains user-provided record-info and deserializer
-;; that customize how objects having user-provided rtd are serialized / deserialized
-(define record-infos
+;; global table reflect-infos, contains user-provided reflect-info and deserializer
+;; for customizing the visible fields and deserializer of objects
+(define reflect-infos
   (add-date-info
-    (add-dir-entry-info
-      (add-time-info
-        (make-eq-hashtable)))))
+    (add-time-info
+      (make-eq-hashtable))))
 
 
 ;; customize visible fields and deserializer of objects having specified rtd:
-;; stores info and user-specified deserializer into global table record-infos.
-(define (record-info-set! rtd info deserializer)
-  (let ((type-symbol (ordered-hash-ref info _type)))
-    (assert* 'record-info-set! (symbol? type-symbol))
-    (assert* 'record-info-set! (procedure? deserializer))
-    (assert* 'record-info-set! (logbit? 1 (procedure-arity-mask deserializer)))
-    ;; put in record-infos both rtd -> info and type-symbol -> deserializer
-    (hashtable-set! record-infos rtd info)
-    (hashtable-set! record-infos type-symbol deserializer)))
+;; stores info and user-specified deserializer into global table reflect-infos.
+(define reflect-info-set!
+  (case-lambda
+    ((rtd info type-symbol deserializer)
+      (assert* 'reflect-info-set! (record-type-descriptor? rtd))
+      (assert* 'reflect-info-set! (reflect-info? info))
+      (when (or type-symbol deserializer)
+        (assert* 'reflect-info-set! (symbol? type-symbol))
+        (assert* 'reflect-info-set! (procedure? deserializer))
+        (assert* 'reflect-info-set! (logbit? 1 (procedure-arity-mask deserializer)))
+        ;; put in reflect-infos both rtd -> info and type-symbol -> deserializer
+        (hashtable-set! reflect-infos type-symbol deserializer))
+      (hashtable-set! reflect-infos rtd info))
+
+    ((rtd info)
+      (reflect-info-set! rtd info #f #f))))
 
 
 ;; return user-added deserializer for specified type-symbol, or #f if not found
-(define (record-info-deserializer type-symbol)
-   (assert* 'record-info-deserializer (symbol? type-symbol))
-   (hashtable-ref record-infos type-symbol #f))
+(define (reflect-info-deserializer type-symbol)
+   (assert* 'reflect-info-deserializer (symbol? type-symbol))
+   (hashtable-ref reflect-infos type-symbol #f))
+
+
+;; customize visible fields and deserializer of objects having specified rtd:
+;; autodetect via reflection info and record-type-name from rtd,
+;; create a deserializer from info and caller-specified constructor,
+;; and store all of them into global table reflect-infos.
+(define (reflect-info-set-autodetect! rtd constructor)
+  (let ((info (make-reflect-info-autodetect rtd)))
+    (reflect-info-set! rtd info (record-type-name rtd) 
+      (make-reflect-deserializer constructor info))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -544,7 +567,7 @@
 ;; Search first in specified record-type-descriptor, then recurse to parent record-type-descriptors.
 ;;
 ;; return field's value, or default if not found.
-(define (uncached-record-field obj field-name default rtd)
+(define (uncached-reflect-field obj field-name default rtd)
   (cond
     ((not rtd) ;; no rtd => cannot access fields
       default)
@@ -557,19 +580,19 @@
         (if i
           ((record-accessor rtd i) obj)
           ;; field name not found in rtd => search in parent rtd
-          (uncached-record-field obj field-name default (record-type-parent rtd)))))))
+          (uncached-reflect-field obj field-name default (record-type-parent rtd)))))))
 
 
 ;; implementation of (field) for record types.
 ;; returns value of specified field name in obj, or default
-(define (cached-record-field obj field-name cache default rtd)
+(define (cached-reflect-field obj field-name cache default rtd)
   (cond
     ((not rtd) ;; no rtd => cannot access fields
       default)
     ((eq? field-name _type) ;; synthetic field '<type> always has value = record type name
       (record-type-name rtd))
     (else
-      (let* ((info     (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd)))
+      (let* ((info     (or (hashtable-ref cache rtd #f) (make-reflect-info/reflect cache rtd)))
              (accessor (ordered-hash-ref info field-name #f)))
         (if accessor
           (accessor obj)
@@ -578,20 +601,20 @@
           default)))))
 
 
-(define (cached-record-field-names obj cache rtd)
- (record-info-field-names (or (hashtable-ref cache rtd #f) (make-record-info/reflect cache rtd))))
+(define (cached-reflect-field-names obj cache rtd)
+ (reflect-info-field-names (or (hashtable-ref cache rtd #f) (make-reflect-info/reflect cache rtd))))
 
 
-(define (%uncached-record-field-names obj sp rtd)
+(define (%uncached-reflect-field-names obj sp rtd)
   (when rtd
     ;; insert fields from this record-type-descriptor *before* the subtypes field names
     (span-insert-left/vector! sp (record-type-field-names rtd))
     ;; then iterate on parent record-type-descriptor
-    (%uncached-record-field-names obj sp (record-type-parent rtd))))
+    (%uncached-reflect-field-names obj sp (record-type-parent rtd))))
 
 
-(define (uncached-record-field-names obj sp rtd)
-  (%uncached-record-field-names obj sp rtd)
+(define (uncached-reflect-field-names obj sp rtd)
+  (%uncached-reflect-field-names obj sp rtd)
   ;; insert '<type> as synthetic first field name
   (span-insert-left! sp _type)
   (span->vector sp))
@@ -599,6 +622,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; field
+
 
 ;; find the value of specified field name in obj.
 ;; obj must be a record, hashtable, ordered-hash or plist.
@@ -610,6 +634,8 @@
   (case-lambda
     ((obj field-name cache default)
       (cond
+        ((or (null? obj) (pair? obj))
+          (plist-ref obj field-name default))
         ;; in Chez Scheme, hashtable is a record type
         ;; => must check for it before (record?)
         ((hashtable? obj)
@@ -622,19 +648,17 @@
           (ordered-hash-ref obj field-name default))
         ((record? obj)
           (let* ((rtd   (record-rtd obj))
-                 (xinfo (and rtd (hashtable-ref record-infos rtd #f))))
+                 (xinfo (and rtd (hashtable-ref reflect-infos rtd #f))))
             (cond
-              (xinfo ; found override in record-infos, use it
+              (xinfo ; found override in reflect-infos, use it
                 (let ((accessor (ordered-hash-ref xinfo field-name #f)))
                   (if accessor
                     (accessor obj)
                     default)))
-              (cache ; search in cache, autogenerating and storing a record-info for future calls if not present
-                (cached-record-field obj field-name cache default rtd))
+              (cache ; search in cache, autogenerating and storing a reflect-info for future calls if not present
+                (cached-reflect-field obj field-name cache default rtd))
               (else
-                (uncached-record-field obj field-name default rtd)))))
-        ((plist? obj)
-          (plist-ref obj field-name default))
+                (uncached-reflect-field obj field-name default rtd)))))
         (else
           default)))
   ((obj field-name cache)
@@ -643,30 +667,60 @@
     (field obj field-name #f (void)))))
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; field-cursor
+;;; in-fields
 
 
-;; return a cursor that iterates on all field names of of obj, in natural order.
-;; obj must be a record type.
-;; Caller must repeatedly invoke (field-cursor-next!) on returned cursor - see its description.
-(define (field-cursor obj cache)
-  (let ((rtd   (record-rtd obj)))
-    (if rtd
-      ;; first search in override in record-infos, then seacrh in cache if not found,
-      ;; finally autogenerate via reflection if both searches failed.
-      (let ((info (or (hashtable-ref record-infos rtd #f)
-                      (hashtable-ref cache        rtd #f) 
-                      (make-record-info/reflect cache rtd))))
-        (ordered-hash-cursor info))
-      (ordered-hash-cursor-empty))))
-
-
-;; return next pair (field-name . accessor) of specified field cursor,
-;; or #f if cursor reached the end of fields.
-(define field-cursor-next! ordered-hash-cursor-next!)
-
-
+;; return a sequence that iterates on all field names and values of obj, in natural order.
+;;
+;; The returned closure accepts no arguments, and each call to it returns three values:
+;;   either (values field-name field-value #t)
+;;   or (values #<unspecified> #<unspecified> #f) if end of fields is reached.
+;;
+;; if obj is a hashtable, returned closure generates its keys and values.
+;;
+;; if obj is a ordered-hash, returned closure generates its keys and values in insertion order.
+;;
+;; if obj is '() or a pair, it must be a plist. returned closure generates its keys and values.
+;;
+;; if obj is a record type, returned closure generates its field names and values.
+;;
+(define in-fields
+  (case-lambda
+    ((obj cache)
+      (cond
+        ((or (null? obj) (pair? obj))
+          (assert* 'in-fields (plist? obj))
+          (in-plist obj))
+        ;; in Chez Scheme, hashtable is a record type
+        ;; => must check for it before (record?)
+        ((hashtable? obj)
+          (in-hash obj))
+        ((ordered-hash? obj)
+          (in-ordered-hash obj))
+        ((record? obj)
+          (let ((rtd (record-rtd obj)))
+            (if rtd
+              ;; first search for an override in reflect-infos, then search in cache if not found,
+              ;; finally autogenerate reflect-info via reflection if both searches failed.
+              (let* ((iter (ordered-hash-cursor
+                             (or (hashtable-ref reflect-infos rtd #f)
+                                 (and cache (hashtable-ref cache rtd #f))
+                                 (make-reflect-info/reflect cache rtd))))
+                     (%in-fields ;; name shown when displaying the closure
+                       (lambda ()
+                         (let ((cell (ordered-hash-cursor-next! iter)))
+                           (if cell
+                             (values (car cell) ((cdr cell) obj) #t)
+                             (values #f #f #f))))))
+                %in-fields)
+              ;; no rtd, return an empty sequence
+              empty-sequence)))
+        (else
+          empty-sequence)))
+    ((obj)
+      (in-fields obj #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; field-names
@@ -676,7 +730,6 @@
 ;; each field name is represented as a symbol.
 ;;
 ;; if obj is a hashtable, return its keys.
-;;   if all the keys are symbols, they are are returned in lexicographic order.
 ;;
 ;; if obj is a ordered-hash, returns its keys in insertion order.
 ;;
@@ -703,16 +756,16 @@
           (ordered-hash-keys obj))
         ((record? obj)
           (let* ((rtd   (record-rtd obj))
-                 (xinfo (and rtd (hashtable-ref record-infos rtd #f))))
+                 (xinfo (and rtd (hashtable-ref reflect-infos rtd #f))))
             (cond
               ((not rtd)
                 '#())
-              (xinfo ; found override in record-infos, use it
-                (record-info-field-names xinfo))
-              (cache ; search in cache, autogenerating a record-info for future calls if not found
-                (cached-record-field-names obj cache rtd))
+              (xinfo ; found override in reflect-infos, use it
+                (reflect-info-field-names xinfo))
+              (cache ; search in cache, autogenerating a reflect-info for future calls if not found
+                (cached-reflect-field-names obj cache rtd))
               (else
-                (uncached-record-field-names obj (span) rtd)))))
+                (uncached-reflect-field-names obj (span) rtd)))))
         ((list? obj)
           (let* ((len (length obj))
                  (n   (fx/ len 2)))
@@ -730,17 +783,19 @@
       (field-names obj #f))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; fields->plist
+
 ;; return a freshly allocated plist containing alternating field names and field values of obj, in natural order.
 ;; each field name is represented as a symbol.
 ;;
-;; if obj is a hashtable, return its keys.
-;;   if all the keys are symbols, they are are returned in lexicographic order.
+;; if obj is a hashtable, return its keys and values, interleaved.
 ;;
-;; if obj is a ordered-hash, returns its keys in insertion order.
+;; if obj is a ordered-hash, returns its keys and values in insertion order, interleaved.
 ;;
 ;; if obj is a list, assume it is a plist and return a copy of it.
 ;;
-;; if obj is a record, return its field names and field values, interleaved.
+;; if obj is a record, return its field names and values, interleaved.
 ;;   the returned vector contains as **last** ones the field names
 ;;   of its record-rtd, preceded by the fields names of its parent-rtd,
 ;;   preceded by the fields names of its parent's parent-rtd, and so on.
@@ -749,19 +804,18 @@
 (define fields->plist
   (case-lambda
     ((obj cache)
-      (cond
-        ((list? obj)
-          (list-copy obj))
-        (else
-          (let ((names (field-names obj)))
-            (let %field-names->plist ((i (fx1- (vector-length names)))
-                                      (plist '()))
-              (if (fx<? i 0)
-                plist
-                (let ((name (vector-ref names i)))
-                  (%field-names->plist (fx1- i) (cons name (cons (field obj name) plist))))))))))
+      (if (or (null? obj) (pair? obj))
+        (list-copy obj)
+        (let ((l '()))
+          (for ((k v (in-fields obj cache)))
+            (set! l (cons v (cons k l))))
+          (reverse! l))))
     ((obj)
       (fields->plist obj #f))))
+
+
+
+
 
 
 ) ; close library

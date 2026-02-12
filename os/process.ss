@@ -17,9 +17,9 @@
     (only (scheme2k bootstrap)           assert*)
     (only (scheme2k containers list)     plist-ref)
     (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
-    (only (scheme2k io json)             json-record-info-set!)
     (only (scheme2k posix fd)            raise-c-errno)
-    (only (scheme2k posix fs)            gid->groupname uid->username))
+    (only (scheme2k posix fs)            gid->groupname uid->username)
+    (only (scheme2k reflect)             reflect-info-set-autodetect!))
 
 
 (define-record-type (process-reader %make-process-reader process-reader?)
@@ -193,19 +193,19 @@
         (gid    (bvec-ref/u64 bvec (fx* 2 8)))
         (tick/s (bvec-ref/u64 bvec (fx* 9 8))))
     (make-process-entry
-      (bvec-ref/s64 bvec 0)                     ; pid,   int64
-      (car l)       ; process name, string
-      (cdr l)       ; tty, #f or string
+      (bvec-ref/s64 bvec 0)             ; pid,          int64
+      (car l)                           ; process name, string
+      (cdr l)                           ; tty,          #f or string
       (u8->symbol
-        (bytevector-u8-ref bvec (fx* 21 8)))    ; state, symbol
-      (if-uid->username rx uid)         ; user name, string or (void)
-      (if-uid->username rx gid)         ; group name, string or (void)
-      uid                               ; uid,   uint64
-      gid                               ; gid,   uint64
-      (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,  int64
-      (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,  int64
-      (bvec-ref/s64 bvec (fx* 5 8))     ; sid,   int64
-      (bvec-ref/u64 bvec (fx* 6 8))     ; flags, uint64
+        (bytevector-u8-ref bvec (fx* 21 8))) ; state,   symbol
+      (if-uid->username rx uid)         ; user name,    string or (void)
+      (if-uid->username rx gid)         ; group name,   string or (void)
+      uid                               ; uid,          uint64
+      gid                               ; gid,          uint64
+      (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
+      (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
+      (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
+      (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64
       (bvec-ref/u64 bvec (fx* 7 8))     ; mem-resident, uint64
       (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
       (ticks->time 'time-monotonic tick/s
@@ -223,11 +223,6 @@
       (bvec-ref/s64 bvec (fx* 18 8))    ; num-threads,  int64
       (bvec-ref/u64 bvec (fx* 19 8))    ; min-fault,    uint64
       (bvec-ref/u64 bvec (fx* 20 8))))) ; maj-fault,    uint64
-
-
-;; customize how "process-entry" objects are serialized to / deserialized from json
-(json-record-info-set! (record-type-descriptor process-entry)
-  'process-entry #f make-process-entry '())
 
 
 ;; customize how "process-reader" objects are printed
@@ -266,5 +261,9 @@
     (put-char port #\space) (writer (process-entry-min-fault e) port)
     (put-char port #\space) (writer (process-entry-maj-fault e) port)
     (put-string port ")")))
+
+
+;; customize visible reflect fields and deserializer for `process-entry` objects
+(reflect-info-set-autodetect! (record-type-descriptor process-entry) make-process-entry)
 
 ) ; close library

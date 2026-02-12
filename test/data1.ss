@@ -232,14 +232,13 @@
         ((fx>=? i n) (reverse! l))
       (set! l (cons (ref gb i) l))))                   (a bc def |.| 0.0+12.5i)
 
-  ;; test htable-cursor
+  ;; test in-htable
   (let ((ht (ordered-hash char->integer char=?
                #\a 1 #\b 2 #\C 3 #\space 4))
         (l   '()))
-    (let-values (((cursor next!) (htable-cursor ht)))
-      (do ((cell (next! cursor) (next! cursor)))
-          ((not cell) (reverse! l))
-        (set! l (cons cell l)))))                      ((#\a . 1) (#\b . 2) (#\C . 3) (#\space . 4))
+    (for ((k v (in-htable ht)))
+      (set! l (cons (cons k v) l)))
+    (reverse! l))                                      ((#\a . 1) (#\b . 2) (#\C . 3) (#\space . 4))
 
   ;; test comparison functions
   (let ((a (date 1970 1 1 0)) (b (date 1970 1 1 1)))
@@ -257,28 +256,46 @@
           (unordered? a b)))                           (-1 #t #t #f #f #f #f)
 
 
-  ;; test (field-names) and (field) - they accept any record type
+  ;; test (field) (field-names) (fields->plist) (in-fields)
   (field-names (make-vscreen))                         #(<type> left right dirty-start-y dirty-end-y dirty? width height
                                                          prompt-end-x prompt-end-y cursor-ix cursor-iy)
   (let ((v (make-vscreen)))
     (list (field v 'width) (field v 'height)))         (80 24)
 
-  ;; (field) (field-names) and (fields->plist) accept plists
+  ;; they also accept plists
   (field         '(a 1 b 2 c 3) 'c)                    3
   (field-names   '(a 1 b 2 c 3))                       #(a b c)
   (fields->plist '(x 0 y 1 z 2))                       (x 0 y 1 z 2)
 
-  ;; (field-names) and (field) accept hashtables
+  ;; they also accept hashtables
   (field (eq-hashtable 'x 1 'y #\2 'z '(3)) 'z)        (3)
 
-  ;; (field-names) and (field) accept ordered-hash
+  ;; they also accept ordered-hashes
   (field-names (eq-ordered-hash 'x 1 '|| 2))           #(x ||)
   (field (eq-ordered-hash 'x 1 'y #\2 'z '(3)) 'z)     (3)
+  (fields->plist (eq-ordered-hash 'x 1 '|| 2))         (x 1 || 2)
 
   ;; (fields->plist) accepts records, hashtables, ordered-hashes, plists
   (let ((d (date 1970 01 02  03 04 05  123456789 -86400)))
     (fields->plist d))                                 (<type> date year 1970 month 1 day 2 hour 3 minute 4 second 5
                                                         nanosecond 123456789 zone-offset -86400)
+
+  ;; (in-fields) accepts records, hashtables, ordered-hashes, plists
+  (let ((l '()))
+    (for ((k v (in-fields (date 2000 01 02  03 04 05  123456789 -86400))))
+      (set! l (cons v (cons k l))))
+    (reverse! l))                                      (<type> date year 2000 month 1 day 2 hour 3 minute 4 second 5 nanosecond 123456789 zone-offset -86400)
+
+  (let ((l '()))
+    (for ((k v (in-fields '(a #\x b #\y c #\z d #\w))))
+      (set! l (cons v (cons k l))))
+    (reverse! l))                                      (a #\x b #\y c #\z d #\w)
+
+  (let ((l '()))
+    (for ((k v (in-fields (plist->eq-ordered-hash
+                            '(foo 1 bar "2" baz #\3)))))
+      (set! l (cons v (cons k l))))
+    (reverse! l))                                      (foo 1 bar "2" baz #\3)
 
   (let ((v (make-vscreen)))
     (list
@@ -288,6 +305,11 @@
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy)
                                                         #(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy))
+
+  ;; test (select) and renaming fields
+  (==> list-reader (list (make-vscreen))
+    => select left right dirty? (width w) (height h)
+    => all)                                            ,((<type> vscreen left (span) right (span (vline "")) dirty? #f w 80 h 24))
 
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)

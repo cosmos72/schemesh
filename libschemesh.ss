@@ -42,6 +42,8 @@
   (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")
 
+  (include "reflect/reflect.ss")
+
   (include "posix/fd.ss")
   (include "posix/fs.ss")
   (include "posix/io.ss")
@@ -55,8 +57,6 @@
   (include "posix/replacements.ss") ; requires posix/thread.ss
   (include "posix/pid.ss")
   (include "posix/posix.ss")
-
-  (include "reflect/reflect.ss")
 
   (include "io/field.ss")           ; requires reflect/reflect.ss
   (include "io/http.ss")            ; requires io/posix/posix.ss

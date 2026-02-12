@@ -15,7 +15,7 @@
   (fields
     out                   ; binary output port
     wbuf                  ; bytespan, write buffer
-    (mutable cache)       ; #f or eq-hashtable rtd -> record-info, set in construction or created lazily
+    (mutable cache)       ; #f or eq-hashtable rtd -> reflect-info, set in construction or created lazily
     (mutable prologue?)   ; #t before first call to any (json-writer-put...) function
     (mutable epilogue?)   ; #t if we should write #\] before closing the port
     close-out?)           ; boolean, #t if closing the json-writer must close the underlying binary output port
@@ -38,7 +38,7 @@
 ;; If a json-writer should take ownership of the binary output port passed to the constructor,
 ;; then the optional argument close-out? must be truish.
 ;;
-;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> record-info
+;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
 (define make-json-writer
   (case-lambda
     ((out close-out? cache)
@@ -329,13 +329,12 @@
 
 
 (define (put/htable tx obj)
-  (let ((out (json-writer-out tx)))
+  (let ((out (json-writer-out tx))
+        (first? #t))
     (put-u8 out 123) ; #\{
-    (let-values (((cursor next!) (htable-cursor obj)))
-      (do ((first? #t #f)
-           (cell   (next! cursor) (next! cursor)))
-          ((not cell))
-        (put/key+value tx first? (car cell) (cdr cell))))
+    (for ((k v (in-htable obj)))
+      (put/key+value tx first? k v)
+      (set! first? #f))
     (put-u8 out 125))) ; #\}
 
 
@@ -358,13 +357,14 @@
 
 
 (define (put/record tx obj)
-  (let ((iter (json-record-info-cursor obj (ensure-cache tx)))
+  (let ((seq  (json-in-fields obj (ensure-cache tx)))
         (out  (json-writer-out tx)))
     (put-u8 out 123) ; #\{
-    (do ((first? #t #f)
-         (cell   (field-cursor-next! iter) (field-cursor-next! iter)))
-        ((not cell))
-      (put/key+value tx first? (car cell) ((cdr cell) obj)))
+    (let %put/record ((seq seq) (first? #t))
+      (let-values (((key value ok?) (seq)))
+        (when ok?
+          (put/key+value tx first? key value)
+          (%put/record seq #f))))
     (put-u8 out 125))) ; #\}
 
 

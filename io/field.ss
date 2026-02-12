@@ -26,7 +26,7 @@
   (parent nested-reader)
   (fields
     rev-names  ;; vector of field names to extract, in reverse order
-    cache)     ;; eq-hashtable containing rtd -> record-info, speeds up (field obj sym cache)
+    cache)     ;; eq-hashtable containing rtd -> reflect-info, speeds up (field obj sym cache)
   (protocol
     (lambda (args->new)
       (lambda (inner rev-names close-inner?)
@@ -46,7 +46,9 @@
 ;;
 ;; Mandatory arguments:
 ;;   inner - the reader to wrap
-;;   field-names - a list of symbols, they specify which fields will be selected
+;;   field-names - a list of field names, they specify which fields will be selected
+;;                 each field name must be either a symbol,
+;;                 or a list containing two symbols (old-name new-name) - this will rename specified field
 ;;
 ;; Optional arguments:
 ;;   close-inner? - #f by default. if truish, closing the field-reader will also close whe wrapped "inner" reader
@@ -60,7 +62,13 @@
   (case-lambda
     ((inner field-names close-inner?)
       (assert* 'make-field-reader (obj-reader? inner))
-      (assert* 'make-field-reader (symbol-list? field-names))
+      (do ((l field-names (cdr l)))
+          ((null? l))
+        (let ((old-name-new-name (car l)))
+          (unless (symbol? old-name-new-name)
+            (assert* 'make-field-reader (fx=? 2 (length old-name-new-name)))
+            (assert* 'make-field-reader (symbol? (car  old-name-new-name)))
+            (assert* 'make-field-reader (symbol? (cadr old-name-new-name))))))
       (%make-field-reader
         inner
         (list-reverse->vector
@@ -110,14 +118,16 @@
           (if (fx>=? i n)
             (values plist #t)
             ;; extract field from obj via reflection
-            (let* ((name  (vector-ref names i))
-                   (value (field obj name cache (void))))
+            (let* ((name-or-pair (vector-ref names i))
+                   (old-name     (if (symbol? name-or-pair) name-or-pair (car name-or-pair)))
+                   (new-name     (if (symbol? name-or-pair) name-or-pair (cadr name-or-pair)))
+                   (value        (field obj old-name cache (void))))
                 (%field-reader-loop
                   (fx1+ i)
                   (if (eq? (void) value)
                     ;; (void) means field has unknown value => omit it
                     plist
-                    (cons name (cons value plist))))))))
+                    (cons new-name (cons value plist))))))))
 
       ;; inner reader is exhausted
       (values obj ok?))))

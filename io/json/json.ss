@@ -14,7 +14,7 @@
           json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
           json-writer-put json-writer-put-token json-writer-put-value
 
-          json-record-info-set!)
+          json-reflect-info-set!)
   (import
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                    fx1+ fx1- include logbit? make-time port-closed? procedure-arity-mask ratnum?
@@ -28,7 +28,8 @@
     (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add plist-ref)
-    (only (scheme2k containers ordered-hash) ordered-hash-cursor ordered-hash-keys ordered-hash-set!)
+    (only (scheme2k containers macros)    for)
+    (only (scheme2k containers ordered-hash) in-ordered-hash ordered-hash-keys ordered-hash-set!)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers string)    string-index-right)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! bytespan-insert-right/string!

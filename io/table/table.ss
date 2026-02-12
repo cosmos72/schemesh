@@ -9,7 +9,7 @@
 
 (library (scheme2k io table (0 9 3))
   (export make-table-writer table-writer table-writer? table-writer-eof? table-writer-close table-writer-put
-          table-record-info-set!)
+          table-reflect-info-set!)
   (import
     (rnrs)
     (only (chezscheme)                       date? format fx1+ fx1- fxvector-length fxvector-ref fxvector-set!
@@ -17,11 +17,11 @@
     (only (scheme2k bootstrap)               assert*)
     (only (scheme2k containers charspan)     charspan)
     (only (scheme2k containers date)         date->string)
-    (only (scheme2k containers ordered-hash) make-eq-ordered-hash ordered-hash-cursor ordered-hash-set!)
+    (only (scheme2k containers ordered-hash) in-ordered-hash make-eq-ordered-hash ordered-hash-set!)
     (only (scheme2k containers span)         span span-insert-right! span-length)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
-    (only (scheme2k reflect)                 field-cursor field-cursor-next! make-record-info make-record-info-autodetect record-info-fill!))
+    (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
 
 
 (define-record-type (table-writer %make-table-writer table-writer?)
@@ -32,7 +32,7 @@
     (mutable widths)      ; #f or fxvector, width of each column
     (mutable lengths)     ; #f or fxvector, maximum length of text in each column
     buf                   ; span, contains rows to be written. Each row is a ordered-hash field-name -> string
-    (mutable cache)       ; #f or eq-hashtable rtd -> record-info, set in construction or created lazily
+    (mutable cache)       ; #f or eq-hashtable rtd -> reflect-info, set in construction or created lazily
     (mutable header?)     ; #t if we still need to write the table header
     (mutable footer?)     ; #t if we still need to write the table footer before closing this table-writer
     close-out?)           ; boolean, #t if closing the table-writer must close the underlying textual output port
@@ -54,7 +54,7 @@
 ;; If a table-writer should take ownership of the textual output port passed to the constructor,
 ;; then the optional argument close-out? must be truish.
 ;;
-;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> record-info
+;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
 (define make-table-writer
   (case-lambda
     ((out close-out? cache)
@@ -86,17 +86,17 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; record-info
+;;; reflect-info
 
-(define table-record-infos (make-eq-hashtable))
+(define table-reflect-infos (make-eq-hashtable))
 
-(define (table-record-info-set! rtd type-symbol-or-proc field-names-and-accessors)
-  (assert* 'table-record-info-set! (record-type-descriptor? rtd))
-  ;; (plist? field-names-and-accessors) is already checked by (make-record-info)
-  (let ((table table-record-infos)
+(define (table-reflect-info-set! rtd type-symbol-or-proc field-names-and-accessors)
+  (assert* 'table-reflect-info-set! (record-type-descriptor? rtd))
+  ;; (plist? field-names-and-accessors) is already checked by (make-reflect-info)
+  (let ((table table-reflect-infos)
         (info (if (null? field-names-and-accessors)
-                (make-record-info-autodetect rtd type-symbol-or-proc)
-                (make-record-info                type-symbol-or-proc field-names-and-accessors))))
+                (make-reflect-info-autodetect rtd type-symbol-or-proc)
+                (make-reflect-info                type-symbol-or-proc field-names-and-accessors))))
     (hashtable-set! table rtd info)))
 
 
@@ -107,13 +107,13 @@
         cache)))
 
 
-;; search for obj's rtd in json-record-infos and if a record-info is found, return a cursor on it.
-;; otherwise return a cursor on obj's reflect fields via (field-cursor obj cache)
-(define (table-record-info-cursor obj cache)
-  (let ((info (hashtable-ref table-record-infos (record-rtd obj) #f)))
+;; search for obj's rtd in json-reflect-infos and if a reflect-info is found, return a sequence on it.
+;; otherwise return a sequence on obj's reflect fields via (in-fields obj cache)
+(define (in-table-reflect-info obj cache)
+  (let ((info (hashtable-ref table-reflect-infos (record-rtd obj) #f)))
     (if info
-      (ordered-hash-cursor info)
-      (field-cursor obj cache))))
+      (in-ordered-hash info)
+      (in-fields obj cache))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -145,11 +145,15 @@
 
 
 (define (obj->row tx obj)
-  (let ((iter (table-record-info-cursor obj (ensure-cache tx)))
-        (row  (make-eq-ordered-hash)))
-    (do ((cell (field-cursor-next! iter) (field-cursor-next! iter)))
-        ((not cell) row)
-      (ordered-hash-set! row (car cell) (datum->string (cdr cell))))))
+  (let %obj->row ((seq  (in-table-reflect-info obj (ensure-cache tx)))
+                  (row  (make-eq-ordered-hash)))
+    (let-values (((key value ok?) (seq)))
+      (cond
+        (ok?
+          (ordered-hash-set! row key (datum->string value))
+          (%obj->row seq row))
+        (else
+          row)))))
 
 
 ;; called by (table-writer-put) and (obj-writer-put)

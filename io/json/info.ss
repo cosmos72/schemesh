@@ -34,8 +34,8 @@
 (define (add-date-info table)
   (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
     (hashtable-set! table rtd
-      (make-record-info 'date (list 'value date->string))))
-  ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
+      (make-reflect-info 'date (list 'value date->string))))
+  ;; hack: put in the same eq-hashtable both rtd -> reflect-info and symbol -> deserializer
   (hashtable-set! table 'date deserialize-date)
   table)
 
@@ -44,11 +44,11 @@
 (define (add-time-info table)
   (let ((rtd (record-rtd (make-time 'time-duration 0 0))))
     (hashtable-set! table rtd
-      (make-record-info time-type
+      (make-reflect-info time-type
         (list
           'value    (lambda (obj) (+ (time-second obj)
                                      (/ (time-nanosecond obj) 1000000000)))))))
-  ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
+  ;; hack: put in the same eq-hashtable both rtd -> reflect-info and symbol -> deserializer
   (hashtable-set! table 'time-duration deserialize-time)
   (hashtable-set! table 'time-monotonic deserialize-time)
   (hashtable-set! table 'time-utc        deserialize-time)
@@ -59,17 +59,17 @@
   table)
 
 
-;; hashtable rtd -> record-info and symbol -> deserializer,
+;; hashtable rtd -> reflect-info and symbol -> deserializer,
 ;;
 ;; describes how to serialize/deserialize records from/to json
-;; and overrides fields autodiscovery via reflection with (field-cursor)
-(define json-record-infos
+;; and overrides fields autodiscovery via reflection i.e. (field) (field-names) (in-fields)
+(define json-reflect-infos
   (add-date-info
     (add-time-info
       (make-eq-hashtable))))
 
 
-;; add a record-info entry to json-record-infos
+;; add a reflect-info entry to json-reflect-infos
 ;; for serializing/deserializing objects with specified rtd.
 ;;
 ;; lets external code define how to serialize/deserialize custom types from/to json.
@@ -84,28 +84,33 @@
 ;;   field-names-and-accessors - a plist containing alternating field-name and accessor.
 ;;                               It must NOT contain the key '<type>, because it's added automatically.
 ;;                               If empty, it will be autodetected via reflection.
-(define (json-record-info-set! rtd type-symbol deserializer constructor field-names-and-accessors)
-  (assert* 'json-record-info-set! (record-type-descriptor? rtd))
-  (assert* 'json-record-info-set! (symbol? type-symbol))
+(define (json-reflect-info-set! rtd type-symbol deserializer constructor field-names-and-accessors)
+  (assert* 'json-reflect-info-set! (record-type-descriptor? rtd))
+  (assert* 'json-reflect-info-set! (symbol? type-symbol))
   (if deserializer
     (begin
-      (assert* 'json-record-info-set! (procedure? deserializer))
-      (assert* 'json-record-info-set! (logbit? 1 (procedure-arity-mask deserializer))))
-    (assert* 'json-record-info-set! (procedure? constructor)))
-  ;; (plist? field-names-and-accessors) is already checked by (make-record-info)
-  (let ((table json-record-infos)
+      (assert* 'json-reflect-info-set! (procedure? deserializer))
+      (assert* 'json-reflect-info-set! (logbit? 1 (procedure-arity-mask deserializer))))
+    (assert* 'json-reflect-info-set! (procedure? constructor)))
+  ;; (plist? field-names-and-accessors) is already checked by (make-reflect-info)
+  (let ((table json-reflect-infos)
         (info (if (null? field-names-and-accessors)
-                (make-record-info-autodetect rtd type-symbol)
-                (make-record-info                type-symbol field-names-and-accessors))))
+                (make-reflect-info-autodetect rtd type-symbol)
+                (make-reflect-info                type-symbol field-names-and-accessors))))
     (hashtable-set! table rtd info)
-    ;; hack: put in the same eq-hashtable both rtd -> record-info and symbol -> deserializer
-    (hashtable-set! table type-symbol (or deserializer (make-record-deserializer constructor info)))))
+    ;; hack: put in the same eq-hashtable both rtd -> reflect-info and symbol -> deserializer
+    (hashtable-set! table type-symbol (or deserializer (make-reflect-deserializer constructor info)))))
 
 
-;; search for obj's rtd in json-record-infos and if a record-info is found, return a cursor on it.
-;; otherwise return a cursor on obj's reflect fields via (field-cursor obj cache)
-(define (json-record-info-cursor obj cache)
-  (let ((info (hashtable-ref json-record-infos (record-rtd obj) #f)))
+;; search for obj's rtd in json-reflect-infos and if a reflect-info is found,
+;;   return a sequence that generates obj's fields and values according to the reflect-info.
+;; otherwise return a sequence generates obj's fields and values
+;;   according to reflection i.e. (in-fields obj cache)
+(define (json-in-fields obj cache)
+  (let ((info (hashtable-ref json-reflect-infos (record-rtd obj) #f)))
     (if info
-      (ordered-hash-cursor info)
-      (field-cursor obj cache))))
+      (let ((seq (in-ordered-hash info)))
+        (lambda ()
+           (let-values (((name accessor ok?) (seq)))
+             (values name (and ok? (accessor obj)) ok?))))
+      (in-fields obj cache))))

@@ -29,7 +29,7 @@
     in              ; binary input port
     stack           ; bytespan contaning stack of states
     buffer          ; bytespan buffer for parsing strings and numbers
-    cache)          ; #f or eq-hashtable containing rtd -> record-info
+    cache)          ; #f or eq-hashtable containing rtd -> reflect-info
   (protocol
     (lambda (args->new)
       (lambda (in close-in? cache)
@@ -48,7 +48,7 @@
 ;; If a json-reader should take ownership of the binary input port passed to the constructor,
 ;; then the optional argument close-in? must be truish.
 ;;
-;; Optional argument cache must be #f or a a possibly empty eq-hashtable containing rtd -> record-info
+;; Optional argument cache must be #f or a a possibly empty eq-hashtable containing rtd -> reflect-info
 (define make-json-reader
   (case-lambda
     ((in close-in? cache)
@@ -617,7 +617,7 @@
 ;;
 ;; Note: this function does NOT allow separators : or , after top-level json values
 ;;
-;; If a json object contains the "<type>" key, looks up its associated value in json-record-infos and,
+;; If a json object contains the "<type>" key, looks up its associated value in json-reflect-infos and,
 ;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
 (define (json-reader-get rx)
   (assert* 'json-reader-get (json-reader? rx))
@@ -643,13 +643,13 @@
   (values datum (not (eof-object? datum))))
 
 
-;; find deserialized in json-record-infos, or in record-infos, and call it passing plist as the only argument.
+;; find deserialized in json-reflect-infos, or in reflect-infos, and call it passing plist as the only argument.
 ;; return constructed object, or plist itself if no deserializer was found.
 (define (call-deserializer plist)
   (let* ((xtype        (plist-ref plist _type))
          (type         (and (string? xtype) (string->symbol xtype)))
-         (deserializer (and type (or (hashtable-ref json-record-infos type #f)
-                                     (record-info-deserializer type)))))
+         (deserializer (and type (or (hashtable-ref json-reflect-infos type #f)
+                                     (reflect-info-deserializer type)))))
     (if (and deserializer (procedure? deserializer))
       (deserializer plist)
       plist)))
