@@ -17,8 +17,8 @@
     (only (scheme2k bootstrap)               assert*)
     (only (scheme2k containers charspan)     charspan)
     (only (scheme2k containers date)         date->string)
-    (only (scheme2k containers ordered-hash) in-ordered-hash make-eq-ordered-hash ordered-hash-set!)
-    (only (scheme2k containers span)         span span-insert-right! span-length)
+    (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-set!)
+    (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
@@ -109,7 +109,7 @@
 
 ;; search for obj's rtd in json-reflect-infos and if a reflect-info is found, return a sequence on it.
 ;; otherwise return a sequence on obj's reflect fields via (in-fields obj cache)
-(define (in-table-reflect-info obj cache)
+(define (in-table-fields obj cache)
   (let ((info (hashtable-ref table-reflect-infos (record-rtd obj) #f)))
     (if info
       (in-ordered-hash info)
@@ -119,16 +119,40 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ascii art
 
-(define (put-header tx)
-  (void))
+(define (display-header tx)
+  (when (table-writer-header? tx)
+    (let ((buf (table-writer-buf tx))
+          (out (table-writer-out tx)))
+      (unless (span-empty? buf)
+        (let ((row (span-ref buf 0)))
+          (for-ordered-hash ((k v row))
+            (put-char out #\|)
+            (display k out))
+          (put-char out #\|)
+          (newline out))))
+    (table-writer-header?-set! tx #f)))
 
 
-(define (put-footer tx)
-  (void))
+(define (display-row tx row)
+  (let ((out (table-writer-out tx)))
+    (for-ordered-hash ((k v row))
+      (put-char out #\|)
+      (display v out))
+    (put-char out #\|)
+    (newline out)))
 
 
-(define (put-row tx row)
-  (void))
+(define (display-footer tx)
+  (when (table-writer-footer? tx)
+    (table-writer-footer?-set! tx #f)
+    (table-writer-header?-set! tx #t)))
+
+
+(define (display-all tx)
+  (display-header tx)
+  (for-span ((row (table-writer-buf tx)))
+    (display-row tx row))
+  (display-footer tx))
 
 
 ;; FIXME: use reflection recursively and create nested tables?
@@ -145,7 +169,7 @@
 
 
 (define (obj->row tx obj)
-  (let %obj->row ((seq  (in-table-reflect-info obj (ensure-cache tx)))
+  (let %obj->row ((seq  (in-table-fields obj (ensure-cache tx)))
                   (row  (make-eq-ordered-hash)))
     (let-values (((key value ok?) (seq)))
       (cond
@@ -158,22 +182,14 @@
 
 ;; called by (table-writer-put) and (obj-writer-put)
 (define (%table-writer-put tx obj)
-  (if (table-writer-header? tx)
-    (let ((buf (table-writer-buf tx)))
-      (span-insert-right! buf (obj->row tx obj))
-      (when (fx>=? (span-length buf) 4)
-        (put-header tx)))
-    (put-row tx (obj->row tx obj))))
+  (span-insert-right! (table-writer-buf tx) (obj->row tx obj)))
 
 
 ;; called by (table-writer-close) and (obj-writer-close)
 (define (%table-writer-close tx)
+  (display-all tx)
+  ;; close out only if table-writer constructor was called with truish close-out?
   (let ((out (table-writer-out tx)))
-    (when (table-writer-footer? tx)
-      (put-footer tx)
-      (table-writer-footer?-set! tx #f)
-      (table-writer-header?-set! tx #t))
-    ;; close out only if table-writer constructor was called with truish close-out?
     (if (table-writer-close-out? tx)
       (close-port out)
       (flush-output-port out))))

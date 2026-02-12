@@ -215,6 +215,15 @@
   (make-queue-writer))
 
 
+;; easy wrapper for (make-table-writer)
+(define to-table
+  (case-lambda
+    ((out)
+      (make-table-writer out))
+    (()
+      (make-table-writer (sh-port #f 1 'textual)))))
+
+
 ;; easy wrapper for (vector-writer)
 (define (to-vector)
   (vector-writer))

@@ -14,7 +14,7 @@
           ;; repl/easy.ss
           all all/vector close copy-all copy-all/close dir eof? get put proc select skip where where@ with-sh-closable
           from-stdin from-json from-list from-queue from-vector from-wire
-           to-stdout   to-json   to-list   to-queue   to-vector   to-wire
+           to-stdout   to-json   to-list   to-queue   to-vector   to-wire   to-table
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
@@ -41,6 +41,7 @@
                                      obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
                                      list-reader list-writer make-filter-reader
                                      reader->list reader->vector vector-reader vector-writer)
+    (only (scheme2k io table)        make-table-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k os)              make-process-reader)
