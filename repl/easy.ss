@@ -245,11 +245,11 @@
 
 
 ;; TODO: choose writer protocol depending on optional arguments or stdout fd type:
-;;   tty    => make-tabular-writer
+;;   tty    => make-table-writer
 ;;   socket => make-wire-writer
 ;;   else   => make-json-writer
 (define (to-stdout)
-  (to-json))
+  (to-table))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -71,6 +71,7 @@
       (assert* 'bytevector->bytespan* (fx<=?* 0 start end (bytevector-length bv)))
       (%make-bytespan start end bv))))
 
+;; create a bytevector with initial size
 (define make-bytespan
   (case-lambda
     ((n)      (%make-bytespan 0 n (make-bytevector n)))

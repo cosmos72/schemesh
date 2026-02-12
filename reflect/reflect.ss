@@ -18,7 +18,7 @@
           reflect-info reflect-info? reflect-info-deserializer reflect-info-fill! reflect-info-set! reflect-info-set-autodetect! reflect-infos)
   (import
     (rnrs)
-    (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset 
+    (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset
                                              fx1+ fx1- fx/ list-copy logbit? make-date make-time procedure-arity-mask reverse!
                                              time? time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)               assert* let-macro)
@@ -543,7 +543,7 @@
 ;; and store all of them into global table reflect-infos.
 (define (reflect-info-set-autodetect! rtd constructor)
   (let ((info (make-reflect-info-autodetect rtd)))
-    (reflect-info-set! rtd info (record-type-name rtd) 
+    (reflect-info-set! rtd info (record-type-name rtd)
       (make-reflect-deserializer constructor info))))
 
 
