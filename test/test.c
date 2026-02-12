@@ -100,6 +100,7 @@ static int compile_schemesh_so(const char* source_dir) {
                     "    #t\n)");
 #else /* !SCHEME_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
+                      "               (debug-level    3)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
                       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
                       "  #t)");
@@ -137,6 +138,7 @@ static int compile_scheme2k_so(const char* source_dir) {
                     "    #t\n)");
 #else /* !SCHEME_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
+                      "               (debug-level    3)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
                       "  (compile-file \"libscheme2k.ss\" \"" LIBSCHEME2K_SO "\")\n"
                       "  #t)");
