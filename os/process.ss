@@ -33,7 +33,7 @@
     (lambda (args->new)
       (lambda (handle)
         ((args->new %process-reader-get %process-reader-skip %process-reader-close)
-          handle (make-bytevector (fx1+ (fx* 21 8))) #f #f))))
+          handle (make-bytevector (fx1+ (fx* 24 8))) #f #f))))
   (nongenerative %process-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
@@ -172,15 +172,6 @@
             name)))
     (void)))
 
-
-(define (ticks->time type tick/s ticks)
-  (let-values (((s fraction) (div-and-mod (/ ticks tick/s) 1)))
-    (let* ((e9     1000000000)
-           (ns     (round (* fraction e9)))
-           (carry? (>= ns e9)))
-      (make-time type (if carry? 0 ns)
-                      (if carry? (1+ s) s)))))
-
 (define (u8->symbol u8)
   (string->symbol (string (integer->char u8))))
 
@@ -190,14 +181,13 @@
 
 (define (c->process-entry rx l bvec)
   (let ((uid    (bvec-ref/u64 bvec (fx* 1 8)))
-        (gid    (bvec-ref/u64 bvec (fx* 2 8)))
-        (tick/s (bvec-ref/u64 bvec (fx* 9 8))))
+        (gid    (bvec-ref/u64 bvec (fx* 2 8))))
     (make-process-entry
       (bvec-ref/s64 bvec 0)             ; pid,          int64
       (car l)                           ; process name, string
       (cdr l)                           ; tty,          #f or string
       (u8->symbol
-        (bytevector-u8-ref bvec (fx* 21 8))) ; state,   symbol
+        (bytevector-u8-ref bvec (fx* 24 8))) ; state,   symbol
       (if-uid->username rx uid)         ; user name,    string or (void)
       (if-uid->username rx gid)         ; group name,   string or (void)
       uid                               ; uid,          uint64
@@ -208,21 +198,25 @@
       (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64
       (bvec-ref/u64 bvec (fx* 7 8))     ; mem-resident, uint64
       (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
-      (ticks->time 'time-monotonic tick/s
-        (bvec-ref/u64 bvec (fx* 10 8))) ; start-time,   time-monotonic, seconds after system boot
-      (ticks->time 'time-duration tick/s
-        (bvec-ref/u64 bvec (fx* 11 8))) ; user-time,    time-duration
-      (ticks->time 'time-duration tick/s
-        (bvec-ref/u64 bvec (fx* 12 8))) ; system-time,  time-duration
-      (ticks->time 'time-duration tick/s
-        (bvec-ref/u64 bvec (fx* 13 8))) ; iowait-time,  time-duration
-      (bvec-ref/s64 bvec (fx* 14 8))    ; priority,     int64
-      (bvec-ref/s64 bvec (fx* 15 8))    ; nice,         int64
-      (bvec-ref/u64 bvec (fx* 16 8))    ; rt-priority,  uint64
-      (bvec-ref/u64 bvec (fx* 17 8))    ; rt-policy,    uint64
-      (bvec-ref/s64 bvec (fx* 18 8))    ; num-threads,  int64
-      (bvec-ref/u64 bvec (fx* 19 8))    ; min-fault,    uint64
-      (bvec-ref/u64 bvec (fx* 20 8))))) ; maj-fault,    uint64
+      (make-time 'time-utc
+        (bvec-ref/u64 bvec (fx*  9 8))  ; start-time-utc, ns
+        (bvec-ref/s64 bvec (fx* 10 8))) ; start-time-utc, s
+      (make-time 'time-duration
+        (bvec-ref/u64 bvec (fx* 11 8))  ; user-time, ns
+        (bvec-ref/s64 bvec (fx* 12 8))) ; user-time, s
+      (make-time 'time-duration
+        (bvec-ref/u64 bvec (fx* 13 8))  ; system-time, ns
+        (bvec-ref/s64 bvec (fx* 14 8))) ; system-time, s
+      (make-time 'time-duration
+        (bvec-ref/u64 bvec (fx* 15 8))  ; iowait-time, ns
+        (bvec-ref/s64 bvec (fx* 16 8))) ; iowait-time, s
+      (bvec-ref/s64 bvec (fx* 17 8))    ; priority,     int64
+      (bvec-ref/s64 bvec (fx* 18 8))    ; nice,         int64
+      (bvec-ref/u64 bvec (fx* 19 8))    ; rt-priority,  uint64
+      (bvec-ref/u64 bvec (fx* 20 8))    ; rt-policy,    uint64
+      (bvec-ref/s64 bvec (fx* 21 8))    ; num-threads,  int64
+      (bvec-ref/u64 bvec (fx* 22 8))    ; min-fault,    uint64
+      (bvec-ref/u64 bvec (fx* 23 8))))) ; maj-fault,    uint64
 
 
 ;; customize how "process-reader" objects are printed

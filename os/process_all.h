@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <string.h>   /* memcpy() */
 #include <sys/stat.h> /* fstat() */
+#include <time.h>     /* clock_gettime(), struct timespec */
 #include <unistd.h>   /* close(), read(), sysconf() */
 
 #include "../containers/containers.h"
@@ -33,6 +34,14 @@ typedef char sizeof_int64_is_8[sizeof(int64_t) == 8 ? 1 : -1];
 typedef char sizeof_uint64_is_8[sizeof(uint64_t) == 8 ? 1 : -1];
 typedef char sizeof_double_is_8[sizeof(double) == 8 ? 1 : -1];
 
+static int64_t max_int64(int64_t left, int64_t right) {
+  return left > right ? left : right;
+}
+
+static int64_t min_int64(int64_t left, int64_t right) {
+  return left < right ? left : right;
+}
+
 static void set_int64(void* dst, size_t i, int64_t val) {
   if (dst) {
     memcpy((uint8_t*)dst + i * 8, &val, 8);
@@ -43,6 +52,11 @@ static void set_uint64(void* dst, size_t i, uint64_t val) {
   if (dst) {
     memcpy((uint8_t*)dst + i * 8, &val, 8);
   }
+}
+
+static void set_timespec(void* dst, size_t i, struct timespec t) {
+  set_uint64(dst, i, (uint32_t)t.tv_nsec);
+  set_int64(dst, i + 1, t.tv_sec);
 }
 
 #if 0  /* unused */
@@ -67,6 +81,53 @@ static void uint64_multiply(void* src, size_t i, uint64_t scale) {
   set_uint64(src, i, get_uint64(src, i) * scale);
 }
 
+static struct timespec ticks_to_timespec(uint64_t ticks, uint64_t tick_per_s) {
+  struct timespec ret;
+  uint64_t        remainder = ticks % tick_per_s;
+
+  ret.tv_sec = ticks / tick_per_s;
+  /* requires tick_per_s < MAX_UINT64 / 1'000'000'000 */
+  ret.tv_nsec = (remainder * 1000000000 + tick_per_s / 2) / tick_per_s;
+  return ret;
+}
+
+static struct timespec timespec_sub(struct timespec left, struct timespec right) {
+  struct timespec ret;
+
+  int borrow = (ret.tv_nsec = left.tv_nsec - right.tv_nsec) < 0;
+  if (borrow) {
+    ret.tv_nsec += 1000000000;
+  }
+  ret.tv_sec = left.tv_sec - right.tv_sec - borrow;
+  return ret;
+}
+
+static struct timespec timespec_add(struct timespec left, struct timespec right) {
+  struct timespec ret;
+
+  int carry = (ret.tv_nsec = left.tv_nsec + right.tv_nsec) >= 1000000000;
+  if (carry) {
+    ret.tv_nsec -= 1000000000;
+  }
+  ret.tv_sec = left.tv_sec + right.tv_sec + carry;
+  return ret;
+}
+
+static struct timespec timespec_avg(struct timespec left, struct timespec right) {
+  struct timespec ret;
+  int64_t         lo_s    = min_int64(left.tv_sec, right.tv_sec);
+  int64_t         hi_s    = max_int64(left.tv_sec, right.tv_sec);
+  int64_t         delta_s = hi_s - lo_s;
+  uint32_t        ns      = (left.tv_nsec + right.tv_nsec + 1u) / 2 + (delta_s & 1 ? 500000000 : 0);
+  int             carry   = ns >= 1000000000;
+  if (carry) {
+    ns -= 1000000000;
+  }
+  ret.tv_nsec = ns;
+  ret.tv_sec  = lo_s + delta_s / 2 + carry;
+  return ret;
+}
+
 static int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
@@ -83,21 +144,20 @@ enum {
   e_pgrp         = 4,
   e_sid          = 5,
   e_flags        = 6,
-  e_mem_resident = 7,  /* bytes, uint64,  */
+  e_mem_resident = 7,  /* bytes, uint64 */
   e_mem_virtual  = 8,  /* bytes, uint64 */
-  e_tick_per_s   = 9,  /* ticks per second, uint64 */
-  e_start_time   = 10, /* ticks since boot, uint64 */
-  e_user_time    = 11, /* ticks, uint64 */
-  e_sys_time     = 12, /* ticks, uint64 */
-  e_iowait_time  = 13, /* ticks, uint64 */
-  e_priority     = 14, /* int64 */
-  e_nice         = 15, /* int64 */
-  e_rt_priority  = 16,
-  e_rt_policy    = 17,
-  e_num_threads  = 18,
-  e_min_fault    = 19,
-  e_maj_fault    = 20,
-  e_state        = 21,
+  e_start_time   = 9,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
+  e_user_time    = 11, /* duration, timespec */
+  e_sys_time     = 13, /* duration, timespec */
+  e_iowait_time  = 15, /* duration, timespec */
+  e_priority     = 17, /* int64 */
+  e_nice         = 18, /* int64 */
+  e_rt_priority  = 19,
+  e_rt_policy    = 20,
+  e_num_threads  = 21,
+  e_min_fault    = 22,
+  e_maj_fault    = 23,
+  e_state        = 24,
   e_byte_n       = e_state * 8 + 1,
 };
 
@@ -161,9 +221,10 @@ static size_t parse_char(const unsigned char** src, char ret[1]) {
 }
 
 /**
- * skip whitespace, parse decimal digits, convert them to an uint64_t and store it in *ret.
+ * skip whitespace, parse decimal digits, convert them to an uint64_t
+ * and store it in ((uint64_t*)dst)[i].
  * @return number of parsed decimal digits.
- * if no digits could be parsed, store 0 in *ret.
+ * if no digits could be parsed, store 0 in ((uint64_t*)dst)[i].
  */
 static size_t parse_uint64(const unsigned char** src, void* dst, size_t i) {
   uint64_t      val;

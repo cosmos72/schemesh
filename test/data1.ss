@@ -299,9 +299,8 @@
 
   (let ((v (make-vscreen)))
     (list
-      (field-names v) ;; uncached
-      (field-names v (eq-hashtable)))) ; cached
-                                                       (#(<type> left right dirty-start-y dirty-end-y dirty? width
+      (field-names v) #|uncached|#
+      (field-names v (eq-hashtable)))) #|cached|#      (#(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy)
                                                         #(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy))

@@ -7,9 +7,32 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#include <dirent.h> /* opendir() */
-#include <inttypes.h>
-#include <sys/types.h>/* opendir() */
+#include <dirent.h>    /* opendir() */
+#include <inttypes.h>  /*           */
+#include <sys/types.h> /* opendir() */
+
+static struct timespec boot_time_utc = {0, -1};
+
+static struct timespec get_boot_time_utc(void) {
+  struct timespec ret = boot_time_utc;
+  if (ret.tv_nsec < 0) {
+    struct timespec elapsed_since_boot1;
+    struct timespec time_utc;
+    struct timespec elapsed_since_boot2;
+    if (clock_gettime(CLOCK_BOOTTIME, &elapsed_since_boot1) == 0 && /**/
+        clock_gettime(CLOCK_REALTIME, &time_utc) == 0 &&
+        clock_gettime(CLOCK_BOOTTIME, &elapsed_since_boot2) == 0) {
+
+      ret = timespec_sub(time_utc, /* */
+                         timespec_avg(elapsed_since_boot1, elapsed_since_boot2));
+    } else {
+      /* failed to get elapsed_since_boot and time_utc */
+      ret.tv_nsec = 0;
+    }
+    boot_time_utc = ret;
+  }
+  return ret;
+}
 
 /**
  * skip whitespace, copy command name in parentheses (...) to dst.
@@ -156,6 +179,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   uint8_t*             vec;
   DIR*                 dir;
   struct dirent*       entry;
+  uint64_t             user_time_ticks, sys_time_ticks, start_time_ticks;
   int64_t              uid, gid, tty_nr;
   int                  buf_written;
   char                 state;
@@ -186,30 +210,52 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_int64(&src, &tty_nr, 0) && parse_int64(&src, NULL, 0 /*tty_pgrp*/) &&
        parse_uint64(&src, vec, e_flags) && parse_uint64(&src, vec, e_min_fault) &&
        parse_uint64(&src, NULL, 0 /*child_min_fault*/) && parse_uint64(&src, vec, e_maj_fault) &&
-       parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, vec, e_user_time) &&
-       parse_uint64(&src, vec, e_sys_time) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
+       parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, &user_time_ticks, 0) &&
+       parse_uint64(&src, &sys_time_ticks, 0) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
        parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
        parse_int64(&src, vec, e_nice) && parse_int64(&src, vec, e_num_threads) &&
-       parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, vec, e_start_time) &&
+       parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
        parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
 
   if (ok) {
+    uint64_t tick_per_s, iowait_time_ticks;
+
     unsigned i;
     /* skip fields 25...39 */
     for (i = 25; i < 40 && parse_uint64(&src, NULL, 0); i++) {
     }
+    iowait_time_ticks = 0;
     if (i == 40) {
       ok = parse_uint64(&src, vec, e_rt_priority) && parse_uint64(&src, vec, e_rt_policy) &&
-           parse_uint64(&src, vec, e_iowait_time);
+           parse_uint64(&src, &iowait_time_ticks, 0);
     }
 
     set_int64(vec, e_uid, uid);
     set_int64(vec, e_gid, gid);
 
-    set_uint64(vec, e_tick_per_s, get_os_tick_per_s());
-
     /* convert mem_resident from pages to bytes */
     uint64_multiply(vec, e_mem_resident, get_os_pagesize());
+
+    tick_per_s = get_os_tick_per_s();
+
+    /* convert ticks -> struct timespec */
+    {
+      struct timespec start_time_utc =
+          timespec_add(get_boot_time_utc(), ticks_to_timespec(start_time_ticks, tick_per_s));
+      set_timespec(vec, e_start_time, start_time_utc);
+    }
+    {
+      struct timespec user_time = ticks_to_timespec(user_time_ticks, tick_per_s);
+      set_timespec(vec, e_user_time, user_time);
+    }
+    {
+      struct timespec sys_time = ticks_to_timespec(sys_time_ticks, tick_per_s);
+      set_timespec(vec, e_sys_time, sys_time);
+    }
+    {
+      struct timespec iowait_time = ticks_to_timespec(iowait_time_ticks, tick_per_s);
+      set_timespec(vec, e_iowait_time, iowait_time);
+    }
 
     vec[e_state * 8] = (uint8_t)state;
 
