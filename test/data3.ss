@@ -244,22 +244,22 @@
       (vlines
         "(urehg* (a . 'b) 12"
         ""
-        "3.45e3 . #\\m\n)")))                          (urehg* (a quote b) 123450.0 . #\m)
+        "3.45e3 . #\\m\n)")))                           (urehg* (a quote b) 123450.0 . #\m)
 
   ;; ------------------------- posix patterns -----------------------------
-  (sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z") ,@(sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")
-  (sh-pattern '* '% "ch")                              ,@(sh-pattern '* '% "ch")
-  (try (sh-pattern "foo" ".bar") #f (catch (ex) #t))   #t
-  (try (sh-pattern '%)  #f (catch (ex) #t))            #t
-  (try (sh-pattern '%!) #f (catch (ex) #t))            #t
-  (try (sh-pattern '+)  #f (catch (ex) #t))            #t
+  (sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")  ,@(sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")
+  (sh-pattern '* '% "ch")                               ,@(sh-pattern '* '% "ch")
+  (try (sh-pattern "foo" ".bar") #f (catch (ex) #t))    #t
+  (try (sh-pattern '%)  #f (catch (ex) #t))             #t
+  (try (sh-pattern '%!) #f (catch (ex) #t))             #t
+  (try (sh-pattern '+)  #f (catch (ex) #t))             #t
   (sh-pattern-match? (sh-pattern
-    "foo" '? "bar") "foo.bar")                         #t
+    "foo" '? "bar") "foo.bar")                          #t
   (sh-pattern-match? (sh-pattern
     "asdf" '% "abc." '%! "a-pr-z" "werty" '?)
-    "asdf.qwerty.")                                    #t
+    "asdf.qwerty.")                                     #t
   (try (sh-pattern-match? (sh-pattern
-    '* '% "ch") "main.c") (catch (ex) ex))            #t
+    '* '% "ch") "main.c") (catch (ex) ex))              #t
 
   ;; initial wildcards never match an initial dot
   (sh-pattern-match? (sh-pattern '? "foo")      ".foo")    #f
@@ -269,28 +269,28 @@
   (sh-pattern-match? (sh-pattern '*)            ".foo")    #f
   (sh-pattern-match? (sh-pattern '* "foo")      ".my.foo") #f
   ;; match empty pattern
-  (sh-pattern-match? (sh-pattern) "")                  #t
-  (sh-pattern-match? (sh-pattern) "o")                 #f
+  (sh-pattern-match? (sh-pattern) "")                   #t
+  (sh-pattern-match? (sh-pattern) "o")                  #f
   ;; match empty string
-  (sh-pattern-match? (sh-pattern '*) "")               #t
-  (sh-pattern-match? (sh-pattern '?) "")               #f
-  (sh-pattern-match? (sh-pattern '% " -~") "")         #f
-  (sh-pattern-match? (sh-pattern '% "!~") "")          #f
+  (sh-pattern-match? (sh-pattern '*) "")                #t
+  (sh-pattern-match? (sh-pattern '?) "")                #f
+  (sh-pattern-match? (sh-pattern '% " -~") "")          #f
+  (sh-pattern-match? (sh-pattern '% "!~") "")           #f
   ;; match string against '*
-  (sh-pattern-match? (sh-pattern '*) "uiop.def..")     #t
-  (sh-pattern-match? (sh-pattern '*) "")               #t
-  (sh-pattern-match? (sh-pattern '* '*) "")            #t
-  (sh-pattern-match? (sh-pattern '* '* '*) "")         #t
-  (sh-pattern-match? (sh-pattern '* "bar") "foo.bar")  #t
+  (sh-pattern-match? (sh-pattern '*) "uiop.def..")      #t
+  (sh-pattern-match? (sh-pattern '*) "")                #t
+  (sh-pattern-match? (sh-pattern '* '*) "")             #t
+  (sh-pattern-match? (sh-pattern '* '* '*) "")          #t
+  (sh-pattern-match? (sh-pattern '* "bar") "foo.bar")   #t
   (sh-pattern-match? (sh-pattern
-     "abc" '* "def") "abc...def")                      #t
+     "abc" '* "def") "abc...def")                       #t
   (sh-pattern-match? (sh-pattern
-     '* "zzz" '? '*) "abc.zzz.def")                    #t
+     '* "zzz" '? '*) "abc.zzz.def")                     #t
   (sh-pattern-match? (sh-pattern
-    '* "xyz" '%! "x-z" "xyz" '*) "xyzxyz.xyz")         #t
+    '* "xyz" '%! "x-z" "xyz" '*) "xyzxyz.xyz")          #t
   (sh-pattern-match? (sh-pattern
       '* '* "abc" '%! "." '* '* "abc" '* '*)
-    "abc.zzz.abc^abc")                                 #t
+    "abc.zzz.abc^abc")                                  #t
 
   ;; ------------------------- wildcard expansion -------------------------
   (wildcard1+ #t "a" "bcd" "" "ef")                    ("abcdef")
@@ -497,39 +497,61 @@ B=2})                                                  ,@"#<void>"
              ))
          (set! a 42))
 
+  ;; ---------------------------- repl easy ------------------------------------
+
+  ;; test (select) and renaming fields
+  (==> list-reader (list (make-vscreen))
+    => select left right dirty? (width w) (height h)
+    => all)                                             ,((<type> vscreen left (span) right (span (vline "")) dirty? #f w 80 h 24))
+
+  ;; test (to-list) and redirecting its output
+  (==> vector-reader
+         (vector (make-time-utc 1234567890 0)
+                 (make-time-utc 9876543210 1))
+    => to-list)                                         ,((make-time-utc 1234567890 0) (make-time-utc 9876543210 1))
+
+
+  ;; test (to-json) and redirecting its output
+  (sh-run/string
+    $(==> vector-reader
+            (vector (date 2001 02 03 -86400)
+                    (date 2012 03 04 +86400))
+        => to-json))                                    "[{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"},\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}]\n"
+
+
   ;; ------------------------- repl ---------------------------------------
-  ;; {"(expand-omit-library-invocations #t)           ; avoid, requires Chez Scheme >= 10.0.0
+  ;; {"(expand-omit-library-invocations #t)             ; avoid, requires Chez Scheme >= 10.0.0
 
   (first-value (repl-parse (string->parsectx
     "(+ 2 3) (values 7 (cons 'a 'b))"
-    (parsers)) 'scheme))                               ((+ 2 3) (values 7 (cons 'a 'b)))
+    (parsers)) 'scheme))                                ((+ 2 3) (values 7 (cons 'a 'b)))
   (first-value (repl-parse (string->parsectx
     "ls -l | wc -b && echo ok || echo error &"
-    (parsers)) 'shell))                                ((shell "ls" "-l" \x7C;
-                                                               "wc" "-b" && "echo" "ok" \x7C;\x7C;
-                                                               "echo" "error" &))
+    (parsers)) 'shell))                                 ((shell "ls" "-l" \x7C;
+                                                                "wc" "-b" && "echo" "ok" \x7C;\x7C;
+                                                                "echo" "error" &))
   (first-value (repl-parse (string->parsectx
     "(values '{})" (parsers))
-    'scheme))                                          ((values '(shell)))
+    'scheme))                                           ((values '(shell)))
   (first-value (repl-parse (string->parsectx
-     "{ls; #!scheme 1 2 3}"                            ; ugly result, and not very useful
-     (parsers)) 'scheme))                              ((shell "ls" \x3B;
-                                                               1 2 3))
+     "{ls; #!scheme 1 2 3}"                             ; ugly result, and not very useful
+     (parsers)) 'scheme))                               ((shell "ls" \x3B;
+                                                                1 2 3))
   (first-value (repl-parse (string->parsectx
-     "(values '{ls; #!scheme 1 2 3})"                  ; ugly result, and not very useful
-     (parsers)) 'scheme))                              ((values '(shell "ls" \x3B;
-                                                                        1 2 3)))
+     "(values '{ls; #!scheme 1 2 3})"                   ; ugly result, and not very useful
+     (parsers)) 'scheme))                               ((values '(shell "ls" \x3B;
+                                                                         1 2 3)))
   (first-value (repl-parse (string->parsectx
-    "(1 2 3)" (parsers)) 'scheme))                     ((1 2 3))
+    "(1 2 3)" (parsers)) 'scheme))                      ((1 2 3))
   (first-value (repl-parse(string->parsectx
-    "#!scheme 1 2 3" (parsers)) 'shell))               (1 2 3)
+    "#!scheme 1 2 3" (parsers)) 'shell))                (1 2 3)
   (first-value (repl-parse(string->parsectx
-     "1 2 3" (parsers)) 'shell))                       ((shell "1" "2" "3"))
-  (first-value (repl-parse(string->parsectx            ; must return the same as parsing "(1 2 3)"
-     "{#!scheme 1 2 3}" (parsers)) 'scheme))           ((1 2 3))
+     "1 2 3" (parsers)) 'shell))                        ((shell "1" "2" "3"))
+  (first-value (repl-parse(string->parsectx             ; must return the same as parsing "(1 2 3)"
+     "{#!scheme 1 2 3}" (parsers)) 'scheme))            ((1 2 3))
   ;; ideally would return the same as previous test,
   ;; but deciding to omit the (shell ...) wrapper is tricky
   (first-value (repl-parse (string->parsectx
-     "{#!scheme 1 2 3}" (parsers)) 'shell))            ((shell (1 2 3)))
+     "{#!scheme 1 2 3}" (parsers)) 'shell))             ((shell (1 2 3)))
 
 )

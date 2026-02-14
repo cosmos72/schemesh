@@ -199,43 +199,43 @@
 ;; easy wrapper for (make-wire-writer)
 (define to-json
   (case-lambda
-    ((out)
-      (make-json-writer out))
-    (()
-      (make-json-writer (sh-port #f 1 'binary)))))
+    ((reader out)
+      (copy-all/close reader (make-json-writer out)))
+    ((reader)
+      (to-json reader (sh-port #f 1 'binary)))))
 
 
-;; easy wrappwe for (list-writer)
-(define (to-list)
-  (list-writer))
+;; easy wrapper for (list-writer)
+(define (to-list reader)
+  (copy-all/close reader (list-writer)))
 
 
 ;; easy wrapper for (make-queue-writer)
-(define (to-queue)
-  (make-queue-writer))
+(define (to-queue reader)
+  (copy-all/close reader (make-queue-writer)))
 
 
 ;; easy wrapper for (make-table-writer)
 (define to-table
   (case-lambda
-    ((out)
-      (make-table-writer out))
-    (()
-      (make-table-writer (sh-port #f 1 'textual)))))
+    ((reader out)
+      (copy-all/close reader (make-table-writer out)))
+    ((reader)
+      (to-table reader (sh-port #f 1 'textual)))))
 
 
 ;; easy wrapper for (vector-writer)
-(define (to-vector)
-  (vector-writer))
+(define (to-vector reader)
+  (copy-all/close reader (vector-writer)))
 
 
 ;; easy wrapper for (make-wire-writer)
 (define to-wire
   (case-lambda
-    ((out)
-      (make-wire-writer out))
-    (()
-      (make-wire-writer (sh-port #f 1 'binary)))))
+    ((reader out)
+      (copy-all/close reader (make-wire-writer out)))
+    ((reader)
+      (to-wire reader (sh-port #f 1 'binary)))))
 
 
 ;; create a reader that autodetects protocol upon the first call to (obj-reader-get)
@@ -248,8 +248,8 @@
 ;;   tty    => make-table-writer
 ;;   socket => make-wire-writer
 ;;   else   => make-json-writer
-(define (to-stdout)
-  (to-table))
+(define (to-stdout reader)
+  (to-table reader))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -305,11 +305,6 @@
                                                         #(<type> left right dirty-start-y dirty-end-y dirty? width
                                                           height prompt-end-x prompt-end-y cursor-ix cursor-iy))
 
-  ;; test (select) and renaming fields
-  (==> list-reader (list (make-vscreen))
-    => select left right dirty? (width w) (height h)
-    => all)                                            ,((<type> vscreen left (span) right (span (vline "")) dirty? #f w 80 h 24))
-
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)
   (datum->wire "\xFF;")                                #vu8(3 41 1 255)

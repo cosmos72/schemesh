@@ -24,8 +24,8 @@ provides basic utility functions and macros.
 
 ### Functions and macros
 
-##### (==>)
-Macro `==>` introduces a DSL for chaining/threading multiple functions or macro invocations.
+##### <span id="arrow">(==>)</span>
+Macro `==>` introduces a DSL for chaining/threading multiple function or macro invocations.
 
 Recognizes the following auxiliary keywords:
 * `=>`     : unconditional chaining
@@ -34,7 +34,7 @@ Recognizes the following auxiliary keywords:
 
 Syntax `(==> ...)` must be followed by one or more function or macro invocations.
 
-Each functions or macro invocation is **not** enclosed in parentheses: it is instead delimited by the aux keywords `=>` `?=>`
+Each functions or macro invocation is **not** enclosed in parentheses: it is instead delimited by the aux keywords `=>` or `?=>`
 Examples: `(==> a foo => b bar => c baz)` or `(==> a foo ?=> b bar ?=> c baz)`
 
 The call to each function or macro is inserted literally into the next one, before the first argument of the next function or macro or, if present, at the position of placeholder `_`
@@ -54,7 +54,7 @@ Examples:
 | `(==> a foo => b bar _ => c baz)` | `(c (b bar (a foo)) baz)`           |
 
 Keyword `?=>` adds short-circuit logic, i.e. if the function call at its left evaluates to `#f`,
-the chain immediately evaluates to `#f` without executing the remaining functions. Examples:
+the chain immediately evaluates to `#f` without calling the remaining functions. Examples:
 <table>
   <thead>
     <tr>
@@ -114,7 +114,7 @@ Note: the keywords `=>` `?=>` `_` are recognized by symbol `eq?`, i.e. the ident
 
 The keywords `=>` `?=>` `_` are recognized **only** if they appear at top level. They are **not** recognized if they appear inside parentheses.
 
-##### <span id="arrow">(assert*)</span>
+##### (assert*)
 TO BE DOCUMENTED
 
 ##### (assert-not*)
