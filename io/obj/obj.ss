@@ -33,7 +33,7 @@
   (export
     ;; obj/reader.ss
     make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
-    in-reader constant-reader empty-reader list-reader iterator-reader vector-reader reader->list reader->vector
+    for-reader in-reader constant-reader empty-reader list-reader iterator-reader vector-reader reader->list reader->vector
 
     ;; obj/filter-reader.ss
     make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip filter-reader-inner
@@ -51,7 +51,7 @@
     (rnrs)
     (only (chezscheme)                    box box-cas! fx1+ fx1- include logbit? procedure-arity-mask
                                           record-type-descriptor record-writer reverse! unbox void)
-    (only (scheme2k bootstrap)            assert* forever fx<=?* raise-errorf void1))
+    (only (scheme2k bootstrap)            assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
 
 
 ;; private reimplementation of (list-reverse->vector)

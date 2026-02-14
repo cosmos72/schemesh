@@ -21,13 +21,12 @@
     (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset
                                              fx1+ fx1- fx/ list-copy logbit? make-date make-time procedure-arity-mask reverse!
                                              time? time-type time-second time-nanosecond void)
-    (only (scheme2k bootstrap)               assert* let-macro)
+    (only (scheme2k bootstrap)               assert* for let-macro)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers date)         date date-compare date-equiv?)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
     (only (scheme2k containers hashtable)    eq-hashtable hash-cursor hash-cursor-next! in-hash)
     (only (scheme2k containers list)         plist? plist-ref in-plist)
-    (only (scheme2k containers macros)       for)
           (scheme2k containers ordered-hash)
     (only (scheme2k containers time)         make-time-utc time-compare time-equiv?)
     (only (scheme2k containers span)         span span? span-insert-left! span-insert-left/vector! span-insert-right/vector!

@@ -146,6 +146,69 @@
     (make-obj-reader %empty-reader #f #f)))
 
 
+(define-syntax for-reader-inner-part
+  (syntax-rules ()
+    ((_ () () () body ...)
+      (begin0 body ...))
+    ((_ (var vars ...) (ok? oks ...) (rx rxs ...) body ...)
+      ;; (let-values (((var ok?) (obj-reader-get rx))) expands to more verbose code
+      (call-with-values
+        (lambda ()
+          (obj-reader-get rx))
+        (lambda (var ok?)
+          (when ok?
+            (for-reader-inner-part (vars ...) (oks ...) (rxs ...)
+              body ...)))))))
+
+
+;; Iterate in parallel on elements of given obj-readers rx ..., and evaluate body ... on each element.
+;; Stop iterating when any reader is exhausted, and return unspecified value.
+;;
+;; If no readers are specified, behave as (forever body ...)
+(define-syntax for-reader
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((var rx) ...) body ...)
+        (with-syntax (((ok? ...) (generate-pretty-temporaries #'(var ...)))
+                      ((trx ...) (generate-pretty-temporaries #'(rx ...))))
+          #'(let* ((trx rx) ...)
+              (let for-reader-loop ()
+                (for-reader-inner-part (var ...) (ok? ...) (trx ...)
+                  (with-while-until
+                    body ...
+                    (for-reader-loop))))))))))
+
+
+;; create and return a iterator, i.e. a closure that accepts zero arguments and, at each call,
+;; will return the two values returned by calling (obj-reader-get rx):
+;;   either (values elem #t) i.e. the next generated value,
+;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close rx) has been called.
+;;
+;; This function effectively converts an obj-reader to a iterator, and could reasonably be named `reader->iterator`,
+;; although by convention iterators are created by functions `in-TYPE`
+(define (in-reader rx)
+  (assert* 'in-reader (obj-reader? rx))
+  (lambda ()
+    (obj-reader-get rx)))
+
+
+;; create and return an obj-reader that generates the elements of specified unary iterator, one at time.
+;; each call to (obj-reader-get rx) will return two values:
+;;  either (values elem #t) i.e. the next element from the iterator
+;;  or (values #<unspecified> #f) when the iterator is exhausted or after (obj-reader-close rx) has been called.
+;;
+;; This function effectively converts a iterator to an obj-reader, and could reasonably be named `iterator->reader`
+;; although by convention readers are created by functions `TYPE-reader`
+(define (iterator-reader iter)
+  (assert* 'iterator-reader (procedure? iter))
+  (assert* 'iterator-reader (logbit? 0 (procedure-arity-mask iter)))
+  (let ((%iterator-reader ;; name shown when displaying the closure
+          (lambda (rx) (iter))))
+    (make-obj-reader %iterator-reader #f #f)))
+
+
 ;; create and return an obj-reader that generates the elements of specified list.
 ;; each call to (obj-reader-get rx) will return two values:
 ;;  either (values elem #t) i.e. the next element from the list
@@ -185,34 +248,6 @@
         (make-obj-reader %vector-reader #f #f)))
     ((v)
       (vector-reader v 0 (vector-length v)))))
-
-
-;; create and return an obj-reader that generates the elements of specified unary iterator, one at time.
-;; each call to (obj-reader-get rx) will return two values:
-;;  either (values elem #t) i.e. the next element from the iterator
-;;  or (values #<unspecified> #f) when the iterator is exhausted or after (obj-reader-close rx) has been called.
-;;
-;; This function effectively converts a iterator to an obj-reader, and could reasonably be named `iterator->reader`
-;; although by convention readers are created by functions `TYPE-reader`
-(define (iterator-reader seq)
-  (assert* 'iterator-reader (procedure? seq))
-  (assert* 'iterator-reader (logbit? 0 (procedure-arity-mask seq)))
-  (let ((%iterator-reader ;; name shown when displaying the closure
-          (lambda (rx) (seq))))
-    (make-obj-reader %iterator-reader #f #f)))
-
-
-;; create and return a iterator, i.e. a closure that accepts zero arguments and, at each call,
-;; will return the two values returned by calling (obj-reader-get rx):
-;;   either (values elem #t) i.e. the next generated value,
-;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close rx) has been called.
-;;
-;; This function effectively converts an obj-reader to a iterator, and could reasonably be named `reader->iterator`,
-;; although by convention iterators are created by functions `in-TYPE`
-(define (in-reader rx)
-  (assert* 'in-reader (obj-reader? rx))
-  (lambda ()
-    (obj-reader-get rx)))
 
 
 ;; Read all elements from specified obj-reader, collect them into a list, and return such list.

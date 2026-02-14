@@ -23,7 +23,6 @@
           (scheme2k containers gbuffer)
           (scheme2k containers list)
           (scheme2k containers hashtable)
-          (scheme2k containers macros)
           (scheme2k containers ordered-hash)
           (scheme2k containers sort)
           (scheme2k containers span)

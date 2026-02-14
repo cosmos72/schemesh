@@ -33,7 +33,6 @@
   (include "containers/sort.ss")        ; requires containers/span.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
   (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
-  (include "containers/macros.ss")
   (include "containers/time.ss")        ; requires containers/utf8b.ss
   (include "containers/date.ss")        ; requires containers/time.ss
   (include "containers/containers.ss")

@@ -15,12 +15,11 @@
   (import
     (rnrs)
     (only (chezscheme)                 datum format fx1- meta parameterize reverse! void)
-    (scheme2k bootstrap)
+          (scheme2k bootstrap)
     (only (scheme2k containers list)   for-list in-list)
-    (only (scheme2k containers macros) begin0 lambda0 let0 let*-pairs0)
     (only (scheme2k posix fd)          fd-close)
     (only (scheme2k posix pattern)     wildcard?)
-    (schemesh shell job)
+          (schemesh shell job)
     (only (schemesh shell eval)        sh-read-file sh-dynamic-wind))
 
 ;; wraps shell DSL

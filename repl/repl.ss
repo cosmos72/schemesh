@@ -32,7 +32,6 @@
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers list) for-list)
-          (scheme2k containers macros)
           (scheme2k containers span)
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)

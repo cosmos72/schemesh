@@ -13,10 +13,9 @@
   (import
     (rnrs)
     (only (chezscheme)                       date? format fx1+ fx1- fx/ time? time-second void)
-    (only (scheme2k bootstrap)               assert* debugf)
+    (only (scheme2k bootstrap)               assert* for)
     (only (scheme2k containers bytespan)     bytespan-clear! bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
     (only (scheme2k containers date)         date->string)
-    (only (scheme2k containers macros)       for)
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
     (only (scheme2k containers span)         for-span span span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)

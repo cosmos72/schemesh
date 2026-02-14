@@ -14,9 +14,8 @@
 
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
-      forever first-value first-value-or-void let1 let-macro raise-assert* repeat reverse-macro
-      second-value with-locked-objects while until with-while-until
-      throws? trace-call trace-define try list->values values->list
+      first-value first-value-or-void let-macro raise-assert* reverse-macro
+      second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
       ;; functions.ss
       bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
@@ -30,18 +29,22 @@
 
       sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number
 
-      void1 void^)
+      void1 void^
+
+      ;; macros.ss
+      begin0 for forever if0 lambda0 let0 let1 let*-pairs0 let-values0 repeat unless0 until when0 while with-while-until)
   (import
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
     (only (chezscheme) append! console-error-port current-time disable-interrupts enable-interrupts
-                       format foreign-procedure fx1+ fx1- fx/ gensym list-copy list-head lock-object
+                       format foreign-procedure fx1+ fx1- fx/ gensym include list-copy list-head lock-object
                        meta pariah reverse! time-second time-nanosecond unlock-object void)
     (scheme2k bootstrap arrow)
     (scheme2k bootstrap functions))
 
 
+(include "bootstrap/macros.ss")
 
 ;; convert a list to multiple values
 (define (list->values l)
@@ -265,75 +268,6 @@
           (let ((rets (values->list (begin body1 body2 ...))))
             (begin (debugf "<- ~s rets ~s\targs ~s" 'name rets (list arg ...)))
             (list->values rets)))))))
-
-
-;; version of (begin) that also accepts empty body
-;; currently always expands to (begin ...) as the latter also accepts empty body on Chez
-(define-syntax begin0
-  (syntax-rules ()
-    ((_)                 (begin))
-    ((_ body)            body)
-    ((_ body1 body2 ...) (begin body1 body2 ...))))
-
-
-;; version of (lambda) that also accepts empty body
-(define-syntax lambda0
-  (syntax-rules ()
-    ((_ args)                 (lambda args void))
-    ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
-
-
-(define-syntax with-while-until
-  (syntax-rules (while until)
-    ((_)
-      (void))
-    ((_ body1)
-      body1)
-    ((_ body1 body2)
-      (begin body1 body2))
-    ((_ while pred body1 body2 ...)
-      (when pred (with-while-until body1 body2 ...)))
-    ((_ until pred body1 body2 ...)
-      (unless pred (with-while-until body1 body2 ...)))
-    ((_ body1 body2 body3 ...)
-      (begin body1 (with-while-until body2 body3 ...)))))
-
-
-(define-syntax forever
-  (syntax-rules ()
-    ((_ body ...)  (let %forever ()
-                     (with-while-until
-                       body ... (%forever))))))
-
-
-(define-syntax repeat
-  (syntax-rules ()
-    ((_ n body ...) (let %repeat ((i 0))
-                      (when (fx<? i n)
-                        (with-while-until
-                          body ... (%repeat (fx1+ i))))))))
-
-
-(define-syntax while
-  (syntax-rules ()
-    ((_ pred body ...) (let %while ()
-                         (when pred
-                           (with-while-until
-                             body ... (%while)))))))
-
-
-(define-syntax until
-  (syntax-rules ()
-    ((_ pred body ...) (let %until ()
-                         (unless pred
-                           (with-while-until
-                             body ... (%until)))))))
-
-(define-syntax let1
-  (syntax-rules ()
-    ((_ var expr body ...)
-      (let ((var expr))
-        body ...))))
 
 
 (define-syntax try

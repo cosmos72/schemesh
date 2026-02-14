@@ -19,7 +19,7 @@
     (rename (rnrs)                        (fxarithmetic-shift-left fx<<))
     (only (chezscheme)                    fx1+ fx1- include logbit? make-time port-closed? procedure-arity-mask ratnum?
                                           record-writer reverse! string-truncate! time-type time-second time-nanosecond void)
-    (only (scheme2k bootstrap)            assert* assert-not* raise-errorf)
+    (only (scheme2k bootstrap)            assert* assert-not* for raise-errorf)
     (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right!
                                           bytespan-display-right/integer! bytespan-display-right/unsigned-k-digits!
                                           bytespan-insert-right/bytevector! bytespan-insert-right/u8!
@@ -28,7 +28,6 @@
     (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add plist-ref)
-    (only (scheme2k containers macros)    for)
     (only (scheme2k containers ordered-hash) in-ordered-hash ordered-hash-keys ordered-hash-set!)
     (only (scheme2k containers span)      for-span span span? span-insert-right! span-length span-ref)
     (only (scheme2k containers string)    string-index-right)
