@@ -10,6 +10,18 @@
 ;; this file should be included only by file repl/repl.ss
 
 
+;; evaluate body ... with var ... bound to expr ... then always call (close expr-value) ...
+;; even if body raises a condition or calls a continuation
+;;
+;; If used from a sh-expr, (close expr-value) ... will be called when job finishes.
+(define-syntax with-sh-closable
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin0 body ...))
+    ((_ ((var expr) ...) body ...)
+      (with-sh-resource ((var expr close) ...) body ...))))
+
+
 ;; easy wrapper for (fd-read-all) (get-bytevector-all) (get-string-all) (reader->list)
 (define (all from)
   (cond
@@ -115,14 +127,14 @@
 ;; always returns one value:
 ;;   #t if one element was skipped,
 ;;   or #f if reader is exhausted
-(define (skip from)
+(define (skip! from)
   (cond
     ((and (port? from) (textual-port? from))
       (not (eof-object? (get-line from))))
     ((obj-reader? from)
       (obj-reader-skip from))
     (else
-      (raise-errorf 'skip "unsupported reader: ~s" from))))
+      (raise-errorf 'skip! "unsupported reader: ~s" from))))
 
 
 ;; iterate (get from) then (put to) until from is exhausted
@@ -140,24 +152,29 @@
 ;;
 ;; return value of (close to)
 (define (copy-all/close from to)
-  (let ((ret #f))
-    (dynamic-wind
-      void  ; before
-      (lambda () (copy-all from to))
-      (lambda () (close from) (set! ret (close to))))
-    ret))
+  (let ((%close-and-val
+           (let ((closed-from? #f)
+                 (closed-to?   #f)
+                 (val          #f))
+             (lambda ()
+               (unless closed-from?
+                 (close from)
+                 (set! closed-from? #t))
+               (unless closed-to?
+                 (set! val (close to))
+                 (set! closed-to? #t))
+               val))))
+    (sh-dynamic-wind
+      void              ; before
+      (lambda ()
+        (copy-all from to)
+        (%close-and-val))
+      void              ; after
+      %close-and-val))) ; on-finish
 
 
-;; evaluate body ... with var ... bound to expr ... then always call (close expr-value) ...
-;; even if body raises a condition or calls a continuation
-;;
-;; If used from a sh-expr, (close expr-value) ... will be called when job finishes.
-(define-syntax with-sh-closable
-  (syntax-rules ()
-    ((_ () body ...)
-      (begin0 body ...))
-    ((_ ((var expr) ...) body ...)
-      (with-sh-resource ((var expr close) ...) body ...))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; from-....
 
 
 ;; easy wrapper for (make-json-reader)
@@ -196,60 +213,66 @@
       (make-json-reader (sh-port #f 0 'binary)))))
 
 
-;; easy wrapper for (make-wire-writer)
-(define to-json
-  (case-lambda
-    ((reader out)
-      (copy-all/close reader (make-json-writer out)))
-    ((reader)
-      (to-json reader (sh-port #f 1 'binary)))))
-
-
-;; easy wrapper for (list-writer)
-(define (to-list reader)
-  (copy-all/close reader (list-writer)))
-
-
-;; easy wrapper for (make-queue-writer)
-(define (to-queue reader)
-  (copy-all/close reader (make-queue-writer)))
-
-
-;; easy wrapper for (make-table-writer)
-(define to-table
-  (case-lambda
-    ((reader out)
-      (copy-all/close reader (make-table-writer out)))
-    ((reader)
-      (to-table reader (sh-port #f 1 'textual)))))
-
-
-;; easy wrapper for (vector-writer)
-(define (to-vector reader)
-  (copy-all/close reader (vector-writer)))
-
-
-;; easy wrapper for (make-wire-writer)
-(define to-wire
-  (case-lambda
-    ((reader out)
-      (copy-all/close reader (make-wire-writer out)))
-    ((reader)
-      (to-wire reader (sh-port #f 1 'binary)))))
-
-
 ;; create a reader that autodetects protocol upon the first call to (obj-reader-get)
 ;; FIXME: currently always creates a json-reader
 (define (from-stdin)
   (from-json))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; to-....
+
+
+;; easy wrapper for (make-wire-writer)
+(define to-json
+  (case-lambda
+    ((from out)
+      (copy-all/close from (make-json-writer out)))
+    ((from)
+      (to-json from (sh-port #f 1 'binary)))))
+
+
+;; easy wrapper for (all)
+(define (to-list from)
+  (with-sh-closable ((from from))
+    (all from)))
+
+
+;; easy wrapper for (make-queue-writer)
+(define (to-queue from)
+  (copy-all/close from (make-queue-writer)))
+
+
+;; easy wrapper for (make-table-writer)
+(define to-table
+  (case-lambda
+    ((from out)
+      (copy-all/close from (make-table-writer out)))
+    ((from)
+      (to-table from (sh-port #f 1 'textual)))))
+
+
+;; easy wrapper for (all/vector)
+(define (to-vector from)
+  (with-sh-closable ((from from))
+    (all/vector from)))
+
+
+;; easy wrapper for (make-wire-writer)
+(define to-wire
+  (case-lambda
+    ((from out)
+      (copy-all/close from (make-wire-writer out)))
+    ((from)
+      (to-wire from (sh-port #f 1 'binary)))))
+
+
 ;; TODO: choose writer protocol depending on optional arguments or stdout fd type:
 ;;   tty    => make-table-writer
 ;;   socket => make-wire-writer
 ;;   else   => make-json-writer
-(define (to-stdout reader)
-  (to-table reader))
+(define (to-stdout from)
+  (to-table from))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -270,7 +293,7 @@
 (define-syntax select
   (lambda (stx)
     (syntax-case stx ()
-      ((_ rx field-name ...)
+      ((_ reader field-name ...)
         (do ((l (syntax->datum #'(field-name ...)) (cdr l)))
             ((null? l))
           (let ((old-name-new-name (car l)))
@@ -278,7 +301,7 @@
               (assert* 'select (fx=? 2 (length old-name-new-name)))
               (assert* 'select (symbol? (car old-name-new-name)))
               (assert* 'select (symbol? (cadr old-name-new-name))))))
-        #'(make-field-reader rx '(field-name ...))))))
+        #'(make-field-reader reader '(field-name ...))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -294,11 +317,11 @@
 ;;
 ;; Note: works, but changes the meaning of unquote, and forces user-provided code to insert unquote in unexpected places,
 ;; thus breaks quasiquoting, both inside (where) own's definition and inside expressions passed to (where)
-;; Also breaks (expand `(where rx user-provided-form-containing-unquote))
+;; Also breaks (expand `(where reader user-provided-form-containing-unquote))
 ;;
 ;; See (where@) for a cleaner alternative.
-(define-macro (where rx expr)
-  (list 'make-filter-reader rx
+(define-macro (where reader expr)
+  (list 'make-filter-reader reader
      (list 'lambda '(elem cache)
        (list 'let-syntax '((@@ (identifier-syntax elem)))
          (list 'let-macro '((unquote name) (list 'field 'elem (list 'quote name) 'cache))
@@ -313,8 +336,8 @@
 ;;   or one or more symbols @@ that will be expanded to the element being processed.
 ;;
 ;; Cleaner than (where), as it only changes the meaning of seldom-used @ and @@
-(define-macro (where@ rx expr)
-  `(make-filter-reader ,rx
+(define-macro (where@ reader expr)
+  `(make-filter-reader ,reader
      (lambda (elem cache)
        (let-syntax ((@@ (identifier-syntax elem))
                     (@  (syntax-rules ()

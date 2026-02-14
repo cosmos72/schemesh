@@ -257,7 +257,7 @@
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
 ;; behavior depends on (sh-current-job):
 ;;
-;; if (sh-current-job) is a sh-expr, behaves as dynamic-wind:
+;; if (sh-current-job) is a sh-expr, behaves similarly to dynamic-wind:
 ;;   (before) is called again before re-entering (proc),
 ;;   (after) is called again before re-leaving (proc),
 ;;   and (on-finish) is called only when (sh-current-job) finishes.

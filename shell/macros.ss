@@ -260,24 +260,24 @@
       (in-list (shell-glob . args)))))
 
 
-;; evaluate body ... with variables var ... bound to expr ..., then always call (close expr-value) ...
+;; evaluate body ... with variables var ... bound to expr ..., then always call (close-proc expr-value) ...
 ;; even if body ... raises a condition or calls a continuation
 ;;
-;; If used from a sh-expr, (close expr-value) ... will be called when job finishes.
+;; If used from a sh-expr, (close-proc expr-value) ... will be called when job finishes.
 (define-syntax with-sh-resource
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #`(begin0 body ...))
       ((_ ((var expr close-proc) ...) body ...)
-        (with-syntax (((obj   ...) (generate-pretty-temporaries #'(var ...)))
-                      ((close ...) (generate-pretty-temporaries #'(close-proc ...))))
-          #`(let*-pairs0 ((obj expr close close-proc) ...)
+        (with-syntax (((tvar   ...) (generate-pretty-temporaries #'(var ...)))
+                      ((tclose ...) (generate-pretty-temporaries #'(close-proc ...))))
+          #`(let*-pairs0 ((tvar expr tclose close-proc) ...)
               (sh-dynamic-wind
                 void
-                (lambda () (let0 ((var obj) ...) body ...))
+                (lambda () (let0 ((var tvar) ...) body ...))
                 void
-                (lambda () (reverse-macro (close obj) ...)))))))))
+                (lambda () (reverse-macro (tclose tvar) ...)))))))))
 
 
 

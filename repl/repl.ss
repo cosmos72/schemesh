@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir eof? get put proc select skip where where@ with-sh-closable
+          all all/vector close copy-all copy-all/close dir eof? get put proc select skip! where where@ with-sh-closable
           from-stdin from-json from-list from-queue from-vector from-wire
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire   to-table
 
@@ -55,7 +55,7 @@
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind
        sh-exception-handler sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
-       sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/)
+       sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 
 
