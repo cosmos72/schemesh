@@ -41,6 +41,9 @@
     ;; obj/nested-reader.ss
     nested-reader nested-reader? nested-reader-inner nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
 
+    ;; obj/range-reader.ss
+    make-range-reader range-reader range-reader? range-reader-get range-reader-eof? range-reader-close range-reader-skip range-reader-inner
+
     ;; obj/writer.ss
     make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
     discard-writer full-writer list-writer vector-writer)
@@ -73,6 +76,7 @@
 
 (include "io/obj/nested-reader.ss")
 (include "io/obj/filter-reader.ss")
+(include "io/obj/range-reader.ss")
 
 
 (define (filter-reader-display r port writer label)

@@ -30,7 +30,7 @@
   (nongenerative %filter-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; Create and return a filter-reader that wraps a user-provided reader.
+;; Create and return a filter-reader that wraps another "inner" reader.
 ;;
 ;; At each call to (obj-reader-get) or (filter-reader-get)
 ;; reads one element from the wrapped reader, then checks value returned by (pred element):
@@ -51,7 +51,7 @@
       (let* ((pred-arity-mask        (bitwise-and 6 (procedure-arity-mask pred)))
              (pred-accepts-one-arg?  (not (fxzero? (fxand 2 pred-arity-mask))))
              (pred-accepts-two-args? (not (fxzero? (fxand 4 pred-arity-mask)))))
-        (assert* 'make-filter-reader (or pred-accepts-one-arg? pred-accepts-two-args? ))
+        (assert* 'make-filter-reader (or pred-accepts-one-arg? pred-accepts-two-args?))
         (%make-filter-reader
           inner
           (if pred-accepts-two-args?
