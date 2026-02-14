@@ -16,6 +16,7 @@
     (only (scheme2k bootstrap)               assert* for)
     (only (scheme2k containers bytespan)     bytespan-clear! bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
     (only (scheme2k containers date)         date->string)
+    (only (scheme2k containers hashtable)    hashtable eq-hashtable)
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
     (only (scheme2k containers span)         for-span span span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)
@@ -37,6 +38,7 @@
   (fields
     out                   ; textual output port
     theme                 ; 'basic or 'default
+    color?                ; boolean
     cols                  ; ordered-hash field-name -> column
     rows                  ; span, contains rows to be written. Each row is a ordered-hash field-name -> string
     wbuf                  ; bytespan, write buffer
@@ -48,7 +50,7 @@
     (lambda (args->new)
       (lambda (out close-out? cache)
         ((args->new %table-writer-put %table-writer-close)
-          out 'default (make-eq-ordered-hash) (span) (make-bytespan 0) #f #t #f (and close-out? #t)))))
+          out 'default #t (make-eq-ordered-hash) (span) (make-bytespan 0) #f #t #f (and close-out? #t)))))
   (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
@@ -184,6 +186,48 @@
   (put-char out (corner theme x y)))
 
 
+(define color-green       (begin "\x1b;[32m"))
+(define color-bold-black  (begin "\x1b;[1;30m"))
+(define color-bold-red    (begin "\x1b;[1;31m"))
+(define color-bold-yellow (begin "\x1b;[1;33m"))
+(define color-bold-cyan   (begin "\x1b;[1;36m"))
+(define color-bold-white  (begin "\x1b;[1;37m"))
+
+
+(define (put-color-header out theme)
+  (unless (eq? 'basic theme)
+    (put-string out color-green)))
+
+
+(define cell-colors-table
+  (hashtable string-hash string=?
+    "dir-entry"     (eq-hashtable 'name color-bold-white)
+    "process-entry" (eq-hashtable 'name color-bold-white
+                                  'state (hashtable string-hash string=?
+                                           "D" color-bold-yellow
+                                           "R" color-bold-red
+                                           "Z" color-bold-black))))
+
+
+(define (put-color-cell out theme row-type k v)
+  (unless (eq? 'basic theme)
+    (when (string? row-type)
+      (let ((colors (hashtable-ref cell-colors-table row-type #f)))
+        (when colors
+          (let ((color (hashtable-ref colors k #f)))
+            (when color
+              (let ((vcolor (cond ((not color)     #f)
+                                  ((string? color) color)
+                                  (else            (hashtable-ref color v #f)))))
+                (when vcolor
+                  (put-string out vcolor))))))))))
+
+
+(define (put-nocolor out theme)
+  (unless (eq? 'basic theme)
+    (put-string out "\x1b;[m")))
+
+
 (define (column-put-dashes col out theme x y)
   (put-corner out theme x y)
   (let ((width (or (column-width col) (column-maxlen col))))
@@ -202,42 +246,56 @@
     (newline out)))
 
 
-(define (column-put-name col out theme)
-  (put-vbar out theme)
-  (let* ((name    (column-name col))
-         (len (string-length name))
-         (width   (or (column-width col) (column-maxlen col)))
-         (pad     (fx- width len))
-         (lpad    (fx/ pad 2))
-         (rpad    (fx- pad lpad)))
-    ;; (debugf "; column-put-name name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
+(define (display-header-cell tx col)
+  (let* ((name   (column-name col))
+         (len    (string-length name))
+         (width  (or (column-width col) (column-maxlen col)))
+         (pad    (fx- width len))
+         (lpad   (fx/ pad 2))
+         (rpad   (fx- pad lpad))
+         (out    (table-writer-out tx))
+         (theme  (table-writer-theme tx))
+         (color? (table-writer-color? tx)))
+    (put-vbar out theme)
+    ;; (debugf "; display-header-cell name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
     (put-spaces out lpad)
+    (when color?
+      (put-color-header out theme))
     (put-string out name)
+    (when color?
+      (put-nocolor out theme))
     (put-spaces out rpad)))
 
 
-(define (put-string+pad out str col)
-  (let* ((len    (string-length str))
+(define (display-row-cell tx col row-type k v)
+  (let* ((len    (string-length v))
          (width  (or (column-width col) (column-maxlen col)))
          (align  (column-align col))
-         (pad    (fx- width len)))
-    ;; (debugf "; column-put-name str ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" str len width pad lpad rpad)
+         (pad    (fx- width len))
+         (out    (table-writer-out tx))
+         (theme  (table-writer-theme tx))
+         (color? (table-writer-color? tx)))
+    ;; (debugf "; put-cell v ~s, len ~s, width ~s, pad ~s, v len width pad)
     (when (eq? 'right align)
       (put-spaces out pad))
-    (put-string out str)
+    (when color?
+      (put-color-cell out theme row-type k v))
+    (put-string out v)
+    (when color?
+      (put-nocolor out theme))
     (unless (eq? 'right align)
       (put-spaces out pad))))
 
 
 (define (display-header tx)
   (when (table-writer-header? tx)
-    (let ((cols  (table-writer-cols  tx))
-          (out   (table-writer-out   tx))
-          (theme (table-writer-theme tx)))
+    (let ((cols   (table-writer-cols   tx))
+          (out    (table-writer-out    tx))
+          (theme  (table-writer-theme  tx)))
       (unless (ordered-hash-empty? cols)
         (table-put-dashes tx 0)
         (for-ordered-hash ((k col cols))
-          (column-put-name col out theme))
+          (display-header-cell tx col))
         (put-vbar out theme)
         (newline out)
         (table-put-dashes tx 1)))
@@ -246,12 +304,14 @@
 
 
 (define (display-row tx row)
-  (let ((out   (table-writer-out   tx))
-        (theme (table-writer-theme tx))
-        (cols  (table-writer-cols  tx)))
+  (let ((out    (table-writer-out    tx))
+        (theme  (table-writer-theme  tx))
+        (color? (table-writer-color? tx))
+        (cols   (table-writer-cols   tx))
+        (row-type (ordered-hash-ref row _type #f)))
     (for-ordered-hash ((k col cols))
       (put-vbar out theme)
-      (put-string+pad out (ordered-hash-ref row k "") col))
+      (display-row-cell tx col row-type k (ordered-hash-ref row k "")))
     (put-vbar out theme)
     (newline out)))
 
@@ -329,10 +389,11 @@
 ;; called by (table-writer-close) and (obj-writer-close)
 (define (%table-writer-close tx)
   (display-all tx)
-  ;; close out only if table-writer constructor was called with truish close-out?
   (let ((out (table-writer-out tx)))
     (if (table-writer-close-out? tx)
+      ;; close out only if table-writer constructor was called with truish close-out?
       (close-port out)
+      ;; otherwise only flush it
       (flush-output-port out))))
 
 
