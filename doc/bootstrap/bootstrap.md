@@ -25,7 +25,7 @@ provides basic utility functions and macros.
 ### Functions and macros
 
 ##### <span id="arrow">(==>)</span>
-Macro `==>` introduces a DSL for chaining/threading multiple function or macro invocations.
+Macro `==>` introduces a DSL for chaining/threading multiple expressions.
 
 It recognizes the following auxiliary keywords:
 * `=>`     unconditional chaining
@@ -35,9 +35,9 @@ It recognizes the following auxiliary keywords:
 Syntax `(==> ...)` must be followed by one or more expressions.
 
 Each expression is **not** enclosed in parentheses: it is instead delimited by the aux keywords `=>` or `?=>`
-Examples: `(==> a foo => b bar => c baz)` or `(==> a foo ?=> b bar ?=> c baz)`
+<br/>Examples: `(==> a foo => b bar => c baz)` or `(==> a foo ?=> b bar ?=> c baz)`
 
-Each expression is inserted literally into the next one, before the first argument or, if present, at the position of placeholder `_`
+Each expression is inserted literally into the next one: before the first argument or, if present, at the position of placeholder `_`
 
 Examples:
 | syntax                            | expands to                          |
