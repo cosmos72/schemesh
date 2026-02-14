@@ -12,7 +12,7 @@
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
-    fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set!
+    fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set! fd-type
     file->fd pipe-fds raise-c-errno)
   (import
     (rnrs)
@@ -306,6 +306,30 @@
           ((zero? ret) #f)
           ((> ret 0)   #t)
           (else        (raise-c-errno 'fd-nonblock? 'fcntl ret fd)))))))
+
+
+;; Get type of a file descriptor.
+;; Mandatory argument fd should be an exact integer >= 0.
+;;
+;; If successful, return its type which is one of the symbols:
+;;   'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket 'tty
+;; Otherwise return c-errno < 0.
+;;
+;; Should never raise condition.
+(define fd-type
+  (let ((c-fd-type (foreign-procedure "c_fd_type" (int) int))
+        (fd-types '#(unknown fifo chardev dir blockdev file symlink socket tty)))
+    (lambda (fd)
+      (if (and (or (fixnum? fd)
+                   (and (integer? fd) (exact? fd)))
+               (<= 0 fd #x7fffffff)) ; C int is usually 32-bit
+        (let ((ret (c-fd-type fd)))
+          (cond
+            ((and (fixnum? ret) (fx>=? ret 0))
+              (if (fx<=? 0 ret 8) (vector-ref fd-types ret) 'unknown))
+            (else
+                ret)))
+        c-errno-einval))))
 
 
 ;; set specified file descriptor to non-blocking or blocking mode.

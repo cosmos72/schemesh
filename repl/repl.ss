@@ -45,7 +45,7 @@
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k os)              make-process-reader)
           (schemesh parser)
-    (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-write-all)
+    (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all)
     (only (scheme2k posix fs)        file-type make-dir-reader)
           (scheme2k posix signal)
           (scheme2k posix tty)
@@ -53,7 +53,7 @@
        repl-args repl-args-linectx repl-history repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind
        sh-exception-handler sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
+       sh-fd sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
        sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 

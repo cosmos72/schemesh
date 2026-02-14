@@ -737,6 +737,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_fd_nonblock_get", &c_fd_nonblock_get);
   Sregister_symbol("c_fd_nonblock_set", &c_fd_nonblock_set);
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
+  Sregister_symbol("c_fd_type", &c_fd_type);
   Sregister_symbol("c_file_fd", &c_file_fd);
   Sregister_symbol("c_pipe_fds", &c_pipe_fds);
 

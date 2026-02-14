@@ -48,9 +48,10 @@
     close-out?)           ; boolean, #t if closing the table-writer must close the underlying textual output port
   (protocol
     (lambda (args->new)
-      (lambda (out close-out? cache)
+      (lambda (out close-out? theme color? cache)
         ((args->new %table-writer-put %table-writer-close)
-          out 'default #t (make-eq-ordered-hash) (span) (make-bytespan 0) #f #t #f (and close-out? #t)))))
+          out theme (and color? #t) (make-eq-ordered-hash) (span) (make-bytespan 0)
+          cache #t #f (and close-out? #t)))))
   (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
@@ -67,20 +68,29 @@
 ;; If a table-writer should take ownership of the textual output port passed to the constructor,
 ;; then the optional argument close-out? must be truish.
 ;;
-;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
+;; Optional argument:
+;;   close-out? - if truish, closing this writer will close output-port out
+;;   theme     - a symbol. Currently supported values are: 'basic 'default
+;;   color?   - if truish, enable colors
+;;   cache   - must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
 (define make-table-writer
   (case-lambda
-    ((out close-out? cache)
+    ((out close-out? theme color? cache)
       (assert* 'make-table-writer (port? out))
       (assert* 'make-table-writer (textual-port? out))
       (assert* 'make-table-writer (output-port? out))
-      (%make-table-writer out close-out? cache))
-    ((out close-out?)
-      (make-table-writer out close-out? #f))
+      (assert* 'make-table-writer (symbol? theme))
+      (when cache
+        (assert* 'make-table-writer (hashtable? cache)))
+      (%make-table-writer out close-out? theme color? cache))
+    ((out close-out? theme color?)
+      (make-table-writer out close-out? theme color? #f))
+    ((out close-out? theme)
+      (make-table-writer out close-out? theme #f #f))
     ((out)
-      (make-table-writer out #f #f))
+      (make-table-writer out #f 'default #f #f))
     (()
-      (make-table-writer (current-output-port) #f #f))))
+      (make-table-writer (current-output-port) #f 'default #f #f))))
 
 
 (define (table-writer-eof? tx)

@@ -59,6 +59,7 @@ typedef enum {
   e_type_reg     = 5,
   e_type_lnk     = 6,
   e_type_sock    = 7,
+  e_type_tty     = 8,
 } e_type;
 
 /**
@@ -359,9 +360,9 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
  *   S_IFSOCK   -> e_type_sock = 7
  *   otherwise  -> e_type_unknown  = 0
  */
-static ptr c_stat_type(const mode_t s_type) {
+static int c_stat_type(const mode_t s_type) {
   e_type type;
-  switch (s_type) {
+  switch (s_type & S_IFMT) {
     case S_IFBLK:
       type = e_type_blk;
       break;
@@ -387,7 +388,11 @@ static ptr c_stat_type(const mode_t s_type) {
       type = e_type_unknown;
       break;
   }
-  return Sfixnum(type);
+  return type;
+}
+
+static ptr c_stat_type_fixnum(const mode_t s_type) {
+  return Sfixnum(c_stat_type(s_type));
 }
 
 /**
@@ -431,6 +436,26 @@ static ptr c_dirent_type(unsigned char d_type) {
       break;
   }
   return Sfixnum(type);
+}
+
+/**
+ * Return type of a file descriptor.
+ *
+ * If fstat() is successful, return fd type as a Scheme integer corresponding to enum e_type.
+ *
+ * On errors, return Scheme integer -errno
+ */
+static int c_fd_type(int fd) {
+  struct stat statbuf;
+  const int   err = fstat(fd, &statbuf);
+  if (err == 0) {
+    int type = c_stat_type(statbuf.st_mode);
+    if (type == e_type_chr && isatty(fd)) {
+      type = e_type_tty;
+    }
+    return type;
+  }
+  return c_errno();
 }
 
 /**
@@ -504,7 +529,7 @@ static ptr c_dirent_type2(DIR*                dir,
   if (keep_symlinks == 0 && (d_type == DT_LNK || d_type == DT_UNKNOWN)) {
     struct stat buf;
     if (fstatat(dirfd(dir), filename, &buf, 0) == 0) {
-      return c_stat_type(buf.st_mode & S_IFMT);
+      return c_stat_type_fixnum(buf.st_mode);
     }
   }
   return c_dirent_type(d_type);
@@ -538,7 +563,7 @@ static ptr c_file_type(ptr bytevector0_path, int keep_symlinks) {
     err = lstat(path, &buf);
   }
   if (err == 0) {
-    return c_stat_type(buf.st_mode & S_IFMT);
+    return c_stat_type_fixnum(buf.st_mode);
   }
   err = errno;
   if (err == ENOENT) {

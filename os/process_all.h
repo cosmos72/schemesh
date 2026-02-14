@@ -167,7 +167,7 @@ enum {
 #include "process_unsupported.h"
 #endif
 
-static void stat_fd(int fd, int64_t* uid, int64_t* gid) {
+static void fd_stat_uid_gid(int fd, int64_t* uid, int64_t* gid) {
   if (uid || gid) {
     struct stat statbuf;
     const int   err = fstat(fd, &statbuf);
@@ -188,7 +188,7 @@ static unsigned char* read_file_at(
   if (fd < 0) {
     return NULL;
   }
-  stat_fd(fd, uid, gid);
+  fd_stat_uid_gid(fd, uid, gid);
   n = read(fd, dst, dstlen - 1);
   close(fd);
   end      = n < 0 ? 0 : (size_t)n < dstlen ? (size_t)n : dstlen - 1;

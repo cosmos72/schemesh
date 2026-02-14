@@ -384,7 +384,7 @@
 ;;               instead of the type of the file they point to.
 ;;
 ;; If file exists, return its type which is one of:
-;;   'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;   'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
 ;; Returns #f if file does not exist.
 ;;
 (define file-type
@@ -439,7 +439,7 @@
 ;;
 ;; if option 'type is specified, returns a list of pairs (filename . type) where:
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
-;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;  each type is one of: 'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
 ;;
 ;; if option 'type is not specified, returns a list of filename where:
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
@@ -479,7 +479,7 @@
 ;;
 ;; returns a list of pairs (filename . type) where:
 ;;   each filename is a either a bytevector (if options contain 'bytes) or a string
-;;   each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;   each type is one of: 'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
 (define directory-list-type
   (case-lambda
     ((dirpath)

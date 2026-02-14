@@ -246,10 +246,14 @@
 ;; easy wrapper for (make-table-writer)
 (define to-table
   (case-lambda
+    ((from out theme color?)
+      (copy-all/close from (make-table-writer out #f theme color? #f)))
+    ((from out theme)
+      (to-table from out theme #f))
     ((from out)
-      (copy-all/close from (make-table-writer out)))
+      (to-table from out 'default #f))
     ((from)
-      (to-table from (sh-port #f 1 'textual)))))
+      (to-table from (sh-port #f 1 'textual) 'default (eq? 'tty (fd-type (sh-fd 1)))))))
 
 
 ;; easy wrapper for (all/vector)
@@ -267,12 +271,18 @@
       (to-wire from (sh-port #f 1 'binary)))))
 
 
-;; TODO: choose writer protocol depending on optional arguments or stdout fd type:
-;;   tty    => make-table-writer
-;;   socket => make-wire-writer
-;;   else   => make-json-writer
+;; Dispatch to one of (to-...) functions depending on stdout fd type:
+;;   tty chardev => to-table
+;;   socket      => to-wire
+;;   else        => to-json
 (define (to-stdout from)
-  (to-table from))
+  (case (fd-type (sh-fd 1))
+    ((tty chardev)
+      (to-table from (sh-port #f 1 'textual) 'default #t))
+    ((socket)
+      (to-wire from))
+    (else
+      (to-json from))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
