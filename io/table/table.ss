@@ -17,8 +17,9 @@
     (only (scheme2k containers bytespan)     bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
     (only (scheme2k containers charspan)     charspan)
     (only (scheme2k containers date)         date->string)
-    (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-ref ordered-hash-set!)
-    (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
+    (only (scheme2k containers macros)       for)
+    (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
+    (only (scheme2k containers span)         for-span span span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
@@ -27,6 +28,7 @@
 (define-record-type column
   (fields
     name                  ; field-name, converted to string
+    align                 ; symbol, 'right if column must be right-aligned
     (mutable maxlen)      ; maximum length of strings in this column
     (mutable width))      ; chosen column width
   (nongenerative %table-column-7c46d04b-34f4-4046-b5c7-b63753c1be40))
@@ -178,33 +180,27 @@
 
 
 (define (put-string+pad out str col)
-  (let* ((len   (string-length str))
+  (let* ((len    (string-length str))
          (width  (or (column-width col) (column-maxlen col)))
+         (align  (column-align col))
          (pad    (fx- width len)))
     ;; (debugf "; column-name-put str ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" str len width pad lpad rpad)
+    (when (eq? 'right align)
+      (put-spaces out pad))
     (put-string out str)
-    (put-spaces out pad)))
+    (unless (eq? 'right align)
+      (put-spaces out pad))))
 
 
 (define (display-header tx)
   (when (table-writer-header? tx)
-    (let ((rows (table-writer-rows tx))
-          (cols (table-writer-cols tx))
+    (let ((cols (table-writer-cols tx))
           (out  (table-writer-out tx)))
-      (unless (span-empty? rows)
-        (for-span ((row rows))
-          (for-ordered-hash ((k v row))
-            (unless (eq? _type k)
-              (let ((col (or (ordered-hash-ref cols k #f)
-                             (let* ((name (symbol->string k))
-                                    (col  (make-column name (string-length name) #f)))
-                               (ordered-hash-set! cols k col)
-                               col))))
-                (column-maxlen-set! col (fxmax (column-maxlen col)
-                                               (string-length v)))))))
-
+      (unless (ordered-hash-empty? cols)
         (table-dashes-put tx)
-        (for-ordered-hash ((k col cols)) (column-name-put   col out)) (put-string out "|\n")
+        (for-ordered-hash ((k col cols))
+          (column-name-put col out))
+        (put-string out "|\n")
         (table-dashes-put tx)))
     (table-writer-header?-set! tx #f)
     (table-writer-footer?-set! tx #t)))
@@ -238,8 +234,12 @@
 ;; FIXME: use reflection recursively and create nested tables?
 (define (datum->string datum)
   (cond
+    ((or (not datum) (eq? (void) datum))
+      "")
     ((string? datum)
       datum)
+    ((date? datum)
+      (date->string datum))
     ((time? datum)
       ;; (if (eq? 'time-utc (time-type datum))
       ;;  (date->string (time-utc->date datum))
@@ -247,22 +247,36 @@
       (let ((wbuf (make-bytespan 0)))
         (bytespan-display-left/integer! wbuf (time-second datum))
         (latin1-bytespan->string wbuf)))
-    ((date? datum)
-      (date->string datum))
+    ((and (integer? datum) (exact? datum))
+      (let ((wbuf (make-bytespan 0)))
+        (bytespan-display-left/integer! wbuf datum)
+        (latin1-bytespan->string wbuf)))
     (else
       (format #f "~s" datum))))
 
 
+(define (update-column tx k v str)
+  (unless (eq? _type k)
+    (let* ((cols (table-writer-cols tx))
+           (col  (or (ordered-hash-ref cols k #f)
+                     (let* ((name (symbol->string k))
+                            (col  (make-column name
+                                               (if (or (number? v) (time? v)) 'right 'left)
+                                               (string-length name)
+                                               #f)))
+                       (ordered-hash-set! cols k col)
+                       col))))
+      (column-maxlen-set! col (fxmax (column-maxlen col)
+                                     (string-length str))))))
+
+
 (define (obj->row tx obj)
-  (let %obj->row ((seq  (in-table-fields obj (ensure-cache tx)))
-                  (row  (make-eq-ordered-hash)))
-    (let-values (((key value ok?) (seq)))
-      (cond
-        (ok?
-          (ordered-hash-set! row key (datum->string value))
-          (%obj->row seq row))
-        (else
-          row)))))
+  (let ((row  (make-eq-ordered-hash)))
+    (for ((k v (in-table-fields obj (ensure-cache tx))))
+      (let ((str (datum->string v)))
+        (ordered-hash-set! row k str)
+        (update-column tx k v str)))
+    row))
 
 
 ;; called by (table-writer-put) and (obj-writer-put)
