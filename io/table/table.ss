@@ -205,8 +205,7 @@
 
 
 (define (put-color-header out theme)
-  (unless (eq? 'basic theme)
-    (put-string out color-green)))
+  (put-string out color-green))
 
 
 (define cell-colors-table
@@ -220,22 +219,20 @@
 
 
 (define (put-color-cell out theme row-type k v)
-  (unless (eq? 'basic theme)
-    (when (string? row-type)
-      (let ((colors (hashtable-ref cell-colors-table row-type #f)))
-        (when colors
-          (let ((color (hashtable-ref colors k #f)))
-            (when color
-              (let ((vcolor (cond ((not color)     #f)
-                                  ((string? color) color)
-                                  (else            (hashtable-ref color v #f)))))
-                (when vcolor
-                  (put-string out vcolor))))))))))
+  (when (string? row-type)
+    (let ((colors (hashtable-ref cell-colors-table row-type #f)))
+      (when colors
+        (let ((color (hashtable-ref colors k #f)))
+          (when color
+            (let ((vcolor (cond ((not color)     #f)
+                                ((string? color) color)
+                                (else            (hashtable-ref color v #f)))))
+              (when vcolor
+                (put-string out vcolor)))))))))
 
 
 (define (put-nocolor out theme)
-  (unless (eq? 'basic theme)
-    (put-string out "\x1b;[m")))
+  (put-string out "\x1b;[m"))
 
 
 (define (column-put-dashes col out theme x y)
