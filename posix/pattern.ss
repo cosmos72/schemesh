@@ -466,7 +466,6 @@
           (%again (fx1+ str-pos))))))) ; called if recursive match failed: try again skipping one more character
 
 
-
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
 ;; which ends with '* matches range [str-start, str-end) of string str.
 ;;
@@ -544,11 +543,6 @@
   (do ((i sp-start (fx1+ i)))
       ((or (fx>=? i sp-end) (not (eq? key (span-ref sp i))))
         (fx>=? i sp-end))))
-
-
-
-
-
 
 
 ;;  customize how "sh-pattern" objects are printed

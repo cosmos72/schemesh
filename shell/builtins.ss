@@ -133,7 +133,6 @@ The following names are recognized as builtins:\n\n")
             (failed 1)))))))
 
 
-
 ;; return gbuffer containing previous commands saved to history,
 ;; or #f if not available.
 (define repl-history
@@ -177,7 +176,6 @@ The following names are recognized as builtins:\n\n")
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
 (define (sh-true . ignored-args)
   (void))
-
 
 
 ;; implementation of "ulimit" builtin, modifies getrlimit() values and copies them to file descriptor 1.
@@ -289,7 +287,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
   (bytespan-insert-right/u8! wbuf 10))) ;; newline
 
 
-
 ;; the "echo" builtin: write arguments to (sh-fd 1)
 ;; separating each pair with a #\space and terminating them with a #\newline
 ;;
@@ -358,7 +355,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
   (if (null? prog-and-args)
     builtin-true ; empty command line, run it with (builtin-true)
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
-
 
 
 ;; function returning the global hashtable name -> builtin.

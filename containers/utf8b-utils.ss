@@ -189,8 +189,6 @@
       (else 0)))) ; should not happen
 
 
-
-
 ;; read byte range [start, end) from bytespan at offset idx, interpret
 ;; bytes as UTF-8b sequence and convert them to the corresponding char.
 ;;

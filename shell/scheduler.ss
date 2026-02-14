@@ -88,7 +88,6 @@
         (lambda () body1 body2 ...)))))
 
 
-
 ;; Internal function called by (job-wait)
 (define (pid-advance caller job wait-flags)
   ; (debugf "> pid-advance wait-flags=~s job=~s pid=~s status=~s" wait-flags job (job-pid job) (job-last-status job))
@@ -117,7 +116,6 @@
     (job-status-set/running! job)))
 
 
-
 ;; Internal function called by (pid-advance)
 (define (pid-advance-wait caller job wait-flags pid pgid signal-name)
   (when signal-name
@@ -140,7 +138,6 @@
         new-status)
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))
-
 
 
 (define (maybe-queue-job-display-summary job)

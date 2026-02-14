@@ -116,8 +116,6 @@
           (flvector-set! dst (fx+ i dst-start) (flvector-ref src (fx+ i src-start))))))))
 
 
-
-
 ;; Iterate in parallel on elements of given flvector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest flvector is exhausted,
 ;; and return unspecified value.

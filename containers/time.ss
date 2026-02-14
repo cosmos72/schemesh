@@ -94,7 +94,6 @@
     (latin1-bytespan->string wbuf)))
 
 
-
 ;; customize how "time" objects are printed
 (record-writer (record-rtd (make-time 'time-duration 0 0))
   (lambda (t out writer)

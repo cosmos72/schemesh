@@ -109,7 +109,6 @@
     (lambda () ht)))
 
 
-
 (define (show-aliases)
   (let ((wbuf    (make-bytespan 0))
         (aliases (span))

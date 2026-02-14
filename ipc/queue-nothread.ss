@@ -28,7 +28,12 @@
 
 (include "ipc/queue-common.ss")
 
-;; create and return a queue-writer.
+;; Create and return a queue-writer, which is a subtype of obj-writer,
+;; and writes arbitrary datum to a thread-safe, in-memory unlimited queue.
+;;
+;; Not used often, most of the time (make-queue-pair) is a better choice.
+;;
+;; Optional argument must be #f or a symbol. Defaults to #f
 (define make-queue-writer
   (case-lambda
     (()

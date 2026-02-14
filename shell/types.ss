@@ -100,7 +100,6 @@
     (hashtable-delete! (sh-pid-table) pid)))
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;   manage job's id, pid and pgid   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -118,8 +117,6 @@
 ;; return the process group id of a job-or-id, or #f if not set
 (define (sh-job-pgid job-or-id)
   (job-pgid (sh-job job-or-id)))
-
-
 
 
 ;; set the process id of specified job

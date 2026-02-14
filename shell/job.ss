@@ -142,7 +142,6 @@
 (include "shell/status.ss")
 
 
-
 ;; call (proc job) on given job and each of its parents.
 ;; Stops iterating if (proc ...) returns #f.
 ;;
@@ -351,7 +350,6 @@
   (job-last-status job))
 
 
-
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
 ;; If job status is (running) update it to (running job-id)
 ;; Return updated job status
@@ -407,8 +405,6 @@
         (job-id-unset! job))
       (else
         status))))
-
-
 
 
 ;; Convert job-or-id to job.

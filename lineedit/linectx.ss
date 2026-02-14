@@ -130,8 +130,6 @@
   (vscreen-prompt-length-set! (linectx-vscreen lctx) prompt-len))
 
 
-
-
 (define linectx-default-keytable (make-eq-hashtable))
 
 ;; Variant of (make-linectx) where all arguments are mandatory
@@ -165,7 +163,6 @@
       0 history)))                ; history
 
 
-
 ;; Create and return a linectx
 (define make-linectx
   (case-lambda
@@ -186,7 +183,6 @@
   (vscreen-clear! (linectx-vscreen lctx))
   (linectx-paren-set! lctx #f)
   (linectx-return-set! lctx #f))
-
 
 
 ;; Write all pending output to tty.
@@ -268,8 +264,6 @@
     (display-condition ex port)
     (newline port)
     (flush-output-port port)))
-
-
 
 
 (define (linectx-clipboard-clear! lctx)
@@ -381,7 +375,6 @@
         (unless (logbit? 1 (procedure-arity-mask proc))
           (raise-errorf 'sh-current-autocomplete-proc "~s is not a is not a procedure accepting 1 argument" proc)))
       proc)))
-
 
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it

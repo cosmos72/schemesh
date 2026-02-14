@@ -456,7 +456,6 @@
   )
 
 
-
 ;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
 (define (%list-shell-env lctx prefix completions)
@@ -475,7 +474,6 @@
   (span-sort! charspan<? completions)
   ; (debugf "%list-shell-env completions sorted = ~s" completions)
   )
-
 
 
 ;; list builtins, aliases and programs in $PATH that start with prefix,

@@ -289,7 +289,6 @@
       #f))
 
 
-
 ;; Kill current job and call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;; If current job is not an sh-expr or is not running, immediately return #f.
@@ -316,8 +315,6 @@
 ;; If current job is later resumed, it eventually returns #t to the caller of (sh-current-job-suspend).
 (define (sh-current-job-suspend signal-name)
   (jexpr-suspend (sh-current-job) signal-name))
-
-
 
 
 (meta begin
@@ -535,7 +532,6 @@
             (if (and (sh-job? job) (job-started? job))
               (multijob-current-child-index-set! g id)
               (%loop-left (fx1- id)))))))))
-
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:

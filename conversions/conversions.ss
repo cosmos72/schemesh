@@ -204,7 +204,6 @@
       (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
 
 
-
 ;; convert a bytevector, string or charspan to string.
 ;; uses UTF-8b to convert bytes to characters.
 (define (text->string x)

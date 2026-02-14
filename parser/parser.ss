@@ -95,7 +95,6 @@
     (current-parse-paren pctx start-ch)))
 
 
-
 ;; Function stored by (make-parenmatcher) into created parenmatcher:
 ;;
 ;; parse textual input port (parsectx-in pctx) until end-of-file
@@ -117,8 +116,6 @@
 ;; Create a parenmatcher that uses parse-paren to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
   (make-custom-parenmatcher parse-paren-all))
-
-
 
 
 ) ; close library

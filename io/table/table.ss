@@ -256,7 +256,6 @@
     (newline out)))
 
 
-
 (define (display-footer tx)
   (when (table-writer-footer? tx)
     (table-put-dashes tx 2)

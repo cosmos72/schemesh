@@ -108,7 +108,6 @@
       (scheme2k posix replacements)))    ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
 
 
-
   ;; library (scheme2k) collects and exports *all* bindings defined by all LGPLv2+ libschemesh sub-libraries,
   ;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
   ;; because they are intended as replacements

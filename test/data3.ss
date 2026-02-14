@@ -91,6 +91,14 @@
   (let ((r (list-reader '(1 2 3 4 5))))
     (all (first (skip r 2) 2)))                         (3 4)
 
+
+  ;; ------------------ for-reader ---------------------------------------------
+
+  (let ((l '()))
+    (for-reader ((obj (==> list-reader '(1 2 3 4 5) => where (fxodd? @@))))
+      (set! l (cons obj l)))
+    (reverse! l))                                       (1 3 5)
+
   ;; ------------------ queue-reader and queue-writer --------------------------
 
   (let* ((tx (make-queue-writer))
@@ -507,7 +515,7 @@ B=2})                                                  ,@"#<void>"
     => select left right dirty? (width w) (height h)
     => all)                                             ,((<type> vscreen left (span) right (span (vline "")) dirty? #f w 80 h 24))
 
-  ;; test (to-list) and redirecting its output
+  ;; test (to-list) and (vector-reader)
   (==> vector-reader
          (vector (make-time-utc 1234567890 0)
                  (make-time-utc 9876543210 1))

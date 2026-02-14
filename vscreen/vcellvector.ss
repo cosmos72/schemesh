@@ -15,7 +15,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-
 ;; create a vcellvector containing n cells.
 ;; If vcell is specified, then vcellvector is filled with it.
 ;; Otherwise it is filled with (vcell #\x0).
@@ -106,7 +105,6 @@
     (vcellvector-set! clv-dst di (vcell (string-ref str-src si)))))
 
 
-
 ;; convert list of cells or characters to vcellvector
 (define (list->vcellvector c-list)
   (let* ((n   (length c-list))
@@ -155,7 +153,6 @@
       (vcellvector-display clv 0 (vcellvector-length clv) port))
     ((clv)
       (vcellvector-display clv 0 (vcellvector-length clv) (current-output-port)))))
-
 
 
 ;; write a range of vcellvector, including colors, to textual output port

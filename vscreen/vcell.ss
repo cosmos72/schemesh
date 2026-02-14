@@ -223,7 +223,6 @@
       (bytespan-display-right/fixnum!    wbuf (fxnot fg)))))
 
 
-
 ;; append to bytespan the ANSI escape sequences for setting terminal foreground color.
 (define (vcolor-bg-display/bytespan fg wbuf)
   (cond
@@ -262,7 +261,6 @@
   (vcolor-fg-display/bytespan (and cols (vcolors->fg cols)) wbuf)
   (vcolor-bg-display/bytespan (and cols (vcolors->bg cols)) wbuf)
   (bytespan-insert-right/u8! wbuf 109))
-
 
 
 ;; send to textual port the ANSI escape sequences for setting

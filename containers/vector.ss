@@ -103,7 +103,6 @@
        (fx>=? i n))))
 
 
-
 ;; Iterate in parallel on elements of given vector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest vector is exhausted,
 ;; and return unspecified value.
@@ -297,7 +296,6 @@
             (%vector-index (fx1+ i) n proc vecs)))))))
 
 
-
 ;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,
 ;; which must be cons cells, and inserts them into caller-provided hashtable htable:
 ;; (car cell) is used as key, and (cdr cell) is used ad value.
@@ -347,7 +345,6 @@
       (in-fxvector v start end 1))
     ((v)
       (in-fxvector v 0 (fxvector-length v) 1))))
-
 
 
 ) ; close library

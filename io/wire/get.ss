@@ -73,7 +73,6 @@
         (values #f #f)))))
 
 
-
 ;; also reads tag, unlike most other (get/...) functions
 ;; returns two values: deserialized exact integer and updated pos,
 ;; or (values #f #f) on errors

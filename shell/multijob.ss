@@ -107,8 +107,6 @@
        (or (eq? token '&) (eq? token '\x3B;))))
 
 
-
-
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 (define (make-multijob kind validate-job-proc start-proc step-proc children-jobs)
@@ -191,8 +189,6 @@
       (sh-wait job))))
 
 
-
-
 ;; Internal function stored in (job-start-proc job) by (sh-and),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
@@ -210,8 +206,6 @@
         (job-status-set! 'mj-and-start job (void))
         ; Do not yet assign a job-id.
         (mj-and-step job (void))))))
-
-
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-or),
@@ -248,7 +242,6 @@
       (job-env/apply-lazy! job 'export)
       ;; Do not yet assign a job-id.
       (mj-not-step job (void)))))
-
 
 
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
@@ -310,7 +303,6 @@
         (job-status-set! 'mj-and-step mj prev-child-status)))))
 
 
-
 ;; Run next child job in a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
 (define (mj-or-step mj prev-child-status)
@@ -330,7 +322,6 @@
         ; previous child successful, or interrupted, or end of children
         (multijob-current-child-index-set! mj -1)
         (job-status-set! 'mj-or-step mj prev-child-status)))))
-
 
 
 ;; Run the child job in a multijob containing a "not" and one child job,
@@ -357,7 +348,6 @@
             ((ok? prev-child-status) (failed 1))
             ((status-ends-multijob? prev-child-status) prev-child-status)
             (else (void))))))))
-
 
 
 ;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;

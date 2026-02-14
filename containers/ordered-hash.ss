@@ -334,7 +334,6 @@
       #f)))
 
 
-
 ;; create and return a closure that iterates on elements of hashtable t.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns three values:

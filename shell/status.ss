@@ -49,7 +49,6 @@
   (status->kind (job-last-status job)))
 
 
-
 ;; Return #t if job status is '(new ...), otherwise return #f
 (define (job-new? job)
   (new? (job-last-status job)))

@@ -190,7 +190,6 @@
           (values value type))))))
 
 
-
 ;; Read a single, simple or compound shell command from textual input port 'in'
 ;; Stops at end-of-file.
 ;; Raises if multiple forms are parsed.
@@ -404,8 +403,6 @@
       ((eof lparen) #t)
       ((separator)  (read-shell-char ctx) #t) ; consume semicolon or newline
       (else         #f))))
-
-
 
 
 (define dollar+lparen 1)

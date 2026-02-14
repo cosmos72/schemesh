@@ -418,9 +418,6 @@
       #vu8())))
 
 
-
-
-
 ;; List contents of a filesystem directory, in arbitrary order.
 ;; WARNING: Chez Scheme also defines a function (directory-list) with different options.
 ;;
@@ -491,7 +488,6 @@
        (directory-list dirpath (cons 'types options)))))
 
 
-
 ;; in-place sort dir-list, which must have the same structure as the output
 ;; of (directory-list) or (directory-list-type)
 ;; i.e. it must be a possibly empty list of strings, or list of bytevectors,
@@ -541,7 +537,8 @@
 ;; customize how "dir-reader" objects are printed
 (record-writer (record-type-descriptor dir-reader)
   (lambda (rx port writer)
-    (put-string port "(make-dir-reader ")
+    (put-string port "#<dir-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
     (writer (dir-reader-path rx) port)
     (put-string port ")")))
 

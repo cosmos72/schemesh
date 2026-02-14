@@ -218,9 +218,7 @@
       (values start (if (and slash quest) (fxmin slash quest) (or slash quest end))))))
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 
 ;; create and return an INET (i.e. IPv4) socket endpoint

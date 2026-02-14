@@ -140,7 +140,6 @@
     jexpr-initial-resume-proc))
 
 
-
 ;; React to a SIGCHLD: if job is an sh-expr,
 ;; check whether some other job stopped (TBD: or was killed?)
 ;; and in such case suspend job.

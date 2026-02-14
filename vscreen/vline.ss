@@ -288,6 +288,5 @@
 (define vline-display/bytespan vbuffer-display/bytespan)
 
 
-
 ;; write a textual representation of vline to output port
 (define vline-write vbuffer-write)

@@ -212,7 +212,6 @@
   (job-status-set! 'mj-pipe-advance-wait-stop mj status))
 
 
-
 ;; returns updated job status
 (define (mj-pipe-advance-wait caller mj wait-flags k-stop)
   ; (debugf ">   mj-pipe-advance-wait wait-flags=~s mj=~s" mj wait-flags)

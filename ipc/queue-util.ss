@@ -36,22 +36,22 @@
 ;; customize how "queue-reader" objects are printed
 (record-writer (record-type-descriptor queue-reader)
   (lambda (rx port writer)
+    (put-string port "#<queue-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof" " ok"))
     (let ((name (queue-reader-name rx)))
-      (if name
-        (begin
-          (display "#<queue-reader " port)
-          (display name port)
-          (display ">" port))
-        (display "#<queue-reader>" port)))))
+      (when name
+        (put-char port #\space)
+        (display name port)))
+    (put-char port #\>)))
 
 
 ;; customize how "queue-writer" objects are printed
 (record-writer (record-type-descriptor queue-writer)
   (lambda (tx port writer)
+    (put-string port "#<queue-writer")
+    (put-string port (if (obj-writer-eof? tx) " eof" " ok"))
     (let ((name (queue-writer-name tx)))
-      (if name
-        (begin
-          (display "#<queue-writer " port)
-          (display name port)
-          (display ">" port))
-        (display "#<queue-writer>" port)))))
+      (when name
+        (put-char port #\space)
+        (display name port)))
+    (put-char port #\>)))

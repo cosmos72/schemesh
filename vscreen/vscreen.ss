@@ -211,7 +211,6 @@
     (vscreen-prompt-length-set! screen len)))
 
 
-
 ;; remove all existing lines from screen, insert a new empty line, and set cursor to 0 0.
 (define (vscreen-clear! screen)
   (vscreen-dirty-set! screen #t)
@@ -239,7 +238,6 @@
   (if (and (fxzero? y) (fx=? 1 (vscreen-length screen)))
     (vline-clear! (vlines-ref screen 0))
     (vlines-delete-at! screen y)))
-
 
 
 ;; move vscreen cursor n characters to the left.
@@ -410,7 +408,6 @@
       (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n))
     ((screen n)
       (vscreen-delete-right/n! screen n #f))))
-
 
 
 (define (clipboard-insert-vscreen/left! clipboard screen n)
@@ -671,7 +668,6 @@
         (vline-delete! line1 x+1 line1-end+1))
         ;; (debugf "vscreen-insert-at-xy/newline! after  moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
       (vscreen-reflow screen))))
-
 
 
 ;; insert a character or cell, which can be a #\newline, into vscreen at cursor position

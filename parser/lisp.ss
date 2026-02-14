@@ -32,8 +32,6 @@
 (include "parser/lisp-token.ss")
 
 
-
-
 ;; Return the symbol, converted to string,
 ;; of most token types returned by (lex-lisp),
 ;;
@@ -301,7 +299,6 @@
             (paren-inner-append! paren
               (parse-lisp-paren-inner ctx flavor ch))))))
     (char? ret)))
-
 
 
 ;; skip characters until the end of double-quoted string

@@ -41,7 +41,6 @@
       (make-stateful-parameter initial-value (lambda (old-value new-value) new-value)))))
 
 
-
 (define (job-control-available-change! old-flag new-flag)
   (cond
     ((not (boolean? new-flag))

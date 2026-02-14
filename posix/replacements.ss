@@ -171,8 +171,6 @@
     ((port string start n) (chez:put-string-some port string start n))))
 
 
-
-
 (define c-errno-enotdir ((foreign-procedure "c_errno_enotdir" () int)))
 
 

@@ -164,7 +164,6 @@
     (void)))
 
 
-
 ;; the "cd" builtin: set current directory of job's parent.
 ;; For safety, throws an exception if setting current directory fails.
 ;;
@@ -215,7 +214,6 @@
   (and (pair? l)
        (null? (cdr l))
        (string->integer-or-false (car l))))
-
 
 
 ;; return home directory of specified username, which must be a string.

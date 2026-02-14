@@ -199,7 +199,6 @@
   (sh-eval (sh-read-file* path initial-parser enabled-parsers)))
 
 
-
 ;; read and parse multi-language source contents from specified file descriptor,
 ;; and return parsed form.
 ;; arguments:

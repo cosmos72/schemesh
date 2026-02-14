@@ -18,7 +18,6 @@
   (nongenerative tport-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
-
 (define (tport-bspan-length t)
   (bytespan-length (tport-bspan t)))
 
@@ -244,6 +243,5 @@
   (port->utf8b-port
      (fd->binary-port fd dir b-mode name proc-on-close)
      dir b-mode))
-
 
 

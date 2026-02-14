@@ -74,6 +74,3 @@
         (make-time type nanosecond second)
         pos)
       (values #f #f))))
-
-
-

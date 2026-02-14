@@ -321,7 +321,6 @@
         (write-builtin-error "set" "too many arguments"))))) ; returns (failed 1)
 
 
-
 ;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\x0
 ;; then run whatever command, builtin or alias is at the first string of the command line.
 ;;
@@ -437,7 +436,6 @@
                   (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
             status
             (%warn-bad-builtin-exit-status builtin args status))))))) ; returns (void)
-
 
 
 ;; always returns (void). Useful for (builtin-start)

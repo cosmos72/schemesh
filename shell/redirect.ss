@@ -265,7 +265,6 @@
       (sh-start/ports job '(0 <& 1 >& 2 >&) 'textual 'block '()))))
 
 
-
 ;; if status is one of:
 ;;   (exception ...)
 ;;   (killed 'sigint)
@@ -356,7 +355,6 @@
         (sh-wait/fd-read-all job read-fd)))
     ((job)
       (sh-run/bytevector job '()))))
-
 
 
 ;; Start a job and wait for it to exit.
@@ -526,7 +524,6 @@
           (%job-find-redirection (fx- 4 i)))))))
 
 
-
 ;; given a job redirection index, return the direction of such redirection,
 ;; represented as one of: 'read 'write 'rw
 ;; or #f if index is out-of-range or not a fixnum
@@ -557,9 +554,7 @@
                     str))))))))))
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 
 ;; called when starting a builtin or multijob:
@@ -603,7 +598,6 @@
         (s-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
     (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
-
 
 
 ;; extract the destination fd or bytevector0 from a redirection
@@ -747,7 +741,6 @@
          (let ((ports (job-ports parent)))
            (and ports
                 (hashtable-ref ports (fxnot remapped-fd) #f))))))
-
 
 
 ;; Return the actual file descriptor to use inside a job

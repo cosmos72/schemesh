@@ -40,7 +40,6 @@
   (nongenerative %status-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-
 ;; return #t if s is a status, otherwise return #f
 (define (status? status)
   (or (eq? (void) status) (%status? status)))
@@ -127,7 +126,6 @@
   (if (eq? (void) status)
     'ok
     (%status->kind status)))
-
 
 
 ;; if (ok? status) is #t, return the first result stored in status.

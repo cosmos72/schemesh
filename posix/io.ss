@@ -39,7 +39,6 @@
     (only (scheme2k posix fd)               fd-close fd-seek fd-read fd-write file->fd))
 
 
-
 (define (b-mode->input-buffer-size b-mode)
   (case b-mode
     ((none) 1) ;; r6rs custom ports do not support zero input-buffer-size
@@ -52,7 +51,6 @@
     ((none) 1) ;; r6rs custom ports do not support zero output-buffer-size
     ((line) 128)
     (else   8192)))
-
 
 
 (define (%set-binary-buffer-mode! port b-mode)

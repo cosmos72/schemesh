@@ -279,7 +279,6 @@
                 (lambda () (reverse-macro (tclose tvar) ...)))))))))
 
 
-
 ;; evaluate body ... with parameters param ... set to expr ...,
 ;; then always restore param ... and call (close expr-value) ...,
 ;; even if body ... raises a condition or calls a continuation

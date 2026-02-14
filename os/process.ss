@@ -222,7 +222,8 @@
 ;; customize how "process-reader" objects are printed
 (record-writer (record-type-descriptor process-reader)
   (lambda (rx port writer)
-    (put-string port "(make-process-reader)")))
+    (put-string port "#<process-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof>" " ok>"))))
 
 
 ;; customize how "process-entry" objects are printed

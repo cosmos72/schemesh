@@ -202,7 +202,6 @@
                     (%for-list (cdr tail) ...))))))))))
 
 
-
 ;; apply proc element-wise to the elements of the lists,
 ;; stop at the first truish value returned by (proc elem ...) and return the *index* of such value.
 ;;
@@ -257,7 +256,6 @@
     (let ((item (car tail)))
       (when (memq item items)
         (set-car! tail (list 'quote item))))))
-
 
 
 ;; (list-reverse*! l) destructively reverses list l,
@@ -372,7 +370,6 @@
   (cons key (cons value plist)))
 
 
-
 ;; given a property list plist, i.e. a list containing alternate keys and values,
 ;; find the first key eq? to specified key and return the corresponding value.
 ;;
@@ -424,7 +421,6 @@
         (%plist-delete/pred (cons (cadr plist) (cons (car plist) ret))
                             (cddr plist)
                             pred)))))
-
 
 
 ;; create and return a closure that iterates on elements of property list plist.

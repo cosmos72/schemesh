@@ -91,14 +91,11 @@
 (include "lineedit/lineterm.ss")
 
 
-
 (define (lineedit-flush lctx)
   (linectx-flush lctx))
 
 (define (lineedit-clear! lctx)
   (linectx-clear! lctx))
-
-
 
 
 ;; possibly save current linectx-vscreen to history,
@@ -108,8 +105,6 @@
   (assert-vlines? 'lineedit-lines-set! lines)
   (linectx-to-history* lctx)
   (vscreen-assign*! (linectx-vscreen lctx) lines))
-
-
 
 
 ;; read up to n bytes from rbuf and insert them into current line.
@@ -179,8 +174,6 @@
       ((fx>? x 0) (values (fx1- x) y))
       ((fx>? y 0) (values (fx1- (vscreen-length-at-y screen (fx1- y))) (fx1- y)))
       (else       (values 0 -1))))) ;; x y is at start of input, there's no previous position
-
-
 
 
 ;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
@@ -291,7 +284,6 @@
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
       (or (not paren)
           (paren-recursive-ok? paren)))))
-
 
 
 ;; return #t if both old-paren and new-paren are #f

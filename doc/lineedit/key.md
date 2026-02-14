@@ -150,7 +150,6 @@ Added in 0.9.3
 `(lineedit-key-cmd-ls lctx)` executes the shell command `{ls}`, then redraws prompt and current lines.
 
 
-
 ### Examples
 
 The following code instructs schemesh to start the command `` make -j `nproc` ``

@@ -161,7 +161,6 @@
   (put/char-container bv pos tags-charspan obj (charspan-length obj) charspan-ref))
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; customize how "bytespan" objects are serialized/deserialized
 

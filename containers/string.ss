@@ -45,7 +45,6 @@
   (apply proc (map (lambda (str) (string-ref str i)) str-list)))
 
 
-
 ;; apply proc element-wise to the elements of the strings, stop at the first truish value returned by (proc elem ...) and return it.
 ;; If all calls to (proc elem ...) return #f, then return #f.
 ;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
@@ -394,7 +393,6 @@
       (string-index str predicate 0 (string-length str)))))
 
 
-
 ;; search string range [start, end) and return index of last character equal to ch.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
@@ -457,7 +455,6 @@
         (string-set! str i new-char)))))
 
 
-
 ;; concatenate the strings in str-list, which must be a list of strings,
 ;; inserting string sep between each pair of strings in str-list.
 ;; Notes:
@@ -499,7 +496,6 @@
         (cdr l)
         sep-len
         (fx+ (fx+ ret sep-len) (string-length (car l)))))))
-
 
 
 ;; split range [start, end) of string str into a list of substrings,
@@ -558,7 +554,6 @@
         (reverse! l)))))
 
 
-
 ;; compare the range [left-start, left-start + n) of left string
 ;; with the range [right-start, right-start + n) of right string.
 ;; return the leftmost position, starting from 0, containing different characters,
@@ -596,7 +591,6 @@
 ;; otherwise return #f
 (define (substring=? left left-start right right-start n)
   (fx=? n (string-count= left left-start right right-start n)))
-
 
 
 (define (substring<? left  left-start  left-end
@@ -646,7 +640,6 @@
              (j (fx1- dst-end) (fx1- j)))
             ((fx<? i src-start))
           (string-set! str j (string-ref str i)))))))
-
 
 
 ;; if string str contains specified string key, return index of the first occurrence,

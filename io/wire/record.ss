@@ -45,7 +45,6 @@
       #f)))
 
 
-
 ;; autogenerate and register procedures for serializing/deserializing
 ;; user-defined record type objects whose record-type-descriptor is rtd.
 ;;

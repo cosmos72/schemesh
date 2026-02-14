@@ -47,15 +47,18 @@
 
 (record-writer (record-type-descriptor json-reader)
   (lambda (rx port writer)
-    (put-string port "#<json-reader ")
+    (put-string port "#<json-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
     (writer (json-reader-in rx) port)
-    (put-string port ">")))
+    (put-char port #\>)))
+
 
 (record-writer (record-type-descriptor json-writer)
   (lambda (tx port writer)
-    (put-string port "#<json-writer ")
+    (put-string port "#<json-writer")
+    (put-string port (if (obj-writer-eof? tx) " eof " " ok "))
     (writer (json-writer-out tx) port)
-    (put-string port ">")))
+    (put-char port #\>)))
 
 ) ; close library
 

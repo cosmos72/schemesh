@@ -82,7 +82,6 @@
       (make-wire-reader in #f))))
 
 
-
 ;; Create and return a wire-writer that, at each call to
 ;;   (obj-writer-put) or (wire-writer-put)
 ;; serializes the received data into bytes, and writes such bytes;;
@@ -354,7 +353,8 @@
 ;; customize how "wire-reader" objects are printed
 (record-writer (record-type-descriptor wire-reader)
   (lambda (rx port writer)
-    (put-string port "#<wire-reader ")
+    (put-string port "#<wire-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
     (writer (unbox (wire-reader-in-box rx)) port)
     (put-string port ">")))
 
@@ -362,7 +362,8 @@
 ;; customize how "wire-writer" objects are printed
 (record-writer (record-type-descriptor wire-writer)
   (lambda (tx port writer)
-    (put-string port "#<wire-writer ")
+    (put-string port "#<wire-writer")
+    (put-string port (if (obj-writer-eof? tx) " eof " " ok "))
     (writer (unbox (wire-writer-out-box tx)) port)
     (put-string port ">")))
 

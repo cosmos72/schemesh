@@ -219,7 +219,6 @@
     (linectx-term-xy-set! lctx vx vy)))
 
 
-
 ;; redraw only cursor and parentheses
 (define (linectx-redraw-cursor+paren lctx)
   (let ((old-paren (linectx-paren lctx))
@@ -260,7 +259,6 @@
         ;; after drawing paren, restore terminal to default colors
         (unless (fxzero? old-palette)
           (vpalette-display/bytespan 0 (linectx-wbuf lctx)))))))
-
 
 
 ;; draw all invalid parentheses using specified style.

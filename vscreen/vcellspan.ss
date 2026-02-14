@@ -126,7 +126,6 @@
                      (vcellspan-vec dst) (fx+ dst-start (vcellspan-beg dst)) n))
 
 
-
 (define (vcellspan-reallocate-left! csp len cap)
   (assert* 'vcellspan-reallocate-left! (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (vcellspan-length csp)))
@@ -270,7 +269,6 @@
           (vcellspan-copy! csp-src src-start csp-dst 0 src-n))))
     ((csp-dst csp-src)
       (vcellspan-insert-left/vcellspan! csp-dst csp-src 0 (vcellspan-length csp-src)))))
-
 
 
 ;; append range [start, end) of vcellspan csp-src at the end of vcellspan csp-dst

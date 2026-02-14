@@ -21,6 +21,10 @@
   (nongenerative %obj-writer-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
+;; guardian to close obj-writers before garbage collecting them
+(define obj-writer-guardian (make-guardian))
+
+
 ;; called internally by make-obj-writer: create and return an obj-writer
 (define (%make-obj-writer new put-proc close-proc)
   (assert* 'make-obj-writer (procedure? put-proc))
@@ -28,7 +32,14 @@
   (when close-proc
     (assert* 'make-obj-writer (procedure? close-proc))
     (assert* 'make-obj-writer (logbit? 1 (procedure-arity-mask close-proc))))
-  (new put-proc (box (or close-proc void1)) (void)))
+
+  (let ((writer (new put-proc (box (or close-proc void1)) (void))))
+    ;; if close-proc is specified, register the newly created writer into guardian
+    ;; so that close-proc will be called before the writer is garbage collected,
+    ;; in case the user forgets to manually close it
+    (when close-proc
+      (obj-writer-guardian writer))
+    writer))
 
 
 ;; return #t if obj-writer was closed,

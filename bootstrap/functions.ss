@@ -48,8 +48,6 @@
 (define check-interrupts ($primitive 3 $event))
 
 
-
-
 (define (can-eval-whole? form env)
   (if (not (and (pair? form) (symbol? (car form))))
     #t
@@ -71,7 +69,6 @@
           (eval-one-by-one (car tail) env)) ; return value(s) of last eval
       (eval-one-by-one (car tail) env))
     (eval form env)))
-
 
 
 ;; enhanced variant of Chez Scheme eval:
@@ -117,7 +114,6 @@
     ((a b c d e f g . args) (void))))
 
 
-
 (define (gensym-pretty x)
   (cond
     ((string? x) (gensym x))
@@ -158,7 +154,6 @@
     ((a b c d e) (void))
     ((a b c d e f) (void))
     ((a b c d e f . more) (void))))
-
 
 
 ;; Raise a condition describing an assertion violation.
@@ -323,8 +318,6 @@
        (self-evaluating-vectors #t))))
 
 ) ; close library
-
-
 
 
 ;; (library-reexport) is a macro that expands to (library ...)

@@ -49,8 +49,8 @@
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
-    (only (chezscheme)                    box box-cas! fx1+ fx1- include logbit? procedure-arity-mask
-                                          record-type-descriptor record-writer reverse! unbox void)
+    (only (chezscheme)                    box box-cas! collect-request-handler fx1+ fx1- include logbit? make-guardian
+                                          procedure-arity-mask record-type-descriptor record-writer reverse! unbox void)
     (only (scheme2k bootstrap)            assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
 
 
@@ -69,8 +69,6 @@
       (vector-set! v i (car l)))))
 
 
-
-
 (include "io/obj/reader.ss")
 (include "io/obj/writer.ss")
 
@@ -86,7 +84,7 @@
   (writer (obj-reader-get-proc r) port)
   (put-char port #\space)
   (writer (unbox (obj-reader-close-box r)) port)
-  (put-string port ">"))
+  (put-char port #\>))
 
 
 ;; customize how "obj-reader" objects are printed
@@ -109,7 +107,7 @@
     (writer (range-reader-skip-n r) port)
     (put-char port #\space)
     (writer (range-reader-get-n r) port)
-    (put-string port ">")))
+    (put-char port #\>)))
 
 
 ;; customize how "obj-writer" objects are printed
@@ -120,7 +118,27 @@
     (writer (obj-writer-put-proc w) port)
     (put-char port #\space)
     (writer (unbox (obj-writer-close-box w)) port)
-    (put-string port ">")))
+    (put-char port #\>)))
+
+
+;; install into collect-request-handler a procedure that closes obj-readers before garbage collecting them
+(let ((gc (collect-request-handler)))
+  (collect-request-handler
+    (lambda ()
+      ;; first, call the original collect-request-handler
+      (gc)
+
+      ;; then, retrieve all obj-readers ready to be garbage collected, and close them
+      (do ((rx (obj-reader-guardian) (obj-reader-guardian)))
+          ((not rx))
+        ;; (debugf "closing ~s before garbage collecting it" rx)
+        (obj-reader-close rx))
+
+      ;; finally, retrieve all obj-writers ready to be garbage collected, and close them
+      (do ((tx (obj-writer-guardian) (obj-writer-guardian)))
+          ((not tx))
+        ;; (debugf "closing ~s before garbage collecting it" tx)
+        (obj-writer-close tx)))))
 
 
 ) ; close library

@@ -139,7 +139,6 @@
             #f))))))
 
 
-
 (define signal-table-number->name
   (alist->eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
 

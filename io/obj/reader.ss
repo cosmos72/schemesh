@@ -28,6 +28,10 @@
   (nongenerative %obj-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
+;; guardian to close obj-readers before garbage collecting them
+(define obj-reader-guardian (make-guardian))
+
+
 ;; called internally by make-obj-reader: create and return an obj-reader
 (define (%make-obj-reader new get-proc skip-proc close-proc)
   (assert* 'make-obj-reader (procedure? get-proc))
@@ -38,7 +42,14 @@
   (when close-proc
     (assert* 'make-obj-reader (procedure? close-proc))
     (assert* 'make-obj-reader (logbit? 1 (procedure-arity-mask close-proc))))
-  (new get-proc (%make-skip-proc get-proc skip-proc) (box (or close-proc void1))))
+
+  (let ((reader (new get-proc (%make-skip-proc get-proc skip-proc) (box (or close-proc void1)))))
+    ;; if close-proc is specified, register the newly created reader into guardian
+    ;; so that close-proc will be called before the reader is garbage collected,
+    ;; in case the user forgets to manually close it
+    (when close-proc
+      (obj-reader-guardian reader))
+    reader))
 
 
 (define (%make-skip-proc get-proc skip-proc)
@@ -161,10 +172,13 @@
               body ...)))))))
 
 
-;; Iterate in parallel on elements of given obj-readers rx ..., and evaluate body ... on each element.
-;; Stop iterating when any reader is exhausted, and return unspecified value.
-;;
-;; If no readers are specified, behave as (forever body ...)
+;;; Iterate in parallel on elements of given obj-readers rx ..., and evaluate body ... on each element.
+;;; Stop iterating when any reader is exhausted, and return unspecified value.
+;;;
+;;; If no readers are specified, behave as (forever body ...)
+;;;
+;;; Note: also supports optional early termination if "while expr" or "until expr"
+;;; appear at top level without parentheses (and without quotes)
 (define-syntax for-reader
   (lambda (stx)
     (syntax-case stx ()

@@ -653,7 +653,6 @@ The documentation currently include:
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
 
-
 Most other scheme functions are not (yet) documented.
 
 ## FREQUENTLY ASKED QUESTIONS

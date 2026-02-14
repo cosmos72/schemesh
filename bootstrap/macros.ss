@@ -99,7 +99,6 @@
     ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
 
 
-
 ;; extended (let ((var expr) ...) body ...) that also accepts empty body
 (define-syntax let0
   (syntax-rules ()

@@ -122,7 +122,6 @@
         (bytevector-index bvec 0 (bytevector-length bvec) byte-or-pred)))))
 
 
-
 ;; create and return a closure that iterates on elements of bytevector bv.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
@@ -145,7 +144,6 @@
       (in-bytevector bv start end 1))
     ((bv)
       (in-bytevector bv 0 (bytevector-length bv) 1))))
-
 
 
 ;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
@@ -292,7 +290,6 @@
       (else (void)))))
 
 
-
 ;; optimized (bytevector-uint-set!)
 (define (bytevector-uint-set*! bv pos uint eness size)
   (assert* 'bytevector-uint-set*! (integer? uint))
@@ -347,7 +344,6 @@
       (else 0))))
 
 
-
 ;; return n > 0 if first n bytes are #xff in bytevector range [start, start+size)
 ;; return n < 0 if first n bytes are zero in bytevector range [start, start+size)
 ;; otherwise return 0
@@ -385,7 +381,6 @@
             (%count-ff (fx1+ n)))))
       (else
         0))))
-
 
 
 ;; optimized (bytevector-sint-ref)

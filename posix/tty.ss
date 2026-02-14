@@ -42,5 +42,4 @@
   (with-cooked-tty (inspect obj)))
 
 
-
 ) ; close library

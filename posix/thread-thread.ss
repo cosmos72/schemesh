@@ -234,8 +234,6 @@
               (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
-
-
 (define ($new-xthread thread tc)
   (import (only (chezscheme) make-condition))
   (let* ((id   ($tc-id tc))
@@ -454,7 +452,6 @@
                 (with-tc-mutex
                   ($thread-status-set! thread ($tc) status))))))
     ret))
-
 
 
 ;; send a signal to specified thread or thread-id.

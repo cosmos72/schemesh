@@ -165,7 +165,6 @@
     (charspan-str right) (charspan-beg right) (charspan-end right)))
 
 
-
 ;; compare two charspans, or a range of two charspans
 (define charspan=?
   (case-lambda
@@ -519,7 +518,6 @@
       (charspan-index-right sp (lambda (e) (char=? e ch))))))
 
 
-
 ;; create and return a copy of str, where all occurrences of old-str have been replaced by new-str.
 (define string-replace-all
   (case-lambda
@@ -553,7 +551,6 @@
                 (charspan->string*! dst)))))))
     ((str old-str new-str)
       (string-replace-all str old-str new-str  0 (string-length str)))))
-
 
 
 ;; customize how charspan objects are printed

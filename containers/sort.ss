@@ -38,7 +38,6 @@
         (vector-set! v (fx1+ x0) e0))))
 
 
-
 ;; sort the three vector elements at x0, x0+1, x0+2
 (define (%vector-sort/3! is<? v x0)
   (let* ((x1 (fx1+ x0))
@@ -171,7 +170,6 @@
           lo)))))
 
 
-
 (define (%vector-sort! is<? v start end)
   ; (debugf "%vector-sort! start=~s end=~s v=~s" start end v)
   (let ((n (fx- end start)))
@@ -222,7 +220,6 @@
       (assert* 'span-sort! (fx<=?* 0 start end (span-length sp)))
       (let ((beg (span-peek-beg sp)))
         (%vector-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
-
 
 
 ) ; close library

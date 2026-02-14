@@ -148,7 +148,6 @@
       #t)))
 
 
-
 ;; Set a lazy environment variable for specified job.
 ;; Note: lazy environment variables are copied into job's direct environment
 ;; only upon starting the job, *after* expanding the job's command line.
@@ -218,8 +217,6 @@
         (car val)))))
 
 
-
-
 ;; Return direct environment variables of job, creating them if needed.
 ;; Returned hashtable does not include default variables,
 ;; i.e. the ones inherited from parent jobs.
@@ -244,8 +241,6 @@
            (entry (c-environ-ref 0) (c-environ-ref i)))
           ((not (pair? entry)))
         (sh-env-set*! #t (car entry) (cdr entry) 'export)))))
-
-
 
 
 ;; Return a hashtable containing a copy of job's environment variables,

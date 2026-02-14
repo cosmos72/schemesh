@@ -81,7 +81,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-
 (define (raise-string->utf8b-error err)
   (if (char? err)
     (raise-assertf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
@@ -120,9 +119,6 @@
         (string->utf8b str start end 0))
       ((str)
         (string->utf8b str 0 (string-length str) 0)))))
-
-
-
 
 
 ;; convert a string to UTF-8b, append an additional byte 0 to conversion if not already present,

@@ -479,7 +479,6 @@
             (%loop (cdr args) (cons arg ret))))))))
 
 
-
 ;; parse environment variable assignments NAME = VALUE
 ;; parse redirections [N]<PATH [N]<>PATH [N]<&M [N]>PATH [N]>>PATH [N]>&M
 ;; skip arguments equal to (void)
@@ -512,8 +511,6 @@
         (raise-errorf 'sh-cmd* "expecting assignment, argument or redirection, found: ~s" args)))))
 
 
-
-
 ;; parse a single environment variable assignment NAME = VALUE
 ;; and return it as a (cons NAME VALUE)
 (define (cmd-parse-assignment args)
@@ -529,7 +526,6 @@
     (unless (or (string? value) (procedure? value))
       (raise-errorf 'sh-cmd* "expecting string or closure after assignment, found: ~s ~s ~s" name op value))
     (cons name value)))
-
 
 
 ;; Create a list of jobs with redirections.

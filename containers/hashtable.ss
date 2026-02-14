@@ -139,7 +139,6 @@
       iter)))
 
 
-
 ;; create and return an obj-reader that generates the cells of specified hashtable.
 ;; each call to (obj-reader-get p) will return two values:
 ;;  either (values cell #t) i.e. the next cell the hashtable, where cell is a pair (key . value)

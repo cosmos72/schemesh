@@ -161,7 +161,6 @@
       (eq? flag 'eof))))
 
 
-
 ;; load a vline from specified binary input port and return it.
 ;;
 ;; uses bytevector bv as input buffer, and consumes range [start, end)

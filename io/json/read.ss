@@ -503,7 +503,6 @@
   (validate-next-token rx (json-reader-buffer rx)))
 
 
-
 ;; read next json value and return it, which can be one of:
 ;;   #!eof   i.e. the (eof-object)
 ;;   (void)  i.e. null

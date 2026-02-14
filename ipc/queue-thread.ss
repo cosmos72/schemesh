@@ -35,6 +35,8 @@
 ;; and writes arbitrary datum to a thread-safe, in-memory unlimited queue.
 ;;
 ;; Not used often, most of the time (make-queue-pair) is a better choice.
+;;
+;; Optional argument must be #f or a symbol. Defaults to #f
 (define make-queue-writer
   (case-lambda
     ((name)
@@ -155,7 +157,6 @@
           ((pair? tail)
             (queue-reader-head-set! rx tail)
             (values (car head) 'ok)))))))
-
 
 
 ;; block until a datum is received from the connected queue-writer, and return two values:

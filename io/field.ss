@@ -136,9 +136,8 @@
 ;; customize how "field-reader" objects are printed
 (record-writer (record-type-descriptor field-reader)
   (lambda (rx port writer)
-    (put-string port "#<field-reader ")
-    (writer (if (obj-reader-eof? rx) 'eof #f) port)
-    (put-string port " (")
+    (put-string port "#<field-reader")
+    (put-string port (if (obj-reader-eof? rx) " eof (" " ok ("))
     (let* ((names (field-reader-rev-names rx))
            (n     (vector-length names)))
       (do ((i (fx1- n) (fx1- i)))

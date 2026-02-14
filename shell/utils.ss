@@ -195,7 +195,6 @@
     ret))
 
 
-
 (define sh-make-linectx
   (case-lambda
     (()

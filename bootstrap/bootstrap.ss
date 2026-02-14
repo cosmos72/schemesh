@@ -172,7 +172,6 @@
                   (void))))))))
 
 
-
 ;; Expands to the correct (warn-check-failed...) depending on the number of arguments
 (define-syntax warn-check-failed
   (syntax-rules ()

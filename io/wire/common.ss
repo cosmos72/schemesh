@@ -168,7 +168,6 @@
         (fx- message-wire-len max-len-vlen))))) ;; large message, vlen is encoded as u32
 
 
-
 ;; write unsigned fixnum vlen bytevector starting at position pos.
 ;; return updated position, or #f on errors.
 (define (put/vlen bv pos vlen)
