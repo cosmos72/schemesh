@@ -27,17 +27,17 @@ provides basic utility functions and macros.
 ##### <span id="arrow">(==>)</span>
 Macro `==>` introduces a DSL for chaining/threading multiple function or macro invocations.
 
-Recognizes the following auxiliary keywords:
-* `=>`     : unconditional chaining
-* `?=>`    : conditional chaining
-* `_`      : placeholder for inserting an expression into a template
+It recognizes the following auxiliary keywords:
+* `=>`     unconditional chaining
+* `?=>`    conditional chaining
+* `_`      placeholder for inserting an expression into a template
 
-Syntax `(==> ...)` must be followed by one or more function or macro invocations.
+Syntax `(==> ...)` must be followed by one or more expressions.
 
-Each functions or macro invocation is **not** enclosed in parentheses: it is instead delimited by the aux keywords `=>` or `?=>`
+Each expression is **not** enclosed in parentheses: it is instead delimited by the aux keywords `=>` or `?=>`
 Examples: `(==> a foo => b bar => c baz)` or `(==> a foo ?=> b bar ?=> c baz)`
 
-The call to each function or macro is inserted literally into the next one, before the first argument of the next function or macro or, if present, at the position of placeholder `_`
+Each expression is inserted literally into the next one, before the first argument or, if present, at the position of placeholder `_`
 
 Examples:
 | syntax                            | expands to                          |
@@ -53,8 +53,8 @@ Examples:
 | `(==> a foo => b bar => c baz)`   | `(c (b (a foo) bar) baz)`           |
 | `(==> a foo => b bar _ => c baz)` | `(c (b bar (a foo)) baz)`           |
 
-Keyword `?=>` adds short-circuit logic, i.e. if the function call at its left evaluates to `#f`,
-the chain immediately evaluates to `#f` without calling the remaining functions. Examples:
+Keyword `?=>` adds short-circuit logic, i.e. if the expression at its left evaluates to `#f`,
+the chain immediately evaluates to `#f` without evaluating the remaining expressions. Examples:
 <table>
   <thead>
     <tr>
