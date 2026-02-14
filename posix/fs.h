@@ -19,47 +19,47 @@
 #endif
 
 typedef enum {
-  c_vec_name,
-  c_vec_type,
-  c_vec_size,
-  c_vec_target,
-  c_vec_mode,
-  c_vec_accessed,
-  c_vec_modified,
-  c_vec_ino_changed,
-  c_vec_uid,
-  c_vec_gid,
-  c_vec_inode,
-  c_vec_num_links,
-  c_vec_n,
-} c_vec;
+  e_vec_name,
+  e_vec_type,
+  e_vec_size,
+  e_vec_target,
+  e_vec_mode,
+  e_vec_accessed,
+  e_vec_modified,
+  e_vec_ino_changed,
+  e_vec_uid,
+  e_vec_gid,
+  e_vec_inode,
+  e_vec_num_links,
+  e_vec_n,
+} e_vec;
 
 enum {
-  c_dir_flag_name        = 1 << c_vec_name,
-  c_dir_flag_type        = 1 << c_vec_type,
-  c_dir_flag_size        = 1 << c_vec_size,
-  c_dir_flag_target      = 1 << c_vec_target,
-  c_dir_flag_mode        = 1 << c_vec_mode,
-  c_dir_flag_accessed    = 1 << c_vec_accessed,
-  c_dir_flag_modified    = 1 << c_vec_modified,
-  c_dir_flag_ino_changed = 1 << c_vec_ino_changed,
-  c_dir_flag_uid         = 1 << c_vec_uid,
-  c_dir_flag_gid         = 1 << c_vec_gid,
-  c_dir_flag_inode       = 1 << c_vec_inode,
-  c_dir_flag_num_links   = 1 << c_vec_num_links,
-  c_dir_flag_hidden      = 1 << c_vec_n,
+  e_dir_flag_name        = 1 << e_vec_name,
+  e_dir_flag_type        = 1 << e_vec_type,
+  e_dir_flag_size        = 1 << e_vec_size,
+  e_dir_flag_target      = 1 << e_vec_target,
+  e_dir_flag_mode        = 1 << e_vec_mode,
+  e_dir_flag_accessed    = 1 << e_vec_accessed,
+  e_dir_flag_modified    = 1 << e_vec_modified,
+  e_dir_flag_ino_changed = 1 << e_vec_ino_changed,
+  e_dir_flag_uid         = 1 << e_vec_uid,
+  e_dir_flag_gid         = 1 << e_vec_gid,
+  e_dir_flag_inode       = 1 << e_vec_inode,
+  e_dir_flag_num_links   = 1 << e_vec_num_links,
+  e_dir_flag_hidden      = 1 << e_vec_n,
 };
 
 typedef enum {
-  c_type_unknown = 0,
-  c_type_fifo    = 1,
-  c_type_chr     = 2,
-  c_type_dir     = 3,
-  c_type_blk     = 4,
-  c_type_reg     = 5,
-  c_type_lnk     = 6,
-  c_type_sock    = 7,
-} c_type;
+  e_type_unknown = 0,
+  e_type_fifo    = 1,
+  e_type_chr     = 2,
+  e_type_dir     = 3,
+  e_type_blk     = 4,
+  e_type_reg     = 5,
+  e_type_lnk     = 6,
+  e_type_sock    = 7,
+} e_type;
 
 /**
  * change current working directory to specified Scheme bytevector0,
@@ -132,64 +132,64 @@ static int c_mkdir(ptr bytevec0, int mode) {
 }
 
 #ifdef _DIRENT_HAVE_D_TYPE
-static c_type dtypeToFileType(unsigned char d_type) {
+static e_type dtypeToFileType(unsigned char d_type) {
   switch (d_type) {
 #ifdef DT_FIFO
     case DT_FIFO:
-      return c_type_fifo;
+      return e_type_fifo;
 #endif
 #ifdef DT_CHR
     case DT_CHR:
-      return c_type_chr;
+      return e_type_chr;
 #endif
 #ifdef DT_DIR
     case DT_DIR:
-      return c_type_dir;
+      return e_type_dir;
 #endif
 #ifdef DT_BLK
     case DT_BLK:
-      return c_type_blk;
+      return e_type_blk;
 #endif
 #ifdef DT_REG
     case DT_REG:
-      return c_type_reg;
+      return e_type_reg;
 #endif
 #ifdef DT_LNK
     case DT_LNK:
-      return c_type_lnk;
+      return e_type_lnk;
 #endif
 #ifdef DT_SOCK
     case DT_SOCK:
-      return c_type_sock;
+      return e_type_sock;
 #endif
     default:
-      return c_type_unknown;
+      return e_type_unknown;
   }
 }
 #endif /* _DIRENT_HAVE_D_TYPE */
 
-static c_type modeToFileType(mode_t mode) {
+static e_type modeToFileType(mode_t mode) {
   switch (mode & S_IFMT) {
     case S_IFDIR:
-      return c_type_dir;
+      return e_type_dir;
     case S_IFCHR:
-      return c_type_chr;
+      return e_type_chr;
     case S_IFBLK:
-      return c_type_blk;
+      return e_type_blk;
     case S_IFREG:
-      return c_type_reg;
+      return e_type_reg;
     case S_IFIFO:
-      return c_type_fifo;
+      return e_type_fifo;
 #ifdef S_IFLNK /* not in POSIX.1-1996 */
     case S_IFLNK:
-      return c_type_lnk;
+      return e_type_lnk;
 #endif
 #ifdef S_IFSOCK /* not in POSIX.1-1996 */
     case S_IFSOCK:
-      return c_type_sock;
+      return e_type_sock;
 #endif
     default:
-      return c_type_unknown;
+      return e_type_unknown;
   }
 }
 
@@ -244,16 +244,16 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   struct dirent* entry;
   iptr           vec_n;
   int            dir_fd;
-  c_type         type = c_type_unknown;
+  e_type         type = e_type_unknown;
 
   if (!dir || !Svectorp(vec)) {
     return c_errno_set(EINVAL);
   }
-  if ((vec_n = Svector_length(vec)) > c_vec_n) {
-    vec_n = c_vec_n;
+  if ((vec_n = Svector_length(vec)) > e_vec_n) {
+    vec_n = e_vec_n;
   }
   // unset flags that require access beyond the end of vec
-  flags = (flags & c_dir_flag_hidden) | (flags & ((1 << vec_n) - 1));
+  flags = (flags & e_dir_flag_hidden) | (flags & ((1 << vec_n) - 1));
 
   do {
     errno = 0;
@@ -261,16 +261,16 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     if (!entry) {
       return -errno; /* 0 if end if dir, otherwise error */
     }
-  } while ((flags & c_dir_flag_hidden) == 0 && entry->d_name[0] == '.');
+  } while ((flags & e_dir_flag_hidden) == 0 && entry->d_name[0] == '.');
 
   /* file name can be arbitrary bytes, not only valid UTF-8 */
-  if (flags & c_dir_flag_name) {
-    Svector_set(vec, c_vec_name, scheme2k_Sstring_utf8b(entry->d_name, -1));
+  if (flags & e_dir_flag_name) {
+    Svector_set(vec, e_vec_name, scheme2k_Sstring_utf8b(entry->d_name, -1));
   }
-  if (flags & c_dir_flag_inode) {
-    Svector_set(vec, c_vec_inode, Sunsigned64(entry->d_ino));
+  if (flags & e_dir_flag_inode) {
+    Svector_set(vec, e_vec_inode, Sunsigned64(entry->d_ino));
   }
-  if (flags & c_dir_flag_type) {
+  if (flags & e_dir_flag_type) {
 #ifdef _DIRENT_HAVE_D_TYPE
     type = dtypeToFileType(entry->d_type);
 #endif
@@ -281,12 +281,12 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   if (dir_fd < 0 || fstatat(dir_fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
     /* only a few fields can be filled */
     iptr i;
-    if (flags & c_dir_flag_type) {
-      Svector_set(vec, c_vec_type, Sunsigned32(type));
+    if (flags & e_dir_flag_type) {
+      Svector_set(vec, e_vec_type, Sunsigned32(type));
     }
-    for (i = c_vec_type + 1; i < vec_n; i++) {
-      if (i != c_vec_inode) {
-        Svector_set(vec, c_vec_type, Svoid);
+    for (i = e_vec_type + 1; i < vec_n; i++) {
+      if (i != e_vec_inode) {
+        Svector_set(vec, e_vec_type, Svoid);
       }
     }
     return 1;
@@ -294,22 +294,22 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
 
   /* fstatat() is successful, fill all fields */
 
-  if (flags & c_dir_flag_type) {
-    if (type == c_type_unknown) {
+  if (flags & e_dir_flag_type) {
+    if (type == e_type_unknown) {
       type = modeToFileType(st.st_mode);
     }
-    Svector_set(vec, c_vec_type, Sunsigned32(type));
+    Svector_set(vec, e_vec_type, Sunsigned32(type));
   }
-  if (flags & c_dir_flag_size) {
-    Svector_set(vec, c_vec_size, Sunsigned64(st.st_size));
+  if (flags & e_dir_flag_size) {
+    Svector_set(vec, e_vec_size, Sunsigned64(st.st_size));
   }
-  if (flags & c_dir_flag_mode) {
-    Svector_set(vec, c_vec_mode, Sunsigned32(st.st_mode & 07777));
+  if (flags & e_dir_flag_mode) {
+    Svector_set(vec, e_vec_mode, Sunsigned32(st.st_mode & 07777));
   }
 
-  if ((flags & c_dir_flag_target)) {
+  if ((flags & e_dir_flag_target)) {
     ptr target;
-    if (type != c_type_lnk) {
+    if (type != e_type_lnk) {
       target = Sfalse; /* not a symlink */
     } else {
       char    buf[PATH_MAX];
@@ -321,81 +321,70 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
         target = scheme2k_Sstring_utf8b(buf, len);
       }
     }
-    Svector_set(vec, c_vec_target, target);
+    Svector_set(vec, e_vec_target, target);
   }
 #ifdef __APPLE__
-  fillTime(vec, c_vec_accessed, flags & c_dir_flag_accessed, st.st_atime);
-  fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, st.st_mtime);
-  fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, st.st_ctime);
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, st.st_atime);
+  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, st.st_mtime);
+  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, st.st_ctime);
 #else
-  fillTime(vec, c_vec_accessed, flags & c_dir_flag_accessed, &(st.st_atim));
-  fillTime(vec, c_vec_modified, flags & c_dir_flag_modified, &(st.st_mtim));
-  fillTime(vec, c_vec_ino_changed, flags & c_dir_flag_ino_changed, &(st.st_ctim));
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, &(st.st_atim));
+  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, &(st.st_mtim));
+  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, &(st.st_ctim));
 #endif
 
-  if (flags & c_dir_flag_uid) {
-    Svector_set(vec, c_vec_uid, Sinteger(st.st_uid));
+  if (flags & e_dir_flag_uid) {
+    Svector_set(vec, e_vec_uid, Sinteger(st.st_uid));
   }
-  if (flags & c_dir_flag_gid) {
-    Svector_set(vec, c_vec_gid, Sinteger(st.st_gid));
+  if (flags & e_dir_flag_gid) {
+    Svector_set(vec, e_vec_gid, Sinteger(st.st_gid));
   }
-  if (flags & c_dir_flag_inode) {
-    Svector_set(vec, c_vec_inode, Sunsigned64(st.st_ino));
+  if (flags & e_dir_flag_inode) {
+    Svector_set(vec, e_vec_inode, Sunsigned64(st.st_ino));
   }
-  if (flags & c_dir_flag_num_links) {
-    Svector_set(vec, c_vec_num_links, Sunsigned64(st.st_nlink));
+  if (flags & e_dir_flag_num_links) {
+    Svector_set(vec, e_vec_num_links, Sunsigned64(st.st_nlink));
   }
   return 2;
 }
 
-typedef enum {
-  e_unknown  = 0,
-  e_blockdev = 1,
-  e_chardev  = 2,
-  e_dir      = 3,
-  e_fifo     = 4,
-  e_file     = 5,
-  e_socket   = 6,
-  e_symlink  = 7,
-} e_type;
-
 /**
  * Convert (struct stat.st_mode & S_IFMT) to Scheme integer:
- *   S_IFBLK    -> e_blockdev = 1
- *   S_IFCHR    -> e_chardev  = 2
- *   S_IFDIR    -> e_dir      = 3
- *   S_IFIFO    -> e_fifo     = 4
- *   S_IFREG    -> e_file     = 5
- *   S_IFSOCK   -> e_socket   = 6
- *   S_IFLNK    -> e_symlink  = 7 - can only happen if called with lstat() result
- *   otherwise  -> e_unknown  = 0
+ *   S_IFIFO    -> e_type_fifo = 1
+ *   S_IFCHR    -> e_type_chr  = 2
+ *   S_IFDIR    -> e_type_dir  = 3
+ *   S_IFBLK    -> e_type_blk  = 4
+ *   S_IFREG    -> e_type_reg  = 5
+ *   S_IFLNK    -> e_type_lnk  = 6 - can only happen if called with lstat() result
+ *   S_IFSOCK   -> e_type_sock = 7
+ *   otherwise  -> e_type_unknown  = 0
  */
 static ptr c_stat_type(const mode_t s_type) {
   e_type type;
   switch (s_type) {
     case S_IFBLK:
-      type = e_blockdev;
+      type = e_type_blk;
       break;
     case S_IFCHR:
-      type = e_chardev;
+      type = e_type_chr;
       break;
     case S_IFDIR:
-      type = e_dir;
+      type = e_type_dir;
       break;
     case S_IFIFO:
-      type = e_fifo;
+      type = e_type_fifo;
       break;
     case S_IFREG:
-      type = e_file;
+      type = e_type_reg;
       break;
     case S_IFSOCK:
-      type = e_socket;
+      type = e_type_sock;
       break;
     case S_IFLNK:
-      type = e_symlink;
+      type = e_type_lnk;
       break;
     default:
-      type = e_unknown;
+      type = e_type_unknown;
       break;
   }
   return Sfixnum(type);
@@ -403,42 +392,42 @@ static ptr c_stat_type(const mode_t s_type) {
 
 /**
  * Convert struct dirent.d_type to Scheme integer:
- *   DT_UNKNOWN -> e_unknown  = 0
- *   DT_BLK     -> e_blockdev = 1
- *   DT_CHR     -> e_chardev  = 2
- *   DT_DIR     -> e_dir      = 3
- *   DT_FIFO    -> e_fifo     = 4
- *   DT_REG     -> e_file     = 5
- *   DT_SOCK    -> e_socket   = 6
- *   DT_LNK     -> e_symlink  = 7
+ *   DT_UNKNOWN -> e_type_unknown = 0
+ *   DT_BLK     -> e_type_blk     = 4
+ *   DT_CHR     -> e_type_chr     = 2
+ *   DT_DIR     -> e_type_dir     = 3
+ *   DT_FIFO    -> e_type_fifo    = 4
+ *   DT_REG     -> e_type_reg     = 5
+ *   DT_SOCK    -> e_type_sock    = 6
+ *   DT_LNK     -> e_type_lnk     = 7
  */
 static ptr c_dirent_type(unsigned char d_type) {
   e_type type;
   switch (d_type) {
     case DT_BLK:
-      type = e_blockdev;
+      type = e_type_blk;
       break;
     case DT_CHR:
-      type = e_chardev;
+      type = e_type_chr;
       break;
     case DT_DIR:
-      type = e_dir;
+      type = e_type_dir;
       break;
     case DT_FIFO:
-      type = e_fifo;
+      type = e_type_fifo;
       break;
     case DT_LNK:
-      type = e_symlink;
+      type = e_type_lnk;
       break;
     case DT_REG:
-      type = e_file;
+      type = e_type_reg;
       break;
     case DT_SOCK:
-      type = e_socket;
+      type = e_type_sock;
       break;
     case DT_UNKNOWN:
     default:
-      type = e_unknown;
+      type = e_type_unknown;
       break;
   }
   return Sfixnum(type);
@@ -587,10 +576,10 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
  *   filename is either a Scheme string (if (options & o_string) != 0) or a Scheme bytevector.
  *   type is a Scheme integer corresponding to enum e_type.
  *
- * If (options & o_symlinks) == 0, then each type = e_symlink will be resolved to indicate
+ * If (options & o_symlinks) == 0, then each type = e_type_lnk will be resolved to indicate
  * the type of the file the symlink points to.
  *
- * If (options & o_append_slash) != 0, then each filename with type = e_dir
+ * If (options & o_append_slash) != 0, then each filename with type = e_type_dir
  * will be modified by appending '/' - useful mostly if (options & o_symlinks) == 0
  *
  * If bytevector_filter_prefix is not empty,
@@ -689,7 +678,7 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
     return ret; /* name does not end with suffix, ignore it */
   }
   type           = c_dirent_type2(dir, name, opts->keep_symlinks, entry->d_type);
-  name_has_slash = type == Sfixnum(e_dir) && opts->ret_append_slash;
+  name_has_slash = type == Sfixnum(e_type_dir) && opts->ret_append_slash;
   if (name_has_slash) {
     /*
      * relax filter: return name even if suffix does not end with '/'

@@ -371,7 +371,7 @@
 
 
 (define c-type->file-type
-  (let ((file-types '#(unknown blockdev chardev dir fifo file socket symlink)))
+  (let ((file-types '#(unknown fifo chardev dir blockdev file symlink socket)))
     (lambda (c-type)
       (if (fx<=? 0 c-type 7) (vector-ref file-types c-type) 'unknown))))
 
