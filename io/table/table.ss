@@ -14,8 +14,7 @@
     (rnrs)
     (only (chezscheme)                       date? format fx1+ fx1- fx/ time? time-second void)
     (only (scheme2k bootstrap)               assert* debugf)
-    (only (scheme2k containers bytespan)     bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
-    (only (scheme2k containers charspan)     charspan)
+    (only (scheme2k containers bytespan)     bytespan-clear! bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
     (only (scheme2k containers date)         date->string)
     (only (scheme2k containers macros)       for)
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
@@ -38,9 +37,10 @@
   (parent obj-writer)
   (fields
     out                   ; textual output port
-    wbuf                  ; charspan, write buffer
+    theme                 ; 'basic or 'default
     cols                  ; ordered-hash field-name -> column
     rows                  ; span, contains rows to be written. Each row is a ordered-hash field-name -> string
+    wbuf                  ; bytespan, write buffer
     (mutable cache)       ; #f or eq-hashtable rtd -> reflect-info, set in construction or created lazily
     (mutable header?)     ; #t if we still need to write the table header
     (mutable footer?)     ; #t if we still need to write the table footer before closing this table-writer
@@ -49,8 +49,8 @@
     (lambda (args->new)
       (lambda (out close-out? cache)
         ((args->new %table-writer-put %table-writer-close)
-          out (charspan) (make-eq-ordered-hash) (span) #f #t #f (and close-out? #t)))))
-  (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+          out 'default (make-eq-ordered-hash) (span) (make-bytespan 0) #f #t #f (and close-out? #t)))))
+  (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define-syntax _type (identifier-syntax '<type>))
@@ -135,7 +135,30 @@
 
 
 (define spaces (make-string 128 #\space))
-(define dashes (make-string 128 #\-))
+
+
+(define dashes
+  (let ((basic   (make-string 128 #\-))
+        (default (make-string 128 #\x2500)))
+    (lambda (theme)
+      (case theme
+        ((basic) basic)
+        (else    default)))))
+
+
+(define (vbar theme)
+  (case theme
+    ((basic) #\|)
+    (else    #\x2502)))
+
+
+;; both x and y must be 0, 1 or 2
+(define (corner theme x y)
+  (case theme
+    ((basic) #\+)
+    (else    (string-ref
+                "\x250c;\x252c;\x2510;\x251c;\x253c;\x2524;\x2514;\x2534;\x2518;"
+                (fx+ x (fx* y 3))))))
 
 
 (define (put-pad out str n)
@@ -149,31 +172,46 @@
   (put-pad out spaces n))
 
 
-(define (put-dashes out n)
-  (put-pad out dashes n))
+(define (put-dashes out theme n)
+  (put-pad out (dashes theme) n))
 
 
-(define (column-dashes-put col out)
-  (put-char out #\+)
+(define (put-vbar out theme)
+  (put-char out (vbar theme)))
+
+
+;; both x and y must be 0, 1 or 2
+(define (put-corner out theme x y)
+  (put-char out (corner theme x y)))
+
+
+(define (column-put-dashes col out theme x y)
+  (put-corner out theme x y)
   (let ((width (or (column-width col) (column-maxlen col))))
-    (put-dashes out width)))
+    (put-dashes out theme width)))
 
 
-(define (table-dashes-put tx)
-  (let ((cols (table-writer-cols tx))
-        (out  (table-writer-out tx)))
-    (for-ordered-hash ((k col cols)) (column-dashes-put col out)) (put-string out "+\n")))
+(define (table-put-dashes tx y)
+  (let ((cols  (table-writer-cols  tx))
+        (out   (table-writer-out   tx))
+        (theme (table-writer-theme tx))
+        (x     0))
+    (for-ordered-hash ((k col cols))
+      (column-put-dashes col out theme x y)
+      (set! x 1))
+    (put-corner out theme 2 y)
+    (newline out)))
 
 
-(define (column-name-put col out)
-  (put-char out #\|)
+(define (column-put-name col out theme)
+  (put-vbar out theme)
   (let* ((name    (column-name col))
          (len (string-length name))
          (width   (or (column-width col) (column-maxlen col)))
          (pad     (fx- width len))
          (lpad    (fx/ pad 2))
          (rpad    (fx- pad lpad)))
-    ;; (debugf "; column-name-put name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
+    ;; (debugf "; column-put-name name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
     (put-spaces out lpad)
     (put-string out name)
     (put-spaces out rpad)))
@@ -184,7 +222,7 @@
          (width  (or (column-width col) (column-maxlen col)))
          (align  (column-align col))
          (pad    (fx- width len)))
-    ;; (debugf "; column-name-put str ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" str len width pad lpad rpad)
+    ;; (debugf "; column-put-name str ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" str len width pad lpad rpad)
     (when (eq? 'right align)
       (put-spaces out pad))
     (put-string out str)
@@ -194,32 +232,35 @@
 
 (define (display-header tx)
   (when (table-writer-header? tx)
-    (let ((cols (table-writer-cols tx))
-          (out  (table-writer-out tx)))
+    (let ((cols  (table-writer-cols  tx))
+          (out   (table-writer-out   tx))
+          (theme (table-writer-theme tx)))
       (unless (ordered-hash-empty? cols)
-        (table-dashes-put tx)
+        (table-put-dashes tx 0)
         (for-ordered-hash ((k col cols))
-          (column-name-put col out))
-        (put-string out "|\n")
-        (table-dashes-put tx)))
+          (column-put-name col out theme))
+        (put-vbar out theme)
+        (newline out)
+        (table-put-dashes tx 1)))
     (table-writer-header?-set! tx #f)
     (table-writer-footer?-set! tx #t)))
 
 
 (define (display-row tx row)
-  (let ((out  (table-writer-out tx))
-        (cols (table-writer-cols tx)))
+  (let ((out   (table-writer-out   tx))
+        (theme (table-writer-theme tx))
+        (cols  (table-writer-cols  tx)))
     (for-ordered-hash ((k col cols))
-      (put-char out #\|)
+      (put-vbar out theme)
       (put-string+pad out (ordered-hash-ref row k "") col))
-    (put-char out #\|)
+    (put-vbar out theme)
     (newline out)))
 
 
 
 (define (display-footer tx)
   (when (table-writer-footer? tx)
-    (table-dashes-put tx)
+    (table-put-dashes tx 2)
     (table-writer-footer?-set! tx #f)
     (table-writer-header?-set! tx #t)))
 
@@ -231,8 +272,15 @@
   (display-footer tx))
 
 
+(define (integer->string tx datum)
+  (let ((wbuf (table-writer-wbuf tx)))
+    (bytespan-clear! wbuf)
+    (bytespan-display-left/integer! wbuf datum)
+    (latin1-bytespan->string wbuf)))
+
+
 ;; FIXME: use reflection recursively and create nested tables?
-(define (datum->string datum)
+(define (datum->string tx datum)
   (cond
     ((or (not datum) (eq? (void) datum))
       "")
@@ -240,17 +288,13 @@
       datum)
     ((date? datum)
       (date->string datum))
+    ((and (integer? datum) (exact? datum))
+      (integer->string tx datum))
     ((time? datum)
       ;; (if (eq? 'time-utc (time-type datum))
       ;;  (date->string (time-utc->date datum))
       ;;  (time->string datum))
-      (let ((wbuf (make-bytespan 0)))
-        (bytespan-display-left/integer! wbuf (time-second datum))
-        (latin1-bytespan->string wbuf)))
-    ((and (integer? datum) (exact? datum))
-      (let ((wbuf (make-bytespan 0)))
-        (bytespan-display-left/integer! wbuf datum)
-        (latin1-bytespan->string wbuf)))
+      (integer->string tx (time-second datum)))
     (else
       (format #f "~s" datum))))
 
@@ -273,7 +317,7 @@
 (define (obj->row tx obj)
   (let ((row  (make-eq-ordered-hash)))
     (for ((k v (in-table-fields obj (ensure-cache tx))))
-      (let ((str (datum->string v)))
+      (let ((str (datum->string tx v)))
         (ordered-hash-set! row k str)
         (update-column tx k v str)))
     row))
