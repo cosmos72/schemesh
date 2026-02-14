@@ -57,9 +57,6 @@
 (define (exact-integer-or-void? obj)
   (or (eq? (void) obj) (and (integer? obj) (exact? obj))))
 
-(define (string-or-false-or-void? obj)
-  (or (eq? (void) obj) (not obj) (string? obj)))
-
 (define (string-or-symbol-or-void? obj)
   (or (eq? (void) obj) (symbol? obj) (string? obj)))
 
@@ -74,7 +71,7 @@
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
-  (assert* 'make-dir-entry (string-or-false-or-void? target))
+  (assert* 'make-dir-entry (string-or-void? target))
   (assert* 'make-dir-entry (string-or-void? mode))
   (assert* 'make-dir-entry (time-or-void? accessed))
   (assert* 'make-dir-entry (time-or-void? modified))
@@ -243,7 +240,7 @@
     (vector-ref vec 0)
     (if-fixnum->type   (vector-ref vec 1))
     (vector-ref vec 2)
-    (vector-ref vec 3)
+    (or (vector-ref vec 3) "") ; target
     (if-mode->string   (vector-ref vec 4))
     (if-pair->time-utc (vector-ref vec 5))
     (if-pair->time-utc (vector-ref vec 6))

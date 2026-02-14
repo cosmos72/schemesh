@@ -10,8 +10,8 @@
 (library (scheme2k containers in (0 9 3))
   (export
     constant in-value in-values in-numbers in-range
-    in-roundrobin in-list-roundrobin in-sequences number->cflonum
-    sequence->list sequence->vector)
+    in-roundrobin in-list-roundrobin in-iterators number->cflonum
+    iterator->list iterator->vector)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -19,15 +19,15 @@
     (only (scheme2k bootstrap) assert* debugf))
 
 
-;; A sequence is a closure that, at each call, returns N+1 values:
-;;   * N values: the next element in the sequence.
+;; A iterator is a closure that, at each call, returns N+1 values:
+;;   * N values: the next element in the iterator.
 ;;               Examples: the next element in a list or vector, or the next key and value in a hashtable.
-;;   * a boolean, #f if end-of-sequence is reached, otherwise #t.
+;;   * a boolean, #f if end-of-iterator is reached, otherwise #t.
 ;;                if #f, the other N returned values are unspecified.
 ;;
-;; A unary sequence is the case where N = 1: a closure that, at each call, returns two values:
-;;   * a datum, representing the next element in the sequence
-;;   * a boolean, #f if end-of-sequence is reached, otherwise #t.
+;; A unary iterator is the case where N = 1: a closure that, at each call, returns two values:
+;;   * a datum, representing the next element in the iterator
+;;   * a boolean, #f if end-of-iterator is reached, otherwise #t.
 ;;                if #f, the other datum is unspecified
 
 
@@ -146,7 +146,7 @@
       (fl-make-rectangular (real->flonum (real-part num)) (real->flonum (imag-part num))))))
 
 
-;; create and return a closure that returns an unlimited sequence
+;; create and return a closure that returns an unlimited iterator
 ;; of exact or inexact real or complex numbers,
 ;; starting from start and adding step at each iteration, which defaults to 1.
 ;;
@@ -189,47 +189,47 @@
       (in-numbers 0 1))))
 
 
-;; Create and returns a closure that sequentially composes all input sequences.
-;; Each sequence is initiated only after the preceding one is exhausted.
-;; If a single sequence is provided, then it is returned;
-;; otherwise all sequences should return the same number of multiple values at each iteration
-(define in-sequences
+;; Create and returns a closure that sequentially composes all specified iterators.
+;; Each iterator is initiated only after the preceding one is exhausted.
+;; If a single iterator is provided, then it is returned;
+;; otherwise all iterators should return the same number of multiple values at each iteration
+(define in-iterators
   (case-lambda
-    ((seq) seq)
-    ((seq0 . seqs)
-      (let* ((seqs (cons seq0 seqs))
-             (%in-sequences ; name shown when displaying the closure
+    ((iter) iter)
+    ((iter0 . iters)
+      (let* ((iters (cons iter0 iters))
+             (%in-iterators ; name shown when displaying the closure
                (lambda ()
                  (let %loop ()
-                   (let ((seq (car seqs)))
-                     ;; (debugf "iterating on ~s, remaining sequences ~s" seq (cdr seqs))
-                     (if (null? (cdr seqs)) ; seq is the last sequence
-                       (seq)
-                       (let ((vals (call-with-values seq list)))
+                   (let ((iter (car iters)))
+                     ;; (debugf "iterating on ~s, remaining iterators ~s" iter (cdr iters))
+                     (if (null? (cdr iters)) ; iter is the last iterator
+                       (iter)
+                       (let ((vals (call-with-values iter list)))
                          (if (car (last-pair vals))
-                           ;; seq not exhausted yet, return its values
+                           ;; iter not exhausted yet, return its values
                            (apply values vals)
-                           ;; seq exhausted, move to next sequence
+                           ;; iter exhausted, move to next iterator
                            (begin
-                             (set! seqs (cdr seqs))
+                             (set! iters (cdr iters))
                              (%loop))))))))))
-        %in-sequences))))
+        %in-iterators))))
 
 
-;; Create and returns a closure that alternates among input sequences.
-;; Each time the closure is called, it forwards the call to the i-th input sequence,
-;; then sets i to (fxmod (fx+ i step) (length sequences))
+;; Create and returns a closure that alternates among input iterators.
+;; Each time the closure is called, it forwards the call to the i-th input iterator,
+;; then sets i to (fxmod (fx+ i step) (length iterators))
 ;;
-;; If a single sequence is provided, then it is returned;
-;; otherwise all sequences should return the same number of multiple values at each iteration
+;; If a single iterator is provided, then it is returned;
+;; otherwise all iterators should return the same number of multiple values at each iteration
 ;;
-;; If any sequence is exhausted, further calls will always return (... #f)
+;; If any iterator is exhausted, further calls will always return (... #f)
 (define in-roundrobin
   (case-lambda
-    ((seq) seq)
-    ((seq . seqs)
-      (let* ((seqv (list->vector (cons seq seqs)))
-             (n    (vector-length seqv))
+    ((iter) iter)
+    ((iter . iters)
+      (let* ((iterv (list->vector (cons iter iters)))
+             (n    (vector-length iterv))
              (i    0)
              (eof-vals #f)
              (%in-roundrobin ; name shown when displaying the closure
@@ -237,64 +237,68 @@
                  (let %loop ()
                    (if eof-vals
                      (apply values eof-vals)
-                     (let ((vals (call-with-values (vector-ref seqv i) list))
+                     (let ((vals (call-with-values (vector-ref iterv i) list))
                            (i+1 (fx1+ i)))
                        (if (car (last-pair vals))
-                         (set! i (if (fx<? i+1 n) i+1 0)) ; seq not exhausted, increment i
-                         (set! eof-vals vals))            ; seq exhausted, fill eof-vals
+                         (set! i (if (fx<? i+1 n) i+1 0)) ; iter not exhausted, increment i
+                         (set! eof-vals vals))            ; iter exhausted, fill eof-vals
                        (apply values vals)))))))
           %in-roundrobin))))
 
 
-;; Create and returns a closure that alternates among input sequences.
-;; Each time the closure is called, it forwards the call to the i-th input sequence,
-;; then sets i to (fxmod (fx+ i step) (length sequences))
+;; Create and returns a closure that alternates among input iterators.
+;; Each time the closure is called, it forwards the call to the i-th input iterator,
+;; then sets i to (fxmod (fx+ i step) (length iterators))
 ;;
-;; If a single sequence is provided, then it is returned;
-;; otherwise all sequences should return the same number of multiple values at each iteration
+;; If a single iterator is provided, then it is returned;
+;; otherwise all iterators should return the same number of multiple values at each iteration
 ;;
-;; If any sequence is exhausted, further calls will always return (... #f)
+;; If any iterator is exhausted, further calls will always return (... #f)
 (define in-list-roundrobin
   (case-lambda
-    ((seqs start step)
-      (assert* 'in-list-roundrobin (pair? seqs))
+    ((iters start step)
+      (assert* 'in-list-roundrobin (pair? iters))
       (assert* 'in-list-roundrobin (fixnum? start))
       (assert* 'in-list-roundrobin (fixnum? step))
-      (if (null? (cdr seqs))
-        (car seqs)
-        (let* ((seqv (list->vector seqs))
-               (n    (vector-length seqv))
-               (i    (fxmod start n))
+      (if (null? (cdr iters))
+        (car iters)
+        (let* ((iterv (list->vector iters))
+               (n     (vector-length iterv))
+               (i     (fxmod start n))
                (eof-vals #f)
                (%in-list-roundrobin ; name shown when displaying the closure
                  (lambda ()
                    (let %loop ()
                      (if eof-vals
                        (apply values eof-vals)
-                       (let ((vals (call-with-values (vector-ref seqv i) list)))
+                       (let ((vals (call-with-values (vector-ref iterv i) list)))
                          (if (car (last-pair vals))
-                           (set! i (fxmod (fx+ i step) n)) ; seq not exhausted, increment i
-                           (set! eof-vals vals))           ; seq exhausted, fill eof-vals
+                           (set! i (fxmod (fx+ i step) n)) ; iter not exhausted, increment i
+                           (set! eof-vals vals))           ; iter exhausted, fill eof-vals
                          (apply values vals)))))))
           %in-list-roundrobin)))
-    ((seqs start)
-      (in-list-roundrobin seqs start 1))
-    ((seqs)
-      (in-list-roundrobin seqs 0 1))))
+    ((iters start)
+      (in-list-roundrobin iters start 1))
+    ((iters)
+      (in-list-roundrobin iters 0 1))))
 
 
-;; Read all elements from specified unary sequence, collect them into a list, and return such list.
-(define (sequence->list seq)
-  (let %sequence->list ((seq seq) (l '()))
-    (let-values (((elem ok?) (seq)))
+;; Read all elements from specified unary iterator, collect them into a list, and return such list.
+(define (iterator->list iter)
+  (let %iterator->list ((iter iter) (l '()))
+    (let-values (((elem ok?) (iter)))
       (if ok?
-        (%sequence->list seq (cons elem l))
+        (%iterator->list iter (cons elem l))
         (reverse! l)))))
 
 
-;; Read all elements from specified unary sequence, collect them into a vector, and return such vector.
-(define (sequence->vector seq)
-  (list->vector (sequence->list seq)))
+;; Read all elements from specified unary iterator, collect them into a vector, and return such vector.
+(define (iterator->vector iter)
+  (let %iterator->list ((iter iter) (l '()))
+    (let-values (((elem ok?) (iter)))
+      (if ok?
+        (%iterator->list iter (cons elem l))
+        (reverse! l)))))
 
 
 ) ; close library

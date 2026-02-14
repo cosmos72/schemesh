@@ -151,7 +151,7 @@ but may or *may not* affect job's *current* execution.
 Optional arguments are:
 * `fd` is the job's file descriptor to redirect, must be an unsigned fixnum.<br/>
    If not specified, defaults to `0` if `dir` is `'<` or `'<&` otherwise defaults to `1`.
-* `more-redirections` optional further redirections, must be a sequence containing
+* `more-redirections` optional further redirections, must be a list containing
    zero or more pairs `dir to` and/or triplets `fd dir to`.
    Specifying some redirections as pairs and some as triplets is allowed.
 

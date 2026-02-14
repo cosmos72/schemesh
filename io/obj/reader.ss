@@ -187,28 +187,28 @@
       (vector-reader v 0 (vector-length v)))))
 
 
-;; create and return an obj-reader that generates the elements of specified unary sequence, one at time.
+;; create and return an obj-reader that generates the elements of specified unary iterator, one at time.
 ;; each call to (obj-reader-get rx) will return two values:
-;;  either (values elem #t) i.e. the next element from the sequence
-;;  or (values #<unspecified> #f) when the sequence is exhausted or after (obj-reader-close rx) has been called.
+;;  either (values elem #t) i.e. the next element from the iterator
+;;  or (values #<unspecified> #f) when the iterator is exhausted or after (obj-reader-close rx) has been called.
 ;;
-;; This function effectively converts a sequence to an obj-reader, and could reasonably be named `sequence->reader`
+;; This function effectively converts a iterator to an obj-reader, and could reasonably be named `iterator->reader`
 ;; although by convention readers are created by functions `TYPE-reader`
-(define (sequence-reader seq)
-  (assert* 'sequence-reader (procedure? seq))
-  (assert* 'sequence-reader (logbit? 0 (procedure-arity-mask seq)))
-  (let ((%sequence-reader ;; name shown when displaying the closure
+(define (iterator-reader seq)
+  (assert* 'iterator-reader (procedure? seq))
+  (assert* 'iterator-reader (logbit? 0 (procedure-arity-mask seq)))
+  (let ((%iterator-reader ;; name shown when displaying the closure
           (lambda (rx) (seq))))
-    (make-obj-reader %sequence-reader #f #f)))
+    (make-obj-reader %iterator-reader #f #f)))
 
 
-;; create and return a sequence, i.e. a closure that accepts zero arguments and, at each call,
+;; create and return a iterator, i.e. a closure that accepts zero arguments and, at each call,
 ;; will return the two values returned by calling (obj-reader-get rx):
 ;;   either (values elem #t) i.e. the next generated value,
 ;;   or (values #<unspecified> #f) if obj-reader is exhausted or after (obj-reader-close rx) has been called.
 ;;
-;; This function effectively converts an obj-reader to a sequence, and could reasonably be named `reader->sequence`,
-;; although by convention sequences are created by functions `in-TYPE`
+;; This function effectively converts an obj-reader to a iterator, and could reasonably be named `reader->iterator`,
+;; although by convention iterators are created by functions `in-TYPE`
 (define (in-reader rx)
   (assert* 'in-reader (obj-reader? rx))
   (lambda ()

@@ -119,8 +119,8 @@
         cache)))
 
 
-;; search for obj's rtd in json-reflect-infos and if a reflect-info is found, return a sequence on it.
-;; otherwise return a sequence on obj's reflect fields via (in-fields obj cache)
+;; search for obj's rtd in json-reflect-infos and if a reflect-info is found, return an iterator on it.
+;; otherwise return an iterator on obj's reflect fields via (in-fields obj cache)
 (define (in-table-fields obj cache)
   (if (record? obj)
     (let ((info (hashtable-ref table-reflect-infos (record-rtd obj) #f)))
@@ -282,7 +282,7 @@
 ;; FIXME: use reflection recursively and create nested tables?
 (define (datum->string tx datum)
   (cond
-    ((or (not datum) (eq? (void) datum))
+    ((eq? (void) datum)
       "")
     ((string? datum)
       datum)

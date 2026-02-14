@@ -76,7 +76,7 @@
     (obj-writer-close tx))                              (97 98)
 
 
-  ;; -------------------- list-reader, filter-reader, where ----------------------------
+  ;; -------------------- filter-reader, list-reader, range-reader, where ----------------------------
 
   (let* ((r (list-reader '(1 2 3 4 5)))
          (f (where r (fxodd? @@))))
@@ -87,6 +87,9 @@
       ;; ignore obj4, it has unspecified value
       (list obj1 obj2 obj3 ok4)))                       (1 3 5 #f)
 
+
+  (let ((r (list-reader '(1 2 3 4 5))))
+    (all (first (skip r 2) 2)))                         (3 4)
 
   ;; ------------------ queue-reader and queue-writer --------------------------
 
@@ -209,15 +212,15 @@
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (json-writer-put tx
-        (make-dir-entry "." 'dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476) (make-time-utc 1768467392 0)
+        (make-dir-entry "." 'dir 4096 "" "rwxr-xr-x---" (make-time-utc 1770666829 82454476) (make-time-utc 1768467392 0)
                         (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
       (json-writer-close tx)
       (let* ((bv (to-bytevector))
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":false,\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
-                                                           (make-dir-entry "." dir 4096 #f "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
+          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":\"\",\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+                                                           (make-dir-entry "." dir 4096 "" "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
                                                              (make-time-utc 1768467392 0) (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
 
   ;; serialize and deserialize a `process-entry`

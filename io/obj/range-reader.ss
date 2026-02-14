@@ -15,8 +15,8 @@
 (define-record-type (range-reader %make-range-reader range-reader?)
   (parent nested-reader)
   (fields
-    (mutable skip-n) ; number of elements still to skip
-    (mutable get-n)) ; number of elements still to get, or #t if unlimited
+    (mutable skip-n) ; number of elements still to skip: exact integer > 0, or #f if zero
+    (mutable get-n)) ; number of elements still to get: exact integer > 0, or #f if zero, or #t if unlimited
   (protocol
     (lambda (args->new)
       (lambda (inner skip-n get-n close-inner?)
@@ -60,7 +60,13 @@
         (assert* 'make-range-reader (integer? get-n))
         (assert* 'make-range-reader (exact? get-n))
         (assert* 'make-range-reader (>= get-n 0)))
-      (%make-range-reader inner (and (not (zero? skip-n)) skip-n) get-n close-inner?))
+      (%make-range-reader inner
+                          (if (zero? skip-n) #f skip-n)
+                          (cond
+                            ((eq? #t get-n) #t)
+                            ((zero? get-n)  #f)
+                            (else           get-n))
+                          close-inner?))
     ((inner skip-n get-n)
       (make-range-reader inner skip-n get-n #f))
     ((inner skip-n)
@@ -97,13 +103,13 @@
 
 (define (skip-n-dec! rx skip-n)
   (let ((n (- skip-n 1)))
-    (range-reader-skip-n-set! rx (and (not (zero? skip-n)) skip-n))))
+    (range-reader-skip-n-set! rx (if (zero? n) #f n))))
 
 
 (define (get-n-dec! rx get-n)
   (unless (eq? #t get-n)
     (let ((n (- get-n 1)))
-      (range-reader-skip-n-set! rx (and (not (zero? get-n)) get-n)))))
+      (range-reader-get-n-set! rx (if (zero? n) #f n)))))
 
 
 ;; called by (range-reader-get) and (obj-reader-get)

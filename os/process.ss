@@ -185,7 +185,7 @@
     (make-process-entry
       (bvec-ref/s64 bvec 0)             ; pid,          int64
       (car l)                           ; process name, string
-      (cdr l)                           ; tty,          #f or string
+      (or (cdr l) "")                   ; tty,          string or (void)
       (u8->symbol
         (bytevector-u8-ref bvec (fx* 24 8))) ; state,   symbol
       (if-uid->username rx uid)         ; user name,    string or (void)

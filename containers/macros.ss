@@ -110,18 +110,18 @@
             body ...))))))
 
 
-(define-syntax %for-sequence
+(define-syntax %for-iterator
   (syntax-rules ()
     ((_ () (bind ...) body ...)
       (let for-loop ()
         (%for-body for-loop (bind ...) body ...)))
-    ;; Racket-compatible syntax: (for (((var ...) sequence)) body ...)
-    ((_ (((var ...) sequence) clause2 ...) (bind ...) body ...)
-      (%for-sequence ((var ... sequence)) (bind ...) body ...))
-    ;; Simplified syntax: (for ((var ... sequence)) body ...)
-    ((_ ((var ... sequence) clause2 ...) (bind ...) body ...)
-      (let ((iter sequence))
-        (%for-sequence (clause2 ...) (bind ... (var ... flag iter)) body ...)))))
+    ;; Racket-compatible syntax: (for (((var ...) iterator)) body ...)
+    ((_ (((var ...) iterator) clause2 ...) (bind ...) body ...)
+      (%for-iterator ((var ... iterator)) (bind ...) body ...))
+    ;; Simplified syntax: (for ((var ... iterator)) body ...)
+    ((_ ((var ... iterator) clause2 ...) (bind ...) body ...)
+      (let ((iter iterator))
+        (%for-iterator (clause2 ...) (bind ... (var ... flag iter)) body ...)))))
 
 
 ;;; Loop in parallel on elements returned by zero or more iterators,
@@ -140,7 +140,7 @@
 (define-syntax for
   (syntax-rules ()
     ((_ (clause ...) body ...)
-      (%for-sequence (clause ...) () body ...))))
+      (%for-iterator (clause ...) () body ...))))
 
 
 

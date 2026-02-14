@@ -35,8 +35,8 @@
     (only (scheme2k containers vector)       vector-every))
 
 
-;; an exhausted sequence
-(define (empty-sequence)
+;; an exhausted iterator
+(define (empty-iterator)
   (values #f #f #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -312,7 +312,7 @@
     (else           #f)))
 
 
-;; if obj is an associative container for arbitrary values, return a sequence on it.
+;; if obj is an associative container for arbitrary values, return a iterator on it.
 ;; supported associative containers are:
 ;;   hashtable
 ;;   ordered-hash
@@ -324,7 +324,7 @@
   (cond
     ((hashtable? obj)     (in-hash obj))
     ((ordered-hash? obj)  (in-ordered-hash obj))
-    (else                 empty-sequence)))
+    (else                 empty-iterator)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -672,7 +672,7 @@
 ;;; in-fields
 
 
-;; return a sequence that iterates on all field names and values of obj, in natural order.
+;; return an iterator that generates all field names and values of obj, in natural order.
 ;;
 ;; The returned closure accepts no arguments, and each call to it returns three values:
 ;;   either (values field-name field-value #t)
@@ -715,10 +715,10 @@
                              (values (car cell) ((cdr cell) obj) #t)
                              (values #f #f #f))))))
                 %in-fields)
-              ;; no rtd, return an empty sequence
-              empty-sequence)))
+              ;; no rtd, return an empty iterator
+              empty-iterator)))
         (else
-          empty-sequence)))
+          empty-iterator)))
     ((obj)
       (in-fields obj #f))))
 

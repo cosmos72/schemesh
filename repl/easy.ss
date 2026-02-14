@@ -301,7 +301,40 @@
               (assert* 'select (fx=? 2 (length old-name-new-name)))
               (assert* 'select (symbol? (car old-name-new-name)))
               (assert* 'select (symbol? (cadr old-name-new-name))))))
-        #'(make-field-reader reader '(field-name ...))))))
+        #'(make-field-reader reader '(field-name ...) 'close-inner)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; first
+
+
+;; create and return a range-reader wrapping a user-provided "inner" reader.
+;; usage: (first reader n)
+;;
+;; created range-reader will generate only the first n elements of inner reader,
+;; then it will be exhausted.
+;;
+;; n must be an exact integer >= 0
+;;
+(define (first reader n)
+  (assert* 'first (integer? n))
+  (make-range-reader reader 0 n 'close-inner))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; skip
+
+
+;; create and return a range-reader wrapping a user-provided "inner" reader.
+;; usage: (skip reader n)
+;;
+;; created range-reader will skip the first n elements of inner reader,
+;; then it generate the remaining elements (if any) of the inner reader.
+;;
+;; n must be an exact integer >= 0
+;;
+(define (skip reader n)
+  (make-range-reader reader n #t 'close-inner))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -322,10 +355,11 @@
 ;; See (where@) for a cleaner alternative.
 (define-macro (where reader expr)
   (list 'make-filter-reader reader
-     (list 'lambda '(elem cache)
-       (list 'let-syntax '((@@ (identifier-syntax elem)))
-         (list 'let-macro '((unquote name) (list 'field 'elem (list 'quote name) 'cache))
-            expr)))))
+    (list 'lambda '(elem cache)
+      (list 'let-syntax '((@@ (identifier-syntax elem)))
+        (list 'let-macro '((unquote name) (list 'field 'elem (list 'quote name) 'cache))
+           expr)))
+    ''close-inner))
 
 
 ;; create a where reader wrapping a user-provided reader.
@@ -342,4 +376,5 @@
        (let-syntax ((@@ (identifier-syntax elem))
                     (@  (syntax-rules ()
                           ((_ name) (field elem 'name cache)))))
-         ,expr))))
+         ,expr))
+     'close-inner))

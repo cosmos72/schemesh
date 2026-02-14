@@ -166,7 +166,7 @@
 ;; If no filesystem path matches the shell glob pattern, when the form is executed
 ;; it will return an empty list.
 ;;;
-;; If the argument of shell-glob is a NOT a shell glob pattern, then it must be a sequence of literal strings
+;; If the argument of shell-glob is a NOT a shell glob pattern, then it must be a list of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
 ;;
 ;; Example: (shell-glob {~bob}) expands to an (wildcard ...) form that, when executed,

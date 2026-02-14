@@ -103,8 +103,8 @@
 
 
 ;; search for obj's rtd in json-reflect-infos and if a reflect-info is found,
-;;   return a sequence that generates obj's fields and values according to the reflect-info.
-;; otherwise return a sequence generates obj's fields and values
+;;   return an iterator that generates obj's fields and values according to the reflect-info.
+;; otherwise return an iterator generates obj's fields and values
 ;;   according to reflection i.e. (in-fields obj cache)
 (define (json-in-fields obj cache)
   (let ((info (hashtable-ref json-reflect-infos (record-rtd obj) #f)))

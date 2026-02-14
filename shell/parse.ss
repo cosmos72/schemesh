@@ -49,7 +49,7 @@
   (sh-eval (sh-parse-datum (cons 'shell args))))
 
 
-;; Parse a list starting with 'shell or 'shell-subshell and containing a sequence
+;; Parse a list starting with 'shell or 'shell-subshell and containing a list
 ;; of shell commands separated by ; & ! && || |
 ;; Return parsed list, which typically consists of Scheme source forms
 ;; that will create sh-cmd or sh-multijob objects if evaluated.
@@ -215,7 +215,7 @@
     obj))
 
 
-;; Parse list containing a sequence of shell commands separated by || && |
+;; Parse list containing shell commands separated by || && |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
@@ -243,7 +243,7 @@
       args)))
 
 
-;; Parse list containing a sequence of shell commands separated by && |
+;; Parse list containing shell commands separated by &&
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
@@ -271,7 +271,7 @@
         (else              (cons 'sh-and (reverse! ret))))
       args)))
 
-;; Parse list containing a sequence of shell commands separated by |
+;; Parse list containing shell commands separated by |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.

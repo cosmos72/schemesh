@@ -33,7 +33,7 @@
   (export
     ;; obj/reader.ss
     make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
-    in-reader constant-reader empty-reader list-reader sequence-reader vector-reader reader->list reader->vector
+    in-reader constant-reader empty-reader list-reader iterator-reader vector-reader reader->list reader->vector
 
     ;; obj/filter-reader.ss
     make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip filter-reader-inner
@@ -79,40 +79,47 @@
 (include "io/obj/range-reader.ss")
 
 
-(define (filter-reader-display r port writer label)
-  (lambda (r port writer)
-    (put-string port "#<")
-    (put-string port label)
-    (put-char port #\space)
-    (writer (obj-reader-get-proc r) port)
-    (put-char port #\space)
-    (writer (unbox (obj-reader-close-box r)) port)
-    (put-char port #\space)
-    (writer (if (obj-reader-eof? r) 'eof #f) port)
-    (put-string port ">")))
+(define (reader-display r port writer label)
+  (put-string port "#<")
+  (put-string port label)
+  (put-string port (if (obj-reader-eof? r) " eof " " ok "))
+  (writer (obj-reader-get-proc r) port)
+  (put-char port #\space)
+  (writer (unbox (obj-reader-close-box r)) port)
+  (put-string port ">"))
 
 
 ;; customize how "obj-reader" objects are printed
 (record-writer (record-type-descriptor obj-reader)
   (lambda (r port writer)
-    (filter-reader-display r port writer "obj-reader")))
+    (reader-display r port writer "obj-reader")))
 
 
 ;; customize how "filter-reader" objects are printed
 (record-writer (record-type-descriptor filter-reader)
   (lambda (r port writer)
-    (filter-reader-display r port writer "filter-reader")))
+    (reader-display r port writer "filter-reader")))
+
+
+;; customize how "range-reader" objects are printed
+(record-writer (record-type-descriptor range-reader)
+  (lambda (r port writer)
+    (put-string port "#<range-reader")
+    (put-string port (if (obj-reader-eof? r) " eof " " ok "))
+    (writer (range-reader-skip-n r) port)
+    (put-char port #\space)
+    (writer (range-reader-get-n r) port)
+    (put-string port ">")))
 
 
 ;; customize how "obj-writer" objects are printed
 (record-writer (record-type-descriptor obj-writer)
   (lambda (w port writer)
-    (put-string port "#<obj-writer ")
+    (put-string port "#<obj-writer")
+    (put-string port (if (obj-writer-eof? w) " eof " " ok "))
     (writer (obj-writer-put-proc w) port)
     (put-char port #\space)
     (writer (unbox (obj-writer-close-box w)) port)
-    (put-char port #\space)
-    (writer (if (obj-writer-eof? w) 'eof #f) port)
     (put-string port ">")))
 
 

@@ -156,13 +156,13 @@
     (make-obj-reader %hash-reader #f #f)))
 
 
-;; create and return a sequence that iterates on elements of hashtable t.
+;; create and return an iterator that generates elements of hashtable t.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns three values:
 ;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
 ;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
-(define (in-hash htable)
-  (let ((iter (hash-cursor htable)))
+(define (in-hash ht)
+  (let ((iter (hash-cursor ht)))
     (lambda ()
       (let ((cell (hash-cursor-next! iter)))
         (if cell
@@ -170,7 +170,7 @@
           (values #f #f #f))))))
 
 
-;; create and return a closure that iterates on each pair containing (key . value) of htable.
+;; create and return an iterator that generates pairs (key . value) of hashtable ht.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values pair #t) i.e. the next pair containing (key . value) in hashtable and #t,
@@ -180,8 +180,8 @@
 ;; i.e. changes the value associated to key in hashtable.
 ;;
 ;; Do NOT modify the (car) of any pair!
-(define (in-hash-cells htable)
-  (let ((iter (hash-cursor htable)))
+(define (in-hash-cells ht)
+  (let ((iter (hash-cursor ht)))
     (lambda ()
       (let ((cell (hash-cursor-next! iter)))
         (if cell
@@ -189,13 +189,13 @@
           (values #f #f))))))
 
 
-;; create and return a closure that iterates on keys of hashtable htable.
+;; create and return a closure that iterates on keys of hashtable ht.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values key #t) i.e. the next key in hashtable and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
-(define (in-hash-keys htable)
-  (let ((iter (hash-cursor htable)))
+(define (in-hash-keys ht)
+  (let ((iter (hash-cursor ht)))
     (lambda ()
       (let ((cell (hash-cursor-next! iter)))
         (if cell
@@ -208,8 +208,8 @@
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values key #t) i.e. the next key in hashtable t and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
-(define (in-hash-values htable)
-  (let ((iter (hash-cursor htable)))
+(define (in-hash-values ht)
+  (let ((iter (hash-cursor ht)))
     (lambda ()
       (let ((cell (hash-cursor-next! iter)))
         (if cell
@@ -217,37 +217,37 @@
          (values #f #f))))))
 
 
-;; Iterate on elements of given hashtables htable, and call (proc key value) on each key and value.
+;; Iterate on elements of given hashtables ht, and call (proc key value) on each key and value.
 ;; Return unspecified value.
-(define (hash-for-each htable proc)
+(define (hash-for-each ht proc)
   (assert* 'hash-for-each (procedure? proc))
-  (hash-for-each-cell htable (lambda (cell) (proc (car cell) (cdr cell)))))
+  (hash-for-each-cell ht (lambda (cell) (proc (car cell) (cdr cell)))))
 
 
-;; Iterate on elements of given hashtables htable, and call (proc key) on each key.
+;; Iterate on elements of given hashtables ht, and call (proc key) on each key.
 ;; Return unspecified value.
-(define (hash-for-each-key htable proc)
+(define (hash-for-each-key ht proc)
   (assert* 'hash-for-each-key (procedure? proc))
-  (hash-for-each-cell htable (lambda (cell) (proc (car cell)))))
+  (hash-for-each-cell ht (lambda (cell) (proc (car cell)))))
 
 
-;; Iterate on elements of given hashtables htable, and call (proc pair) on each pair (key . value).
+;; Iterate on elements of given hashtables ht, and call (proc pair) on each pair (key . value).
 ;; Return unspecified value.
 ;;
 ;; Do NOT modify the (car) of any pair!
-(define (hash-for-each-cell htable proc)
+(define (hash-for-each-cell ht proc)
   (assert* 'hash-for-each-cell (procedure? proc))
-  (let ((iter (hash-cursor htable)))
+  (let ((iter (hash-cursor ht)))
     (do ((cell (hash-cursor-next! iter) (hash-cursor-next! iter)))
         ((not cell))
       (proc cell))))
 
 
-;; Iterate on elements of given hashtables htable, and call (proc value) on each value.
+;; Iterate on elements of given hashtables ht, and call (proc value) on each value.
 ;; Return unspecified value.
-(define (hash-for-each-value htable proc)
+(define (hash-for-each-value ht proc)
   (assert* 'hash-for-each-value (procedure? proc))
-  (hash-for-each-cell htable (lambda (cell) (proc (cdr cell)))))
+  (hash-for-each-cell ht (lambda (cell) (proc (cdr cell)))))
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
@@ -257,10 +257,10 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((key val htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-cursor htable)) ...)
+      ((_ ((key val ht) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ht ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(ht ...))))
+          #'(let ((iter (hash-cursor ht)) ...)
               (let %for-hash ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((key (car cell)) ...
@@ -284,9 +284,9 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((cell htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-cursor htable)) ...)
+      ((_ ((cell ht) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ht ...))))
+          #'(let ((iter (hash-cursor ht)) ...)
               (let %for-hash-cells ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (with-while-until
@@ -302,10 +302,10 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((key htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-cursor htable)) ...)
+      ((_ ((key ht) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ht ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(ht ...))))
+          #'(let ((iter (hash-cursor ht)) ...)
               (let %for-hash-keys ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((key (car cell)) ...)
@@ -322,10 +322,10 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
-      ((_ ((val htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
-                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
-          #'(let ((iter (hash-cursor htable)) ...)
+      ((_ ((val ht) ...) body ...)
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(ht ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(ht ...))))
+          #'(let ((iter (hash-cursor ht)) ...)
               (let %for-hash-keys ((cell (hash-cursor-next! iter)) ...)
                 (when (and cell ...)
                   (let ((val (cdr cell)) ...)
@@ -443,8 +443,8 @@
   (plist->hashtable hash-proc eq-proc plist))
 
 
-(define (display-hashtable-content htable out writer)
-  (for-hash ((key val htable))
+(define (display-hashtable-content ht out writer)
+  (for-hash ((key val ht))
     (put-char out #\space)
     (writer key out)
     (put-char out #\space)
@@ -459,28 +459,28 @@
 
 ;; customize how eq-hashtable objects are printed
 (record-writer %eq-hashtable-rtd
-  (lambda (htable out writer)
+  (lambda (ht out writer)
     (put-string out "(eq-hashtable")
-    (display-hashtable-content htable out writer)
+    (display-hashtable-content ht out writer)
     (put-string out ")")))
 
 
 ;; customize how eqv-hashtable objects are printed
 (record-writer %eqv-hashtable-rtd
-  (lambda (htable out writer)
+  (lambda (ht out writer)
     (put-string out "(eqv-hashtable")
-    (display-hashtable-content htable out writer)
+    (display-hashtable-content ht out writer)
     (put-string out ")")))
 
 
 ;; customize how hashtable objects are printed
 (record-writer %gen-hashtable-rtd
-  (lambda (htable out writer)
+  (lambda (ht out writer)
     (put-string out "(hashtable ")
-    (display-procedure-name (hashtable-hash-function htable) out)
+    (display-procedure-name (hashtable-hash-function ht) out)
     (put-char out #\space)
-    (display-procedure-name (hashtable-equivalence-function htable) out)
-    (display-hashtable-content htable out writer)
+    (display-procedure-name (hashtable-equivalence-function ht) out)
+    (display-hashtable-content ht out writer)
     (put-string out ")")))
 
 ) ; close library
