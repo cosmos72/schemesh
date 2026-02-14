@@ -13,14 +13,14 @@ provides basic utility functions and macros.
 * [`(forever)`](#forever)
 * [`(first-value)`](#first-value)
 * [`(let-macro)`](#let-macro)
-* [`(list->values)`](#list->values)
+* [`(list->values)`](#list-values)
 * [`(repeat)`](#repeat)
 * [`(second-value)`](#second-value)
 * [`(with-locked-objects)`](#with-locked-objects)
 * [`(while)`](#while)
 * [`(until)`](#until)
 * [`(try)`](#try)
-* [`(values->list)`](#values->list)
+* [`(values->list)`](#values-list)
 
 ### Functions and macros
 
