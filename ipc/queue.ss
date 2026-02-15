@@ -9,7 +9,7 @@
 
 ;;; inter-thread communication library:
 ;;;
-;;; exchanges arbitrary Scheme data through thread-safe in-memory queues
+;;; exchanges arbitrary Scheme data through thread-safe, in-memory, unbounded queues
 ;;;
 
 (meta-cond

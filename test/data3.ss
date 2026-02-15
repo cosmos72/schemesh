@@ -99,6 +99,15 @@
       (set! l (cons obj l)))
     (reverse! l))                                       (1 3 5)
 
+  ;; ------------------ fifo-reader and fifo-writer --------------------------
+
+  (let-values (((rx tx) (make-fifo-pair)))
+    (fifo-writer-put tx (eof-object))
+    (let*-values (((obj1 ok1) (fifo-reader-get rx))
+                  ((obj2 ok2) (fifo-reader-try-get rx)))
+      ;; ignore obj2, it has unspecified value
+      (list obj1 ok1 ok2)))                             ,@"(#!eof #t timeout)"
+
   ;; ------------------ queue-reader and queue-writer --------------------------
 
   (let* ((tx (make-queue-writer))

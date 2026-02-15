@@ -43,7 +43,7 @@
 ;; * a time object with type 'time-duration, which is copied
 ;;
 ;; to a time object with type 'time-duration
-(define (make-time-duration duration)
+(define (to-duration duration)
   (cond
     ((real? duration)
       (let* ((seconds (exact (floor duration)))
@@ -52,8 +52,8 @@
     ((pair? duration)
       (make-time 'time-duration (cdr duration) (car duration)))
     (else
-      (assert* 'make-time-duration (time? duration))
-      (assert* 'make-time-duration (eq? 'time-duration (time-type duration)))
+      (assert* 'to-duration (time? duration))
+      (assert* 'to-duration (eq? 'time-duration (time-type duration)))
       (make-time 'time-duration (time-nanosecond duration) (time-second duration)))))
 
 

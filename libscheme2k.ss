@@ -70,6 +70,7 @@
   (include "io/wire/wire.ss")       ; requires io/posix/status.ss
   (include "io/io.ss")
 
+  (include "ipc/fifo.ss")
   (include "ipc/queue.ss")
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
   (include "ipc/ipc.ss")

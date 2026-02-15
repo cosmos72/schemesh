@@ -17,17 +17,15 @@
   (export make-queue-pair
           make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-close queue-reader-eof? queue-reader-get queue-reader-skip
           make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-close queue-writer-eof? queue-writer-put
-          queue-reader-timed-get queue-reader-try-get in-queue-reader
-          thread==> thread-queue-reader)
+          queue-reader-timed-get queue-reader-try-get in-queue-reader)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)            fx1+ include list-copy list-head make-time record-writer time? time-type time-second time-nanosecond void)
+    (only (chezscheme)            fx1+ include make-time record-writer time? time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
     (only (scheme2k posix signal) countdown)
     (only (scheme2k io obj)       obj-reader obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
-                                  obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put)
-    (only (scheme2k posix thread) make-thread thread-start!))
+                                  obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put))
 
 
 (include "ipc/queue-common.ss")

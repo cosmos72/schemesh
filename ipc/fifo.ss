@@ -5,9 +5,13 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
-;; define (scheme2k ipc) as a library that exports all its imported bindings
-(library-reexport (scheme2k ipc (0 9 3))
-  (import
-    (scheme2k ipc fifo)
-    (scheme2k ipc queue)
-    (scheme2k ipc wire)))
+#!r6rs
+
+;;; inter-thread communication library:
+;;;
+;;; exchanges arbitrary Scheme data through thread-safe, in-memory bounded queues
+;;;
+
+(meta-cond
+  ((threaded?) (include "ipc/fifo-thread.ss"))
+  (else        (include "ipc/fifo-nothread.ss")))
