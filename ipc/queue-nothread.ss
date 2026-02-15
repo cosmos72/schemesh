@@ -27,7 +27,7 @@
     (only (scheme2k posix signal) countdown)
     (only (scheme2k io obj)       obj-reader obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
                                   obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put)
-    (only (scheme2k posix thread) fork-thread))
+    (only (scheme2k posix thread) make-thread thread-start!))
 
 
 (include "ipc/queue-common.ss")

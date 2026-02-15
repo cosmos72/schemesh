@@ -67,10 +67,11 @@
                 (dynamic-wind
                   void
                   %thread-queue-reader-loop
-                  (lambda () (obj-writer-close tx))))))
+                  (lambda () (obj-writer-close tx)))))
 
-    ;; FIXME: (thread-start!) does not work if called *immediately* after (make-thread) 
-    (fork-thread %thread-queue-reader)
+            (thread (make-thread %thread-queue-reader 'thread-queue-reader)))
+
+    (thread-start! thread)
     rx))
 
 

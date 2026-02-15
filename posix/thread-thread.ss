@@ -15,7 +15,7 @@
     (mutable name)       ; thread-name, useful for debugging
     (mutable specific)   ; thread-specific, defined by SRFI 18
     (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
-    (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
+    (mutable signal)     ; one of: #f 'sigint 'sigtstp 'sigcont
     changed)             ; condition
   (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be45))
 
@@ -241,7 +241,7 @@
     ;; call pthread_self() only if xthread is for current thread
     (make-xthread thread id (void) (void)
                   (if (eqv? tc ($tc)) (c-thread-self) #f)
-                  'sigcont (make-condition name))))
+                  #f (make-condition name))))
 
 
 (define xthread-parameter-index (($primitive $allocate-thread-parameter) #f))
@@ -304,7 +304,10 @@
         (let ((xthread ($thread-xthread ($current-thread) ($tc))))
           (when xthread
             (xthread-name-set!   xthread name)
-            (xthread-signal-set! xthread initial-signal-name)))))))
+            ;; if someone already sent a signal to this thread while it was starting,
+            ;; do not overwrite it
+            (when (and initial-signal-name (not (xthread-signal xthread)))
+              (xthread-signal-set! xthread initial-signal-name))))))))
 
 
 ;; hashtable thread -> (id status . name)
@@ -457,7 +460,7 @@
 ;; send a signal to specified thread or thread-id.
 ;; signal-name is optional and defaults to 'sigint.
 ;;
-;; return (void) if successfull, otherwise return c_errno() < 0
+;; return (void) if successful, otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define thread-kill
@@ -480,7 +483,7 @@
 ;; send a signal to specified thread.
 ;; must be called with locked $tc-mutex.
 ;;
-;; if successful return updated xthread object,
+;; return thread's xthread object if successful,
 ;; otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
@@ -497,7 +500,7 @@
 ;; send a signal to specified thread-context tc.
 ;; must be called with locked $tc-mutex.
 ;;
-;; if successful return updated xthread object,
+;; return thread's xthread object if successful,
 ;; otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
@@ -520,11 +523,13 @@
       (let* ((sig (if main-thread? (signal-name->number signal-name) n-sigcont))
              (ret (c-signal-send-thread sig pthread-id)))
         (if (eqv? 0 ret)
-          xthread ;; success, return xthread
+          xthread ;; success
           ret)))
     (xthread
-      ;; thread exists, but its pthread-id is not known
-      c-errno-eagain)
+      ;; thread exists, but its pthread-id is not known.
+      ;; Hopefully it will call (thread-register-self) to set it,
+      ;; and then it will check for the signal we just queued.
+      xthread) ;; success
     (else
       c-errno-esrch)))
 
@@ -556,7 +561,7 @@
         ($thread-status-set! thread tc s-stopped)
         (condition-wait (xthread-changed xthread) $tc-mutex)
         ($thread-signal-handle thread tc xthread))
-      (else
+      (else ; #f or sigcont
         ($thread-status-set! thread tc s-running)))))
 
 
