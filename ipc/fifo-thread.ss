@@ -12,7 +12,7 @@
 ;;; exchanges arbitrary Scheme data through thread-safe in-memory queues
 ;;;
 (library (scheme2k ipc fifo (0 9 3))
-  (export make-fifo-pair
+  (export make-fifo-pair fifo-default-capacity
           fifo-reader fifo-reader? fifo-reader-close fifo-reader-eof? fifo-reader-get fifo-reader-skip
           fifo-writer fifo-writer? fifo-writer-close fifo-writer-eof? fifo-writer-put
 
@@ -23,7 +23,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)            condition-signal condition-wait fx1+ fx1- include list-copy list-head
+    (only (chezscheme)            condition-broadcast condition-signal condition-wait fx1+ fx1- include list-copy list-head
                                   make-condition make-mutex make-time meta-cond record-writer
                                   time<=? time? time-difference! time-type time-second time-nanosecond
                                   void with-interrupts-disabled with-mutex)
@@ -48,7 +48,9 @@
 
 (define (fifo-handle-close h)
   (with-mutex (fifo-handle-mutex h)
-    (fifo-handle-eof?-set! h #t)))
+    (fifo-handle-eof?-set! h #t))
+  (condition-broadcast (fifo-handle-may-get h))
+  (condition-broadcast (fifo-handle-may-put h)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

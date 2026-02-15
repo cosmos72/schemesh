@@ -37,7 +37,9 @@
                           (dynamic-wind
                             void
                             %thread-fifo-reader-loop
-                            (lambda () (obj-writer-close tx)))))
+                            (lambda ()
+			      (obj-reader-close reader)
+			      (obj-writer-close tx)))))
 
                       (thread (make-thread %thread-fifo-reader 'thread-fifo-reader)))
 
@@ -47,7 +49,7 @@
       reader)))
 
     ((reader)
-      (make-thread-fifo-reader (fifo-default-capacity)))))
+      (make-thread-fifo-reader reader (fifo-default-capacity)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

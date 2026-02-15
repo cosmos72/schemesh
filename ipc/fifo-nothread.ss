@@ -12,7 +12,7 @@
 ;;; exchanges arbitrary Scheme data through thread-safe in-memory queues
 ;;;
 (library (scheme2k ipc fifo (0 9 3))
-  (export make-fifo-pair
+  (export make-fifo-pair fifo-default-capacity
           fifo-reader fifo-reader? fifo-reader-close fifo-reader-eof? fifo-reader-get fifo-reader-skip
           fifo-writer fifo-writer? fifo-writer-close fifo-writer-eof? fifo-writer-put
 

@@ -3,7 +3,6 @@
 ### TO DO
 
 * fix fs-related functions to honor current job's current directory
-* refactor `json-writer` to write to a binary port, not to a textual one
 * extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors
 * remove function `(parsectx-unread-char)` and update functions that use it
 * add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
@@ -12,12 +11,15 @@
 
 ### git main branch
 
+* add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add types `field-reader` and `filter-reader`
-* add types `json-reader` and `json-writer`
-* add types `queue-reader` and `queue-writer`
+* add type `field-reader`
+* add types `fifo-reader` `fifo-writer` and new macro `(thread==>)` that uses them
+* add type `filter-reader`
+* add types `json-reader` `json-writer`
+* add types `queue-reader` `queue-writer`
 * add type `table-writer`
-* add types `wire-reader` and `wire-writer`
+* add types `wire-reader` `wire-writer`
 * add library `(scheme2k reflect)` with functions for simplifing reflection
 * pretty-print types `time` and `date` and add convenience functions to create and convert them
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
@@ -27,7 +29,6 @@
 * rename function `(...channel...)` -> `(...wire-reader...)` or `(...wire-writer...)`
 * rename library `(schemesh ipc fifo)` -> `(scheme2k ipc queue)`
 * rename library `(scheme2k wire)` -> `(scheme2k io wire)` and extend it serialize/deserialize `date` objects and `ordered-hash` objects
-* add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
 
 ### release v0.9.3, 2025-12-26
 
