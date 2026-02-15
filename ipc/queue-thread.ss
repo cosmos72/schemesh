@@ -9,23 +9,25 @@
 
 ;;; inter-thread communication library:
 ;;;
-;;; exchanges arbitrary objects through thread-safe in-memory queue
+;;; exchanges arbitrary Scheme data through thread-safe in-memory queues
 ;;;
 (library (scheme2k ipc queue (0 9 3))
   (export make-queue-pair
-          make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-get queue-reader-eof? queue-reader-close (rename (queue-reader-get queue-reader-skip))
-          make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-put queue-writer-eof? queue-writer-close
-          queue-reader-timed-get queue-reader-try-get in-queue-reader)
+          make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-close queue-reader-eof? queue-reader-get queue-reader-skip
+          make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-close queue-writer-eof? queue-writer-put
+          queue-reader-timed-get queue-reader-try-get in-queue-reader
+          thread==> thread-queue-reader)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         condition-broadcast condition-wait include
-                               make-condition make-mutex mutex-name make-time record-writer
-                               time<=? time? time-difference! time-type time-second time-nanosecond
-                               with-interrupts-disabled with-mutex)
-    (only (scheme2k bootstrap) assert* check-interrupts raise-errorf)
-    (only (scheme2k io obj)    obj-reader obj-reader-get obj-reader-eof? obj-reader-close
-                               obj-writer obj-writer-put obj-writer-eof? obj-writer-close))
+    (only (chezscheme)            condition-broadcast condition-wait fx1+ include list-copy list-head
+                                  make-condition make-mutex mutex-name make-time record-writer
+                                  time<=? time? time-difference! time-type time-second time-nanosecond
+                                  void with-interrupts-disabled with-mutex)
+    (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
+    (only (scheme2k io obj)       obj-reader obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
+                                  obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put)
+    (only (scheme2k posix thread) fork-thread))
 
 
 (include "ipc/queue-common.ss")
@@ -60,7 +62,7 @@
 ;; Each attached queue-reader will still receive any pending data.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-close) on the same or different queue-readers.
+;; call (queue-writer-close) and (queue-writer-put) on the same or different queue-writers.
 (define (queue-writer-close tx)
   (assert* 'queue-writer-close (queue-writer? tx))
   (obj-writer-close tx))
@@ -79,7 +81,7 @@
 ;; raises exception if queue-writer is closed
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-put) on the same or different queue-readers.
+;; call (queue-writer-close) and (queue-writer-put) on the same or different queue-writers.
 (define (queue-writer-put tx obj)
   (assert* 'queue-writer-put (queue-writer? tx))
   (obj-writer-put tx obj))
@@ -163,8 +165,8 @@
 ;;   datum and #t
 ;;   or <unspecified> and #f if queue-writer has been closed and all data has been received.
 ;;
-;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
+;; This procedure is thread safe: multiple threads can concurrently call
+;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
 ;; on the same or different queue-readers.
 (define (queue-reader-get rx)
   (assert* 'queue-reader-get (queue-reader? rx))
@@ -189,8 +191,8 @@
 ;; * a pair (seconds . nanoseconds) where both are exact integers
 ;; * a time object with type 'time-duration
 ;;
-;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
+;; This procedure is thread safe: multiple threads can concurrently call
+;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
 ;; on the same or different queue-readers.
 (define (queue-reader-timed-get rx timeout)
   (assert* 'queue-reader-timed-get (queue-reader? rx))
@@ -215,8 +217,8 @@
 ;;   or <unspecified> and 'eof if queue-writer has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
 ;;
-;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-reader-get) (queue-reader-timed-get) or (queue-reader-try-get)
+;; This procedure is thread safe: multiple threads can concurrently call
+;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
 ;; on the same or different queue-readers.
 (define (queue-reader-try-get rx)
   (assert* 'queue-reader-try-get (queue-reader? rx))

@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir eof? first get put proc select skip skip! where where@ with-sh-closable
+          all all/vector close copy-all copy-all/close dir eof? first get put proc select skip skip! tty-colors where where@ with-sh-closable
           from-stdin from-json from-list from-queue from-vector from-wire
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire   to-table
 
@@ -31,15 +31,13 @@
                         make-parameter optimize-level parameterize pretty-print read-token reset reset-handler void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
-    (only (scheme2k containers list) for-list)
+    (only (scheme2k containers list)      for-list)
           (scheme2k containers span)
+    (only (scheme2k containers string)    string-contains string-suffix?)
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer)
-    (only (scheme2k io obj)          obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
-                                     obj-writer? obj-writer-close obj-writer-eof? obj-writer-put
-                                     list-reader list-writer make-filter-reader make-range-reader
-                                     reader->list reader->vector vector-reader vector-writer)
+          (scheme2k io obj)
     (only (scheme2k io table)        make-table-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
@@ -52,7 +50,7 @@
     (only (schemesh shell)
        repl-args repl-args-linectx repl-history repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind
-       sh-exception-handler sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+       sh-env-ref sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler
        sh-fd sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
        sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))

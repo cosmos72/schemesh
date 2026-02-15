@@ -70,9 +70,7 @@
   (include "io/wire/wire.ss")       ; requires io/posix/status.ss
   (include "io/io.ss")
 
-  (meta-cond
-    ((threaded?) (include "ipc/queue-thread.ss"))
-    (else        (include "ipc/queue-nothread.ss")))
+  (include "ipc/queue.ss")
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
   (include "ipc/ipc.ss")
 

@@ -246,8 +246,8 @@
 ;; easy wrapper for (make-table-writer)
 (define to-table
   (case-lambda
-    ((from out theme color?)
-      (copy-all/close from (make-table-writer out #f theme color? #f)))
+    ((from out theme colors)
+      (copy-all/close from (make-table-writer out #f theme colors #f)))
     ((from out theme)
       (to-table from out theme #f))
     ((from out)
@@ -278,11 +278,37 @@
 (define (to-stdout from)
   (case (fd-type (sh-fd 1))
     ((tty chardev)
-      (to-table from (sh-port #f 1 'textual) 'default #t))
+      (to-table from (sh-port #f 1 'textual) 'default (tty-colors)))
     ((socket)
       (to-wire from))
     (else
       (to-json from))))
+
+
+;; detect number of colors supported by current terminal.
+;; This is a rough heuristic.
+;; TODO: move to lineedit and use also terminal autodetection with ESC [ c ?
+(define (tty-colors)
+  (let ((env (sh-env-ref #f "COLORTERM" #f)))
+    (if env
+      (if (or (string=? env "truecolor") (string=? env "24bit"))
+        #t
+        ;; COLORTERM set to an unexpected value
+        256)
+      (let ((env (sh-env-ref #f "TERM" #f)))
+        (if env
+          (cond
+            ((string=? env "xterm")
+              ;; assume that nowadays "xterm" means truecolor
+              #t)
+            ((or (string-suffix? env "256color") (string-contains env "xterm"))
+              ;; assume that nowadays "...xterm..." means at least 256 colors
+              256)
+            (else
+              ;; unknown terminal
+              8))
+          ;; $TERM is not set
+          #f)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
