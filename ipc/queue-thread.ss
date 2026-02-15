@@ -76,7 +76,10 @@
 ;; put a datum into the queue-writer, which will be visible to all
 ;; queue-readers attached *before* this call to (queue-writer-put).
 ;;
-;; raises exception if queue-writer is closed
+;; raises exception if queue-writer is closed.
+;;
+;; expected to block at most for a short time, because queue-writer has unbounded capacity:
+;; no need for functions (queue-writer-timed-put) and (queue-writer-try-put).
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
 ;; call (queue-writer-close) and (queue-writer-put) on the same or different queue-writers.
