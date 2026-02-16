@@ -23,8 +23,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)            condition-broadcast condition-signal condition-wait fx1+ fx1- include list-copy list-head
-                                  make-condition make-mutex make-time meta-cond record-writer
+    (only (chezscheme)            condition-broadcast condition-signal condition-wait fx1+ fx1- include
+                                  list-copy list-head make-condition make-mutex make-time meta-cond record-writer
                                   time<=? time? time-difference! time-type time-second time-nanosecond
                                   void with-interrupts-disabled with-mutex)
     (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
@@ -57,94 +57,88 @@
 ;; get elements
 
 
+;; block with timeout trying to get one datum from fifo-reader, and return two values:
+;;   either (values datum 'ok) if successful
+;;   or (values #<unspecified> 'timeout) on timeout
+;;   or (values #<unspecified> 'eof) on eof
+;;
+;; timeout must be one of:
+;; * fixnum zero
+;; * a time object with type 'time-duration
+(define (fifo-handle-timed-get-once-locked h timeout)
+  (let ((size (fifo-handle-size h)))
+    (cond
+      ((fx>? size 0)
+        (fifo-handle-pop-left h size))
+      ((fifo-handle-eof? h)
+        ;; no elements currently available, and fifo-writer is closed => we reached eof
+        (values #f 'eof))
+      ((eqv? 0 timeout)
+        (values #f 'timeout))
+      (else
+        ;; (condition-wait) is somewhat bugged at least on Linux:
+        ;; if CTRL+C is pressed once, it does nothing.
+        ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state.
+        (condition-wait (fifo-handle-may-get h) (fifo-handle-mutex h) timeout)
+        (let ((size (fifo-handle-size h)))
+          (if (fxzero? size)
+            (values #f 'timeout)
+            (fifo-handle-pop-left h size)))))))
+
+
 (define (fifo-handle-timed-get-once h timeout)
   (check-interrupts)
-  (with-mutex (fifo-handle-mutex h)
-    (with-interrupts-disabled
-      (let ((size (fifo-handle-size h)))
-        (cond
-          ((fx>? size 0) ;; consume one element
-            (let* ((pos   (fifo-handle-start h))
-                   (vec   (fifo-handle-vec   h))
-                   (cap   (vector-length vec))
-                   (datum (vector-ref    vec pos)))
-              ;; help the gc
-              (vector-set! vec pos #f)
-              (let ((pos+1 (fx1+ pos)))
-                (fifo-handle-start-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
-
-              (fifo-handle-size-set! h (fx1- size))
-              (when (fx>=? size cap)
-                ;; notify any writer that fifo is no longer full
-                (condition-signal (fifo-handle-may-put h)))
-              (values datum 'ok)))
-
-          ((fifo-handle-eof? h)
-            ;; no elements currently available, and fifo-writer is closed => we reached eof
-            (values #f 'eof))
-
-          ((eqv? 0 timeout)
-            (values #f 'timeout))
-
-          (else
-            ;; (condition-wait) is somewhat bugged at least on Linux:
-            ;; if CTRL+C is pressed once, it does nothing.
-            ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state.
-            (condition-wait (fifo-handle-may-get h) (fifo-handle-mutex h) timeout)
-
-            (if (fxzero? (fifo-handle-size h))
-              (values #f 'timeout)
-              (fifo-handle-timed-get-once h 0))))))))
-
+  (let-values (((datum flag) (with-mutex (fifo-handle-mutex h)
+                               (with-interrupts-disabled
+                                 (fifo-handle-timed-get-once-locked h timeout)))))
+    (when (eq? 'ok flag)
+      ;; unblock one writer
+      (condition-signal (fifo-handle-may-put h)))
+    (values datum flag)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; put datum
 
 
+(define (fifo-handle-timed-put-once-locked tx datum timeout)
+  (let* ((h    (fifo-writer-handle tx))
+         (vec  (fifo-handle-vec  h))
+         (size (fifo-handle-size h))
+         (cap  (vector-length vec)))
+    (cond
+      ((fifo-handle-eof? h)
+        (raise-errorf 'fifo-writer-put "~s is already closed" tx))
+      ((fx<? size cap)
+        (fifo-handle-push-right h datum vec size cap))
+      ((eqv? 0 timeout)
+        #f)
+      (else
+        ;; (condition-wait) is somewhat bugged at least on Linux:
+        ;; if CTRL+C is pressed once, it does nothing.
+        ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state.
+        (condition-wait (fifo-handle-may-put h) (fifo-handle-mutex h) timeout)
+        (let ((size (fifo-handle-size h)))
+          (and (fx<? size cap)
+               (fifo-handle-push-right h datum vec size cap)))))))
+
+
 ;; block with timeout trying to put datum into fifo-writer, and return one value:
 ;;   #t if successful, or #f on timeout
 ;;
 ;; timeout must be one of:
-;; * an exact or inexact real, indicating the number of seconds (non-integer values are supported too)
-;; * a pair (seconds . nanoseconds) where both are exact integers
+;; * fixnum zero
 ;; * a time object with type 'time-duration
 (define (fifo-handle-timed-put-once tx datum timeout)
   (check-interrupts)
-  (let ((h (fifo-writer-handle tx)))
-    (with-mutex (fifo-handle-mutex h)
-      (with-interrupts-disabled
-        (let* ((size (fifo-handle-size h))
-               (vec  (fifo-handle-vec  h))
-               (cap  (vector-length vec)))
-          (cond
-            ((fifo-handle-eof? h)
-              (raise-errorf 'fifo-writer-put "~s is already closed" tx))
-
-            ((fx<? size cap) ;; append one element
-              (let ((pos (fifo-handle-end h)))
-                (vector-set! vec pos datum)
-                (let ((pos+1 (fx1+ pos)))
-                  (fifo-handle-end-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
-
-                (fifo-handle-size-set! h (fx1+ size))
-                (when (fxzero? size)
-                  ;; notify any reader that fifo is no longer empty
-                  (condition-signal (fifo-handle-may-get h))))
-              #t)
-
-            ((eqv? 0 timeout)
-              #f)
-
-            (else
-              ;; (condition-wait) is somewhat bugged at least on Linux:
-              ;; if CTRL+C is pressed once, it does nothing.
-              ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state.
-              (condition-wait (fifo-handle-may-put h) (fifo-handle-mutex h) timeout)
-
-              (if (fx>=? (fifo-handle-size h) cap)
-                #f
-                (fifo-handle-timed-put-once tx datum 0))))))))) ; try again with zero timeout
+  (let* ((h   (fifo-writer-handle tx))
+         (ok? (with-mutex (fifo-handle-mutex h)
+               (with-interrupts-disabled
+                 (fifo-handle-timed-put-once-locked tx datum timeout)))))
+    (when ok?
+      ;; unblock one reader
+      (condition-signal (fifo-handle-may-get h)))
+    ok?))
 
 
 (include "ipc/fifo-util.ss")

@@ -252,21 +252,22 @@
 (define ($thread-xthread thread tc)
   (if (eqv? 0 tc)
     #f
-    (let* ((params  ($tc-field 'parameters tc))
-           (xthread (vector-ref params (car xthread-parameter-index))))
-      (cond
-        ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
-          ;; xthread is not set, or it's inherited from a parent thread: replace it
-          (let ((xthread ($new-xthread thread tc)))
-            (vector-set! params (car xthread-parameter-index) xthread)
-            xthread))
-        ((not (xthread-pthread-id xthread))
-          ;; pthread-id is not known yet, update it if xthread is for current thread
-          (when (eqv? tc ($tc))
-            (xthread-pthread-id-set! xthread (c-thread-self)))
-          xthread)
-        (else
-          xthread)))))
+    (with-interrupts-disabled
+      (let* ((params  ($tc-field 'parameters tc))
+             (xthread (vector-ref params (car xthread-parameter-index))))
+        (cond
+          ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
+            ;; xthread is not set, or it's inherited from a parent thread: replace it
+            (let ((xthread ($new-xthread thread tc)))
+              (vector-set! params (car xthread-parameter-index) xthread)
+              xthread))
+          ((not (xthread-pthread-id xthread))
+            ;; pthread-id is not known yet, update it if xthread is for current thread
+            (when (eqv? tc ($tc))
+              (xthread-pthread-id-set! xthread (c-thread-self)))
+            xthread)
+          (else
+            xthread))))))
 
 
 ;; extract and return the xthread parameter from specified thread-context.

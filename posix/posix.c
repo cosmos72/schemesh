@@ -41,7 +41,7 @@
 #include <stdint.h>       /* int64_t, uint64_t */
 #include <stdio.h>        /* remove(), rename() ... */
 #include <stdlib.h>       /* getenv(), strtoul() */
-#include <string.h>       /* strlen(), strerror() */
+#include <string.h>       /* strlen(), strerror_r() */
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
 #include <sys/socket.h>   /* getaddrinfo(), socket(), socketpair(), AF_*, SOCK_* */
@@ -183,12 +183,24 @@ static int c_errno_esrch(void) {
   return -ESRCH;
 }
 
-static const char* c_strerror(int err) {
-  return strerror(err < 0 ? -err : err);
+static const char* c_strerror(int err, char* buf, size_t buflen) {
+  /**
+   * use strerror_r(), in case system's strerror() is not thread safe.
+   * annoyance: GNU and POSIX variants have different return types.
+   * check that we are getting the POSIX one.
+   */
+  int (*strerror_r_func)(int err, char* buf, size_t buflen) = &strerror_r;
+
+  int err2 = strerror_r_func(err < 0 ? -err : err, buf, buflen);
+  if (err2 != 0) {
+    buf[0] = '\0';
+  }
+  return buf;
 }
 
 static ptr c_errno_to_string(int err) {
-  return scheme2k_Sstring_utf8b(c_strerror(err), -1);
+  char buf[256];
+  return scheme2k_Sstring_utf8b(c_strerror(err, buf, sizeof(buf)), -1);
 }
 
 static char to_hex_digit(unsigned number) {
@@ -220,7 +232,8 @@ static int write_invalid_redirection(const char label[], ptr value) {
 }
 
 static int write_c_errno(int err) {
-  const char* err_msg = c_strerror(err);
+  char        buf[256];
+  const char* err_msg = c_strerror(err, buf, sizeof(buf));
   /* writev() is less portable */
   (void)write(2, "schemesh: ", 10);
   (void)write(2, err_msg, strlen(err_msg));
@@ -232,7 +245,8 @@ static int write_path_c_errno(const char   path[],
                               const size_t path_len,
                               const int    err,
                               const char   suffix_msg[]) {
-  const char* err_msg = c_strerror(err);
+  char        buf[256];
+  const char* err_msg = c_strerror(err, buf, sizeof(buf));
   (void)write(2, "schemesh: ", 10);
   (void)write(2, path, path_len);
   (void)write(2, ": ", 2);
@@ -264,11 +278,12 @@ static int write_command_not_found(const char path[]) {
 #include "tty.h"
 
 int scheme2k_init_failed(const char label[]) {
+  char      buf[256];
   const int err = c_errno();
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
           label,
-          c_strerror(err));
+          c_strerror(err, buf, sizeof(buf)));
   fflush(stderr);
   return err;
 }

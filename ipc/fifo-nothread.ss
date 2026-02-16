@@ -70,20 +70,9 @@
           (fifo-handle-timed-get-once h 0))))
     (else
       ;; consume one element.
-      ;; disable interrupts is useful against user getting/putting elements from break> handler
+      ;; disable interrupts is useful against user getting/putting elements from (break) handler
       (with-interrupts-disabled
-        (let* ((size  (fifo-handle-size h))
-               (pos   (fifo-handle-start h))
-               (vec   (fifo-handle-vec   h))
-               (cap   (vector-length vec))
-               (datum (vector-ref    vec pos)))
-          ;; help the gc
-          (vector-set! vec pos #f)
-          (let ((pos+1 (fx1+ pos)))
-            (fifo-handle-start-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
-          (fifo-handle-size-set! h (fx1- size))
-          (values datum 'ok))))))
-
+        (fifo-handle-pop-left h (fifo-handle-size h))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,8 +89,8 @@
 (define (fifo-handle-timed-put-once tx datum timeout)
   (check-interrupts)
   (let* ((h (fifo-writer-handle tx))
-         (size (fifo-handle-size h))
          (vec  (fifo-handle-vec  h))
+         (size (fifo-handle-size h))
          (cap  (vector-length vec)))
    (cond
      ((fifo-handle-eof? h)
@@ -109,19 +98,14 @@
 
      ((fx<? size cap)
        ;; append one element
-       ;; disable interrupts is useful against user getting/putting elements from break> handler
+       ;; disable interrupts is useful against user getting/putting elements from (break) handler
        (with-interrupts-disabled
-         (let ((pos (fifo-handle-end h)))
-           (vector-set! vec pos datum)
-           (let ((pos+1 (fx1+ pos)))
-             (fifo-handle-end-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
-           (fifo-handle-size-set! h (fx1+ size))))
-       #t)
+         (fifo-handle-push-right h datum vec size cap)))
 
      ((eqv? 0 timeout)
        #f)
 
-     (else ;; this fifo-handle is full, wait
+     (else ;; this fifo-handle is full, wait then retry with zero timeout
       (countdown timeout)
       (fifo-handle-timed-put-once tx datum 0)))))
 

@@ -153,13 +153,13 @@
       ((time<=? timeout zero-timeout)
         (fifo-handle-timed-put-once tx datum 0))
       (else
-        (let %fifo-handle-timed-put ((tx tx) (datum datum) (timeout timeout))
+        (let %fifo-writer-timed-put ((tx tx) (datum datum) (timeout timeout))
           (let* ((tiny-timeout? (time<=? timeout short-timeout))
                  (ok? (fifo-handle-timed-put-once tx datum
                         (if tiny-timeout? timeout short-timeout))))
             (if (or ok? tiny-timeout?)
               ok?
-              (%fifo-handle-timed-put tx datum (time-difference! timeout short-timeout)))))))))
+              (%fifo-writer-timed-put tx datum (time-difference! timeout short-timeout)))))))))
 
 
 ;; non-blockingly try to put a datum into fifo-writer, and return one value:

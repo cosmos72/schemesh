@@ -61,7 +61,7 @@
 ;;
 ;; Caller can put arbitrary datum to the fifo-writer, which can be get back in the same order from the fifo-reader.
 ;;
-;; both are thread-safe, fifo-reader is a subtype of obj-writer and fifo-writer is a subtype of obj-writer.
+;; Both are thread-safe, fifo-reader is a subtype of obj-writer and fifo-writer is a subtype of obj-writer.
 ;;
 ;; Optional argument capacity must be a fixnum > 0. Defaults to (fifo-default-capacity)
 (define make-fifo-pair
@@ -72,6 +72,30 @@
                 (%make-fifo-writer h))))
     (()
       (make-fifo-pair (fifo-default-capacity)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; fifo-handle
+
+(define (fifo-handle-pop-left h size)
+  (let* ((pos   (fifo-handle-start h))
+         (vec   (fifo-handle-vec   h))
+         (cap   (vector-length vec))
+         (datum (vector-ref    vec pos)))
+    ;; help the gc
+    (vector-set! vec pos #f)
+    (let ((pos+1 (fx1+ pos)))
+      (fifo-handle-start-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
+    (fifo-handle-size-set! h (fx1- size))
+    (values datum 'ok)))
+
+
+(define (fifo-handle-push-right h datum vec size cap)
+  (let ((pos (fifo-handle-end h)))
+    (vector-set! vec pos datum)
+    (let ((pos+1 (fx1+ pos)))
+      (fifo-handle-end-set! h (if (fx>=? pos+1 cap) 0 pos+1)))
+    (fifo-handle-size-set! h (fx1+ size))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
