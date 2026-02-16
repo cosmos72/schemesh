@@ -11,7 +11,7 @@
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
 (library (scheme2k io port (0 9 3))
-  (export byte-lines->port lines->port
+  (export byte-lines->port lines->port open-input-nowhere open-output-nowhere
           peek-char2 port->list port->string port->bytes port->lines port->bytes-lines
           read-line read-bytes-line read-bytes-insert-right!)
   (import
@@ -21,11 +21,83 @@
     (only (chezscheme)                 fx/ fx1+ fx1- get-bytevector-some!
                                        set-textual-port-input-buffer! set-textual-port-input-index! set-textual-port-input-size!
                                        string-copy!
-                                       textual-port-input-buffer textual-port-input-index textual-port-input-size)
+                                       textual-port-input-buffer textual-port-input-index textual-port-input-size void)
     (only (scheme2k bootstrap)         assert* assert-not* check-interrupts fx<=?* raise-errorf)
     (scheme2k containers bytespan)
     (only (scheme2k io stdio)          sh-stdin sh-stdout))
 
+
+(define (open-binary-input-nowhere name)
+  (make-custom-binary-input-port
+    name
+    (lambda (bv start n) 0) ; read-proc
+    (lambda () 0)           ; get-pos-proc
+    (lambda (pos) (void))   ; set-pos-proc
+    #f))                    ; close-proc
+
+
+(define (open-textual-input-nowhere name)
+  (make-custom-textual-input-port
+    name
+    (lambda (str start n) 0) ; read-proc
+    (lambda () 0)            ; get-pos-proc
+    (lambda (pos) (void))    ; set-pos-proc
+    #f))                     ; close-proc
+
+
+(define (open-binary-output-nowhere name)
+  (make-custom-binary-output-port
+    name
+    (lambda (bv start n) n) ; write-proc
+    (lambda () 0)           ; get-pos-proc
+    (lambda (pos) (void))   ; set-pos-proc
+    #f))                    ; close-proc
+
+
+(define (open-textual-output-nowhere name)
+  (make-custom-textual-output-port
+    name
+    (lambda (str start n) n) ; write-proc
+    (lambda () 0)            ; get-pos-proc
+    (lambda (pos) (void))    ; set-pos-proc
+    #f))                     ; close-proc
+
+
+;; conforms to Racket (open-input-nowhere), adds optional second argument transcoder-sym
+(define open-input-nowhere
+  (case-lambda
+    ((name transcoder-sym)
+      (case transcoder-sym
+        ((binary)
+          (open-binary-input-nowhere name))
+        ((textual utf8b)
+          (open-textual-input-nowhere name))
+        (else
+          (raise-errorf 'open-output-nowhere "~s is not a supported transcoder symbol. Supported values are ~s"
+            transcoder-sym '(binary textual utf8b)))))
+    ((name)
+      (open-textual-output-nowhere name))
+    (()
+      (open-textual-output-nowhere "/dev/null"))))
+      
+
+;; conforms to Racket (open-output-nowhere), replaces optional second argument special-ok? -> transcoder-sym
+(define open-output-nowhere
+  (case-lambda
+    ((name transcoder-sym)
+      (case transcoder-sym
+        ((binary)
+          (open-binary-output-nowhere name))
+        ((textual utf8b)
+          (open-textual-output-nowhere name))
+        (else
+          (raise-errorf 'open-output-nowhere "~s is not a supported transcoder symbol. Supported values are ~s"
+            transcoder-sym '(binary textual utf8b)))))
+    ((name)
+      (open-textual-output-nowhere name))
+    (()
+      (open-textual-output-nowhere "/dev/null"))))
+      
 
 ;; Peek the next-next character (i.e. the character after (peek-char))
 ;; from textual input port and return it, without consuming any character.
