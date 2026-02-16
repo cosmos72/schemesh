@@ -58,16 +58,13 @@
         body1 body2 ...))))
 
 
-;; disable interrupts and acquire $tc-mutex
+;; acquire $tc-mutex and disable interrupts
 (define-syntax with-tc-mutex
   (syntax-rules ()
     ((_ body1 body2 ...)
-      (let ()
-        (import (only (chezscheme) enable-interrupts disable-interrupts mutex-acquire mutex-release))
-        (dynamic-wind
-          (lambda () (disable-interrupts) (mutex-acquire $tc-mutex))
-          (lambda () body1 body2 ...)
-          (lambda () (mutex-release $tc-mutex) (enable-interrupts) (check-interrupts)))))))
+      (with-mutex $tc-mutex
+        (with-interrupts-disabled
+          body1 body2 ...)))))
 
 
 ;; return current number of threads.
@@ -364,7 +361,7 @@
 
 (define (thread-specific thread)
   (assert* 'thread-specific (thread? thread))
-  (with-tc-mutex*
+  (with-tc-mutex
     (let ((xthread ($thread-xthread thread ($thread-tc thread))))
       (if xthread
         (xthread-specific xthread)
@@ -373,7 +370,7 @@
 
 (define (thread-specific-set! thread value)
   (assert* 'thread-specific-set! (thread? thread))
-  (with-tc-mutex*
+  (with-tc-mutex
     (let ((xthread ($thread-xthread thread ($thread-tc thread))))
       (when xthread
         (xthread-specific-set! xthread value)))))
@@ -470,7 +467,7 @@
       (let ((thread-supported-signals '(sigint sigtstp sigcont)))
         (assert* 'thread-kill (memq signal-name thread-supported-signals)))
       (let* ((thread (datum->thread thread-or-id))
-             (ret    (with-tc-mutex* ($thread-kill thread signal-name))))
+             (ret    (with-tc-mutex ($thread-kill thread signal-name))))
         (if (xthread? ret)
           (let ()
             (import (only (chezscheme) condition-broadcast))

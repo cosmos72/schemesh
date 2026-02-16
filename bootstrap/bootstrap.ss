@@ -37,8 +37,8 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! console-error-port current-time disable-interrupts enable-interrupts
-                       format foreign-procedure fx1+ fx1- fx/ gensym include list-copy list-head lock-object
+    (only (chezscheme) append! console-error-port current-time format foreign-procedure
+                       fx1+ fx1- fx/ gensym include list-copy list-head lock-object
                        meta pariah reverse! time-second time-nanosecond unlock-object void)
     (scheme2k bootstrap arrow)
     (scheme2k bootstrap functions))

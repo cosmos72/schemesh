@@ -38,15 +38,13 @@
                             void
                             %thread-fifo-reader-loop
                             (lambda ()
-			      (obj-reader-close reader)
-			      (obj-writer-close tx)))))
+                              (obj-reader-close reader)
+                              (obj-writer-close tx))))))
 
-                      (thread (make-thread %thread-fifo-reader 'thread-fifo-reader)))
-
-              (thread-start! thread)
-              rx)))
+              (fork-thread %thread-fifo-reader 'thread-fifo-reader))
+              rx))
         (else
-      reader)))
+          reader)))
 
     ((reader)
       (make-thread-fifo-reader reader (fifo-default-capacity)))))

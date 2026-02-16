@@ -141,8 +141,12 @@
 ;; Return the created thread.
 ;;
 ;; The new thread starts immediately: it calls (thunk) and will exit when (thunk) returns.
-(define (fork-thread thunk)
-  (%thread-create 'fork-thread thunk (void) 'sigcont))
+(define fork-thread
+  (case-lambda
+    ((thunk name)
+      (%thread-create 'fork-thread thunk name 'sigcont))
+    ((thunk)
+      (%thread-create 'fork-thread thunk (void) 'sigcont))))
 
 
 ;; Create a new thread and establish its initial thread parameters as specified by (thread-initial-bindings).
@@ -255,20 +259,34 @@
 
 
 ;; block current thread up to specified duration. Returns early if thread receives a signal.
+;;
 ;; conforms to: R7RS SRFI 18
 (define thread-sleep! sleep)
 
+
 ;; start or resume a thread
+;; FIXME: this is buggy if called while target thread is still starting.
+;;
+;; conforms to: R7RS SRFI 18
 (define (thread-start! thread)
   (assert* 'thread-start! (thread? thread))
   (thread-kill thread 'sigcont))
 
 
+;; kill a thread.
+;; causes the thread's code to raise a condition as soon as possible.
+;; FIXME: this is buggy if called while target thread is still starting.
+;;
+;; conforms to: R7RS SRFI 18
 (define (thread-terminate! thread)
   (assert* 'thread-terminate! (thread? thread))
   (thread-kill thread 'sigint))
 
 
+;; cause the current thread to exit the running state, as if its quantum had expired.
+;; return an unspecified value.
+;;
+;; conforms to: R7RS SRFI 18
 (define thread-yield! (foreign-procedure "c_sched_yield" () void))
 
 (meta-cond
