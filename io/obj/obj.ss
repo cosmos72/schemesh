@@ -49,9 +49,10 @@
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
-    (only (chezscheme)                    box box-cas! collect-request-handler fx1+ fx1- include logbit? make-guardian
-                                          procedure-arity-mask record-type-descriptor record-writer reverse! unbox void)
-    (only (scheme2k bootstrap)            assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
+    (only (chezscheme)          box box-cas! collect-request-handler fx1+ fx1- include logbit? meta-cond
+                                procedure-arity-mask record-type-descriptor record-writer reverse!
+                                scheme-version-number unbox void)
+    (only (scheme2k bootstrap)  assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
 
 
 ;; private reimplementation of (list-reverse->vector)
@@ -67,6 +68,25 @@
          (l l (cdr l)))
         ((null? l) v)
       (vector-set! v i (car l)))))
+
+
+;; using guardians for automatically closing obj-readers and obj-writers before they are garbage collected
+;; causes errors "Exception in mutex-acquire: mutex is defunct" in Chez Scheme < 10
+;; => enable guardians only on Chez Scheme >= 10
+(define make-guardian
+  (meta-cond
+    ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
+      (let ()
+        ;; on Chez Scheme >= 10, create an actual guardian
+        (import (prefix (only (chezscheme) make-guardian)
+                        chez:))
+        chez:make-guardian))
+    (else
+      ;; on Chez Scheme < 10, create a do-nothing guardian
+      (lambda ()
+        (case-lambda
+          ((obj) (void))
+          (() #f))))))
 
 
 (include "io/obj/reader.ss")
