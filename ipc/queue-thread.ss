@@ -39,10 +39,6 @@
   (mutex-name (queue-reader-mutex rx)))
 
 
-(define short-timeout (make-time 'time-duration 500000000 0))
-(define zero-timeout  (make-time 'time-duration 0 0))
-
-
 (define (queue-reader-timed-get-once-locked rx timeout)
   (let* ((head (queue-reader-head rx))
          (tail (cdr head)))

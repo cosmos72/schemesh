@@ -28,6 +28,12 @@
                                   obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put))
 
 
+;; this implementation is single-threaded
+(define-syntax with-mutex
+  (syntax-rules ()
+    ((_ (mutex expr) body1 body2 ...) (begin body1 body2 ...))))
+
+
 (include "ipc/queue-common.ss")
 
 
@@ -62,14 +68,6 @@
       ((pair? tail)
         (queue-reader-head-set! rx tail)
         (values (car head) 'ok)))))
-
-
-;; called by (queue-reader-get) and (obj-reader-get)
-(define (%queue-reader-get rx)
-  (let-values (((datum flag) (queue-reader-timed-get-once rx huge-timeout)))
-    (if (eq? flag 'timeout)
-      (%queue-reader-get rx) ;; timeout, retry
-      (values datum (eq? flag 'ok)))))
 
 
 ;; block with timeout until a datum is received from queue-writer, and return two values:

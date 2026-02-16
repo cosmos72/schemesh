@@ -149,6 +149,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; create and return a closure that iterates on data received by queue-reader rx.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values datum #t) i.e. the next datum received from queue-reader and #t,
+;; or (values #<unspecified> #f) if queue-reader reached end-of-file.
+;;
+;; note: (in-reader rx) is equivalent and also accepts other obj-reader types
+(define (in-queue-reader rx)
+  (assert* 'in-queue-reader (queue-reader? rx))
+  (lambda ()
+    (queue-reader-get rx)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 ;; customize how "queue-reader" objects are printed
 (record-writer (record-type-descriptor queue-reader)
   (lambda (rx port writer)
