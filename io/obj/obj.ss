@@ -49,9 +49,9 @@
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
-    (only (chezscheme)          box box-cas! collect-request-handler fx1+ fx1- include logbit? meta-cond
-                                procedure-arity-mask record-type-descriptor record-writer reverse!
-                                scheme-version-number unbox void)
+    (only (chezscheme)          box box-cas! collect-request-handler fx1+ fx1- include logbit? meta-cond procedure-arity-mask
+                                record-type-descriptor record-writer reverse! scheme-version-number unbox void)
+    (prefix (only (chezscheme)  make-guardian) chez:)
     (only (scheme2k bootstrap)  assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
 
 
@@ -76,11 +76,8 @@
 (define make-guardian
   (meta-cond
     ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
-      (let ()
-        ;; on Chez Scheme >= 10, create an actual guardian
-        (import (prefix (only (chezscheme) make-guardian)
-                        chez:))
-        chez:make-guardian))
+      ;; on Chez Scheme >= 10, create an actual guardian
+      chez:make-guardian)
     (else
       ;; on Chez Scheme < 10, create a do-nothing guardian
       (lambda ()
@@ -141,24 +138,28 @@
     (put-char port #\>)))
 
 
-;; install into collect-request-handler a procedure that closes obj-readers before garbage collecting them
-(let ((gc (collect-request-handler)))
-  (collect-request-handler
-    (lambda ()
-      ;; first, call the original collect-request-handler
-      (gc)
+;; On Chez Scheme >= 10, install into collect-request-handler a procedure that retrieves
+;; unreachable obj-readers and obj-writers immediately before they are garbage collected,
+;; and closes them
+(meta-cond
+  ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
+    (let ((gc (collect-request-handler)))
+      (collect-request-handler
+        (lambda ()
+          ;; first, call the original collect-request-handler
+          (gc)
 
-      ;; then, retrieve all obj-readers ready to be garbage collected, and close them
-      (do ((rx (obj-reader-guardian) (obj-reader-guardian)))
-          ((not rx))
-        ;; (debugf "closing ~s before garbage collecting it" rx)
-        (obj-reader-close rx))
+          ;; then, retrieve all obj-readers ready to be garbage collected, and close them
+          (do ((rx (obj-reader-guardian) (obj-reader-guardian)))
+              ((not rx))
+            ;; (debugf "closing ~s before garbage collecting it" rx)
+            (obj-reader-close rx))
 
-      ;; finally, retrieve all obj-writers ready to be garbage collected, and close them
-      (do ((tx (obj-writer-guardian) (obj-writer-guardian)))
-          ((not tx))
-        ;; (debugf "closing ~s before garbage collecting it" tx)
-        (obj-writer-close tx)))))
+          ;; finally, retrieve all obj-writers ready to be garbage collected, and close them
+          (do ((tx (obj-writer-guardian) (obj-writer-guardian)))
+              ((not tx))
+            ;; (debugf "closing ~s before garbage collecting it" tx)
+            (obj-writer-close tx)))))))
 
 
 ) ; close library
