@@ -17,7 +17,7 @@
     (only (chezscheme)                 fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap)         assert*)
     (only (scheme2k containers list)   symbol-list?)
-    (only (scheme2k containers span)   span span-delete-left! span-empty? span-insert-right! span-ref)
+    (only (scheme2k containers span)   span span-delete-left! span-empty? span-insert-right! span-length span-ref)
     (only (scheme2k containers sort)   span-sort!)
           (scheme2k io obj)
     (only (scheme2k reflect)           compare field))
@@ -29,21 +29,22 @@
   (parent nested-reader)
   (fields
     span                 ; span of accumulated elements
+    compare-proc
     (mutable less-proc)) ; #f or closure that compares elements
   (protocol
     (lambda (args->new)
-      (lambda (inner less-proc close-inner?)
+      (lambda (inner compare-proc less-proc close-inner?)
          ((args->new %sort-reader-get #f (and close-inner? nested-reader-inner-close) inner)
-            (span) less-proc))))
+            (span) compare-proc less-proc))))
   (nongenerative %sort-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-(define make-compare-fields
+(define make-compare-proc
   (case-lambda
     ((field-names cache)
       (when cache
-        (assert* 'make-compare-fields (hashtable? cache))
-        (assert* 'make-compare-fields (eq? eq? (hashtable-equivalence-function cache))))
+        (assert* 'make-compare-proc (hashtable? cache))
+        (assert* 'make-compare-proc (eq? eq? (hashtable-equivalence-function cache))))
       (letrec* ((%cache (or cache (make-eq-hashtable)))
                 ;; compare a single field in obj1 and obj2
                 (compare-field-proc
@@ -63,7 +64,7 @@
         (lambda (obj1 obj2)
           (compare-fields-proc obj1 obj2 field-names))))
     ((field-names)
-      (make-compare-fields field-names #f))))
+      (make-compare-proc field-names #f))))
 
 
 ;; Create and return a sort-reader that wraps another "inner" reader.
@@ -83,12 +84,12 @@
     ((inner field-names close-inner?)
       (assert* 'make-sort-reader (obj-reader? inner))
       (assert* 'make-sort-reader (symbol-list? field-names))
-      (let* ((compare-fields (make-compare-fields field-names))
+      (let* ((compare-proc (make-compare-proc field-names))
              (less-proc
                (lambda (obj1 obj2)
-                 ;; FIXME: not a total order, obj1 and obj2 may compare as unordered
-                 (eqv? -1 (compare-fields obj1 obj2)))))
-        (%make-sort-reader inner less-proc close-inner?)))
+                 ;; WARNING: not a total order, obj1 and obj2 may compare as unordered
+                 (eqv? -1 (compare-proc obj1 obj2)))))
+        (%make-sort-reader inner compare-proc less-proc close-inner?)))
     ((inner field-names)
       (make-sort-reader inner field-names #f))))
 
@@ -119,6 +120,14 @@
   (obj-reader-skip rx))
 
 
+(define (comparable-elements? compare-proc sp)
+  (do ((i 1 (fx1+ i))
+       (n (span-length sp)))
+      ((or (fx>=? i n)
+           (not (compare-proc (span-ref sp (fx1- i)) (span-ref sp i))))
+       (fx>=? i n))))
+
+
 ;; called by (sort-reader-get) and (obj-reader-get)
 (define (%sort-reader-get rx)
   (if (sort-reader-less-proc rx)
@@ -126,10 +135,14 @@
     (let-values (((obj ok?) (nested-reader-inner-get rx)))
       (if ok?
         (span-insert-right! (sort-reader-span rx) obj)
-        (let ((sp (sort-reader-span rx)))
-          ;; FIXME: not a total order, may raise condition.
-          ;; need to use topological sorting
-          (span-sort! (sort-reader-less-proc rx) sp)
+        (let ((sp   (sort-reader-span rx)))
+          ;; less-proc is not necessarily a total order:
+          ;; elements can be grouped in one or more "connected component" that are internally totally ordered,
+          ;; but elements from different "connected component" are always unordered.
+          ;; => check adjacent elements: if they are all comparable, then there is only one "connected component" and we sort it.
+          ;; Otherwise we must group the elements into connected components and sort each one separately.
+          (when (comparable-elements? (sort-reader-compare-proc rx) sp)
+            (span-sort! (sort-reader-less-proc rx) sp))
           (sort-reader-less-proc-set! rx #f)))
 
       ;; iterate: either get more elements from inner reader,

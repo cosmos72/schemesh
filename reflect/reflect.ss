@@ -80,11 +80,12 @@
 
 (define (number-compare a b)
   (cond
-    ((= a b)
+    ((or (eq? a b) (= a b))
       0)
     ((and (real? a) (real? b))
       (cond ((> a b) 1)
             ((< a b) -1)
+            ;; (= a b) already checked above
             (else #f))) ;; not-a-numbers are unordered
     (else
       #f))) ;; complex numbers are unordered
