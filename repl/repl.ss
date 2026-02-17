@@ -12,7 +12,9 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir eof? first get put proc select skip skip! tty-colors where where@ with-sh-closable
+          all all/vector close copy-all copy-all/close dir eof? first get put
+          proc select skip skip! sort-by tty-colors where where@ with-sh-closable
+
           from-stdin from-json from-list from-queue from-vector from-wire
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire   to-table
 
@@ -38,6 +40,7 @@
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer)
           (scheme2k io obj)
+    (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)

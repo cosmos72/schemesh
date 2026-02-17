@@ -127,7 +127,8 @@
       (if ok?
         (span-insert-right! (sort-reader-span rx) obj)
         (let ((sp (sort-reader-span rx)))
-          ;; FIXME: not a total order, may raise condition
+          ;; FIXME: not a total order, may raise condition.
+          ;; need to use topological sorting
           (span-sort! (sort-reader-less-proc rx) sp)
           (sort-reader-less-proc-set! rx #f)))
 

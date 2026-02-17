@@ -125,6 +125,8 @@
     ((number? a)    (and (number? b)  (number-compare  a b)))
     ((symbol? a)    (and (symbol? b)  (symbol-compare  a b)))
     ((string? a)    (and (string? b)  (string-compare  a b)))
+    ((or (eq? a (void))
+         (eq? a (eof-object)))        (if (eq? a b) 0 #f))
     (else
       (let* ((rtd  (record-rtd a))
              (pair (reflect-compare-functions rtd)))
@@ -149,6 +151,8 @@
     ((number? a)    (and (number? b)  (= a b)))
     ((symbol? a)    (and (symbol? b)  (symbol-equiv? a b)))
     ((string? a)    (and (string? b)  (string=? a b)))
+    ((or (eq? a (void))
+         (eq? a (eof-object)))         (eq? a b))
     (else
       (let* ((rtd  (record-rtd a))
              (pair (reflect-compare-functions rtd)))
