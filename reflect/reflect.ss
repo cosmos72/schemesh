@@ -105,7 +105,8 @@
 
 
 (define (symbol-equiv? a b)
-  (eqv? 0 (symbol-compare a b)))
+  (or (eq? a b)
+      (string=? (symbol->string a) (symbol->string b))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -153,7 +154,7 @@
     ((symbol? a)    (and (symbol? b)  (symbol-equiv? a b)))
     ((string? a)    (and (string? b)  (string=? a b)))
     ((or (eq? a (void))
-         (eq? a (eof-object)))         (eq? a b))
+         (eq? a (eof-object)))        (eq? a b))
     (else
       (let* ((rtd  (record-rtd a))
              (pair (reflect-compare-functions rtd)))
