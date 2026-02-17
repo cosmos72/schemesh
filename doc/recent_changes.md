@@ -14,9 +14,8 @@
 
 * add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add type `field-reader`
+* add types `field-reader` `filter-reader` and `sort-reader`
 * add types `fifo-reader` `fifo-writer` and new macro `(thread==>)` that uses them
-* add type `filter-reader`
 * add types `json-reader` `json-writer`
 * add types `queue-reader` `queue-writer`
 * add type `table-writer`
