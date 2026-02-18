@@ -12,7 +12,7 @@
 
 (library (scheme2k reflect (0 9 3))
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-size in-htable
-          compare  equiv? greater-equiv? greater? less? less-equiv? unordered? reflect-compare-functions
+          compare compare-type-and-value equiv? greater-equiv? greater? less? less-equiv? unordered? reflect-compare-functions-set!
           field field-names fields->plist in-fields
           make-reflect-info make-reflect-info-autodetect make-reflect-deserializer
           reflect-info reflect-info? reflect-info-deserializer reflect-info-fill! reflect-info-set! reflect-info-set-autodetect! reflect-infos)
@@ -42,27 +42,39 @@
 ;;; compare value-like objects: booleans, characters, numbers, strings, symbols, times, dates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define reflect-compare-table
+  (eq-hashtable (record-rtd (date 1970 1 1 0))   (vector date-compare date-equiv? 0)
+                (record-rtd (make-time-utc 0 0)) (vector time-compare time-equiv? 1)))
 
-;; retrieve or set the functions for comparing with (compare) and (equiv?) records having specified rtd
-(define reflect-compare-functions
-  (let ((ht (eq-hashtable (record-rtd (date 1970 1 1 0))   (cons date-compare date-equiv?)
-                          (record-rtd (make-time-utc 0 0)) (cons time-compare time-equiv?))))
-    (case-lambda
-      ((rtd)
-        (let ((pair (hashtable-ref ht rtd #f)))
-          (and pair (cons (car pair) (cdr pair))))) ; make a copy
-      ((rtd compare-proc)
-        (reflect-compare-functions rtd compare-proc
-          (let ((%reflect-equiv-proc ;; name shown when displaying the closure
-                  (lambda (a b) (eqv? 0 (compare-proc a b)))))
-            %reflect-equiv-proc)))
-      ((rtd compare-proc equiv-proc)
-        (assert* 'reflect-compare-functions (record-type-descriptor? rtd))
-        (assert* 'reflect-compare-functions (procedure? compare-proc))
-        (assert* 'reflect-compare-functions (logbit? 2 (procedure-arity-mask compare-proc)))
-        (assert* 'reflect-compare-functions (procedure? equiv-proc))
-        (assert* 'reflect-compare-functions (logbit? 2 (procedure-arity-mask equiv-proc)))
-        (hashtable-set! ht rtd (cons compare-proc equiv-proc))))))
+
+;; retrieve the function for comparing with (compare) records having specified rtd
+(define (reflect-compare-function rtd)
+  (vector-ref (hashtable-ref reflect-compare-table rtd '#(#f #f #f))
+              0))
+
+
+;; retrieve the function for comparing with (equiv?) records having specified rtd
+(define (reflect-equiv-function rtd)
+  (vector-ref (hashtable-ref reflect-compare-table rtd '#(#f #f #f))
+              1))
+
+
+;; set the functions for comparing with (compare) and (equiv?) records having specified rtd
+(define reflect-compare-functions-set!
+  (case-lambda
+    ((rtd compare-proc equiv-proc)
+      (assert* 'reflect-compare-function (record-type-descriptor? rtd))
+      (assert* 'reflect-compare-function (procedure? compare-proc))
+      (assert* 'reflect-compare-function (logbit? 2 (procedure-arity-mask compare-proc)))
+      (assert* 'reflect-compare-function (procedure? equiv-proc))
+      (assert* 'reflect-compare-function (logbit? 2 (procedure-arity-mask equiv-proc)))
+      (let ((ht reflect-compare-table))
+        (hashtable-set! ht rtd (vector compare-proc equiv-proc (hashtable-size ht)))))
+    ((rtd compare-proc)
+      (reflect-compare-functions-set! rtd compare-proc
+        (let ((%reflect-equiv-proc ;; name shown when displaying the closure
+                (lambda (a b) (eqv? 0 (compare-proc a b)))))
+            %reflect-equiv-proc)))))
 
 
 ;; convention: #f is less than #t
@@ -98,15 +110,29 @@
 
 
 (define (symbol-compare a b)
-  (if (eq? a b)
-    0
     ;; compare symbol names
-    (string-compare (symbol->string a) (symbol->string b))))
+    (string-compare (symbol->string a) (symbol->string b)))
 
 
 (define (symbol-equiv? a b)
-  (or (eq? a b)
-      (string=? (symbol->string a) (symbol->string b))))
+  ;; compare symbol names
+  (string=? (symbol->string a) (symbol->string b)))
+
+
+(define (record-compare a b)
+  (let* ((rtd (record-rtd a))
+         (cmp (reflect-compare-function rtd)))
+    (and cmp
+         (eq? rtd (record-rtd b))
+         (cmp a b))))
+
+
+(define (record-equiv? a b)
+  (let* ((rtd   (record-rtd a))
+         (equiv (reflect-equiv-function rtd)))
+    (and equiv
+         (eq? rtd (record-rtd b))
+         (equiv a b))))
 
 
 ;; compare two arbitrary datum a and b.
@@ -122,19 +148,14 @@
 ;; should never raise condition
 (define (compare a b)
   (cond
+    ((eq? a b)      0) ; also catches (void) and (eof-object)
     ((boolean? a)   (and (boolean? b) (boolean-compare a b)))
     ((char?   a)    (and (char?   b)  (char-compare    a b)))
     ((number? a)    (and (number? b)  (number-compare  a b)))
     ((symbol? a)    (and (symbol? b)  (symbol-compare  a b)))
     ((string? a)    (and (string? b)  (string-compare  a b)))
-    ((or (eq? a (void))
-         (eq? a (eof-object)))        (if (eq? a b) 0 #f))
-    (else
-      (let* ((rtd  (record-rtd a))
-             (pair (reflect-compare-functions rtd)))
-        (and pair
-             (eq? rtd (record-rtd b))
-             ((car pair) a b))))))
+    ((record? a)    (and (record? b)  (record-compare  a b)))
+    (else #f)))
 
 
 ;; compare two arbitrary datum a and b.
@@ -148,19 +169,14 @@
 ;; should never raise condition
 (define (equiv? a b)
   (cond
-    ((boolean? a)   (eq? a b))
+    ((eq? a b)      #t)
+    ((boolean? a)   #f)
     ((char? a)      (and (char? b)    (char=? a b)))
     ((number? a)    (and (number? b)  (= a b)))
     ((symbol? a)    (and (symbol? b)  (symbol-equiv? a b)))
     ((string? a)    (and (string? b)  (string=? a b)))
-    ((or (eq? a (void))
-         (eq? a (eof-object)))        (eq? a b))
-    (else
-      (let* ((rtd  (record-rtd a))
-             (pair (reflect-compare-functions rtd)))
-        (and pair
-             (eq? rtd (record-rtd b))
-             ((cdr pair) a b))))))
+    ((record? a)    (and (record? b)  (record-equiv? a b)))
+    (else #f)))
 
 
 ;; compare two arbitrary datum a and b.
@@ -233,6 +249,66 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; compare types of objects
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; retrieve the type-id of specified rtd, if available.
+;; used to sort data that is otherwise unordered
+(define (record-type-id rtd)
+  (vector-ref (hashtable-ref reflect-compare-table rtd '#(#f #f #f)) 2))
+
+
+;; retrieve the type-id of specified object, if available.
+;; used to sort data that is otherwise unordered
+(define (reflect-type-id a)
+  (cond
+    ((boolean? a)    -5)
+    ((char?   a)     -4)
+    ((number? a)     -3)
+    ((symbol? a)     -2)
+    ((string? a)     -1)
+    ((record? a)     (record-type-id (record-rtd a)))
+    ((eq? a (void))  (fx1- (greatest-fixnum)))
+    ((eof-object? a) (greatest-fixnum))
+    (else            #f)))
+
+
+;; compare the type of two arbitrary datum a and b.
+;;
+;; return 0  if a and b have same type.
+;; return -1 if a's type is smaller than b's type
+;; return 1  if a's type is greater than b's type
+;; return #f if a's type and b's type are not ordered
+;;
+;; should never raise condition
+(define (compare-type-of a b)
+  (let ((ta (reflect-type-id a))
+        (tb (reflect-type-id b)))
+    (cond
+      ((not ta)     (if tb 1 #f))
+      ((not tb)     -1)
+      ((fx<? ta tb) -1)
+      ((fx>? ta tb)  1)
+      (else          0))))
+
+
+;; compare the type, then the value of two arbitrary datum a and b.
+;;
+;; return 0  if a and b have same type and equivalent values.
+;; return -1 if a's type is smaller than b's type, or they have the same type and a's value is smaller than b's value
+;; return 1  if a's type is greater than b's type, or they have the same type and a's value is greater than b's value
+;; return #f if a's type and b's type are not ordered, or they have the same type and a's value and b's type are not ordered
+;;
+;; should never raise condition
+(define (compare-type-and-value a b)
+  ;; shortcut: compare values first.
+  ;; if a and b have different types, their values are always unordered.
+  (or (compare a b)
+      (compare-type-of a b)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; reflection on vector-like containers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -291,7 +367,7 @@
   (cond
     ((string? obj)   string-ref)
     ((charspan? obj) charspan-ref)
-    (else           #f)))
+    (else            #f)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

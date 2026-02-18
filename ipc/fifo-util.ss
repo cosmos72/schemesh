@@ -117,7 +117,6 @@
 ;; put elements
 
 
-
 ;; called by (fifo-writer-put) and (obj-writer-put)
 ;;
 ;; put datum into fifo-writer, blocking if it's full. return unspecified value.
@@ -231,7 +230,6 @@
 
         ;; finally, the macro thread==> definition
         (expand==> #'xname #'(args ...)))))))
-
 
 
 ;; customize how "fifo-reader" objects are printed

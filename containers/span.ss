@@ -20,13 +20,14 @@
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
     span-insert-left/vector! span-insert-right/vector!
     span-delete-left! span-delete-right! span-index span-index-right
-    for-span in-span span-iterate span-iterate-any
+    for-span in-span span-iterate span-iterate-any span-reader
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
     (only (scheme2k bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
     (only (scheme2k containers list)   for-list)
+    (only (scheme2k io obj)            make-obj-reader)
     (only (scheme2k containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
 (define-record-type (%span %make-span span?)
@@ -462,6 +463,29 @@
         ((or ret (fx<? i start)) ret)
       (when (predicate (span-ref sp i))
         (set! ret i)))))
+
+
+;; create and return an obj-reader that generates the elements of specified span.
+;; each call to (obj-reader-get rx) will return two values:
+;;  either (values elem #t) i.e. the next element from the span
+;;  or (values #<unspecified> #f) when the span is exhausted or after (obj-reader-close rx) has been called.
+;;
+;; This function effectively converts a span to an obj-reader, and could reasonably be named `span->reader`
+;; although by convention readers are created by functions `TYPE-reader`
+(define span-reader
+  (case-lambda
+    ((sp start end)
+      (assert* 'span-reader (fx<=?* 0 start end (span-length sp)))
+      (let ((%span-reader ;; name shown when displaying the closure
+              (lambda (rx)
+                (if (fx>=? start end)
+                  (values #f #f)
+                  (let ((elem (span-ref sp start)))
+                    (set! start (fx1+ start))
+                    (values elem #t))))))
+        (make-obj-reader %span-reader #f #f)))
+    ((sp)
+      (span-reader sp 0 (span-length sp)))))
 
 
 ;;  customize how "span" objects are printed

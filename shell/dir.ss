@@ -169,7 +169,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-cd job prog-and-args options)
-  (assert-string-list? 'builtin-cd prog-and-args)
   (apply sh-cd (or (job-parent job) (sh-globals)) (cdr prog-and-args)))
 
 
@@ -179,7 +178,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-cd- job prog-and-args options)
-  (assert-string-list? 'builtin-cd- prog-and-args)
   (unless (null? (cdr prog-and-args))
     (raise-errorf 'cd- "too many arguments"))
   (sh-cd- (or (job-parent job) (sh-globals))))
@@ -190,7 +188,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-pwd job prog-and-args options)
-  (assert-string-list? 'builtin-pwd prog-and-args)
   (let ((arg (list->integer-or-false (cdr prog-and-args))))
     (sh-pwd (or arg (job-parent job)))))
 

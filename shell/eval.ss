@@ -304,7 +304,6 @@
   (let ((bv-too-few-args  (string->utf8 "schemesh: source: too few arguments\n"))
         (bv-too-many-args (string->utf8 "schemesh: source: too many arguments\n")))
     (lambda (job prog-and-args options)
-      (assert-string-list? 'builtin-source prog-and-args)
       (cond
         ((null? (cdr prog-and-args))
           (fd-write-all (sh-fd 2) bv-too-few-args)

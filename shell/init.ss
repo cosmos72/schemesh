@@ -112,7 +112,6 @@
     (hashtable-set! bt "export"     builtin-export)
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
-    (hashtable-set! bt "jobs"       builtin-jobs)
     (hashtable-set! bt "parent"     builtin-parent)
     (hashtable-set! bt "pwd"        builtin-pwd)
     (hashtable-set! bt "set"        builtin-set)
@@ -125,7 +124,7 @@
     (hashtable-set! bt "wait"       builtin-wait)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
+    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false"
                       "history" "pwd" "set" "status" "true" "unalias" "unset")))
       (let ((builtin (hashtable-ref bt name #f)))
         (when builtin
@@ -212,11 +211,6 @@
     that show or alter the current directory or the environment variables of their parent job.
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
-
-    (hashtable-set! t "jobs"       (string->utf8 " [arg ...]
-    ignore args. write known jobs and their status to standard output.
-
-    return success.\n"))
 
     (hashtable-set! t "parent"     (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with its parent temporarily set to its grandparent.

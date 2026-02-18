@@ -292,7 +292,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-echo job prog-and-args options)
-  (assert-string-list? 'builtin-echo prog-and-args)
   (apply sh-echo (cdr prog-and-args)))
 
 
@@ -301,7 +300,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-echo0 job prog-and-args options)
-  (assert-string-list? 'builtin-echo0 prog-and-args)
   (apply sh-echo0 (cdr prog-and-args)))
 
 
@@ -309,7 +307,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-false job prog-and-args options)
-  (assert-string-list? 'builtin-false prog-and-args)
   (sh-false))
 
 
@@ -317,7 +314,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-help job prog-and-args options)
-  (assert-string-list? 'builtin-help prog-and-args)
   (if (null? (cdr prog-and-args))
     (sh-help)
     (sh-help (cadr prog-and-args))))
@@ -327,7 +323,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-history job prog-and-args options)
-  (assert-string-list? 'builtin-history prog-and-args)
   (repl-history-display))
 
 
@@ -335,7 +330,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-true job prog-and-args options)
-  (assert-string-list? 'builtin-true prog-and-args)
   (sh-true))
 
 
@@ -343,7 +337,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-ulimit job prog-and-args options)
-  (assert-string-list? 'builtin-ulimit prog-and-args)
   (apply sh-ulimit (cdr prog-and-args)))
 
 
@@ -354,10 +347,12 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 (define (sh-builtin-find prog-and-args)
   (if (null? prog-and-args)
     builtin-true ; empty command line, run it with (builtin-true)
-    (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
+    (begin
+      (assert-string-list? 'sh-builtin-find prog-and-args)
+      (hashtable-ref (sh-builtins) (car prog-and-args) #f))))
 
 
-;; function returning the global hashtable name -> builtin.
+;; return the global hashtable name -> builtin.
 ;; Each builtin must be a function accepting as arguments:
 ;;   a job (actually a cmd)
 ;;   a prog-and-args i.e. a list of strings containing the builtin name and its arguments

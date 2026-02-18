@@ -9,10 +9,9 @@
 
 
 ;; extended (begin) that also accepts empty body
-;; currently always expands to (begin ...) as the latter also accepts empty body on Chez
 (define-syntax begin0
   (syntax-rules ()
-    ((_)                 (begin))
+    ((_)                 (void))
     ((_ body)            body)
     ((_ body1 body2 ...) (begin body1 body2 ...))))
 

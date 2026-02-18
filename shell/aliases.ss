@@ -76,7 +76,6 @@
 ;; As all builtins do, must return job status.
 (define (builtin-alias job prog-and-args options)
   ; (debugf "builtin-alias ~s" prog-and-args)
-  (assert-string-list? 'builtin-alias prog-and-args)
   (cond
    ((or (null? prog-and-args) (null? (cdr prog-and-args)))
      (show-aliases))
@@ -91,7 +90,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-unalias job prog-and-args options)
-  (assert-string-list? 'builtin-unalias prog-and-args)
   (do ((tail (cdr prog-and-args) (cdr tail)))
       ((null? tail) (void))
     (sh-alias-delete! (car tail))))

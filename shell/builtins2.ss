@@ -55,7 +55,6 @@
 ;; returns (failed 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
   ;; (debugf "builtin-builtin ~s" prog-and-args)
-  (assert-string-list? 'builtin-builtin prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void)
     (let* ((args (cdr prog-and-args))
@@ -69,7 +68,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-command job prog-and-args options)
-  (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
   (cmd-spawn job (cdr prog-and-args) options)) ; returns job status
 
@@ -79,7 +77,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-exec job prog-and-args options)
-  (assert-string-list? 'builtin-exec prog-and-args)
   (assert* 'builtin-exec (string=? "exec" (car prog-and-args)))
   ;; save history before this process is replaced by exec'd command
   (let ((lctx (repl-args-linectx)))
@@ -94,7 +91,6 @@
 ;;
 ;; Never returns normally.
 (define (builtin-exit job prog-and-args options)
-  (assert-string-list? 'builtin-exit prog-and-args)
   (let ((arg (list->integer-or-false (cdr prog-and-args))))
     (exit (or arg 0))))
 
@@ -104,7 +100,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-export job prog-and-args options)
-  (assert-string-list? 'builtin-export prog-and-args)
   (let ((parent (or (job-parent job) (sh-globals))))
     (if (null? (cdr prog-and-args))
       (%env-display-vars parent 'export) ; returns (void)
@@ -125,7 +120,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-status job prog-and-args options)
-  (assert-string-list? 'builtin-status prog-and-args)
   (let ((result (if (null? (cdr prog-and-args))
                   0
                   (try-string->base10-integer (cadr prog-and-args)))))
@@ -157,7 +151,6 @@
 ;;
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-bg)
 (define (builtin-bg job prog-and-args options)
-  (assert-string-list? 'builtin-bg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
         (let ((new-status (sh-bg job)))
@@ -174,7 +167,6 @@
 ;;
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
 (define (builtin-fg job prog-and-args options)
-  (assert-string-list? 'builtin-fg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
     (if job
       (let ((out (current-error-port)))
@@ -199,7 +191,6 @@
 ;; As all builtins do, must return job status.
 (define (builtin-global job prog-and-args options)
   ;; (debugf "builtin-global ~s" prog-and-args)
-  (assert-string-list? 'builtin-global prog-and-args)
   (if (null? (cdr prog-and-args))
     (void)
     (let* ((args    (cdr prog-and-args))
@@ -211,22 +202,6 @@
         (write-builtin-error "global" "not a shell builtin" (car args))))))
 
 
-;; the "jobs" builtin: list known jobs
-;;
-;; As all builtins do, must return job status.
-(define (builtin-jobs job prog-and-args options)
-  (assert-string-list? 'builtin-jobs prog-and-args)
-  (let ((src (multijob-children (sh-globals))))
-    (unless (span-empty? src)
-      (let ((port (current-output-port)))
-        (span-iterate src
-          (lambda (job-id job)
-            (when (sh-job? job)
-              (sh-job-display-summary job port))))
-        (flush-output-port port))))
-  (void))
-
-
 ;; the "parent" builtin: run the builtin passed as first argument
 ;; with its parent job temporarily changed to current parent's parent.
 ;; Useful mostly for builtins "cd", "pwd" and "set"
@@ -234,7 +209,6 @@
 ;; As all builtins do, must return job status.
 (define (builtin-parent job prog-and-args options)
   ;; (debugf "builtin-parent ~s" prog-and-args)
-  (assert-string-list? 'builtin-parent prog-and-args)
   (if (null? (cdr prog-and-args))
     (void)
     (let* ((args       (cdr prog-and-args))
@@ -297,7 +271,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-set job prog-and-args options)
-  (assert-string-list? 'builtin-set prog-and-args)
   (let ((parent (or (job-parent job) (sh-globals))))
     ;; (debugf "executing ~s in job ~a, parent job ~a" prog-and-args (sh-job->string job) (sh-job->string parent))
     (cond
@@ -326,7 +299,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-split-at-0 job prog-and-args options)
-  (assert-string-list? 'builtin-split-at-0 prog-and-args)
   (if (null? (cdr prog-and-args))
     (write-builtin-error "split-at-0" "too few arguments")
     (let ((args (cons (cadr prog-and-args) ;; copy first argument as-is
@@ -339,7 +311,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-threads job prog-and-args options)
-  (assert-string-list? 'builtin-jobs prog-and-args)
   (let ((port  (current-output-port))
         (alist '()))
     (for-hash ((id t+status+name (threads-status)))
@@ -354,7 +325,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-unexport job prog-and-args options)
-  (assert-string-list? 'builtin-unexport prog-and-args)
   (let ((parent (or (job-parent job) (sh-globals))))
     (for-list ((name (cdr prog-and-args)))
       (sh-env-visibility-set! parent name 'private)))
@@ -365,7 +335,6 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-unset job prog-and-args options)
-  (assert-string-list? 'builtin-unset prog-and-args)
   (let ((parent (or (job-parent job) (sh-globals))))
     (for-list ((name (cdr prog-and-args)))
       (sh-env-delete! parent name))
@@ -377,7 +346,6 @@
 ;;
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
 (define (builtin-wait job prog-and-args options)
-  (assert-string-list? 'builtin-wait prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
         (let ((out (current-error-port)))

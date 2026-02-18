@@ -241,7 +241,7 @@
     (reverse! l))                                      ((#\a . 1) (#\b . 2) (#\C . 3) (#\space . 4))
 
   ;; test comparison functions
-  (let ((a (date 1970 1 1 0)) (b (date 1970 1 1 1)))
+  (let ((a (date 1970 1 1 0)) (b (date 1970 1 1 +1)))
     (list (compare a b)
           (less? a b) (less-equiv? a b)
           (equiv? a b)
@@ -255,6 +255,11 @@
           (greater-equiv? a b) (greater? a b)
           (unordered? a b)))                           (-1 #t #t #f #f #f #f)
 
+
+  (let ((sp (span -3 0 1 1.2 (eof-object) (date 1970 1 1 +0)
+                  (void) 4/5 #\a "b" 'c #t #f )))
+    (span-sort-by! compare-type-and-value sp)
+    sp)                                                ,@"(span #f #t a -3 0 4/5 1 1.2 c b (date 1970 01 01 +0) #<void> #!eof)"
 
   ;; test (field) (field-names) (fields->plist) (in-fields)
   (field-names (make-vscreen))                         #(<type> left right dirty-start-y dirty-end-y dirty? width height

@@ -33,7 +33,7 @@
                         make-parameter optimize-level parameterize pretty-print read-token reset reset-handler void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
-    (only (scheme2k containers list)      for-list)
+    (only (scheme2k containers list)      any for-list)
           (scheme2k containers span)
     (only (scheme2k containers string)    string-contains string-suffix?)
           (scheme2k lineedit lineedit)
@@ -49,13 +49,15 @@
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all)
     (only (scheme2k posix fs)        file-type make-dir-reader)
           (scheme2k posix signal)
+    (only (scheme2k posix status)    ok)
           (scheme2k posix tty)
+    (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
-       repl-args repl-args-linectx repl-history repl-restart repl-restart?
-       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind
-       sh-env-ref sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler
-       sh-fd sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-make-linectx
-       sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
+       repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help 
+       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind sh-env-ref
+       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler sh-fd sh-foreground-pgid
+       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs 
+       sh-make-linectx sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 
 
@@ -465,5 +467,25 @@ Type ? or help for this help.
     (else (put-string out "Invalid command.  Type ? for help.\n")
       (flush-output-port out)
       #t)))
+
+
+(begin
+  (let ((t (sh-builtins)))
+    ;; additional builtins
+    (hashtable-set! t "dir"        builtin-dir)
+    (hashtable-set! t "jobs"       builtin-jobs)
+    (hashtable-set! t "proc"       builtin-proc))
+
+  (let ((t (sh-builtins-help)))
+    (hashtable-set! t "dir"  (string->utf8 " [--to=FORMAT] [path]
+    display content of specified directory, or current directory by default.\n"))
+
+    (hashtable-set! t "jobs"       (string->utf8 " [--to=FORMAT]
+    display known jobs and their status.\n"))
+
+    ;; TODO: implement [-o fields] [-O fields]
+    (hashtable-set! t "proc" (string->utf8 " [-][xau] [--to=FORMAT]
+    display information about active processes.\n"))))
+
 
 ) ; close library

@@ -18,7 +18,7 @@
     (only (scheme2k containers date)         date->string)
     (only (scheme2k containers hashtable)    hashtable eq-hashtable)
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
-    (only (scheme2k containers span)         for-span span span-insert-right! span-length span-ref)
+    (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
@@ -312,7 +312,7 @@
 
 
 (define (display-row-cell tx col row-type k v)
-  (let* ((len    (string-length v))
+  (let* ((len    (string-display-length v))
          (width  (or (column-width col) (column-maxlen col)))
          (align  (column-align col))
          (pad    (fx- width len))
@@ -345,10 +345,12 @@
 
 
 (define (display-all tx)
-  (display-header tx)
-  (for-span ((row (table-writer-rows tx)))
-    (display-row-cells tx row))
-  (display-footer tx))
+  (let ((rows (table-writer-rows tx)))
+    (unless (span-empty? rows)
+      (display-header tx)
+      (for-span ((row rows))
+        (display-row-cells tx row))
+      (display-footer tx))))
 
 
 (define (integer->string tx datum)
@@ -378,6 +380,34 @@
       (format #f "~s" datum))))
 
 
+(define (char-ends-escape-seq? ch)
+  (or (char<=? #\@ ch #\Z)
+      (char<=? #\a ch #\z)
+      (char=? ch #\%)
+      (char=? ch #\`)))
+
+
+(define (skip-escape-seq str i n)
+  (cond
+    ((fx>=? i n)
+      i)
+    ((char-ends-escape-seq? (string-ref str i))
+      (fx1+ i))
+    (else
+      (skip-escape-seq str (fx1+ i) n))))
+
+
+(define (string-display-length str)
+  (let %loop ((str str) (i 0) (n (string-length str)) (ret 0))
+    (cond
+      ((fx>=? i n)
+        ret)
+      ((char=? #\esc (string-ref str i))
+        (%loop str (skip-escape-seq str (fx1+ i) n) n ret))
+      (else
+        (%loop str (fx1+ i) n (fx1+ ret))))))
+
+
 (define (update-column tx k v str)
   (unless (eq? _type k)
     (let* ((cols (table-writer-cols tx))
@@ -390,7 +420,7 @@
                        (ordered-hash-set! cols k col)
                        col))))
       (column-maxlen-set! col (fxmax (column-maxlen col)
-                                     (string-length str))))))
+                                     (string-display-length str))))))
 
 
 (define (obj->row tx obj)

@@ -268,6 +268,8 @@
     ((from out)
       (copy-all/close from (make-wire-writer out)))
     ((from)
+      (when (eq? 'tty (fd-type (sh-fd 1)))
+        (raise-errorf 'to-wire "refusing to write binary data to a terminal"))
       (to-wire from (sh-port #f 1 'binary)))))
 
 
@@ -283,6 +285,25 @@
       (to-wire from))
     (else
       (to-json from))))
+
+
+
+(define (some-arg-contains? args key)
+  (any (lambda (s) (string-contains s key)) args))
+
+
+(define (some-arg-is? args key)
+  (any (lambda (s) (string=? s key)) args))
+
+
+;; Dispatch to one of (to-...) functions depending on args
+(define (to-auto r args)
+  (cond
+    ((some-arg-is? args "--to=json")  (to-json r))
+    ((some-arg-is? args "--to=table") (to-table r))
+    ((some-arg-is? args "--to=wire")  (to-wire  r))
+    (else                             (to-stdout r)))
+  (void))
 
 
 ;; detect number of colors supported by current terminal.
@@ -338,7 +359,6 @@
               (assert* 'select (symbol? (car old-name-new-name)))
               (assert* 'select (symbol? (cadr old-name-new-name))))))
         #'(make-field-reader reader '(field-name ...) 'close-inner)))))
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -431,3 +451,70 @@
                           ((_ name) (field elem 'name cache)))))
          ,expr))
      'close-inner))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; additional shell builtins
+
+
+;; the "dir" builtin: display content of specified directory,
+;; or current directory by default
+;;
+;; As all builtins do, must return job status.
+(define (builtin-dir job prog-and-args options)
+  (let* ((args (cdr prog-and-args))
+         (r (if (null? args)
+              (dir)
+              (dir (car args)))))
+    (to-auto (sort-by r name) args)))
+
+
+(define (status->verbose status)
+  (if (eq? (void) status)
+    (ok)
+    status))
+
+
+;; the "jobs" builtin: list known jobs
+;;
+;; As all builtins do, must return job status.
+(define (builtin-jobs job prog-and-args options)
+  (let ((sp (sh-jobs)))
+    (do ((i 0 (fx1+ i))
+         (n (span-length sp)))
+        ((fx>=? i n))
+      (let* ((pair (span-ref sp i))
+             (id   (car pair))
+             (job  (cdr pair)))
+        (span-set! sp i (list 'id  id
+                              'pid (sh-job-pid job)
+                              'pgid (sh-job-pgid job)
+                              'status (status->verbose (sh-job-status job))
+                              'cmdline (sh-job->string job)))))
+    (to-auto (span-reader sp) (cdr prog-and-args))))
+
+
+;; the "proc" builtin: display information about active processes.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-proc job prog-and-args options)
+  (let* ((args   (cdr prog-and-args))
+         (user   (if (some-arg-contains? args "a") #f (c-username)))
+         (tty?   (if (some-arg-contains? args "x") #f #t))
+         (fields (if (some-arg-contains? args "u")
+                   '(user pid user-time mem-resident tty state start-time name)
+                   '(pid tty start-time name)))
+         (r     (proc))
+         (r     (if user
+                  (make-filter-reader r (lambda (elem cache)
+                                          (equiv? user (field elem 'user cache)))
+                                      'close-inner)
+                  r))
+         (r     (if tty?
+                  (make-filter-reader r (lambda (elem cache)
+                                          (let ((tty (field elem 'tty cache)))
+                                            (and (string? tty) (not (fxzero? (string-length tty))))))
+                                      'close-inner)
+                  r))
+         (r     (make-field-reader r fields 'close-inner)))
+    (to-auto r args)))

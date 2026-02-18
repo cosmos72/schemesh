@@ -79,7 +79,7 @@
       (open-textual-output-nowhere name))
     (()
       (open-textual-output-nowhere "/dev/null"))))
-      
+
 
 ;; conforms to Racket (open-output-nowhere), replaces optional second argument special-ok? -> transcoder-sym
 (define open-output-nowhere
@@ -97,7 +97,7 @@
       (open-textual-output-nowhere name))
     (()
       (open-textual-output-nowhere "/dev/null"))))
-      
+
 
 ;; Peek the next-next character (i.e. the character after (peek-char))
 ;; from textual input port and return it, without consuming any character.

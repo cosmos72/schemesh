@@ -9,7 +9,7 @@
 
 (library (scheme2k containers sort (0 9 3))
   (export
-    span-sort! subvector-sort!) ; R6RS already defines (vector-sort!)
+    span-sort! span-sort-by! subvector-sort! subvector-sort-by!) ; R6RS already defines (vector-sort!)
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
@@ -183,9 +183,7 @@
       ((fx=? n 3)
         (%vector-sort/3! is<? v start))
       ((fx=? n 2)
-        (%vector-sort/2! is<? v start))
-      (else
-        (void)))))
+        (%vector-sort/2! is<? v start)))))
 
 
 ;; do not use the name (vector-sort!), R6RS already defines it
@@ -207,9 +205,6 @@
 
 (define span-sort!
   (case-lambda
-    ((is<? sp)
-      (assert* 'span-sort! (span? sp))
-      (span-sort! is<? sp 0 (span-length sp)))
     ((is<? sp start end)
       (assert* 'span-sort! (procedure? is<?))
       (assert* 'span-sort! (logbit? 2 (procedure-arity-mask is<?)))
@@ -219,7 +214,83 @@
       (assert* 'span-sort! (fixnum? end))
       (assert* 'span-sort! (fx<=?* 0 start end (span-length sp)))
       (let ((beg (span-peek-beg sp)))
-        (%vector-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
+        (%vector-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))
+    ((is<? sp)
+      (assert* 'span-sort! (span? sp))
+      (span-sort! is<? sp 0 (span-length sp)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (skip-comparable-elements compare v start end)
+  (do ((i (fx1+ start) (fx1+ i)))
+      ((or (fx>=? i end)
+           (not (compare (vector-ref v (fx1- i)) (vector-ref v i))))
+       i)))
+
+
+;; in-place sort elements of a vector, using specified compare procedure,
+;; which must accept two arguments "a" and "b" i.e. the elements to compare,
+;; and must satisfy the following requirements:
+;;
+;; * return -1 if a compares less than b
+;; * return  0 if a compares equivalent to b
+;; * return  1 if a compares greater than b
+;; * return #f if a and b are unordered with respect to each other
+;;
+;; comparability must be transitive:
+;; * if (compare a b) is truish and (compare b c) is truish, then (compare a c) must be truish too
+;;
+;; such transitivity splits elements into connected components:
+;;   each connected component contains all elements that are mutually comparable
+;;     i.e. (compare a b) on any pair of elements from the same component always returns truish
+;;   and different connected components are completely unordered
+;;     i.e. (compare a b) on any pair of elements from different components always returns #f
+;;
+;; as usual for comparison functions, comparable elements must be totally ordered:
+;; * if a = b and b = c then a = c. More formally: if (compare a b) is 0 and (compare b c) is 0, then (compare a c) must be 0 too.
+;; * if a < b and b < c then a < c. More formally: if (compare a b) is -1 and (compare b c) is -1, then (compare a c) must be -1 too.
+;; * if a > b and b > c then a > c. More formally: if (compare a b) is 1 and (compare b c) is 1, then (compare a c) must be 1 too.
+;; and similarly for <= and >=
+;;
+(define subvector-sort-by!
+  (case-lambda
+    ((compare v start end)
+      (assert* 'subvector-sort-by! (procedure? compare))
+      (assert* 'subvector-sort-by! (logbit? 2 (procedure-arity-mask compare)))
+      (assert* 'subvector-sort-by! (mutable-vector? v))
+      (assert* 'subvector-sort-by! (fixnum? start))
+      (assert* 'subvector-sort-by! (fixnum? end))
+      (assert* 'subvector-sort-by! (fx<=?* 0 start end (vector-length v)))
+      (let %sort-by-loop ((compare compare)
+                          (v v)
+                          (start start)
+                          (end end)
+                          (is<? (lambda (a b) (eqv? -1 (compare a b)))))
+        (when (fx<? start (fx1- end))
+          (let ((pos (skip-comparable-elements compare v start end)))
+            (%vector-sort! is<? v start pos)
+            (%sort-by-loop compare v pos end is<?)))))
+    ((compare v)
+      (assert* 'subvector-sort-by! (mutable-vector? v))
+      (span-sort-by! compare v 0 (vector-length v)))))
+
+
+;; in-place sort elements of a span, using specified compare procedure.
+;; see (subvector-sort-by) for detailed requirements on the compare procedure.
+(define span-sort-by!
+  (case-lambda
+    ((compare sp start end)
+      (assert* 'span-sort-by! (span? sp))
+      (assert* 'span-sort-by! (fixnum? start))
+      (assert* 'span-sort-by! (fixnum? end))
+      (assert* 'span-sort-by! (fx<=?* 0 start end (span-length sp)))
+      (let ((beg (span-peek-beg sp)))
+        (subvector-sort-by! compare (span-peek-data sp) (fx+ beg start) (fx+ beg end))))
+    ((compare sp)
+      (assert* 'span-sort-by! (span? sp))
+      (span-sort-by! compare sp 0 (span-length sp)))))
 
 
 ) ; close library
