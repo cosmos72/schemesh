@@ -2,6 +2,7 @@
 
 ### TO DO
 
+* add shell builtin `answers` for displaying `(repl-answers)` with output format autodetection (json, table, wire)
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory
 * extend library `(scheme2k io wire)` to serialize/deserialize `dir-entry`, `process-entry` and stencil vectors

@@ -299,9 +299,9 @@
 ;; Dispatch to one of (to-...) functions depending on args
 (define (to-auto r args)
   (cond
-    ((some-arg-is? args "--to=json")  (to-json r))
-    ((some-arg-is? args "--to=table") (to-table r))
-    ((some-arg-is? args "--to=wire")  (to-wire  r))
+    ((some-arg-is? args "--to-json")  (to-json r))
+    ((some-arg-is? args "--to-table") (to-table r))
+    ((some-arg-is? args "--to-wire")  (to-wire  r))
     (else                             (to-stdout r)))
   (void))
 

@@ -477,14 +477,14 @@ Type ? or help for this help.
     (hashtable-set! t "proc"       builtin-proc))
 
   (let ((t (sh-builtins-help)))
-    (hashtable-set! t "dir"  (string->utf8 " [--to=FORMAT] [path]
+    (hashtable-set! t "dir"  (string->utf8 " [--to-FORMAT] [path]
     display content of specified directory, or current directory by default.\n"))
 
-    (hashtable-set! t "jobs"       (string->utf8 " [--to=FORMAT]
+    (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
     display known jobs and their status.\n"))
 
     ;; TODO: implement [-o fields] [-O fields]
-    (hashtable-set! t "proc" (string->utf8 " [-][xau] [--to=FORMAT]
+    (hashtable-set! t "proc" (string->utf8 " [-][xau] [--to-FORMAT]
     display information about active processes.\n"))))
 
 
