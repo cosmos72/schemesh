@@ -24,7 +24,7 @@
     (rnrs)
     (only (chezscheme)                 $primitive format fx1+ fx1- fx/ include meta record-writer)
     (only (scheme2k bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
-    (only (scheme2k io obj)            make-obj-reader)
+    (only (scheme2k io obj)            make-reader)
     (only (scheme2k containers list)   for-alist for-plist)
     (only (scheme2k containers string) string-prefix? string-suffix? display-procedure-name)
     (only (scheme2k containers vector) vector-index))
@@ -139,10 +139,10 @@
       iter)))
 
 
-;; create and return an obj-reader that generates the cells of specified hashtable.
-;; each call to (obj-reader-get p) will return two values:
+;; create and return a reader that generates the cells of specified hashtable.
+;; each call to (reader-get p) will return two values:
 ;;  either (values cell #t) i.e. the next cell the hashtable, where cell is a pair (key . value)
-;;  or (values #<unspecified> #f) when the hashtable is exhausted or after (obj-reader-close p) is called.
+;;  or (values #<unspecified> #f) when the hashtable is exhausted or after (reader-close p) is called.
 ;;
 ;; note: assigning the cdr of a returned pair propagates to the hashtable.
 ;; do NOT modify the car of any returned pair!
@@ -152,7 +152,7 @@
            (lambda (p)
              (let ((cell (hash-cursor-next! iter)))
                (values cell (and cell #t))))))
-    (make-obj-reader %hash-reader #f #f)))
+    (make-reader %hash-reader #f #f)))
 
 
 ;; create and return an iterator that generates elements of hashtable t.

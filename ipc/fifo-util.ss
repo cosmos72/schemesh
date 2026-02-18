@@ -10,7 +10,7 @@
 ;; this file should be included only by files ipc/fifo-thread.ss or ipc/fifo-nothread.ss
 
 
-;; create a new thread that calls (obj-reader-get reader) in a loop
+;; create a new thread that calls (reader-get reader) in a loop
 ;; and writes each generated element to an internal fifo-writer.
 ;;
 ;; Optional argument capacity specifies the fifo buffer size.
@@ -20,16 +20,16 @@
 (define make-thread-fifo-reader
   (case-lambda
     ((reader capacity)
-      (assert* 'make-thread-fifo-reader (obj-reader? reader))
+      (assert* 'make-thread-fifo-reader (reader? reader))
       (meta-cond
         ((threaded?)
           (let-values (((rx tx) (make-fifo-pair capacity)))
 
             (letrec* ((%thread-fifo-reader-loop
                         (lambda ()
-                          (let-values (((datum ok?) (obj-reader-get reader)))
+                          (let-values (((datum ok?) (reader-get reader)))
                             (when ok?
-                              (obj-writer-put tx datum)
+                              (writer-put tx datum)
                               (%thread-fifo-reader-loop)))))
 
                       (%thread-fifo-reader
@@ -38,8 +38,8 @@
                             void
                             %thread-fifo-reader-loop
                             (lambda ()
-                              (obj-reader-close reader)
-                              (obj-writer-close tx))))))
+                              (reader-close reader)
+                              (writer-close tx))))))
 
               (fork-thread %thread-fifo-reader 'thread-fifo-reader))
               rx))
@@ -76,7 +76,7 @@
 ;; * a time object with type 'time-duration
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (fifo-reader-get) (fifo-reader-timed-get) (fifo-reader-try-get) (fifo-reader-skip) and (fifo-reader-close)
+;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get) 
 ;; on the same or different fifo-readers.
 (define (fifo-reader-timed-get rx timeout)
   (assert* 'fifo-reader-timed-get (fifo-reader? rx))
@@ -103,7 +103,7 @@
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (fifo-reader-get) (fifo-reader-timed-get) (fifo-reader-try-get) (fifo-reader-skip) and (fifo-reader-close)
+;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get) 
 ;; on the same or different fifo-readers.
 (define (fifo-reader-try-get rx)
   (assert* 'fifo-reader-try-get (fifo-reader? rx))
@@ -117,12 +117,12 @@
 ;; put elements
 
 
-;; called by (fifo-writer-put) and (obj-writer-put)
+;; called by (fifo-writer-put) and (writer-put)
 ;;
 ;; put datum into fifo-writer, blocking if it's full. return unspecified value.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (fifo-writer-put) (fifo-writer-timed-put) (fifo-writer-try-put) and (fifo-writer-close)
+;; (writer-put) (fifo-writer-timed-put) (fifo-writer-try-put) and (fifo-writer-close)
 ;; on the same or different fifo-writers.
 (define (fifo-handle-put tx datum)
   (let ((ok? (fifo-handle-timed-put-once tx datum short-timeout)))
@@ -236,7 +236,7 @@
 (record-writer (record-type-descriptor fifo-reader)
   (lambda (rx port writer)
     (put-string port "#<fifo-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof" " ok"))
+    (put-string port (if (reader-eof? rx) " eof" " ok"))
     (put-char port #\>)))
 
 
@@ -244,5 +244,5 @@
 (record-writer (record-type-descriptor fifo-writer)
   (lambda (tx port writer)
     (put-string port "#<fifo-writer")
-    (put-string port (if (obj-writer-eof? tx) " eof" " ok"))
+    (put-string port (if (writer-eof? tx) " eof" " ok"))
     (put-char port #\>)))

@@ -57,33 +57,33 @@
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
-  ;; -------------------- obj-reader and obj-writer ----------------------------
+  ;; -------------------- reader and writer ----------------------------
 
   (let ((rx (list-reader '(qwerty asdf !@$%^&))))
-    (let*-values (((obj1 ok1) (obj-reader-get rx))
-                  ((obj2 ok2) (obj-reader-get rx))
-                  ((obj3 ok3) (obj-reader-get rx))
-                  ((obj4 ok4) (obj-reader-get rx))
-                  ((obj5 ok5) (obj-reader-get rx)))
+    (let*-values (((obj1 ok1) (reader-get rx))
+                  ((obj2 ok2) (reader-get rx))
+                  ((obj3 ok3) (reader-get rx))
+                  ((obj4 ok4) (reader-get rx))
+                  ((obj5 ok5) (reader-get rx)))
       ;; ignore obj4 and obj5, they have unspecified values
       (list obj1 ok1 obj2 ok2 obj3 ok3 ok4 ok5)))       (qwerty #t asdf #t !@$%^& #t #f #f)
 
 
   (let ((tx (list-writer)))
-    (obj-writer-put tx 97)
-    (obj-writer-put tx 98)
-    (obj-writer-close tx)
-    (obj-writer-close tx))                              (97 98)
+    (writer-put tx 97)
+    (writer-put tx 98)
+    (writer-close tx)
+    (writer-close tx))                              (97 98)
 
 
   ;; -------------------- filter-reader, list-reader, range-reader, where ----------------------------
 
   (let* ((r (list-reader '(1 2 3 4 5)))
          (f (where r (fxodd? @@))))
-    (let*-values (((obj1 ok1) (obj-reader-get f))
-                  ((obj2 ok2) (obj-reader-get f))
-                  ((obj3 ok3) (obj-reader-get f))
-                  ((obj4 ok4) (obj-reader-get f)))
+    (let*-values (((obj1 ok1) (reader-get f))
+                  ((obj2 ok2) (reader-get f))
+                  ((obj3 ok3) (reader-get f))
+                  ((obj4 ok4) (reader-get f)))
       ;; ignore obj4, it has unspecified value
       (list obj1 obj2 obj3 ok4)))                       (1 3 5 #f)
 
@@ -102,8 +102,8 @@
   ;; ------------------ fifo-reader and fifo-writer --------------------------
 
   (let-values (((rx tx) (make-fifo-pair)))
-    (fifo-writer-put tx (eof-object))
-    (let*-values (((obj1 ok1) (fifo-reader-get rx))
+    (writer-put tx (eof-object))
+    (let*-values (((obj1 ok1) (reader-get rx))
                   ((obj2 ok2) (fifo-reader-try-get rx)))
       ;; ignore obj2, it has unspecified value
       (list obj1 ok1 ok2)))                             ,@"(#!eof #t timeout)"
@@ -112,8 +112,8 @@
 
   (let* ((tx (make-queue-writer))
          (rx (make-queue-reader tx)))
-    (queue-writer-put tx '(1/2 . 3/4+7i))
-    (let*-values (((obj1 ok1) (queue-reader-get rx))
+    (writer-put tx '(1/2 . 3/4+7i))
+    (let*-values (((obj1 ok1) (reader-get rx))
                   ((obj2 ok2) (queue-reader-try-get rx)))
       ;; ignore obj2, it has unspecified value
       (list obj1 ok1 ok2)))                             ((1/2 . 3/4+7i) #t timeout)
@@ -122,38 +122,38 @@
 
   (let-values (((rx tx) (wire-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
-      (wire-writer-put tx datum1)
-      (let ((datum2 (first-value-or-void (wire-reader-get rx))))
-        (wire-reader-close rx)
-        (wire-writer-close tx)
+      (writer-put tx datum1)
+      (let ((datum2 (first-value-or-void (reader-get rx))))
+        (reader-close rx)
+        (writer-close tx)
         (list (eqv? datum1 datum2)
-              (wire-reader-eof? rx)
-              (wire-writer-eof? tx)))))                 (#t #t #t)
+              (reader-eof? rx)
+              (writer-eof? tx)))))                      (#t #t #t)
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
     (let ((tx     (make-wire-writer out))
           (datum1 (bitwise-arithmetic-shift -1 9999)))
-      (wire-writer-put tx datum1)
-      (wire-writer-close tx) ;; also closes out
+      (writer-put tx datum1)
+      (writer-close tx) ;; also closes out
       (let* ((in     (open-bytevector-input-port (bv-proc)))
              (rx     (make-wire-reader in))
-             (datum2 (first-value-or-void (wire-reader-get rx))))
-        (wire-reader-close rx) ;; also closes in
+             (datum2 (first-value-or-void (reader-get rx))))
+        (reader-close rx) ;; also closes in
         (list (eqv? datum1 datum2)
-              (wire-reader-eof? rx)
-              (wire-writer-eof? tx)))))                 (#t #t #t)
+              (reader-eof? rx)
+              (writer-eof? tx)))))                      (#t #t #t)
 
   ;; ---------------------------- json-reader ----------------------------------
 
-  ;; parse only whitespace. not a valid json, but accepted by (json-reader-get)
+  ;; parse only whitespace. not a valid json, but accepted by (reader-get #<json-reader>)
   ;; as zero top-level json values
   (let ((rx (make-json-reader
               (open-bytevector-input-port #vu8(9 10 13 32)))))
-    (second-value (json-reader-get rx)))                #f
+    (second-value (reader-get rx)))                     #f
 
 
-  ;; json-reader-get-value returns the next element, no matter if it's aggregate or not
+  ;; (json-reader-get-value) returns the next element, no matter if it's aggregate or not
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
@@ -176,34 +176,34 @@
                          ;; we parse json numbers as inexact only if number contains "e..."
                          "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
                (tx (make-json-writer out)))
-      (let-values (((tok ok?) (json-reader-get rx)))
+      (let-values (((tok ok?) (reader-get rx)))
         (if ok?
           (begin
-            (json-writer-put tx tok)
+            (writer-put tx tok)
             (loop rx tx))
-          (json-writer-close tx))))
+          (writer-close tx))))
     (utf8->string (bv-proc)))                           "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
 
 
-  ;; (json-reader-get) and (json-reader-skip) look inside top-level arrays and return their elements one by one.
+  ;; (reader-get) and (reader-skip) on #<json-reader> look inside top-level arrays and return their elements one by one.
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
                   ;; we parse json numbers as inexact only if number contains "e..."
                   "[1, 2.3, true, [0], {}] {\"a\": \"\\u20ac\"} \"foo\"")))))
-    (let*-values (((obj1 ok1) (json-reader-get rx))
-                  ((obj2 ok2) (json-reader-get rx))
-                  ((obj3 ok3) (json-reader-get rx))
-                  ((obj4 ok4) (json-reader-get rx))
-                  ((ok_)      (json-reader-skip rx))
-                  ((obj5 ok5) (json-reader-get rx))
-                  ((obj6 ok6) (json-reader-get rx))
-                  ((obj7 ok7) (json-reader-get rx)))
+    (let*-values (((obj1 ok1) (reader-get rx))
+                  ((obj2 ok2) (reader-get rx))
+                  ((obj3 ok3) (reader-get rx))
+                  ((obj4 ok4) (reader-get rx))
+                  ((ok_)      (reader-skip rx))
+                  ((obj5 ok5) (reader-get rx))
+                  ((obj6 ok6) (reader-get rx))
+                  ((obj7 ok7) (reader-get rx)))
       (list obj1 ok1 obj2 ok2 obj3 ok3 obj4 ok4 obj5 ok5
             obj6 ok6 #|obj7|# ok7)))                    ,(1 #t 23/10 #t #t #t (span 0) #t (a "\x20ac;") #t "foo" #t #f)
 
 
-  ;; json-reader-get looks inside json objects (at any depth) for key "<type>" and,
+  ;; reader-get looks inside json objects (at any depth) for key "<type>" and,
   ;; if the value is registered into json-reflect-infos,
   ;; calls the registered deserializer passing as the only argument the json object, converted to a plist.
 
@@ -212,47 +212,47 @@
               (open-bytevector-input-port
                 (string->utf8b
                   "[{\"<type>\":\"time-utc\",\"value\":1770224910.283978890}]")))))
-    (let-values (((obj ok) (json-reader-get rx)))
+    (let-values (((obj ok) (reader-get rx)))
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
   ;; serialize and deserialize a `date`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
-      (json-writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
-      (json-writer-close tx)
+      (writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
+      (writer-close tx)
       (let* ((bv (to-bytevector))
              (rx (make-json-reader (open-bytevector-input-port bv))))
-        (first-value (json-reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
+        (first-value (reader-get rx)))))           ,@"(date 9999 12 31  23 59 59  999999999 +86400)"
 
 
   ;; serialize and deserialize a `dir-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
-      (json-writer-put tx
+      (writer-put tx
         (make-dir-entry "." 'dir 4096 "" "rwxr-xr-x---" (make-time-utc 1770666829 82454476) (make-time-utc 1768467392 0)
                         (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
-      (json-writer-close tx)
+      (writer-close tx)
       (let* ((bv (to-bytevector))
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":\"\",\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"target\":\"\",\"mode\":\"rwxr-xr-x---\",\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
                                                            (make-dir-entry "." dir 4096 "" "rwxr-xr-x---" (make-time-utc 1770666829 82454476)
                                                              (make-time-utc 1768467392 0) (make-time-utc 1770314180 254027974) "nobody" "users" 1000 100 568413 2))
 
   ;; serialize and deserialize a `process-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
-      (json-writer-put tx
+      (writer-put tx
         (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
           (make-time-duration 0 0) 20 0 0 0 1 10839 160))
-      (json-writer-close tx)
+      (writer-close tx)
       (let* ((bv (to-bytevector))
              (rx (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (json-reader-get rx))))))        ,("[{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
+          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"flags\":4194560,\"mem-resident\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"rt-priority\":0,\"rt-policy\":0,\"num-threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
                                                           (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 4194560 14536704 25296896
                                                             (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
                                                             (make-time-duration 0 0) 20 0 0 0 1 10839 160))

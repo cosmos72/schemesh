@@ -12,7 +12,7 @@
 
 ;; base type for readers that wrap another "inner" reader
 (define-record-type (nested-reader %make-nested-reader nested-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     inner)  ;; wrapped reader
   (protocol
@@ -25,21 +25,21 @@
 
 ;; can be called by subtypes to detect EOF in the inner reader
 (define (nested-reader-inner-eof? rx)
-  (obj-reader-eof? (nested-reader-inner rx)))
+  (reader-eof? (nested-reader-inner rx)))
 
 
 ;; can be called by subtypes to close the inner reader
 (define (nested-reader-inner-close rx)
-  (obj-reader-close (nested-reader-inner rx)))
+  (reader-close (nested-reader-inner rx)))
 
 
 ;; can be called by subtypes to get next element from the inner reader
 (define (nested-reader-inner-get rx)
-  (obj-reader-get (nested-reader-inner rx)))
+  (reader-get (nested-reader-inner rx)))
 
 
 ;; can be called by subtypes to skip next element from the inner reader
 (define (nested-reader-inner-skip rx)
-  (obj-reader-skip (nested-reader-inner rx)))
+  (reader-skip (nested-reader-inner rx)))
 
 

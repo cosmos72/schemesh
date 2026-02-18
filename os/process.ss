@@ -9,21 +9,21 @@
 ;;; collect information about system processes
 ;;;
 (library (scheme2k os (0 9 3))
-  (export make-process-reader process-reader process-reader? process-reader-get process-reader-eof? process-reader-close process-reader-skip
+  (export make-process-reader process-reader process-reader?
           make-process-entry  process-entry  process-entry?)
   (import
     (rnrs)
     (only (chezscheme)                   1+ foreign-procedure fx1+ fx1- make-time record-writer string->immutable-string void)
     (only (scheme2k bootstrap)           assert*)
     (only (scheme2k containers list)     plist-ref)
-    (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
+    (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k posix fd)            raise-c-errno)
     (only (scheme2k posix fs)            gid->groupname uid->username)
     (only (scheme2k reflect)             reflect-info-set-autodetect!))
 
 
 (define-record-type (process-reader %make-process-reader process-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     (mutable handle)     ; #f or integer containing C DIR*
     bvec                 ; bytevector, used as buffer for C function c_process_get()
@@ -46,27 +46,7 @@
         (%make-process-reader obj)))))
 
 
-(define (process-reader-eof? rx)
-  (assert* 'process-reader-eof? (process-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (process-reader-close rx)
-  (assert* 'process-reader-close (process-reader? rx))
-  (obj-reader-close rx))
-
-
-(define (process-reader-get rx)
-  (assert* 'process-reader-get (process-reader? rx))
-  (obj-reader-get rx))
-
-
-(define (process-reader-skip rx)
-  (assert* 'process-reader-skip (process-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (process-reader-get) and (obj-reader-get)
+;; called by (reader-get)
 (define %process-reader-get
   (let ((c-process-get (foreign-procedure "c_process_get" (ptr ptr) ptr)))
     (lambda (rx)
@@ -86,7 +66,7 @@
           (values #f #f)))))) ;; process-reader is closed
 
 
-;; called by (process-reader-skip) and (obj-reader-skip)
+;; called by (reader-skip)
 (define %process-reader-skip
   (let ((c-process-skip (foreign-procedure "c_process_skip" (ptr) int)))
     (lambda (rx)
@@ -99,7 +79,7 @@
           #f))))) ;; process-reader is closed
 
 
-;; called by (process-reader-close) and (obj-reader-close)
+;; called by (reader-close)
 (define %process-reader-close
   (let ((c-process-close (foreign-procedure "c_process_close" (ptr) void)))
     (lambda (rx)
@@ -223,7 +203,7 @@
 (record-writer (record-type-descriptor process-reader)
   (lambda (rx port writer)
     (put-string port "#<process-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof>" " ok>"))))
+    (put-string port (if (reader-eof? rx) " eof>" " ok>"))))
 
 
 ;; customize how "process-entry" objects are printed

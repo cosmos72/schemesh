@@ -11,7 +11,7 @@
 
 
 (define-record-type (queue-reader %make-queue-reader queue-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     (mutable head)
     mutex
@@ -24,7 +24,7 @@
 
 
 (define-record-type (queue-writer %make-queue-writer queue-writer?)
-  (parent obj-writer)
+  (parent writer)
   (fields
     (mutable tail)
     mutex

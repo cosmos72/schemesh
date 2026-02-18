@@ -37,7 +37,7 @@
 ;; queue-reader
 
 
-;; Create and return a queue-reader, which is a subtype of obj-writer.
+;; Create and return a queue-reader, which is a subtype of writer.
 ;; Connects to specified queue-writer, and receives in order each datum
 ;; put to the queue-writer *after* the queue-reader was created.
 ;;
@@ -54,112 +54,27 @@
     (%make-queue-reader (queue-writer-tail tx) (queue-writer-mutex tx) (queue-writer-changed tx))))
 
 
-(define (queue-reader-close rx)
-  (assert* 'queue-reader-close (queue-reader? rx))
-  (obj-reader-close rx))
-
-
-(define (queue-reader-eof? rx)
-  (assert* 'queue-reader-eof? (queue-reader? rx))
-  (obj-reader-eof? rx))
-
-
-;; block until a datum is received from the connected queue-writer, and return two values:
-;;   datum and #t
-;;   or <unspecified> and #f if queue-writer has been closed and all data has been received.
-;;
-;; This procedure is thread safe: multiple threads can concurrently call
-;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
-;; on the same or different queue-readers.
-(define (queue-reader-get rx)
-  (assert* 'queue-reader-get (queue-reader? rx))
-  (obj-reader-get rx))
-
-
 ;; non-blockingly try to receive a datum from queue-writer, and return two values:
 ;;   received datum and 'ok
 ;;   or <unspecified> and 'eof if queue-writer has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
+;; (reader-get) (reader-skip) (reader-close) (queue-reader-timed-get) and (queue-reader-try-get) 
 ;; on the same or different queue-readers.
 (define (queue-reader-try-get rx)
   (assert* 'queue-reader-try-get (queue-reader? rx))
-  (if (queue-reader-eof? rx)
+  (if (reader-eof? rx)
     (values #f 'eof)
     (queue-reader-timed-get-once rx 0)))
 
 
-;; block until a datum is received from the connected queue-writer, and return one value:
-;;   #t if successful, or #f if queue-writer has been closed and all data has been received.
-;;
-;; This procedure is thread safe: multiple threads can concurrently call
-;; (queue-reader-get) (queue-reader-timed-get) (queue-reader-try-get) (queue-reader-skip) and (queue-reader-close)
-;; on the same or different queue-readers.
-(define (queue-reader-skip rx)
-  (assert* 'queue-reader-skip (queue-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (queue-reader-get) and (obj-reader-get)
+;; called by (queue-reader-get) and (reader-get)
 (define (%queue-reader-get rx)
   (let-values (((datum flag) (queue-reader-timed-get-once rx short-timeout)))
     (if (eq? flag 'timeout)
       (%queue-reader-get rx) ;; timeout, retry
       (values datum (eq? flag 'ok)))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; queue-writer
-
-
-;; Close specified queue-writer.
-;; Notifies all attached queue-readers that no more data can be received.
-;; Each attached queue-reader will still receive any pending data.
-;;
-;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-close) and (queue-writer-put) on the same or different queue-writers.
-(define (queue-writer-close tx)
-  (assert* 'queue-writer-close (queue-writer? tx))
-  (obj-writer-close tx))
-
-
-;; Return #t if specified queue-writer is closed, otherwise return #f
-(define (queue-writer-eof? tx)
-  (assert* 'queue-writer-eof? (queue-writer? tx))
-  (obj-writer-eof? tx))
-
-
-;; put a datum into the queue-writer, which will be visible to all
-;; queue-readers attached *before* this call to (queue-writer-put).
-;;
-;; raises exception if queue-writer is closed.
-;;
-;; expected to block at most for a short time, because queue-writer has unbounded capacity:
-;; no need for functions (queue-writer-timed-put) and (queue-writer-try-put).
-;;
-;; This procedure is thread safe: multiple threads can concurrently
-;; call (queue-writer-close) and (queue-writer-put) on the same or different queue-writers.
-(define (queue-writer-put tx obj)
-  (assert* 'queue-writer-put (queue-writer? tx))
-  (obj-writer-put tx obj))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; create and return a closure that iterates on data received by queue-reader rx.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values datum #t) i.e. the next datum received from queue-reader and #t,
-;; or (values #<unspecified> #f) if queue-reader reached end-of-file.
-;;
-;; note: (in-reader rx) is equivalent and also accepts other obj-reader types
-(define (in-queue-reader rx)
-  (assert* 'in-queue-reader (queue-reader? rx))
-  (lambda ()
-    (queue-reader-get rx)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -169,7 +84,7 @@
 (record-writer (record-type-descriptor queue-reader)
   (lambda (rx port writer)
     (put-string port "#<queue-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof" " ok"))
+    (put-string port (if (reader-eof? rx) " eof" " ok"))
     (let ((name (queue-reader-name rx)))
       (when name
         (put-char port #\space)
@@ -181,7 +96,7 @@
 (record-writer (record-type-descriptor queue-writer)
   (lambda (tx port writer)
     (put-string port "#<queue-writer")
-    (put-string port (if (obj-writer-eof? tx) " eof" " ok"))
+    (put-string port (if (writer-eof? tx) " eof" " ok"))
     (let ((name (queue-writer-name tx)))
       (when name
         (put-char port #\space)

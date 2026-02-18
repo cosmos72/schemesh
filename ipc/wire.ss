@@ -13,9 +13,9 @@
 ;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
 (library (scheme2k ipc wire (0 9 3))
-  (export make-wire-reader wire-reader wire-reader? wire-reader-get wire-reader-eof? wire-reader-close wire-reader-skip
-          make-wire-writer wire-writer wire-writer? wire-writer-put wire-writer-eof? wire-writer-close
-          in-wire-reader wire-pipe-pair wire-socketpair-pair)
+  (export make-wire-reader wire-reader wire-reader?
+          make-wire-writer wire-writer wire-writer?
+          wire-pipe-pair wire-socketpair-pair)
   (import
     (rnrs)
     (only (chezscheme)                   box box-cas! record-writer unbox void)
@@ -23,14 +23,14 @@
           (scheme2k containers bytespan)
           (scheme2k posix fd)
     (only (scheme2k posix socket)        socketpair-fds)
-    (only (scheme2k io obj)              obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
-                                         obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
+    (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip
+                                         writer writer-put writer-eof? writer-close)
     (only (scheme2k io port)             read-bytes-insert-right!)
           (scheme2k io wire))
 
 
 (define-record-type (wire-reader %make-wire-reader wire-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     in-box              ; box containing one of: #f, or read fd, or binary input port
     rbuf                ; #f or bytespan, read buffer
@@ -44,7 +44,7 @@
 
 
 (define-record-type (wire-writer %make-wire-writer wire-writer?)
-  (parent obj-writer)
+  (parent writer)
   (fields
     out-box             ; box containing one of: #f, or write fd, or binary output port
     wbuf                ; #f or bytespan, write buffer
@@ -57,8 +57,7 @@
   (nongenerative wire-writer-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-;; Create and return a wire-reader that, at each call to
-;;   (obj-reader-get) or (wire-reader-get)
+;; Create and return a wire-reader that, at each call to (reader-get)
 ;; reads some bytes from the underlying file descriptor or binary input port,
 ;; parses the bytes and returns the deserialized data.
 ;;
@@ -67,7 +66,7 @@
 ;;   a binary input port
 ;;   #f, indicating that wire-reader reached end-of-file
 ;;
-;; Note: as per obj-reader contract, by default closing a wire-reader does NOT close
+;; Note: as per reader contract, by default closing a wire-reader does NOT close
 ;; the underlying file descriptor or binary input port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
@@ -82,8 +81,7 @@
       (make-wire-reader in #f))))
 
 
-;; Create and return a wire-writer that, at each call to
-;;   (obj-writer-put) or (wire-writer-put)
+;; Create and return a wire-writer that, at each call to (writer-put)
 ;; serializes the received data into bytes, and writes such bytes;;
 ;; to the underlying file descriptor or binary output port.
 ;;
@@ -92,7 +90,7 @@
 ;;   a binary output port
 ;;   #f, indicating that wire-writer is closed
 ;;
-;; Note: as per obj-writer contract, by default closing a wire-writer does NOT close
+;; Note: as per writer contract, by default closing a wire-writer does NOT close
 ;; the underlying file descriptor or binary output port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
@@ -167,34 +165,12 @@
               (%make-wire-writer box2 (bytespan) #t)))))
 
 
-(define (wire-reader-eof? rx)
-  (assert* 'wire-reader-eof? (wire-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (wire-writer-eof? rx)
-  (assert* 'wire-writer-eof? (wire-writer? rx))
-  (obj-writer-eof? rx))
-
-
-;; close a wire-reader
-(define (wire-reader-close rx)
-  (assert* 'wire-reader-close (wire-reader? rx))
-  (obj-reader-close rx))
-
-
-;; close a wire-writer
-(define (wire-writer-close rx)
-  (assert* 'wire-writer-close (wire-writer? rx))
-  (obj-writer-close rx))
-
-
-;; called by (wire-reader-close) and (obj-reader-close)
+;; called by (reader-close)
 (define (%wire-reader-close rx)
   (%close-box (wire-reader-in-box rx) (wire-reader-close-in? rx)))
 
 
-;; called by (wire-writer-close) and (obj-writer-close)
+;; called by (writer-close)
 ;; Helps detecting end-of-file at the receiver side.
 (define (%wire-writer-close tx)
   (%close-box (wire-writer-out-box tx) (wire-writer-close-out? tx)))
@@ -215,7 +191,7 @@
   (let ((out (unbox (wire-writer-out-box rx))))
     (unless out
       ;; automatically close when out is #f. sets eof? flag
-      (wire-writer-close rx))
+      (writer-close rx))
     out))
 
 
@@ -238,50 +214,21 @@
                  (read-n (%in-read-insert-right! in rbuf)))
             (if (fxzero? read-n)
               (begin
-                (wire-reader-close rx)
+                (reader-close rx)
                 (bytespan-clear! rbuf)
                 (values #f #f))
               (%wire-reader-get-or-skip rx caller skip?))))))))
 
 
-;; called by (wire-reader-get) and (obj-reader-get)
+;; called by (reader-get)
 (define (%wire-reader-get rx)
   (%wire-reader-get-or-skip rx 'wire-reader-get #f))
 
 
-;; called by (wire-reader-skip) and (obj-reader-skip)
+;; called by (reader-skip)
 (define (%wire-reader-skip rx)
   (let-values (((obj ok?) (%wire-reader-get-or-skip rx 'wire-reader-skip #t)))
     ok?))
-
-
-;; read serialized data from the wire-reader's in,
-;; repeating until a whole wire message is available,
-;; then deserialize the message and return the corresponding datum.
-;; may block while reading from file descriptor or port.
-;;
-;; return two values:
-;;   either (values datum #t) i.e. deserialized datum,
-;;   or (values #<unspecified> #f) on end-of-file, or if wire-reader is closed.
-;;
-;; raise exception on I/O error or if serialized data cannot be parsed.
-(define (wire-reader-get rx)
-  (assert* 'wire-reader-get (wire-reader? rx))
-  (obj-reader-get rx))
-
-
-;; read serialized data from the wire-reader's in,
-;; repeating until a whole wire message is available,
-;; then skip the message.
-;; may block while reading from file descriptor or port.
-;;
-;; return #t if one message was skipped,
-;; or #f on end-of-file, or if wire-reader is closed.
-;;
-;; raise exception on I/O error or if serialized data cannot be parsed.
-(define (wire-reader-skip rx)
-  (assert* 'wire-reader-skip (wire-reader? rx))
-  (obj-reader-skip rx))
 
 
 ;; read some bytes from in and append them to rbuf.
@@ -294,18 +241,6 @@
       (fd-read-insert-right! in rbuf))
     (else ; (port? in)
       (read-bytes-insert-right! in rbuf))))
-
-
-;; serialize datum, and write its serialized representation to wire-writer's out.
-;; may block while writing to wire-writer's out.
-;;
-;; return (void) if successful
-;; return #f if wire-writer's out is closed or set to #f,
-;;           or if library (scheme2k io wire) does not support serializing/deserializing datum
-;; raise exception on I/O error
-(define (wire-writer-put tx datum)
-  (assert* 'wire-writer-put (wire-writer? tx))
-  (obj-writer-put tx datum))
 
 
 (define (unbox-raise-if-closed tx)
@@ -328,7 +263,7 @@
         (put-bytevector out bv start (fx- end start))))))
 
 
-;; called by (wire-writer-put) and (obj-writer-put)
+;; called by (wire-writer-put) and (writer-put)
 (define (%wire-writer-put tx datum)
   (unbox-raise-if-closed tx)
   (let* ((wbuf         (wire-writer-wbuf tx))
@@ -339,22 +274,11 @@
     (bytespan-clear! wbuf)))
 
 
-;; create and return a closure that iterates on data read from wire-reader rx.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;;   either (values datum #t) i.e. the next datum read from wire-reader and #t,
-;;   or (values #<unspecified> #f) if wire-reader reached end-of-file.
-(define (in-wire-reader rx)
-  (assert* 'in-wire-reader (wire-reader? rx))
-  (lambda ()
-    (wire-reader-get rx)))
-
-
 ;; customize how "wire-reader" objects are printed
 (record-writer (record-type-descriptor wire-reader)
   (lambda (rx port writer)
     (put-string port "#<wire-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
+    (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (unbox (wire-reader-in-box rx)) port)
     (put-string port ">")))
 
@@ -363,7 +287,7 @@
 (record-writer (record-type-descriptor wire-writer)
   (lambda (tx port writer)
     (put-string port "#<wire-writer")
-    (put-string port (if (obj-writer-eof? tx) " eof " " ok "))
+    (put-string port (if (writer-eof? tx) " eof " " ok "))
     (writer (unbox (wire-writer-out-box tx)) port)
     (put-string port ">")))
 

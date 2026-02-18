@@ -15,17 +15,16 @@
 ;;;
 (library (scheme2k ipc queue (0 9 3))
   (export make-queue-pair
-          make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-close queue-reader-eof? queue-reader-get queue-reader-skip
-          make-queue-writer queue-writer queue-writer? queue-writer-name queue-writer-close queue-writer-eof? queue-writer-put
-          queue-reader-timed-get queue-reader-try-get in-queue-reader)
+          make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-timed-get queue-reader-try-get
+          make-queue-writer queue-writer queue-writer? queue-writer-name)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)            fx1+ include make-time record-writer time? time-type time-second time-nanosecond void)
     (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
     (only (scheme2k posix signal) countdown)
-    (only (scheme2k io obj)       obj-reader obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
-                                  obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put))
+    (only (scheme2k io obj)       reader reader? reader-close reader-eof? reader-get reader-skip
+                                  writer writer? writer-close writer-eof? writer-put))
 
 
 ;; this implementation is single-threaded
@@ -52,12 +51,12 @@
   (let* ((head (queue-reader-head rx))
          (tail (cdr head)))
     (cond
-      ((queue-reader-eof? rx)
+      ((reader-eof? rx)
         ;; this queue-reader is already closed
         (values #f 'eof))
       ((not tail)
         ;; connected queue-writer was closed, and we reached eof
-        (queue-reader-close rx)
+        (reader-close rx)
         (values #f 'eof))
       ((null? tail)
         (if (eqv? 0 timeout)
@@ -83,7 +82,7 @@
 ;; This procedure is for non-threaded build of Chez Scheme.
 (define (queue-reader-timed-get rx timeout)
   (assert* 'queue-reader-timed-get (queue-reader? rx))
-  (if (queue-reader-eof? rx)
+  (if (reader-eof? rx)
     (values #f 'eof)
     (queue-reader-timed-get-once rx timeout)))
 
@@ -92,7 +91,7 @@
 ;; queue-writer
 
 
-;; Create and return a queue-writer, which is a subtype of obj-writer,
+;; Create and return a queue-writer, which is a subtype of writer,
 ;; and writes arbitrary datum to a thread-safe, in-memory unlimited queue.
 ;;
 ;; Not used often, most of the time (make-queue-pair) is a better choice.
@@ -110,12 +109,12 @@
   (queue-writer-mutex tx))
 
 
-;; called by (queue-writer-close) and (obj-writer-close)
+;; called by (writer-close)
 (define (%queue-writer-close tx)
   (set-cdr! (queue-writer-tail tx) #f))
 
 
-;; called by (queue-writer-put) and (obj-writer-put)
+;; called by (writer-put)
 (define (%queue-writer-put tx obj)
   (let ((old-tail (queue-writer-tail tx)))
     (unless (null? (cdr old-tail))

@@ -8,14 +8,12 @@
 #!r6rs
 
 (library (scheme2k io field (0 9 3))
-  (export make-field-reader field-reader field-reader?
-          field-reader-get field-reader-eof? field-reader-close field-reader-skip
-          field-reader-inner)
+  (export make-field-reader field-reader field-reader?)
   (import
     (rnrs)
     (only (chezscheme)                 fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap)         assert*)
-    (only (scheme2k containers list)   list-reverse->vector symbol-list?)
+    (only (scheme2k containers list)   list-reverse->vector)
           (scheme2k io obj)
     (only (scheme2k reflect)           field))
 
@@ -40,7 +38,7 @@
 
 ;; Create and return a field-reader that wraps a user-provided reader.
 ;;
-;; At each call to (obj-reader-get) or (field-reader-get)
+;; At each call to (reader-get) or (field-reader-get)
 ;; reads one element from the wrapped reader, then extracts only the configured fields
 ;; and generates a plist containing only those fields
 ;;
@@ -53,7 +51,7 @@
 ;; Optional arguments:
 ;;   close-inner? - #f by default. if truish, closing the field-reader will also close whe wrapped "inner" reader
 ;;
-;; Note: as per obj-reader contract, by default closing a field-reader does NOT close
+;; Note: as per reader contract, by default closing a field-reader does NOT close
 ;; the wrapped reader, because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a field-reader should take ownership of the wrapped reader passed to the constructor,
@@ -61,7 +59,7 @@
 (define make-field-reader
   (case-lambda
     ((inner field-names close-inner?)
-      (assert* 'make-field-reader (obj-reader? inner))
+      (assert* 'make-field-reader (reader? inner))
       (do ((l field-names (cdr l)))
           ((null? l))
         (let ((old-name-new-name (car l)))
@@ -81,33 +79,7 @@
       (make-field-reader inner field-names #f))))
 
 
-(define (field-reader-eof? rx)
-  (assert* 'field-reader-eof? (field-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (field-reader-close rx)
-  (assert* 'field-reader-close (field-reader? rx))
-  (obj-reader-close rx))
-
-
-;; return the wrapped, "inner" reader
-(define (field-reader-inner rx)
-  (assert* 'field-reader-inner (field-reader? rx))
-  (nested-reader-inner rx))
-
-
-(define (field-reader-get rx)
-  (assert* 'field-reader-get (field-reader? rx))
-  (obj-reader-get rx))
-
-
-(define (field-reader-skip rx)
-  (assert* 'field-reader-skip (field-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (field-reader-get) and (obj-reader-get)
+;; called by (reader-get)
 (define (%field-reader-get rx)
   (let-values (((obj ok?) (nested-reader-inner-get rx)))
     (if ok?
@@ -137,7 +109,7 @@
 (record-writer (record-type-descriptor field-reader)
   (lambda (rx port writer)
     (put-string port "#<field-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof (" " ok ("))
+    (put-string port (if (reader-eof? rx) " eof (" " ok ("))
     (let* ((names (field-reader-rev-names rx))
            (n     (vector-length names)))
       (do ((i (fx1- n) (fx1- i)))

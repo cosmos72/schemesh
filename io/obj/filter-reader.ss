@@ -32,13 +32,13 @@
 
 ;; Create and return a filter-reader that wraps another "inner" reader.
 ;;
-;; At each call to (obj-reader-get) or (filter-reader-get)
+;; At each call to (reader-get) or (filter-reader-get)
 ;; reads one element from the wrapped reader, then checks value returned by (pred element):
 ;;   if truish, returns the element unchanged i.e. passes it
 ;;   otherwise discards the element and iterates: reads another element from the wrapped reader,
 ;;     and processes it again with (pred element) etc, possibly discarding multiple elements.
 ;;
-;; Note: as per obj-reader contract, by default closing a filter-reader does NOT close
+;; Note: as per reader contract, by default closing a filter-reader does NOT close
 ;; the wrapped reader, because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a filter-reader should take ownership of the wrapped reader passed to the constructor,
@@ -46,7 +46,7 @@
 (define make-filter-reader
   (case-lambda
     ((inner pred close-inner?)
-      (assert* 'make-filter-reader (obj-reader? inner))
+      (assert* 'make-filter-reader (reader? inner))
       (assert* 'make-filter-reader (procedure? pred))
       (let* ((pred-arity-mask        (bitwise-and 6 (procedure-arity-mask pred)))
              (pred-accepts-one-arg?  (not (fxzero? (fxand 2 pred-arity-mask))))
@@ -62,34 +62,14 @@
       (make-filter-reader inner pred #f))))
 
 
-(define (filter-reader-eof? rx)
-  (assert* 'filter-reader-eof? (filter-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (filter-reader-close rx)
-  (assert* 'filter-reader-close (filter-reader? rx))
-  (obj-reader-close rx))
-
-
 ;; return the wrapped, "inner" reader
 (define (filter-reader-inner rx)
   (assert* 'filter-reader-inner (filter-reader? rx))
   (nested-reader-inner rx))
 
 
-(define (filter-reader-get rx)
-  (assert* 'filter-reader-get (filter-reader? rx))
-  (obj-reader-get rx))
 
-
-(define (filter-reader-skip rx)
-  (assert* 'filter-reader-skip (filter-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (filter-reader-get) (filter-reader-skip)
-;; and by (obj-reader-get) (obj-reader-skip)
+;; called by (reader-get) (reader-skip)
 (define (%filter-reader-get rx)
   (let-values (((obj ok?) (nested-reader-inner-get rx)))
     (cond

@@ -9,9 +9,8 @@
 
 (library (scheme2k posix fs (0 9 3))
   (export
-      make-dir-reader dir-reader dir-reader? dir-reader-path dir-reader-eof? dir-reader-close dir-reader-get dir-reader-skip
-
-      make-dir-entry dir-entry dir-entry?
+      make-dir-entry  dir-entry  dir-entry?
+      make-dir-reader dir-reader dir-reader? dir-reader-path
 
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir
@@ -29,7 +28,7 @@
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
-    (only (scheme2k io obj)                obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip)
+    (only (scheme2k io obj)                reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k posix fd)              c-errno->string raise-c-errno)
     (only (scheme2k reflect)               reflect-info-set-autodetect!))
 
@@ -90,7 +89,7 @@
 ;;; streaming API
 
 (define-record-type (dir-reader %make-dir-reader dir-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     (mutable handle)    ; #f or integer containing C DIR*
     vec                 ; vector, used as buffer for C function c_dir_get()
@@ -114,27 +113,7 @@
         (%make-dir-reader obj (text->string path))))))
 
 
-(define (dir-reader-eof? rx)
-  (assert* 'dir-reader-eof? (dir-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (dir-reader-close rx)
-  (assert* 'dir-reader-close (dir-reader? rx))
-  (obj-reader-close rx))
-
-
-(define (dir-reader-get rx)
-  (assert* 'dir-reader-get (dir-reader? rx))
-  (obj-reader-get rx))
-
-
-(define (dir-reader-skip rx)
-  (assert* 'dir-reader-skip (dir-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (dir-reader-get) and (obj-reader-get)
+;; called by (reader-get)
 (define %dir-reader-get
   (let ((c-dir-get (foreign-procedure "c_dir_get" (void* ptr unsigned) int)))
     (lambda (rx)
@@ -151,7 +130,7 @@
           (values #f #f)))))) ;; dir-reader is closed
 
 
-;; called by (dir-reader-skip) and (obj-reader-skip)
+;; called by (reader-skip)
 (define %dir-reader-skip
   (let ((c-dir-skip (foreign-procedure "c_dir_skip" (void*) int)))
     (lambda (rx)
@@ -164,7 +143,7 @@
           #f))))) ;; dir-reader is closed
 
 
-;; called by (dir-reader-close) and (obj-reader-close)
+;; called by (reader-close)
 (define %dir-reader-close
   (let ((c-dir-close (foreign-procedure "c_dir_close" (void*) void)))
     (lambda (rx)
@@ -538,7 +517,7 @@
 (record-writer (record-type-descriptor dir-reader)
   (lambda (rx port writer)
     (put-string port "#<dir-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
+    (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (dir-reader-path rx) port)
     (put-string port ">")))
 

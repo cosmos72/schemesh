@@ -251,8 +251,8 @@
 ;; then the thread will suspend itself and block indefinitely inside the first check for $events.
 ;;
 ;; As a consequence, a typical mechanism to irreversibly deadlock your shell is:
-;; suspend a thread that sleeps in (queue-reader-get) - which internally calls (condition-wait) -
-;; then call (queue-writer-put) on the corresponding queue-writer from REPL.
+;; suspend a thread that sleeps in (reader-get #<queue-reader>) - which internally calls (condition-wait) -
+;; then call (writer-put) on the corresponding queue-writer from REPL.
 (define (thread-stop! thread)
   (assert* 'thread-stop! (thread? thread))
   (thread-kill thread 'sigtstp))

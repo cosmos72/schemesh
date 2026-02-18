@@ -13,13 +13,10 @@
 ;;;
 (library (scheme2k ipc fifo (0 9 3))
   (export make-fifo-pair fifo-default-capacity
-          fifo-reader fifo-reader? fifo-reader-close fifo-reader-eof? fifo-reader-get fifo-reader-skip
-          fifo-writer fifo-writer? fifo-writer-close fifo-writer-eof? fifo-writer-put
+          fifo-reader fifo-reader? fifo-reader-timed-get fifo-reader-try-get
+          fifo-writer fifo-writer? fifo-writer-timed-put fifo-writer-try-put
 
-          fifo-reader-timed-get fifo-reader-try-get
-          fifo-writer-timed-put fifo-writer-try-put
-
-          in-fifo-reader make-thread-fifo-reader thread==>)
+          make-thread-fifo-reader thread==>)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -28,8 +25,8 @@
                                   time<=? time? time-difference! time-type time-second time-nanosecond
                                   void with-interrupts-disabled with-mutex)
     (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
-    (only (scheme2k io obj)       obj-reader obj-reader? obj-reader-close obj-reader-eof? obj-reader-get obj-reader-skip
-                                  obj-writer obj-writer? obj-writer-close obj-writer-eof? obj-writer-put)
+    (only (scheme2k io obj)       reader reader? reader-close reader-eof? reader-get reader-skip
+                                  writer writer? writer-close writer-eof? writer-put)
     (only (scheme2k posix thread) fork-thread))
 
 

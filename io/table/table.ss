@@ -8,7 +8,7 @@
 #!r6rs
 
 (library (scheme2k io table (0 9 3))
-  (export make-table-writer table-writer table-writer? table-writer-eof? table-writer-close table-writer-put
+  (export make-table-writer table-writer table-writer?
           table-reflect-info-set!)
   (import
     (rnrs)
@@ -20,7 +20,7 @@
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
     (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
     (only (scheme2k containers time)         time->string)
-    (only (scheme2k io obj)                  obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
+    (only (scheme2k io obj)                  writer writer-put writer-eof? writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
 
 
@@ -34,7 +34,7 @@
 
 
 (define-record-type (table-writer %make-table-writer table-writer?)
-  (parent obj-writer)
+  (parent writer)
   (fields
     out                   ; textual output port
     theme                 ; 'basic or 'default
@@ -58,11 +58,11 @@
 (define-syntax _type (identifier-syntax '<type>))
 
 
-;; Create a table-writer that, at each call to one of (obj-writer-put) or (table-writer-put)
+;; Create a table-writer that, at each call to one of (writer-put) or (table-writer-put)
 ;; pretty-prints the received element to the underlying textual output port,
 ;; in ascii-art tabular format.
 ;;
-;; Note: as per obj-writer contract, by default closing a table-writer does NOT close the underlying textual output port,
+;; Note: as per writer contract, by default closing a table-writer does NOT close the underlying textual output port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a table-writer should take ownership of the textual output port passed to the constructor,
@@ -92,21 +92,6 @@
       (make-table-writer out #f 'default #f #f))
     (()
       (make-table-writer (current-output-port) #f 'default #f #f))))
-
-
-(define (table-writer-eof? tx)
-  (assert* 'table-writer-eof? (table-writer? tx))
-  (obj-writer-eof? tx))
-
-
-(define (table-writer-close tx)
-  (assert* 'table-writer-close (table-writer? tx))
-  (obj-writer-close tx))
-
-
-(define (table-writer-put tx)
-  (assert* 'table-writer-put (table-writer? tx))
-  (obj-writer-put tx))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -432,12 +417,12 @@
     row))
 
 
-;; called by (table-writer-put) and (obj-writer-put)
+;; called by (table-writer-put) and (writer-put)
 (define (%table-writer-put tx obj)
   (span-insert-right! (table-writer-rows tx) (obj->row tx obj)))
 
 
-;; called by (table-writer-close) and (obj-writer-close)
+;; called by (table-writer-close) and (writer-close)
 (define (%table-writer-close tx)
   (display-all tx)
   (let ((out (table-writer-out tx)))

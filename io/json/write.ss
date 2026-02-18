@@ -11,7 +11,7 @@
 
 
 (define-record-type (json-writer %make-json-writer json-writer?)
-  (parent obj-writer)
+  (parent writer)
   (fields
     out                   ; binary output port
     wbuf                  ; bytespan, write buffer
@@ -28,11 +28,11 @@
 
 
 ;; Create a json-writer that, at each call to one of
-;;   (obj-writer-put) (json-writer-put) (json-writer-put-value) or (json-writer-put-token),
+;;   (writer-put) (json-writer-put-value) or (json-writer-put-token),
 ;; serializes the received data in streaming mode,
 ;; and writes it to the underlying binary output port.
 ;;
-;; Note: as per obj-writer contract, by default closing a json-writer does NOT close the underlying binary output port,
+;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a json-writer should take ownership of the binary output port passed to the constructor,
@@ -54,17 +54,7 @@
       (make-json-writer (sh-stdout) #f #f))))
 
 
-(define (json-writer-eof? tx)
-  (assert* 'json-writer-eof? (json-writer? tx))
-  (obj-writer-eof? tx))
-
-
-(define (json-writer-close tx)
-  (assert* 'json-writer-close (json-writer? tx))
-  (obj-writer-close tx))
-
-
-;; called by (json-writer-close) and (obj-writer-close)
+;; called by (json-writer-close) and (writer-close)
 (define (%json-writer-close tx)
   (let ((out (json-writer-out tx)))
     (when (json-writer-epilogue? tx)
@@ -291,10 +281,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; serialize scheme datum to json
 
-(define (json-writer-put tx obj)
-  (assert* 'json-writer-put (json-writer? tx))
-  (obj-writer-put tx obj))
-
 
 (define (put/key+value tx first? key val)
   (let ((out (json-writer-out tx)))
@@ -340,7 +326,7 @@
 
 (define (put/list tx obj)
   (unless (plist? obj)
-    (raise-errorf 'json-writer-put "list is not a plist: ~s" obj))
+    (raise-errorf ' "list is not a plist: ~s" obj))
   (let ((out (json-writer-out tx)))
     (put-u8 out 123) ; #\{
     (do ((l obj (cddr l)))
@@ -388,7 +374,7 @@
       (raise-errorf 'json-writer-put "unsupported datum: ~s" obj))))
 
 
-;; called by (json-writer-put) and (obj-writer-put)
+;; called by (json-writer-put) and (writer-put)
 (define (%json-writer-put tx obj)
   (let ((out (json-writer-out tx)))
     (if (json-writer-prologue? tx)

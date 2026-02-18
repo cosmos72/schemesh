@@ -8,11 +8,11 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export make-json-reader json-reader json-reader? json-reader-eof? json-reader-close json-reader-depth json-reader-restart json-reader-skip
-          make-json-writer json-writer json-writer? json-writer-eof? json-writer-close
+  (export make-json-reader json-reader json-reader? json-reader-depth json-reader-restart
+          make-json-writer json-writer json-writer?
 
-          json-reader-get json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
-          json-writer-put json-writer-put-token json-writer-put-value
+          json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
+          json-writer-put-token json-writer-put-value
 
           json-reflect-info-set!)
   (import
@@ -33,8 +33,8 @@
     (only (scheme2k containers string)    string-index-right)
     (only (scheme2k containers utf8b)     bytespan-insert-right/char! bytespan-insert-right/string!
                                           utf8b-bytespan->string utf8b->string)
-    (only (scheme2k io obj)               obj-reader obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
-                                          obj-writer obj-writer-put obj-writer-eof? obj-writer-close)
+    (only (scheme2k io obj)               reader reader-eof? reader-close reader-get reader-skip
+                                          writer writer-eof? writer-close writer-put)
     (only (scheme2k io stdio)             sh-stdin sh-stdout)
     (only (scheme2k posix fs)             dir-entry make-dir-entry)
     (scheme2k reflect))
@@ -48,7 +48,7 @@
 (record-writer (record-type-descriptor json-reader)
   (lambda (rx port writer)
     (put-string port "#<json-reader")
-    (put-string port (if (obj-reader-eof? rx) " eof " " ok "))
+    (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (json-reader-in rx) port)
     (put-char port #\>)))
 
@@ -56,7 +56,7 @@
 (record-writer (record-type-descriptor json-writer)
   (lambda (tx port writer)
     (put-string port "#<json-writer")
-    (put-string port (if (obj-writer-eof? tx) " eof " " ok "))
+    (put-string port (if (writer-eof? tx) " eof " " ok "))
     (writer (json-writer-out tx) port)
     (put-char port #\>)))
 

@@ -9,9 +9,7 @@
 
 
 (library (scheme2k io sort (0 9 3))
-  (export make-sort-reader sort-reader sort-reader?
-          sort-reader-get sort-reader-eof? sort-reader-close sort-reader-skip
-          sort-reader-inner)
+  (export make-sort-reader sort-reader sort-reader?)
   (import
     (rnrs)
     (only (chezscheme)                 fx1+ fx1- record-writer void)
@@ -75,7 +73,7 @@
 ;; Optional arguments:
 ;;   field-names - a list of field names to sort on
 ;;
-;; Note: as per obj-reader contract, by default closing a sort-reader does NOT close
+;; Note: as per reader contract, by default closing a sort-reader does NOT close
 ;; the wrapped reader, because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a sort-reader should take ownership of the wrapped reader passed to the constructor,
@@ -83,7 +81,7 @@
 (define make-sort-reader
   (case-lambda
     ((inner field-names close-inner?)
-      (assert* 'make-sort-reader (obj-reader? inner))
+      (assert* 'make-sort-reader (reader? inner))
       (assert* 'make-sort-reader (symbol-list? field-names))
       (let ((compare-proc (make-compare-proc field-names)))
         (%make-sort-reader inner compare-proc close-inner?)))
@@ -91,33 +89,7 @@
       (make-sort-reader inner field-names #f))))
 
 
-(define (sort-reader-eof? rx)
-  (assert* 'sort-reader-eof? (sort-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (sort-reader-close rx)
-  (assert* 'sort-reader-close (sort-reader? rx))
-  (obj-reader-close rx))
-
-
-;; return the wrapped, "inner" reader
-(define (sort-reader-inner rx)
-  (assert* 'sort-reader-inner (sort-reader? rx))
-  (nested-reader-inner rx))
-
-
-(define (sort-reader-get rx)
-  (assert* 'sort-reader-get (sort-reader? rx))
-  (obj-reader-get rx))
-
-
-(define (sort-reader-skip rx)
-  (assert* 'sort-reader-skip (sort-reader? rx))
-  (obj-reader-skip rx))
-
-
-;; called by (sort-reader-close) and (obj-reader-close)
+;; called by (reader-close)
 (define (%sort-reader-close rx)
   (when (sort-reader-close-inner? rx)
     (nested-reader-inner-close rx))
@@ -125,7 +97,7 @@
   (span-clear! (sort-reader-span rx)))
 
 
-;; called by (sort-reader-get) and (obj-reader-get)
+;; called by (reader-get)
 (define (%sort-reader-get rx)
   (let ((compare-proc (sort-reader-compare-proc rx))
         (sp           (sort-reader-span rx)))

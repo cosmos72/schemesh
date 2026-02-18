@@ -24,7 +24,7 @@
 
 
 (define-record-type (json-reader %make-json-reader json-reader?)
-  (parent obj-reader)
+  (parent reader)
   (fields
     in              ; binary input port
     stack           ; bytespan contaning stack of states
@@ -42,7 +42,7 @@
 ;; parses them in streaming mode, and returns a chunk of parsed json data
 ;; at each call to one of (json-reader-get) (json-reader-get-value) or (json-reader-get-token)
 ;;
-;; Note: as per obj-reader contract, by default closing a json-reader does NOT close the underlying binary input port,
+;; Note: as per reader contract, by default closing a json-reader does NOT close the underlying binary input port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a json-reader should take ownership of the binary input port passed to the constructor,
@@ -73,15 +73,15 @@
 
 (define (json-reader-eof? rx)
   (assert* 'json-reader-eof? (json-reader? rx))
-  (obj-reader-eof? rx))
+  (reader-eof? rx))
 
 
 (define (json-reader-close rx)
   (assert* 'json-reader-close (json-reader? rx))
-  (obj-reader-close rx))
+  (reader-close rx))
 
 
-;; called by (json-reader-close) and (obj-reader-close)
+;; called by (json-reader-close) and (reader-close)
 ;; only if json-reader constructor was called with truish close-in?
 (define (%json-reader-close rx)
   (close-port (json-reader-in rx)))
@@ -466,7 +466,7 @@
           (validate-top rx tok))
         ((fx=? st $done)
           (validate-done rx tok)
-          ;; redundant if caller is (obj-reader-get)
+          ;; redundant if caller is (reader-get)
           (json-reader-close rx))
         ((fx=? st $array-expect-value)
           (validate-array-expect-value rx tok))
@@ -605,37 +605,11 @@
                                 $top))))
 
 
-;; autodetect json variant present in input port, read and deserialize next datum from it.
-;;   return either (values datum #t) i.e. next datum
-;;   or (values #<unspecified> #f) if end-of-file is reached
-;;
-;; if input port contains one or more top-level json values, for example as NDJSON expects, scan each one sequentially:
-;;   if there's no next top-level value, return (values #<unspecified> #f) indicating end-of-file
-;;   if next top-level value is a json array, then return its elements one by one as items
-;;   otherwise return next top-level value as a single item.
-;;
-;; Note: this function does NOT allow separators : or , after top-level json values
-;;
-;; If a json object contains the "<type>" key, looks up its associated value in json-reflect-infos and,
-;; if found, calls the registered constructor, passing the json object as the only argument, represented as a plist.
-(define (json-reader-get rx)
-  (assert* 'json-reader-get (json-reader? rx))
-  (obj-reader-get rx))
-
-
-;; analogous to (json-reader-get), except that it skips next datum instead of parsing and returning it.
-;;   return #t if next datum was skipped,
-;;   or #f if end-of-file is reached
-(define (json-reader-skip rx)
-  (assert* 'json-reader-skip (json-reader? rx))
-  (obj-reader-skip rx))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; low-leves deserialization functions called by (json-reader-get) and (obj-reader-get)
+;; low-leves deserialization functions called by (json-reader-get) and (reader-get)
 
 
-;; return datum as obj-reader should do:
+;; return datum as reader should do:
 ;;   either (values datum #t) if it's a valid item
 ;;   or (values #<unspecified> #f) if it's #!eof
 (define (to-item datum)
@@ -690,7 +664,7 @@
         tok0))))
 
 
-;; called by (json-reader-get) and (obj-reader-get)
+;; called by (json-reader-get) and (reader-get)
 (define (%json-reader-get rx)
   (let ((in    (json-reader-in rx))
         (depth (json-reader-depth rx)))
@@ -718,7 +692,7 @@
         (to-item (deserialize rx))))))
 
 
-;; called by (json-reader-skip) and (obj-reader-skip)
+;; called by (json-reader-skip) and (reader-skip)
 (define (%json-reader-skip rx)
   (let ((in    (json-reader-in rx))
         (depth (json-reader-depth rx)))

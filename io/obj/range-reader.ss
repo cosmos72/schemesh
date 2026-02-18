@@ -37,14 +37,13 @@
 ;;   close-inner? - if truish, closing the returned range-reader will close the inner reader.
 ;;                  defaults to #f
 ;;
-;; At each call to (obj-reader-get) or (range-reader-get)
-;; reads one element from the wrapped reader, then:
+;; At each call to (reader-get) reads one element from the wrapped reader, then:
 ;;   if skip-n is > 0, decreases skip-n by one and retries
 ;;   if get-n is #t, returns the element
 ;;   if get-n is > 0, decreases get-n by one and returns the element
 ;;   otherwise returns end-of-reader
 ;;
-;; Note: as per obj-reader contract, by default closing a range-reader does NOT close
+;; Note: as per reader contract, by default closing a range-reader does NOT close
 ;; the wrapped reader, because it is a pre-existing, borrowed resource passed to the constructor.
 ;;
 ;; If a range-reader should take ownership of the wrapped reader passed to the constructor,
@@ -52,7 +51,7 @@
 (define make-range-reader
   (case-lambda
     ((inner skip-n get-n close-inner?)
-      (assert* 'make-range-reader (obj-reader? inner))
+      (assert* 'make-range-reader (reader? inner))
       (assert* 'make-range-reader (integer? skip-n))
       (assert* 'make-range-reader (exact? skip-n))
       (assert* 'make-range-reader (>= skip-n 0))
@@ -75,30 +74,10 @@
       (make-range-reader inner 0 #t #f))))
 
 
-(define (range-reader-eof? rx)
-  (assert* 'range-reader-eof? (range-reader? rx))
-  (obj-reader-eof? rx))
-
-
-(define (range-reader-close rx)
-  (assert* 'range-reader-close (range-reader? rx))
-  (obj-reader-close rx))
-
-
 ;; return the wrapped, "inner" reader
 (define (range-reader-inner rx)
   (assert* 'range-reader-inner (range-reader? rx))
   (nested-reader-inner rx))
-
-
-(define (range-reader-get rx)
-  (assert* 'range-reader-get (range-reader? rx))
-  (obj-reader-get rx))
-
-
-(define (range-reader-skip rx)
-  (assert* 'range-reader-skip (range-reader? rx))
-  (obj-reader-skip rx))
 
 
 (define (skip-n-dec! rx skip-n)
@@ -112,7 +91,7 @@
       (range-reader-get-n-set! rx (if (zero? n) #f n)))))
 
 
-;; called by (range-reader-get) and (obj-reader-get)
+;; called by (range-reader-get) and (reader-get)
 (define (%range-reader-get rx)
   (let ((skip-n (range-reader-skip-n rx))
         (get-n  (range-reader-get-n  rx)))
@@ -131,7 +110,7 @@
         (values #f #f)))))
 
 
-;; called by (range-reader-skip) (obj-reader-skip)
+;; called by (range-reader-skip) (reader-skip)
 (define (%range-reader-skip rx)
   (let ((ok?    (nested-reader-inner-skip rx))
         (skip-n (range-reader-skip-n rx))

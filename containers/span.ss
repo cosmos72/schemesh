@@ -27,7 +27,7 @@
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
     (only (scheme2k bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
     (only (scheme2k containers list)   for-list)
-    (only (scheme2k io obj)            make-obj-reader)
+    (only (scheme2k io obj)            make-reader)
     (only (scheme2k containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
 (define-record-type (%span %make-span span?)
@@ -465,12 +465,12 @@
         (set! ret i)))))
 
 
-;; create and return an obj-reader that generates the elements of specified span.
-;; each call to (obj-reader-get rx) will return two values:
+;; create and return a reader that generates the elements of specified span.
+;; each call to (reader-get rx) will return two values:
 ;;  either (values elem #t) i.e. the next element from the span
-;;  or (values #<unspecified> #f) when the span is exhausted or after (obj-reader-close rx) has been called.
+;;  or (values #<unspecified> #f) when the span is exhausted or after (reader-close rx) has been called.
 ;;
-;; This function effectively converts a span to an obj-reader, and could reasonably be named `span->reader`
+;; This function effectively converts a span to a reader, and could reasonably be named `span->reader`
 ;; although by convention readers are created by functions `TYPE-reader`
 (define span-reader
   (case-lambda
@@ -483,7 +483,7 @@
                   (let ((elem (span-ref sp start)))
                     (set! start (fx1+ start))
                     (values elem #t))))))
-        (make-obj-reader %span-reader #f #f)))
+        (make-reader %span-reader #f #f)))
     ((sp)
       (span-reader sp 0 (span-length sp)))))
 

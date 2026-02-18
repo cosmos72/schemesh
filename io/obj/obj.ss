@@ -8,11 +8,11 @@
 #!r6rs
 
 ;;;
-;;; define an abstract obj-reader type: generates or reads from somewhere a finite or unlimited sequence of arbitrary values.
+;;; define an abstract reader type: generates or reads from somewhere a finite or unlimited sequence of arbitrary values.
 ;;;
-;;; each call to (obj-reader-get r) will return two values:
+;;; each call to (reader-get r) will return two values:
 ;;;  either (values elem #t) i.e. the next element
-;;;  or (values #<unspecified> #f) when obj-reader is exhausted or after (obj-reader-close r) is called
+;;;  or (values #<unspecified> #f) when reader is exhausted or after (reader-close r) is called
 ;;;
 ;;; existing APIs that were considered, and reasons for not reusing them:
 ;;;
@@ -32,20 +32,20 @@
 (library (scheme2k io obj (0 9 3))
   (export
     ;; obj/reader.ss
-    make-obj-reader obj-reader obj-reader? obj-reader-get obj-reader-eof? obj-reader-close obj-reader-skip
+    make-reader reader reader? reader-get reader-eof? reader-close reader-skip
     for-reader in-reader constant-reader empty-reader list-reader iterator-reader vector-reader reader->list reader->vector
 
     ;; obj/filter-reader.ss
-    make-filter-reader filter-reader filter-reader? filter-reader-get filter-reader-eof? filter-reader-close filter-reader-skip filter-reader-inner
+    make-filter-reader filter-reader filter-reader?  filter-reader-inner
 
     ;; obj/nested-reader.ss
     nested-reader nested-reader? nested-reader-inner nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
 
     ;; obj/range-reader.ss
-    make-range-reader range-reader range-reader? range-reader-get range-reader-eof? range-reader-close range-reader-skip range-reader-inner
+    make-range-reader range-reader range-reader?
 
     ;; obj/writer.ss
-    make-obj-writer obj-writer obj-writer? obj-writer-put obj-writer-eof? obj-writer-close
+    make-writer writer writer? writer-put writer-eof? writer-close
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
@@ -70,7 +70,7 @@
       (vector-set! v i (car l)))))
 
 
-;; using guardians for automatically closing obj-readers and obj-writers before they are garbage collected
+;; using guardians for automatically closing readers and writers before they are garbage collected
 ;; causes errors "Exception in mutex-acquire: mutex is defunct" in Chez Scheme < 10
 ;; => enable guardians only on Chez Scheme >= 10
 (define make-guardian
@@ -97,17 +97,17 @@
 (define (reader-display r port writer label)
   (put-string port "#<")
   (put-string port label)
-  (put-string port (if (obj-reader-eof? r) " eof " " ok "))
-  (writer (obj-reader-get-proc r) port)
+  (put-string port (if (reader-eof? r) " eof " " ok "))
+  (writer (reader-get-proc r) port)
   (put-char port #\space)
-  (writer (unbox (obj-reader-close-box r)) port)
+  (writer (unbox (reader-close-box r)) port)
   (put-char port #\>))
 
 
-;; customize how "obj-reader" objects are printed
-(record-writer (record-type-descriptor obj-reader)
+;; customize how "reader" objects are printed
+(record-writer (record-type-descriptor reader)
   (lambda (r port writer)
-    (reader-display r port writer "obj-reader")))
+    (reader-display r port writer "reader")))
 
 
 ;; customize how "filter-reader" objects are printed
@@ -120,26 +120,26 @@
 (record-writer (record-type-descriptor range-reader)
   (lambda (r port writer)
     (put-string port "#<range-reader")
-    (put-string port (if (obj-reader-eof? r) " eof " " ok "))
+    (put-string port (if (reader-eof? r) " eof " " ok "))
     (writer (range-reader-skip-n r) port)
     (put-char port #\space)
     (writer (range-reader-get-n r) port)
     (put-char port #\>)))
 
 
-;; customize how "obj-writer" objects are printed
-(record-writer (record-type-descriptor obj-writer)
+;; customize how "writer" objects are printed
+(record-writer (record-type-descriptor writer)
   (lambda (w port writer)
-    (put-string port "#<obj-writer")
-    (put-string port (if (obj-writer-eof? w) " eof " " ok "))
-    (writer (obj-writer-put-proc w) port)
+    (put-string port "#<writer")
+    (put-string port (if (writer-eof? w) " eof " " ok "))
+    (writer (writer-put-proc w) port)
     (put-char port #\space)
-    (writer (unbox (obj-writer-close-box w)) port)
+    (writer (unbox (writer-close-box w)) port)
     (put-char port #\>)))
 
 
 ;; On Chez Scheme >= 10, install into collect-request-handler a procedure that retrieves
-;; unreachable obj-readers and obj-writers immediately before they are garbage collected,
+;; unreachable readers and writers immediately before they are garbage collected,
 ;; and closes them
 (meta-cond
   ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
@@ -149,17 +149,17 @@
           ;; first, call the original collect-request-handler
           (gc)
 
-          ;; then, retrieve all obj-readers ready to be garbage collected, and close them
-          (do ((rx (obj-reader-guardian) (obj-reader-guardian)))
+          ;; then, retrieve all readers ready to be garbage collected, and close them
+          (do ((rx (reader-guardian) (reader-guardian)))
               ((not rx))
             ;; (debugf "closing ~s before garbage collecting it" rx)
-            (obj-reader-close rx))
+            (reader-close rx))
 
-          ;; finally, retrieve all obj-writers ready to be garbage collected, and close them
-          (do ((tx (obj-writer-guardian) (obj-writer-guardian)))
+          ;; finally, retrieve all writers ready to be garbage collected, and close them
+          (do ((tx (writer-guardian) (writer-guardian)))
               ((not tx))
             ;; (debugf "closing ~s before garbage collecting it" tx)
-            (obj-writer-close tx)))))))
+            (writer-close tx)))))))
 
 
 ) ; close library
