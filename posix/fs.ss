@@ -40,7 +40,7 @@
     (mutable name)     ; string
     (mutable type)     ; (void) or symbol
     (mutable size)     ; (void) or size in bytes
-    (mutable target)   ; (void) or #f or string: symlink target
+    (mutable link)     ; (void) or #f or string: symlink target
     (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
     (mutable accessed) ; (void) or time-utc
     (mutable modified) ; (void) or time-utc
@@ -67,11 +67,11 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size target mode accessed modified inode-changed user group uid gid inode nlink)
+(define (make-dir-entry name type size link mode accessed modified inode-changed user group uid gid inode nlink)
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
-  (assert* 'make-dir-entry (string-or-void? target))
+  (assert* 'make-dir-entry (string-or-void? link))
   (assert* 'make-dir-entry (string-or-void? mode))
   (assert* 'make-dir-entry (time-or-void? accessed))
   (assert* 'make-dir-entry (time-or-void? modified))
@@ -83,7 +83,7 @@
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size target mode accessed modified inode-changed user group uid gid inode nlink)))
+    (%make-dir-entry name type size link mode accessed modified inode-changed user group uid gid inode nlink)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -209,14 +209,16 @@
   (let ((fullstr "rwxrwxrwxSST"))
     (lambda (mode)
       (if (fixnum? mode)
-        (do ((str (make-string 12 #\-))
-             (i 0 (fx1+ i)))
-            ((fx>=? i 12) str)
-          (let ((bit (if (fx<? i 9)
-                       (fx>> #o400 i)
-                       (fx>> #o4000 (fx- i 9)))))
-            (unless (fxzero? (fxand bit mode))
-              (string-set! str i (string-ref fullstr i)))))
+        (let ((n (if (fx<=? mode #o777) 9 12)))
+          ;; (debugf "if-mode->string ~o" mode)
+          (do ((str (make-string n #\-))
+               (i 0 (fx1+ i)))
+              ((fx>=? i n) str)
+            (let ((bit (if (fx<? i 9)
+                         (fx>> #o400 i)
+                         (fx>> #o4000 (fx- i 9)))))
+              (unless (fxzero? (fxand bit mode))
+                (string-set! str i (string-ref fullstr i))))))
         (void)))))
 
 
@@ -275,7 +277,7 @@
           name)
         (if-fixnum->type   (vector-ref vec 1))
         (vector-ref vec 2)
-        (or (vector-ref vec 3) "") ; target
+        (or (vector-ref vec 3) "") ; symlink target
         (if-mode->string   (vector-ref vec 4))
         (if-pair->time-utc (vector-ref vec 5))
         (if-pair->time-utc (vector-ref vec 6))
@@ -585,7 +587,7 @@
                             (writer (dir-entry-name e) port)
     (put-char port #\space) (writer (dir-entry-type e) port)
     (put-char port #\space) (writer (dir-entry-size e) port)
-    (put-char port #\space) (writer (dir-entry-target e) port)
+    (put-char port #\space) (writer (dir-entry-link e) port)
     (put-char port #\space) (writer (dir-entry-mode e) port)
     (put-char port #\space) (writer (dir-entry-accessed e) port)
     (put-char port #\space) (writer (dir-entry-modified e) port)

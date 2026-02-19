@@ -496,7 +496,7 @@
            ;; show only some fields by default. option -l shows all fields
            (r (if (some-elem-contains? options "l")
                 r
-                (select r name type size modified mode))))
+                (select r name type size link modified mode))))
       (to-auto (sort-by r name) options))))
 
 
