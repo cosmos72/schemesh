@@ -137,7 +137,7 @@ Added in 0.9.3
 `(lineedit-key-autocomplete lctx)` tries to autocomplete current word by calling the function
   stored in parameter `(linectx-completion-proc)`.
 
-##### (lineedit-key-inxpect-linectx)
+##### (lineedit-key-inspect-linectx)
 `(lineedit-key-inspect-linectx lctx)` debugging helper: calls Chez Scheme `(inspect)` on `linectx` object passed as argument.
 
 ##### (lineedit-key-cmd-cd-parent)
@@ -146,9 +146,8 @@ Added in 0.9.3
 ##### (lineedit-key-cmd-cd-old-dir)
 `(lineedit-key-cmd-cd-old-dir lctx)` executes the shell command `{cd-}`, then redraws prompt and current lines.
 
-##### (lineedit-key-cmd-ls)
-`(lineedit-key-cmd-ls lctx)` executes the shell command `{ls}`, then redraws prompt and current lines.
-
+##### (lineedit-key-cmd)
+`(lineedit-key-cmd-dir lctx cmd-name)` executes `cmd-name` as a shell command name, then redraws prompt and current lines.
 
 ### Examples
 

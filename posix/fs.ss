@@ -10,7 +10,7 @@
 (library (scheme2k posix fs (0 9 3))
   (export
       make-dir-entry  dir-entry  dir-entry?
-      make-dir-reader dir-reader dir-reader? dir-reader-path
+      make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
 
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir
@@ -19,12 +19,13 @@
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     foreign-procedure fx1+ make-continuation-condition
+    (only (chezscheme)                     foreign-procedure fx1+ fxlogbit? make-continuation-condition
                                            make-format-condition record-writer sort! string->immutable-string time? void)
-    (only (scheme2k bootstrap)             assert* catch raise-assertf try)
+    (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list)
+    (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
@@ -95,22 +96,60 @@
     vec                 ; vector, used as buffer for C function c_dir_get()
     (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
     (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
-    path)               ; directory being read
+    path                ; directory being read
+    opts)               ; fixnum, bitwise-or of 1 = dir-hide-dot-files, 2 = dir-path-as-prefix
   (protocol
     (lambda (args->new)
-      (lambda (handle path)
+      (lambda (handle path options)
         ((args->new %dir-reader-get %dir-reader-skip %dir-reader-close)
-          handle (make-vector 12 (void)) #f #f path))))
-  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+          handle (make-vector 12 (void)) #f #f path options))))
+  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+
+
+(define (dir-hide-dot-files? options)
+  (fxlogbit? 0 options))
+
+
+(define (dir-path-as-prefix? options)
+  (fxlogbit? 1 options))
+
+
+(define-syntax dir-reader-option
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ option)
+        (let ((sym (syntax->datum #'option)))
+          (case sym
+            ((dir-hide-dot-files) 1)
+            ((dir-path-as-prefix) 2)
+            (else
+              (raise-errorf 'dir-reader-options "invalid syntax: (dir-reader-options ~s)" sym))))))))
+
+
+(define-syntax dir-reader-options
+  (syntax-rules ()
+    ((_)
+       0)
+    ((_ option1)
+      (dir-reader-option option1))
+    ((_ option1 option2 ...)
+      (fxior (dir-reader-option option1) (dir-reader-options option2 ...)))))
 
 
 (define make-dir-reader
   (let ((c-dir-open (foreign-procedure "c_dir_open" (ptr) ptr)))
-    (lambda (path)
-      (let ((obj (c-dir-open (text->bytevector0 path))))
-        (unless (and (integer? obj) (exact? obj) (> obj 0))
-          (raise-c-errno 'make-dir-reader 'opendir obj path))
-        (%make-dir-reader obj (text->string path))))))
+    (case-lambda
+      ((path options)
+        ;; (debugf ">make-dir-reader path ~s, options ~s" path options)
+        (assert* 'make-dir-reader (fixnum? options))
+        (assert* 'make-dir-reader (fx<=? 0 options 3))
+        (let ((obj (c-dir-open (text->bytevector0 path))))
+          (unless (and (integer? obj) (exact? obj) (> obj 0))
+            (raise-c-errno 'make-dir-reader 'opendir obj path))
+          (%make-dir-reader obj (text->string path) options)))
+      ((path)
+        (make-dir-reader path (dir-reader-options))))))
+
 
 
 ;; called by (reader-get)
@@ -124,9 +163,14 @@
             (let ((err (c-dir-get handle vec #x3fff)))
               (unless (and (fixnum? err) (fx>=? err 0))
                 (raise-c-errno 'dir-reader-get 'readdir err handle))
-              (if (fx>? err 0)
-                (values (vector->dir-entry rx vec) #t)
-                (values #f #f)))) ;; dir-reader is exhausted
+              (if (fx<=? err 0)
+                (values #f #f) ;; dir-reader is exhausted
+                (let ((ret (vector->dir-entry rx vec)))
+                  (if ret
+                    ;; return this dir entry
+                    (values ret #t)
+                    ;; skip this dir entry, it starts with a dot
+                    (%dir-reader-get rx))))))
           (values #f #f)))))) ;; dir-reader is closed
 
 
@@ -214,22 +258,34 @@
     (void)))
 
 
+(define (path-append a b)
+  (if (string-suffix? a "/")
+    (string-append a b)
+    (string-append a "/" b)))
+
+
 (define (vector->dir-entry rx vec)
-  (make-dir-entry
-    (vector-ref vec 0)
-    (if-fixnum->type   (vector-ref vec 1))
-    (vector-ref vec 2)
-    (or (vector-ref vec 3) "") ; target
-    (if-mode->string   (vector-ref vec 4))
-    (if-pair->time-utc (vector-ref vec 5))
-    (if-pair->time-utc (vector-ref vec 6))
-    (if-pair->time-utc (vector-ref vec 7))
-    (if-uid->username  rx (vector-ref vec 8))
-    (if-gid->groupname rx (vector-ref vec 9))
-    (vector-ref vec 8)
-    (vector-ref vec 9)
-    (vector-ref vec 10)
-    (vector-ref vec 11)))
+  (let ((name (vector-ref vec 0)))
+    (if (and (dir-hide-dot-files? (dir-reader-opts rx))
+             (string-prefix? name "."))
+      #f ; skip this dir entry, it starts with a dot
+      (make-dir-entry
+        (if (dir-path-as-prefix? (dir-reader-opts rx))
+          (path-append (dir-reader-path rx) name)
+          name)
+        (if-fixnum->type   (vector-ref vec 1))
+        (vector-ref vec 2)
+        (or (vector-ref vec 3) "") ; target
+        (if-mode->string   (vector-ref vec 4))
+        (if-pair->time-utc (vector-ref vec 5))
+        (if-pair->time-utc (vector-ref vec 6))
+        (if-pair->time-utc (vector-ref vec 7))
+        (if-uid->username  rx (vector-ref vec 8))
+        (if-gid->groupname rx (vector-ref vec 9))
+        (vector-ref vec 8)
+        (vector-ref vec 9)
+        (vector-ref vec 10)
+        (vector-ref vec 11)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; low-level API

@@ -361,15 +361,19 @@
         #f))
     (linectx-redraw-all lctx)))
 
-(define (lineedit-key-cmd-ls lctx)
+(define (lineedit-key-cmd lctx cmd-name)
   (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
-  (lineterm-write/bytevector lctx #vu8(108 115 27 91 74 10)) ; l s ESC [ J \n
+  (lineterm-write/string lctx cmd-name)
+  (lineterm-write/bytevector lctx #vu8(27 91 74 10)) ; ESC [ J \n
   (lineedit-flush lctx)
-  ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) "ls"))
+  ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) cmd-name))
   ; make enough space after command output for prompt and current line(s)
   (repeat (linectx-vy lctx)
     (lineterm-write/u8 lctx 10))
   (linectx-redraw-all lctx))
+
+(define (lineedit-key-cmd-dir lctx)
+  (lineedit-key-cmd lctx "dir"))
 
 (define (lineedit-navigate-history lctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))

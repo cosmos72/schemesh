@@ -264,6 +264,16 @@
       (vector-reader v 0 (vector-length v)))))
 
 
+;; cannot import (scheme2k containers list) => define a private, reduced for-list
+(define-syntax for-list1
+  (syntax-rules ()
+    ((_ ((var l)) body ...)
+      (do ((tail l (cdr tail)))
+          ((null? tail))
+        (let ((var (car tail)))
+          body ...)))))
+
+
 ;; Read all elements from specified reader, collect them into a list, and return such list.
 (define (reader->list rx)
   (let %reader->list ((rx rx) (l '()))
@@ -280,3 +290,45 @@
       (if ok?
         (%reader->vector rx (cons elem l))
         (list-reverse->vector l)))))
+
+
+;; create and return a reader that generates the elements of specified readers.
+;; The elements of first reader will be generated first, followed by the elements of second reader, and so on.
+;;
+;; This function effectively aggregates multiple readers.
+(define readers
+  (case-lambda
+    (()
+      (empty-reader))
+    ((r)
+      (assert* 'readers (reader? r))
+      r)
+    (rs
+      (for-list1 ((r rs))
+        (assert* 'readers (reader? r)))
+      (letrec ((%readers-get ;; name shown when displaying the closure
+                (lambda (rx)
+                  (if (null? rs)
+                    (values #f #f)
+                    (let-values (((elem ok?) (reader-get (car rs))))
+                      (if ok?
+                        (values elem ok?)
+                        (begin
+                          (reader-close (car rs))
+                          (set! rs (cdr rs))
+                          (%readers-get rx)))))))
+               (%readers-skip ;; name shown when displaying the closure
+                (lambda (rx)
+                  (cond
+                    ((null? rs)             #f)
+                    ((reader-skip (car rs)) #t)
+                    (else
+                      (reader-close (car rs))
+                      (set! rs (cdr rs))
+                      (%readers-skip rx)))))
+               (%readers-close
+                 (lambda (rx)
+                   (for-list1 ((r rs))
+                     (reader-close rs))
+                   (set! rs '()))))
+        (make-reader %readers-get %readers-skip %readers-close)))))

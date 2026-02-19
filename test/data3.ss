@@ -15,20 +15,20 @@
     (if (pair? sz)
       (and (integer? (car sz)) (positive? (car sz))
            (integer? (cdr sz)) (positive? (cdr sz)))
-      (and (integer? sz) (negative? sz))))             #t
+      (and (integer? sz) (negative? sz))))              #t
 
   ;; ------------------------- posix -------------------------------------------
-  (fx<=? (c-errno) 0)                                  #t
+  (fx<=? (c-errno) 0)                                   #t
 
-  (countdown 0)                                        0
-  (countdown 0.0)                                      0
-  (countdown '(0 . 0))                                 0
-  (countdown (make-time 'time-duration 0 0))           0
-  (fx<? (countdown -1) 0)                              #t
-  (fx<? (countdown -1.0) 0)                            #t
-  (fx<? (countdown '(0 . -1)) 0)                       #t
+  (countdown 0)                                         0
+  (countdown 0.0)                                       0
+  (countdown '(0 . 0))                                  0
+  (countdown (make-time 'time-duration 0 0))            0
+  (fx<? (countdown -1) 0)                               #t
+  (fx<? (countdown -1.0) 0)                             #t
+  (fx<? (countdown '(0 . -1)) 0)                        #t
   (fx<? (countdown (make-time 'time-duration
-                              999999999 -1)) 0)        #t
+                              999999999 -1)) 0)         #t
 
   (let-values (((rfd wfd) (pipe-fds #t #t)))
     (dynamic-wind
@@ -38,7 +38,7 @@
         (fd-read-u8 rfd))
       (lambda ()
         (fd-close wfd)
-        (fd-close rfd))))                              255
+        (fd-close rfd))))                               255
 
   (let-values (((fd1 fd2) (socketpair-fds #t #t)))
     (dynamic-wind
@@ -48,14 +48,14 @@
         (fd-read-u8 fd2))
       (lambda ()
         (fd-close fd2)
-        (fd-close fd1))))                              254
+        (fd-close fd1))))                               254
 
-  (file-type "." '(catch))                             dir
-  (file-type "parser/parser.ss" '(catch))              file
+  (file-type "." '(catch))                              dir
+  (file-type "parser/parser.ss" '(catch))               file
   (directory-sort!
-    (directory-list "parser" '(types)))      (("." . dir) (".." . dir) ("lisp-token.ss" . file)
-                                              ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
-                                              ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
+    (directory-list "parser" '(types)))                 (("." . dir) (".." . dir) ("lisp-token.ss" . file)
+                                                         ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
+                                                         ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
   ;; -------------------- reader and writer ----------------------------
 
@@ -73,8 +73,12 @@
     (writer-put tx 97)
     (writer-put tx 98)
     (writer-close tx)
-    (writer-close tx))                              (97 98)
+    (writer-close tx))                                  (97 98)
 
+
+  (all (readers (list-reader '(1 2 3))
+                (list-reader '(a b))
+                (vector-reader '#(#\c))))               (1 2 3 a b #\c)
 
   ;; -------------------- filter-reader, list-reader, range-reader, where ----------------------------
 

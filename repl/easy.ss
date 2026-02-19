@@ -55,12 +55,19 @@
     ((writer? obj)  (writer-close obj))))
 
 
+;; current directory charspan must NOT be modified => copy it
+(define (current-dir) (charspan->string (sh-cwd)))
+
+
 ;; easy wrapper for (make-dir-reader)
 (define dir
   (case-lambda
-    ;; current directory charspan must NOT be modified => copy it
-    (()     (make-dir-reader (charspan->string (sh-cwd))))
-    ((path) (make-dir-reader path))))
+    (()     (make-dir-reader (current-dir)))
+    ((path) (make-dir-reader path))
+    ((paths opts)
+      (let ((paths (if (null? paths) (list (current-dir)) paths))
+            (constructor (lambda (path) (make-dir-reader path opts))))
+         (apply readers (map constructor paths))))))
 
 
 ;; easy wrapper for (port-eof?) (reader-eof?) (writer-eof?)
@@ -287,22 +294,36 @@
       (to-json from))))
 
 
+(define (split-args-and-options prog-and-args)
+  (let ((args    '())
+        (options '())
+        (options? #t))
+    (do ((l (cdr prog-and-args) (cdr l)))
+        ((null? l)
+         (values (reverse! args) (reverse! options)))
+      (let ((e (car l)))
+        (if (and options? (string-prefix? e "-"))
+          (if (string=? e "--")
+            (set! options? #f)
+            (set! options (cons e options)))
+          (set! args (cons e args)))))))
 
-(define (some-arg-contains? args key)
+
+(define (some-elem-contains? args key)
   (any (lambda (s) (string-contains s key)) args))
 
 
-(define (some-arg-is? args key)
-  (any (lambda (s) (string=? s key)) args))
+(define (some-option-is? options key)
+  (any (lambda (s) (string=? s key)) options))
 
 
-;; Dispatch to one of (to-...) functions depending on args
-(define (to-auto r args)
+;; Dispatch to one of (to-...) functions depending on options
+(define (to-auto r options)
   (cond
-    ((some-arg-is? args "--to-json")  (to-json r))
-    ((some-arg-is? args "--to-table") (to-table r))
-    ((some-arg-is? args "--to-wire")  (to-wire  r))
-    (else                             (to-stdout r)))
+    ((some-option-is? options "--to-json")  (to-json  r))
+    ((some-option-is? options "--to-table") (to-table r))
+    ((some-option-is? options "--to-wire")  (to-wire  r))
+    (else                                 (to-stdout r)))
   (void))
 
 
@@ -462,11 +483,21 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-dir job prog-and-args options)
-  (let* ((args (cdr prog-and-args))
-         (r (if (null? args)
-              (dir)
-              (dir (car args)))))
-    (to-auto (sort-by r name) args)))
+  (let-values (((paths options) (split-args-and-options prog-and-args)))
+    (let* ((opts (fxior
+                   ;; hide files starting with "." by default. option -a shows them
+                   (if (some-elem-contains? options "a")
+                    (dir-reader-options)
+                    (dir-reader-options dir-hide-dot-files))
+                   (if (or (null? paths) (null? (cdr paths))) 
+                     (dir-reader-options)
+                     (dir-reader-options dir-path-as-prefix)))) ;; two or more paths => add each path as prefix 
+           (r (dir paths opts))
+           ;; show only some fields by default. option -l shows all fields
+           (r (if (some-elem-contains? options "l")
+                r
+                (select r name type size modified mode))))
+      (to-auto (sort-by r name) options))))
 
 
 (define (status->verbose status)
@@ -491,30 +522,31 @@
                               'pgid (sh-job-pgid job)
                               'status (status->verbose (sh-job-status job))
                               'cmdline (sh-job->string job)))))
-    (to-auto (span-reader sp) (cdr prog-and-args))))
+    (let-values (((args options) (split-args-and-options prog-and-args)))
+      (to-auto (span-reader sp) options))))
 
 
 ;; the "proc" builtin: display information about active processes.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-proc job prog-and-args options)
-  (let* ((args   (cdr prog-and-args))
-         (user   (if (some-arg-contains? args "a") #f (c-username)))
-         (tty?   (if (some-arg-contains? args "x") #f #t))
-         (fields (if (some-arg-contains? args "u")
-                   '(user pid user-time mem-resident tty state start-time name)
-                   '(pid tty start-time name)))
-         (r     (proc))
-         (r     (if user
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((user    (if (some-elem-contains? args "a") #f (c-username)))
+           (tty?    (if (some-elem-contains? args "x") #f #t))
+           (fields  (if (some-elem-contains? args "u")
+                      '(user pid user-time mem-resident tty state start-time name)
+                      '(pid tty start-time name)))
+           (r   (proc))
+           (r   (if user
                   (make-filter-reader r (lambda (elem cache)
                                           (equiv? user (field elem 'user cache)))
                                       'close-inner)
                   r))
-         (r     (if tty?
+           (r   (if tty?
                   (make-filter-reader r (lambda (elem cache)
                                           (let ((tty (field elem 'tty cache)))
                                             (and (string? tty) (not (fxzero? (string-length tty))))))
                                       'close-inner)
                   r))
-         (r     (make-field-reader r fields 'close-inner)))
-    (to-auto r args)))
+           (r   (make-field-reader r fields 'close-inner)))
+      (to-auto r options))))

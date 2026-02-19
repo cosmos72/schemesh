@@ -110,8 +110,8 @@
 
 
 (define (symbol-compare a b)
-    ;; compare symbol names
-    (string-compare (symbol->string a) (symbol->string b)))
+  ;; compare symbol names
+  (string-compare (symbol->string a) (symbol->string b)))
 
 
 (define (symbol-equiv? a b)
@@ -169,7 +169,7 @@
 ;; should never raise condition
 (define (equiv? a b)
   (cond
-    ((eq? a b)      #t)
+    ((eq? a b)      #t) ; also catches (void) (eof-object) and equal booleans
     ((boolean? a)   #f)
     ((char? a)      (and (char? b)    (char=? a b)))
     ((number? a)    (and (number? b)  (= a b)))
@@ -254,13 +254,13 @@
 
 
 ;; retrieve the type-id of specified rtd, if available.
-;; used to sort data that is otherwise unordered
+;; used to order data having different types
 (define (record-type-id rtd)
   (vector-ref (hashtable-ref reflect-compare-table rtd '#(#f #f #f)) 2))
 
 
 ;; retrieve the type-id of specified object, if available.
-;; used to sort data that is otherwise unordered
+;; used to order data having different types
 (define (reflect-type-id a)
   (cond
     ((boolean? a)    -5)

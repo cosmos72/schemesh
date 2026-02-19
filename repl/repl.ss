@@ -28,14 +28,14 @@
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
-    (only (chezscheme)  abort base-exception-handler break-handler bytevector-truncate! console-input-port console-output-port
-                        console-error-port default-exception-handler display-condition eval exit-handler fx1+ include inspect
-                        make-parameter optimize-level parameterize pretty-print read-token reset reset-handler void)
+    (only (chezscheme)               abort base-exception-handler break-handler bytevector-truncate! console-input-port console-output-port
+                                     console-error-port default-exception-handler display-condition eval exit-handler fx1+ include inspect
+                                     make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers list)      any for-list)
           (scheme2k containers span)
-    (only (scheme2k containers string)    string-contains string-suffix?)
+    (only (scheme2k containers string)    string-contains string-prefix? string-suffix?)
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer)
@@ -47,7 +47,7 @@
     (only (scheme2k os)              make-process-reader)
           (schemesh parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all)
-    (only (scheme2k posix fs)        file-type make-dir-reader)
+    (only (scheme2k posix fs)        dir-reader-options file-type make-dir-reader)
           (scheme2k posix signal)
     (only (scheme2k posix status)    ok)
           (scheme2k posix tty)
@@ -477,15 +477,19 @@ Type ? or help for this help.
     (hashtable-set! t "proc"       builtin-proc))
 
   (let ((t (sh-builtins-help)))
-    (hashtable-set! t "dir"  (string->utf8 " [--to-FORMAT] [path]
-    display content of specified directory, or current directory by default.\n"))
+    (hashtable-set! t "dir"  (string->utf8 " [OPTION]... [PATH]...
+    display specified file or directory, or current directory by default.
+    Options:
+      -a            also display entries starting with .
+      -l            display all info for each entry
+      --to-FORMAT   display entries in given FORMAT\n"))
 
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
-    display known jobs and their status.\n"))
+    display jobs and their status.\n"))
 
     ;; TODO: implement [-o fields] [-O fields]
-    (hashtable-set! t "proc" (string->utf8 " [-][xau] [--to-FORMAT]
-    display information about active processes.\n"))))
+    (hashtable-set! t "proc" (string->utf8 " [xau] [--to-FORMAT]
+    display active processes.\n"))))
 
 
 ) ; close library

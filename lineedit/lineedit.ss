@@ -54,6 +54,9 @@
     lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
     lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
+
+    lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent lineedit-key-cmd
+
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
@@ -421,9 +424,9 @@
   (%add t lineedit-key-newline-left   '(27 79 77)) ; KPRET \eOM
   (%add t lineedit-key-nop            '(27 79 80)) ; NUMLOCK \eOP ; F1 on xterm
   (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on xterm
-  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR   ; F3 on xterm
+  (%add t lineedit-key-cmd-dir        '(27 79 82)) ; KP*   \eOR   ; F3 on xterm
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on xterm
-  (%add t lineedit-key-cmd-ls         '(27 79 106)); KP*   \eOj   ; xterm
+  (%add t lineedit-key-cmd-dir        '(27 79 106)); KP*   \eOj   ; xterm
   (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
   (%add t lineedit-key-cmd-cd-parent  '(27 79 111)); KP/   \eOo   ; xterm
