@@ -90,9 +90,9 @@ static ptr make_tty_name(int64_t tty_nr) {
     unsigned lo     = tty_nr & 0xFF;
     int      buflen = 0;
     if (hi == 136) {
-      buflen = snprintf(buf, sizeof(buf), "/dev/pts/%u", lo);
+      buflen = snprintf(buf, sizeof(buf), "pts/%u", lo);
     } else if (hi == 4) {
-      buflen = snprintf(buf, sizeof(buf), "/dev/tty%u", lo);
+      buflen = snprintf(buf, sizeof(buf), "tty%u", lo);
     } else {
       return Svoid;
     }
