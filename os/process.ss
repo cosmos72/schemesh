@@ -105,7 +105,7 @@
     (mutable pgrp)          ; (void) or exact integer
     (mutable sid)           ; (void) or exact integer
     (mutable flags)         ; (void) or exact integer
-    (mutable mem-resident)  ; (void) or exact integer
+    (mutable mem-rss)       ; (void) or exact integer
     (mutable mem-virtual)   ; (void) or exact integer
     (mutable start-time)    ; (void) or time-utc
     (mutable user-time)     ; (void) or time-duration
@@ -115,7 +115,7 @@
     (mutable nice)          ; (void) or exact integer
     (mutable rt-priority)   ; (void) or exact integer
     (mutable rt-policy)     ; (void) or exact integer
-    (mutable num-threads)   ; (void) or exact integer
+    (mutable threads)       ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
   (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be39))
@@ -176,7 +176,7 @@
       (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
       (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
       (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64
-      (bvec-ref/u64 bvec (fx* 7 8))     ; mem-resident, uint64
+      (bvec-ref/u64 bvec (fx* 7 8))     ; mem-rss,      uint64
       (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
       (make-time 'time-utc
         (bvec-ref/u64 bvec (fx*  9 8))  ; start-time-utc, ns
@@ -194,7 +194,7 @@
       (bvec-ref/s64 bvec (fx* 18 8))    ; nice,         int64
       (bvec-ref/u64 bvec (fx* 19 8))    ; rt-priority,  uint64
       (bvec-ref/u64 bvec (fx* 20 8))    ; rt-policy,    uint64
-      (bvec-ref/s64 bvec (fx* 21 8))    ; num-threads,  int64
+      (bvec-ref/s64 bvec (fx* 21 8))    ; threads,      int64
       (bvec-ref/u64 bvec (fx* 22 8))    ; min-fault,    uint64
       (bvec-ref/u64 bvec (fx* 23 8))))) ; maj-fault,    uint64
 
@@ -222,7 +222,7 @@
     (put-char port #\space) (writer (process-entry-pgrp e) port)
     (put-char port #\space) (writer (process-entry-sid e) port)
     (put-char port #\space) (writer (process-entry-flags e) port)
-    (put-char port #\space) (writer (process-entry-mem-resident e) port)
+    (put-char port #\space) (writer (process-entry-mem-rss e) port)
     (put-char port #\space) (writer (process-entry-mem-virtual e) port)
     (put-char port #\space) (writer (process-entry-start-time e) port)
     (put-char port #\space) (writer (process-entry-user-time e) port)
@@ -232,7 +232,7 @@
     (put-char port #\space) (writer (process-entry-nice e) port)
     (put-char port #\space) (writer (process-entry-rt-priority e) port)
     (put-char port #\space) (writer (process-entry-rt-policy e) port)
-    (put-char port #\space) (writer (process-entry-num-threads e) port)
+    (put-char port #\space) (writer (process-entry-threads e) port)
     (put-char port #\space) (writer (process-entry-min-fault e) port)
     (put-char port #\space) (writer (process-entry-maj-fault e) port)
     (put-string port ")")))

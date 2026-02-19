@@ -187,6 +187,7 @@
 (define color-green       (begin "\x1b;[32m"))
 (define color-bold-black  (begin "\x1b;[1;30m"))
 (define color-bold-red    (begin "\x1b;[1;31m"))
+(define color-bold-green  (begin "\x1b;[1;32m"))
 (define color-bold-yellow (begin "\x1b;[1;33m"))
 (define color-bold-cyan   (begin "\x1b;[1;36m"))
 (define color-bold-white  (begin "\x1b;[1;37m"))
@@ -201,8 +202,9 @@
     "dir-entry"     (eq-hashtable 'name color-bold-white)
     "process-entry" (eq-hashtable 'name color-bold-white
                                   'state (hashtable string-hash string=?
-                                           "D" color-bold-yellow
-                                           "R" color-bold-red
+                                           "D" color-bold-red
+                                           "R" color-bold-green
+                                           "T" color-bold-yellow
                                            "Z" color-bold-black))))
 
 

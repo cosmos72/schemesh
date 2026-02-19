@@ -533,9 +533,13 @@
   (let-values (((args options) (split-args-and-options prog-and-args)))
     (let* ((user    (if (some-elem-contains? args "a") #f (c-username)))
            (tty?    (if (some-elem-contains? args "x") #f #t))
-           (fields  (if (some-elem-contains? args "u")
-                      '(user pid user-time mem-resident tty state start-time name)
-                      '(pid tty start-time name)))
+           (fields  (cond
+                      ((some-elem-contains? args "f")
+                        #f)
+                      ((some-elem-contains? args "u")
+                        '(user pid user-time mem-rss tty state start-time name))
+                      (else
+                        '(pid tty start-time name))))
            (r   (proc))
            (r   (if user
                   (make-filter-reader r (lambda (elem cache)
@@ -548,5 +552,7 @@
                                             (and (string? tty) (not (fxzero? (string-length tty))))))
                                       'close-inner)
                   r))
-           (r   (make-field-reader r fields 'close-inner)))
+           (r   (if fields
+                  (make-field-reader r fields 'close-inner)
+                  r)))
       (to-auto r options))))

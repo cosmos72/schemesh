@@ -488,7 +488,7 @@ Type ? or help for this help.
     display jobs and their status.\n"))
 
     ;; TODO: implement [-o fields] [-O fields]
-    (hashtable-set! t "proc" (string->utf8 " [xau] [--to-FORMAT]
+    (hashtable-set! t "proc" (string->utf8 " [afux] [--to-FORMAT]
     display active processes.\n"))))
 
 
