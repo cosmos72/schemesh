@@ -60,7 +60,7 @@
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (reader-get) (reader-skip) (reader-close) (queue-reader-timed-get) and (queue-reader-try-get) 
+;; (reader-get) (reader-skip) (reader-close) (queue-reader-timed-get) and (queue-reader-try-get)
 ;; on the same or different queue-readers.
 (define (queue-reader-try-get rx)
   (assert* 'queue-reader-try-get (queue-reader? rx))

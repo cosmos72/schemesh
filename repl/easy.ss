@@ -489,9 +489,9 @@
                    (if (some-elem-contains? options "a")
                     (dir-reader-options)
                     (dir-reader-options dir-hide-dot-files))
-                   (if (or (null? paths) (null? (cdr paths))) 
+                   (if (or (null? paths) (null? (cdr paths)))
                      (dir-reader-options)
-                     (dir-reader-options dir-path-as-prefix)))) ;; two or more paths => add each path as prefix 
+                     (dir-reader-options dir-path-as-prefix)))) ;; two or more paths => add each path as prefix
            (r (dir paths opts))
            ;; show only some fields by default. option -l shows all fields
            (r (if (some-elem-contains? options "l")

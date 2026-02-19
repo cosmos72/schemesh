@@ -326,7 +326,7 @@
 
 (define (put/list tx obj)
   (unless (plist? obj)
-    (raise-errorf ' "list is not a plist: ~s" obj))
+    (raise-errorf 'json-writer-put "list is not a plist: ~s" obj))
   (let ((out (json-writer-out tx)))
     (put-u8 out 123) ; #\{
     (do ((l obj (cddr l)))

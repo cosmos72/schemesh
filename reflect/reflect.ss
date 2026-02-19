@@ -442,7 +442,7 @@
 
 
 ;; create and return a reflect-info containing caller-specified type-symbol, field names and their accessors.
-;; names-and-accessors must be a plist alternating field-name and accessor.
+;; names-and-accessors must be a plist of alternating field-name and accessor.
 (define (make-reflect-info type-symbol-or-proc names-and-accessors)
   (assert* 'make-reflect-info (plist? names-and-accessors))
   (let* ((len   (fx/ (length names-and-accessors) 2))
@@ -585,12 +585,23 @@
     (hashtable-set! table (car l) deserialize-time)))
 
 
+;; customize visible fields and deserializer for `irritants-condition` objects
+(define (add-irritants-condition-info table)
+  (let* ((rtd  (record-rtd (make-irritants-condition '())))
+         (info (make-reflect-info (record-type-name rtd)
+                 ;; customize visible fields
+                 (list 'irritants (lambda (c) (list->vector (condition-irritants c)))))))
+    (hashtable-set! table rtd info)
+    table))
+
+
 ;; global table reflect-infos, contains user-provided reflect-info and deserializer
 ;; for customizing the visible fields and deserializer of objects
 (define reflect-infos
   (add-date-info
     (add-time-info
-      (make-eq-hashtable))))
+      (add-irritants-condition-info
+        (make-eq-hashtable)))))
 
 
 ;; customize visible fields and deserializer of objects having specified rtd:

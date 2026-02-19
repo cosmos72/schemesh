@@ -82,7 +82,7 @@
 ;; * a time object with type 'time-duration
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (reader-get) (reader-skip) (reader-close) (queue-reader-timed-get) and (queue-reader-try-get) 
+;; (reader-get) (reader-skip) (reader-close) (queue-reader-timed-get) and (queue-reader-try-get)
 ;; on the same or different queue-readers.
 (define (queue-reader-timed-get rx timeout)
   (assert* 'queue-reader-timed-get (queue-reader? rx))

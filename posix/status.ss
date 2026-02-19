@@ -15,11 +15,14 @@
        new? started? running? stopped? finished? ok?)
   (import
     (rnrs)
-    (only (chezscheme)            console-output-port console-error-port fx1+ include record-writer void)
-    (only (scheme2k bootstrap)    assert* sh-make-parameter)
+    (only (chezscheme)                console-output-port console-error-port fx1+ include record-writer void)
+    (only (scheme2k bootstrap)        assert* sh-make-parameter)
     (only (scheme2k containers hashtable) for-hash plist->eq-hashtable)
-    (only (scheme2k posix fd)     c-exit)
-    (only (scheme2k posix signal) signal-name->number signal-raise))
+    (only (scheme2k containers list)  plist-ref)
+    (only (scheme2k containers span)  span? span->list)
+    (only (scheme2k posix fd)         c-exit)
+    (only (scheme2k posix signal)     signal-name->number signal-raise)
+    (only (scheme2k reflect)          make-reflect-info reflect-info-set!))
 
 
 ;; Status of a sh-job or process.
@@ -243,6 +246,37 @@
 
 (define status-display-color?
   (sh-make-parameter #t))
+
+
+(define (status->value-for-reflect status)
+  (cond
+    ((not (ok? status))
+      (status->value status))
+    ((eq? (void) status)
+      (void))
+    (else
+      (list->vector (ok->list status)))))
+
+
+(define status-allowed-kind-strings '("new" "ok" "running" "stopped" "killed" "exception" "failed"))
+
+
+(define (status-deserializer plist)
+  (let ((kind  (plist-ref plist 'kind))
+        (value (plist-ref plist 'value)))
+    (assert* 'status-deserializer (member kind status-allowed-kind-strings))
+    (cond
+      ((not (string=? kind "ok"))
+        (%make-status (string->symbol kind) value))
+      ((span? value)
+        (list->ok (span->list value)))
+      (else
+        (ok value)))))
+
+
+;; customize how "status" objects are serialized/deserialized via reflection
+(let ((info (make-reflect-info 'status (list 'kind status->kind 'value status->value-for-reflect))))
+  (reflect-info-set! (record-type-descriptor %status) info 'status status-deserializer))
 
 
 ;; customize how "status" objects are printed

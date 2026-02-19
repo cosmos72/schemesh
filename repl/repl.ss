@@ -53,10 +53,10 @@
           (scheme2k posix tty)
     (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
-       repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help 
+       repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind sh-env-ref
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler sh-fd sh-foreground-pgid
-       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs 
+       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
        sh-make-linectx sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 

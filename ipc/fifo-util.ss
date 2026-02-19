@@ -76,7 +76,7 @@
 ;; * a time object with type 'time-duration
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get) 
+;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get)
 ;; on the same or different fifo-readers.
 (define (fifo-reader-timed-get rx timeout)
   (assert* 'fifo-reader-timed-get (fifo-reader? rx))
@@ -103,7 +103,7 @@
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently call
-;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get) 
+;; (reader-get) (reader-skip) (reader-close) (fifo-reader-timed-get) and (fifo-reader-try-get)
 ;; on the same or different fifo-readers.
 (define (fifo-reader-try-get rx)
   (assert* 'fifo-reader-try-get (fifo-reader? rx))
