@@ -104,7 +104,7 @@
     (mutable ppid)          ; (void) or exact integer
     (mutable pgrp)          ; (void) or exact integer
     (mutable sid)           ; (void) or exact integer
-    ; (mutable flags)       ; removed
+  ; (mutable flags)         ; (void) or exact integer REMOVED
     (mutable mem-rss)       ; (void) or exact integer
     (mutable mem-virtual)   ; (void) or exact integer
     (mutable start-time)    ; (void) or time-utc
@@ -113,8 +113,8 @@
     (mutable iowait-time)   ; (void) or time-duration
     (mutable priority)      ; (void) or exact integer
     (mutable nice)          ; (void) or exact integer
-    (mutable rt-priority)   ; (void) or exact integer
-    (mutable rt-policy)     ; (void) or exact integer
+  ; (mutable rt-priority)   ; (void) or exact integer REMOVED
+  ; (mutable rt-policy)     ; (void) or exact integer REMOVED
     (mutable threads)       ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
@@ -175,7 +175,7 @@
       (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
       (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
       (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
-      ; (bvec-ref/u64 bvec (fx* 6 8))   ; flags, REMOVED
+    ; (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64 REMOVED
       (bvec-ref/u64 bvec (fx* 7 8))     ; mem-rss,      uint64
       (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
       (make-time 'time-utc
@@ -192,8 +192,8 @@
         (bvec-ref/s64 bvec (fx* 16 8))) ; iowait-time, s
       (bvec-ref/s64 bvec (fx* 17 8))    ; priority,     int64
       (bvec-ref/s64 bvec (fx* 18 8))    ; nice,         int64
-      (bvec-ref/u64 bvec (fx* 19 8))    ; rt-priority,  uint64
-      (bvec-ref/u64 bvec (fx* 20 8))    ; rt-policy,    uint64
+    ; (bvec-ref/u64 bvec (fx* 19 8))    ; rt-priority,  uint64 REMOVED
+    ; (bvec-ref/u64 bvec (fx* 20 8))    ; rt-policy,    uint64 REMOVED
       (bvec-ref/s64 bvec (fx* 21 8))    ; threads,      int64
       (bvec-ref/u64 bvec (fx* 22 8))    ; min-fault,    uint64
       (bvec-ref/u64 bvec (fx* 23 8))))) ; maj-fault,    uint64
@@ -221,7 +221,7 @@
     (put-char port #\space) (writer (process-entry-ppid e) port)
     (put-char port #\space) (writer (process-entry-pgrp e) port)
     (put-char port #\space) (writer (process-entry-sid e) port)
-    ; (put-char port #\space) (writer (process-entry-flags e) port) ; REMOVED
+  ; (put-char port #\space) (writer (process-entry-flags e) port) ; REMOVED
     (put-char port #\space) (writer (process-entry-mem-rss e) port)
     (put-char port #\space) (writer (process-entry-mem-virtual e) port)
     (put-char port #\space) (writer (process-entry-start-time e) port)
@@ -230,8 +230,8 @@
     (put-char port #\space) (writer (process-entry-iowait-time e) port)
     (put-char port #\space) (writer (process-entry-priority e) port)
     (put-char port #\space) (writer (process-entry-nice e) port)
-    (put-char port #\space) (writer (process-entry-rt-priority e) port)
-    (put-char port #\space) (writer (process-entry-rt-policy e) port)
+  ; (put-char port #\space) (writer (process-entry-rt-priority e) port) ; REMOVED
+  ; (put-char port #\space) (writer (process-entry-rt-policy e) port) ; REMOVED
     (put-char port #\space) (writer (process-entry-threads e) port)
     (put-char port #\space) (writer (process-entry-min-fault e) port)
     (put-char port #\space) (writer (process-entry-maj-fault e) port)

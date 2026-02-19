@@ -12,7 +12,7 @@
           table-reflect-info-set!)
   (import
     (rnrs)
-    (only (chezscheme)                       date? format fx1+ fx1- fx/ time? time-second void)
+    (only (chezscheme)                       date? format fx1+ fx1- fx/ time? time-second time-type void)
     (only (scheme2k bootstrap)               assert* for)
     (only (scheme2k containers bytespan)     bytespan-clear! bytespan-display-left/integer! latin1-bytespan->string make-bytespan)
     (only (scheme2k containers date)         date->string)
@@ -363,8 +363,9 @@
     ((time? datum)
       ;; (if (eq? 'time-utc (time-type datum))
       ;;  (date->string (time-utc->date datum))
-      ;;  (time->string datum))
-      (integer->string tx (time-second datum)))
+      (if (eq? 'time-duration (time-type datum))
+        (time->string datum)
+        (integer->string tx (time-second datum))))
     (else
       (format #f "~s" datum))))
 
