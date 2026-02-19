@@ -205,6 +205,8 @@
                                            "D" color-bold-red
                                            "R" color-bold-green
                                            "T" color-bold-yellow
+                                           "t" color-bold-yellow
+                                           "X" color-bold-black
                                            "Z" color-bold-black))))
 
 

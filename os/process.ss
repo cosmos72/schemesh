@@ -104,7 +104,7 @@
     (mutable ppid)          ; (void) or exact integer
     (mutable pgrp)          ; (void) or exact integer
     (mutable sid)           ; (void) or exact integer
-    (mutable flags)         ; (void) or exact integer
+    ; (mutable flags)       ; removed
     (mutable mem-rss)       ; (void) or exact integer
     (mutable mem-virtual)   ; (void) or exact integer
     (mutable start-time)    ; (void) or time-utc
@@ -118,7 +118,7 @@
     (mutable threads)       ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
-  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define (if-uid->username rx uid)
@@ -175,7 +175,7 @@
       (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
       (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
       (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
-      (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64
+      ; (bvec-ref/u64 bvec (fx* 6 8))   ; flags, REMOVED
       (bvec-ref/u64 bvec (fx* 7 8))     ; mem-rss,      uint64
       (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
       (make-time 'time-utc
@@ -221,7 +221,7 @@
     (put-char port #\space) (writer (process-entry-ppid e) port)
     (put-char port #\space) (writer (process-entry-pgrp e) port)
     (put-char port #\space) (writer (process-entry-sid e) port)
-    (put-char port #\space) (writer (process-entry-flags e) port)
+    ; (put-char port #\space) (writer (process-entry-flags e) port) ; REMOVED
     (put-char port #\space) (writer (process-entry-mem-rss e) port)
     (put-char port #\space) (writer (process-entry-mem-virtual e) port)
     (put-char port #\space) (writer (process-entry-start-time e) port)
