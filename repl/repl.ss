@@ -481,7 +481,8 @@ Type ? or help for this help.
     display specified file or directory, or current directory by default.
     Options:
       -a            also display entries starting with .
-      -l            display all info for each entry
+      -l            display more details for each entry
+      -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
 
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]

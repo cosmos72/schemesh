@@ -493,10 +493,14 @@
                      (dir-reader-options)
                      (dir-reader-options dir-path-as-prefix)))) ;; two or more paths => add each path as prefix
            (r (dir paths opts))
-           ;; show only some fields by default. option -l shows all fields
-           (r (if (some-elem-contains? options "l")
-                r
-                (select r name type size link modified mode))))
+           ;; show only some fields by default. option -l shows more fields, option -v shows all fields
+           (r (cond
+                ((some-elem-contains? options "v")
+                  r)
+                ((some-elem-contains? options "l")
+                  (select r name type size link modified accessed mode user group))
+                (else
+                  (select r name type size link modified)))))
       (to-auto (sort-by r name) options))))
 
 

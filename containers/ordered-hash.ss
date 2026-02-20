@@ -305,8 +305,7 @@
   (make-cursor (ord-hash-head oht)))
 
 
-;; return hashtable element (key . val) corresponding to current position
-;; of cursor, or #f if end of hashtable is reached
+;; return current cursor's element (key . val), or #f if no more elements are available.
 ;;
 ;; setting the cdr of returned element propagates back to the hashtable,
 ;; i.e. it is equivalent to setting the value associated to key in the hashtable
@@ -317,12 +316,11 @@
     (and node (node-cell node))))
 
 
-;; return current ordered-hash element (key . val) if more elements are available,
-;; otherwise return #f
-;;
-;; as a side effect, modifies cursor in place to point to next ordered-hash element.
+;; return current cursor's element (key . val), or #f if no more elements are available.
+;; as a side effect, modify cursor in place to point to next ordered-hash element.
 ;;
 ;; setting the cdr of returned element propagates back to the ordered-hash.
+;; i.e. it is equivalent to setting the value associated to key in the hashtable
 ;;
 ;; NEVER set or modify in any way the car of returned element!
 (define (ordered-hash-cursor-next! iter)
@@ -402,20 +400,26 @@
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
+;;
+;; Note: body IS ALLOWED to remove the current keys bound to each variable from the corresponding hashtables.
 (define-syntax for-ordered-hash
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key val ohtable) ...) body ...)
-        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((next ...) (generate-pretty-temporaries #'(ohtable ...))))
           #'(let %for-hash ((node (ord-hash-head ohtable)) ...)
               (when (and node ...)
-                (let ((key (node-key node)) ...
-                      (val (node-value node)) ...)
+                ;; get next node before evaluating body:
+                ;; body IS allowed to remove current node.
+                (let ((next (node-next node)) ...
+                      (key  (node-key  node)) ...
+                      (val  (node-value node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash (node-next node) ...))))))))))
+                    (%for-hash next ...))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,

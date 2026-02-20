@@ -41,17 +41,17 @@
     (mutable type)     ; (void) or symbol
     (mutable size)     ; (void) or size in bytes
     (mutable link)     ; (void) or #f or string: symlink target
-    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
-    (mutable accessed) ; (void) or time-utc
     (mutable modified) ; (void) or time-utc
+    (mutable accessed) ; (void) or time-utc
     (mutable inode-changed) ; (void) or time-utc
+    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
     (mutable user)     ; (void) or immutable string
     (mutable group)    ; (void) or immutable string
     (mutable uid)      ; (void) or exact integer
     (mutable gid)      ; (void) or exact integer
     (mutable inode)    ; (void) or exact integer
     (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define (exact-integer-or-void? obj)
@@ -67,15 +67,15 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size link mode accessed modified inode-changed user group uid gid inode nlink)
+(define (make-dir-entry name type size link modified accessed inode-changed mode user group uid gid inode nlink)
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
   (assert* 'make-dir-entry (string-or-void? link))
-  (assert* 'make-dir-entry (string-or-void? mode))
-  (assert* 'make-dir-entry (time-or-void? accessed))
   (assert* 'make-dir-entry (time-or-void? modified))
+  (assert* 'make-dir-entry (time-or-void? accessed))
   (assert* 'make-dir-entry (time-or-void? inode-changed))
+  (assert* 'make-dir-entry (string-or-void? mode))
   (assert* 'make-dir-entry (string-or-void? user))
   (assert* 'make-dir-entry (string-or-void? group))
   (assert* 'make-dir-entry (exact-integer-or-void? uid))
@@ -83,7 +83,7 @@
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link mode accessed modified inode-changed user group uid gid inode nlink)))
+    (%make-dir-entry name type size link modified accessed inode-changed mode user group uid gid inode nlink)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,10 +278,10 @@
         (if-fixnum->type   (vector-ref vec 1))
         (vector-ref vec 2)
         (or (vector-ref vec 3) "") ; symlink target
-        (if-mode->string   (vector-ref vec 4))
-        (if-pair->time-utc (vector-ref vec 5))
-        (if-pair->time-utc (vector-ref vec 6))
-        (if-pair->time-utc (vector-ref vec 7))
+        (if-pair->time-utc (vector-ref vec 4)) ; modified
+        (if-pair->time-utc (vector-ref vec 6)) ; accessed
+        (if-pair->time-utc (vector-ref vec 6)) ; inode-changed
+        (if-mode->string   (vector-ref vec 7))
         (if-uid->username  rx (vector-ref vec 8))
         (if-gid->groupname rx (vector-ref vec 9))
         (vector-ref vec 8)
@@ -582,23 +582,17 @@
 
 ;; customize how "dir-entry" objects are printed
 (record-writer (record-type-descriptor dir-entry)
-  (lambda (e port writer)
-    (put-string port "(make-dir-entry ")
-                            (writer (dir-entry-name e) port)
-    (put-char port #\space) (writer (dir-entry-type e) port)
-    (put-char port #\space) (writer (dir-entry-size e) port)
-    (put-char port #\space) (writer (dir-entry-link e) port)
-    (put-char port #\space) (writer (dir-entry-mode e) port)
-    (put-char port #\space) (writer (dir-entry-accessed e) port)
-    (put-char port #\space) (writer (dir-entry-modified e) port)
-    (put-char port #\space) (writer (dir-entry-inode-changed e) port)
-    (put-char port #\space) (writer (dir-entry-user e) port)
-    (put-char port #\space) (writer (dir-entry-group e) port)
-    (put-char port #\space) (writer (dir-entry-uid e) port)
-    (put-char port #\space) (writer (dir-entry-gid e) port)
-    (put-char port #\space) (writer (dir-entry-inode e) port)
-    (put-char port #\space) (writer (dir-entry-nlink e) port)
-    (put-string port ")")))
+  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size    dir-entry-link
+                           dir-entry-modified dir-entry-accessed dir-entry-inode-changed
+                           dir-entry-mode     dir-entry-user     dir-entry-group   dir-entry-uid
+                           dir-entry-gid      dir-entry-inode    dir-entry-nlink)))
+    (lambda (e port writer)
+      (put-string port "(make-dir-entry")
+      (do ((i 0 (fx1+ i))
+           (n (vector-length accessors)))
+          ((fx>=? i n) (put-string port ")"))
+        (put-char port #\space)
+        (writer ((vector-ref accessors i) e) port)))))
 
 
 ;; customize visible reflect fields and deserializer for `dir-entry` objects

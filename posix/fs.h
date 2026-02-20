@@ -23,10 +23,10 @@ typedef enum {
   e_vec_type,
   e_vec_size,
   e_vec_target,
-  e_vec_mode,
-  e_vec_accessed,
   e_vec_modified,
+  e_vec_accessed,
   e_vec_ino_changed,
+  e_vec_mode,
   e_vec_uid,
   e_vec_gid,
   e_vec_inode,
@@ -39,10 +39,10 @@ enum {
   e_dir_flag_type        = 1 << e_vec_type,
   e_dir_flag_size        = 1 << e_vec_size,
   e_dir_flag_target      = 1 << e_vec_target,
-  e_dir_flag_mode        = 1 << e_vec_mode,
-  e_dir_flag_accessed    = 1 << e_vec_accessed,
   e_dir_flag_modified    = 1 << e_vec_modified,
+  e_dir_flag_accessed    = 1 << e_vec_accessed,
   e_dir_flag_ino_changed = 1 << e_vec_ino_changed,
+  e_dir_flag_mode        = 1 << e_vec_mode,
   e_dir_flag_uid         = 1 << e_vec_uid,
   e_dir_flag_gid         = 1 << e_vec_gid,
   e_dir_flag_inode       = 1 << e_vec_inode,
@@ -304,10 +304,6 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   if (flags & e_dir_flag_size) {
     Svector_set(vec, e_vec_size, Sunsigned64(st.st_size));
   }
-  if (flags & e_dir_flag_mode) {
-    Svector_set(vec, e_vec_mode, Sunsigned32(st.st_mode & 07777));
-  }
-
   if ((flags & e_dir_flag_target)) {
     ptr target;
     if (type != e_type_lnk) {
@@ -325,15 +321,18 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     Svector_set(vec, e_vec_target, target);
   }
 #ifdef __APPLE__
-  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, st.st_atime);
   fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, st.st_mtime);
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, st.st_atime);
   fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, st.st_ctime);
 #else
-  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, &(st.st_atim));
   fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, &(st.st_mtim));
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, &(st.st_atim));
   fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, &(st.st_ctim));
 #endif
 
+  if (flags & e_dir_flag_mode) {
+    Svector_set(vec, e_vec_mode, Sunsigned32(st.st_mode & 07777));
+  }
   if (flags & e_dir_flag_uid) {
     Svector_set(vec, e_vec_uid, Sinteger(st.st_uid));
   }
