@@ -193,7 +193,10 @@
   (when (output-port? port)
     (let ((cap (fxmax 1 output-buffer-size)))
       (set-textual-port-output-buffer! port (make-string cap))
-      (set-textual-port-output-size!   port (fxmax 0 (fx1- cap))) ; leave 1 byte for (put-char)
+      ;; setting port output size to (fx- cap 1) or higher causes bugs. investigate.
+      ;; (set-textual-port-output-size!   port 0)
+      ;; (set-textual-port-output-size!   port (fx/ cap 2))
+      ;; (set-textual-port-output-size!   port (fx1- cap))
       (set-textual-port-output-index!  port 0)))
   port)
 
