@@ -606,7 +606,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; low-leves deserialization functions called by (json-reader-get) and (reader-get)
+;; low-level deserialization functions called by (json-reader-get) and (reader-get)
 
 
 ;; return datum as reader should do:

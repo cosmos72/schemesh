@@ -78,9 +78,11 @@
 (define tag-ord-hash      54)
 
 (define min-tag-to-allocate   89)
-(define next-tag-to-allocate 240)
+(define next-tag-to-allocate 238)
 (define max-tag-to-allocate  253)
 
+(define tag-process-entry 239) ; allocated in os/process.ss
+(define tag-dir-entry     240)
 (define tag-date          241)
 (define tag-time          242)
 (define tag-status        243) ; implemented in wire/status.ss

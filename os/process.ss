@@ -17,6 +17,7 @@
     (only (scheme2k bootstrap)           assert*)
     (only (scheme2k containers list)     plist-ref)
     (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
+    (only (scheme2k io wire)             wire-register-rtd-reflect)
     (only (scheme2k posix fd)            raise-c-errno)
     (only (scheme2k posix fs)            gid->groupname uid->username)
     (only (scheme2k reflect)             reflect-info-set-autodetect!))
@@ -238,7 +239,14 @@
     (put-string port ")")))
 
 
-;; customize visible reflect fields and deserializer for `process-entry` objects
-(reflect-info-set-autodetect! (record-type-descriptor process-entry) make-process-entry)
+(let ((rtd (record-type-descriptor process-entry))
+      (tag-process-entry 239))
+
+  ;; customize how library `reflect` deserializes `process-entry` objects and the fields it reports for them
+  (reflect-info-set-autodetect! rtd make-process-entry)
+
+  ;; customize how `wire` library serializes/deserializes `process-entry` objects
+  (wire-register-rtd-reflect rtd tag-process-entry make-process-entry))
+
 
 ) ; close library

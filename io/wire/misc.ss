@@ -68,8 +68,7 @@
              (memq type '(time-collector-cpu time-collector-real time-duration
                           time-monotonic time-process time-thread time-utc))
              (integer? second) (exact? second)
-             (integer? nanosecond) (exact? nanosecond) (<= 0 nanosecond 999999999)
-             )
+             (integer? nanosecond) (exact? nanosecond) (<= 0 nanosecond 999999999))
       (values
         (make-time type nanosecond second)
         pos)

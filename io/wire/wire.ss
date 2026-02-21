@@ -92,7 +92,7 @@
 
 (library (scheme2k io wire (0 9 3))
   (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
-          wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
+          wire-register-rtd  wire-register-rtd-reflect  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           (rename (len/any wire-inner-len)
                   (get/any wire-inner-get)
@@ -132,6 +132,7 @@
     (only (scheme2k containers span)         make-span span span-length span-ref span-set!)
     (only (scheme2k containers time)         duration)
     (only (scheme2k containers utf8b)        integer->char*)
+    (only (scheme2k posix fs)                make-dir-entry dir-entry)
           (scheme2k posix status))
 
 
@@ -155,6 +156,10 @@
 
   (vector-set! known-tag tag-charspan8     get/charspan8)
   (vector-set! known-tag tag-charspan16    get/charspan16)
+
+  ;; customize how to serialize/deserialize `dir-entry` objects
+  (wire-register-rtd-reflect (record-type-descriptor dir-entry)   tag-dir-entry   make-dir-entry)
+
 
 ) ; close begin
 

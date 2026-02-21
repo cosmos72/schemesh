@@ -62,28 +62,28 @@
 ;;
 ;; if accessors are specified and not #f, they must be a vector of procedures,
 ;; and only the corresponding fields will be serialized/deserialized and passed as arguments to constructor.
-(define wire-register-rtd-fields
+(define wire-register-rtd-reflect
   (case-lambda
     ((rtd tag-value constructor accessors)
       (let ((tag-value   (or tag-value (wire-reserve-tag)))
             (constructor (or constructor (chez:record-constructor rtd)))
             (accessors   (or accessors   (rtd-and-parent-accessors rtd))))
-        (assert* 'wire-register-rtd-fields (record-type-descriptor? rtd))
-        (assert* 'wire-register-rtd-fields (fixnum? tag-value))
-        (assert* 'wire-register-rtd-fields (fx<=? min-tag-to-allocate tag-value max-tag-to-allocate))
-        (assert* 'wire-register-rtd-fields (procedure? constructor))
-        (assert* 'wire-register-rtd-fields (vector? accessors))
-        (assert* 'wire-register-rtd-fields (logbit? (vector-length accessors) (procedure-arity-mask constructor)))
+        (assert* 'wire-register-rtd-reflect (record-type-descriptor? rtd))
+        (assert* 'wire-register-rtd-reflect (fixnum? tag-value))
+        (assert* 'wire-register-rtd-reflect (fx<=? min-tag-to-allocate tag-value max-tag-to-allocate))
+        (assert* 'wire-register-rtd-reflect (procedure? constructor))
+        (assert* 'wire-register-rtd-reflect (vector? accessors))
+        (assert* 'wire-register-rtd-reflect (logbit? (vector-length accessors) (procedure-arity-mask constructor)))
         (wire-register-rtd rtd tag-value
           (make-rtd-len-proc accessors)
           (make-rtd-get-proc constructor (vector-length accessors))
           (make-rtd-put-proc tag-value accessors))))
     ((rtd tag-value constructor)
-      (wire-register-rtd-fields rtd tag-value constructor #f))
+      (wire-register-rtd-reflect rtd tag-value constructor #f))
     ((rtd tag-value)
-      (wire-register-rtd-fields rtd tag-value #f #f))
+      (wire-register-rtd-reflect rtd tag-value #f #f))
     ((rtd)
-      (wire-register-rtd-fields rtd #f #f #f))))
+      (wire-register-rtd-reflect rtd #f #f #f))))
 
 
 ;; return a vector containing the field accessors for record-type-descriptor rtd and all its parents,

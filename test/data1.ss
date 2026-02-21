@@ -385,6 +385,53 @@
   (first-value (wire->datum
     #vu8(14 54 76 74 2 41 2 101 102 14 41 2 99 100 15)))   ,(ordered-hash string-hash string=? "ef" -2 "cd" -1)
 
+
+  ;; test serializing/deserializing `dir-entry` objects
+
+  (datum->wire
+    (make-dir-entry "main.c" 'file 9712 "" (make-time-utc 1768467392 0) (make-time-utc 1770314180 162027976)
+                    (make-time-utc 1770314180 162027976) "rw-r--r--" "max" "users" 1000 100 566093 1))
+
+                                                           #vu8(85 240 41 6 109 97 105 110 46 99 46 4 102 105 108 101 17 240
+                                                                37 41 0 242 88 19 192 171 104 105 0 242 88 19 196 217 132
+                                                                105 19 200 89 168 9 242 88 19 196 217 132 105 19 200 89 168
+                                                                9 41 9 114 119 45 114 45 45 114 45 45 41 3 109 97 120 41 5
+                                                                117 115 101 114 115 17 232 3 16 100 18 77 163 8 1)
+
+  (first-value (wire->datum
+    #vu8(78 240 41 1 46 46 3 100 105 114 17 0 16 41 0 242 88 19 54
+         229 144 105 19 16 131 110 4 242 88 19 54 229 144 105 19 16
+         131 110 4 242 88 19 54 229 144 105 19 16 131 110 4 41 9 114
+         119 120 114 45 120 114 45 120 41 4 114 111 111 116 41 4 114
+         111 111 116 0 0 2 16 18)))
+                                                           ,(make-dir-entry "." dir 4096 "" (make-time-utc 1771103542 74351376)
+                                                              (make-time-utc 1771103542 74351376) (make-time-utc 1771103542 74351376)
+                                                              "rwxr-xr-x" "root" "root" 0 0 2 18)
+
+
+  ;; test serializing/deserializing `process-entry` objects
+
+  (datum->wire (make-process-entry 1 "systemd" "" 'S "root" "root" 0 0 0 1 1 14798848 25317376
+    (make-time-utc 1771689356 183428268) (make-time-duration 0 390000000)
+    (make-time-duration 1 40000000) (make-time-duration 0 0) 20 0 1 12379 159))
+
+                                                           #vu8(85 239 1 41 7 115 121 115 116 101 109 100 41 0 46 1 83 41 4
+                                                                114 111 111 116 41 4 114 111 111 116 0 0 0 1 1 19 0 208 225
+                                                                0 19 0 80 130 1 242 88 19 140 213 153 105 19 172 228 238 10
+                                                                242 83 0 19 128 237 62 23 242 83 1 19 0 90 98 2 242 83 0 0
+                                                                16 20 0 1 17 91 48 17 159 0)
+
+  (first-value (wire->datum
+    #vu8(93 239 17 205 4 41 7 115 121 115 116 101 109 100 41 0 46 1
+         83 41 4 117 115 101 114 41 5 117 115 101 114 115 17 232 3 16
+         100 1 17 205 4 17 205 4 19 0 48 206 0 19 0 64 108 1 242 88
+         19 162 213 153 105 19 172 48 42 6 242 83 0 19 0 104 137 9
+         242 83 0 19 128 195 201 1 242 83 0 0 16 20 0 1 17 53 7 0)))
+
+                                                           ,(make-process-entry 1229 "systemd" "" S "user" "users" 1000 100 1 1229 1229 13512704 23871488
+                                                              (make-time-utc 1771689378 103428268) (make-time-duration 0 160000000)
+                                                              (make-time-duration 0 30000000) (make-time-duration 0 0) 20 0 1 1845 0)
+
   ;; stress test (wire->datum) on random bytevectors
   (let* ((payload-len 512)
          (message-len (fx+ 4 payload-len))
