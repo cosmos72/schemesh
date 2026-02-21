@@ -215,9 +215,9 @@
 (define from-wire
   (case-lambda
     ((in)
-      (make-json-reader in))
+      (make-wire-reader in))
     (()
-      (make-json-reader (sh-port #f 0 'binary)))))
+      (make-wire-reader (sh-port #f 0 'binary)))))
 
 
 ;; create a reader that autodetects protocol upon the first call to (reader-get)
