@@ -309,20 +309,20 @@
           (set! args (cons e args)))))))
 
 
-(define (some-elem-contains? args key)
+(define (some-string-contains? args key)
   (any (lambda (s) (string-contains s key)) args))
 
 
-(define (some-option-is? options key)
+(define (some-string-is? options key)
   (any (lambda (s) (string=? s key)) options))
 
 
 ;; Dispatch to one of (to-...) functions depending on options
 (define (to-auto r options)
   (cond
-    ((some-option-is? options "--to-json")  (to-json  r))
-    ((some-option-is? options "--to-table") (to-table r))
-    ((some-option-is? options "--to-wire")  (to-wire  r))
+    ((some-string-is? options "--to-json")  (to-json  r))
+    ((some-string-is? options "--to-table") (to-table r))
+    ((some-string-is? options "--to-wire")  (to-wire  r))
     (else                                 (to-stdout r)))
   (void))
 
@@ -486,7 +486,7 @@
   (let-values (((paths options) (split-args-and-options prog-and-args)))
     (let* ((opts (fxior
                    ;; hide files starting with "." by default. option -a shows them
-                   (if (some-elem-contains? options "a")
+                   (if (some-string-contains? options "a")
                     (dir-reader-options)
                     (dir-reader-options dir-hide-dot-files))
                    (if (or (null? paths) (null? (cdr paths)))
@@ -495,9 +495,9 @@
            (r (dir paths opts))
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (r (cond
-                ((some-elem-contains? options "v")
+                ((some-string-contains? options "v")
                   r)
-                ((some-elem-contains? options "l")
+                ((some-string-contains? options "l")
                   (select r name type size link modified accessed mode user group))
                 (else
                   (select r name type size link modified)))))
@@ -533,14 +533,16 @@
 ;; the "proc" builtin: display information about active processes.
 ;;
 ;; As all builtins do, must return job status.
+;;
+;; TODO: implement [-o fields] [-O fields]
 (define (builtin-proc job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (let* ((user    (if (some-elem-contains? args "a") #f (c-username)))
-           (tty?    (if (some-elem-contains? args "x") #f #t))
+    (let* ((user    (if (some-string-contains? args "a") #f (c-username)))
+           (tty?    (if (some-string-contains? args "x") #f #t))
            (fields  (cond
-                      ((some-elem-contains? args "v")
+                      ((some-string-contains? args "v")
                         #f)
-                      ((some-elem-contains? args "u")
+                      ((some-string-contains? args "u")
                         '(user pid user-time mem-rss tty state start-time name))
                       (else
                         '(pid tty start-time name))))
@@ -560,3 +562,29 @@
                   (make-field-reader r fields 'close-inner)
                   r)))
       (to-auto r options))))
+
+
+;; the "to" builtin:
+;; read from standard input with (from-stdin) that will perform format autodetection
+;; parse data, and write it to standard output with format autodetection, or with specified format.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-to job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let ((from (cond
+                  ((some-string-is? options "--from-json")
+                    from-json)
+                  ((some-string-is? options "--from-wire")
+                    from-wire)
+                  (else
+                    from-stdin)))
+          (to (cond
+                ((some-string-is? args "table")
+                  to-table)
+                ((some-string-is? args "json")
+                  to-json)
+                ((some-string-is? args "wire")
+                  to-wire)
+                (else
+                  to-stdout))))
+      (to (from)))))

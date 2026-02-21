@@ -474,7 +474,8 @@ Type ? or help for this help.
     ;; additional builtins
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "jobs"       builtin-jobs)
-    (hashtable-set! t "proc"       builtin-proc))
+    (hashtable-set! t "proc"       builtin-proc)
+    (hashtable-set! t "to"         builtin-to))
 
   (let ((t (sh-builtins-help)))
     (hashtable-set! t "dir"  (string->utf8 " [OPTION]... [PATH]...
@@ -488,7 +489,6 @@ Type ? or help for this help.
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
     display jobs and their status.\n"))
 
-    ;; TODO: implement [-o fields] [-O fields]
     (hashtable-set! t "proc" (string->utf8 " [auvx] [--to-FORMAT]
     display active processes.
     Options:
@@ -496,6 +496,20 @@ Type ? or help for this help.
       u             display more details for each process
       v             display even more details for each process
       x             also display processes running without a terminal
-      --to-FORMAT   display processes in given FORMAT\n"))))
+      --to-FORMAT   display processes in given FORMAT\n"))
+
+    (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] [FORMAT]
+    parse data from standard input, and write it to standard output.
+    Options:
+      --from-FORMAT assume data from standard input has specified FORMAT,
+                    instead of autodetecting it
+
+    Argument:
+      auto          default. choose display format depending on standard output
+                    file descriptor type: tty => table, socket => wire, else => json
+      table         display data in table format
+      json          display data in json format
+      wire          write data in binary wire format\n"))))
+
 
 ) ; close library
