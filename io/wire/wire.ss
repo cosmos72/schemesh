@@ -94,9 +94,10 @@
   (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
           wire-register-rtd  wire-register-rtd-reflect  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
-          (rename (len/any wire-inner-len)
-                  (get/any wire-inner-get)
-                  (put/any wire-inner-put)))
+          ;; and that cannot be handled by functions (wire-register-rtd...)
+          (rename (len/any wire-inner-len)  (tag+    wire-inner-len-tag)
+                  (get/any wire-inner-get)  ;; there is no (wire-inner-get-tag) because tag is consumed internally before invoking user functions
+                  (put/any wire-inner-put)  (put/tag wire-inner-put-tag)))
   (import
     (rnrs)
     (rnrs mutable-strings)
