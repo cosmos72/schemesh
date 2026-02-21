@@ -489,8 +489,13 @@ Type ? or help for this help.
     display jobs and their status.\n"))
 
     ;; TODO: implement [-o fields] [-O fields]
-    (hashtable-set! t "proc" (string->utf8 " [afux] [--to-FORMAT]
-    display active processes.\n"))))
-
+    (hashtable-set! t "proc" (string->utf8 " [auvx] [--to-FORMAT]
+    display active processes.
+    Options:
+      a             also display processes started by other users
+      u             display more details for each process
+      v             display even more details for each process
+      x             also display processes running without a terminal
+      --to-FORMAT   display processes in given FORMAT\n"))))
 
 ) ; close library

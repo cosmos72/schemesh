@@ -538,7 +538,7 @@
     (let* ((user    (if (some-elem-contains? args "a") #f (c-username)))
            (tty?    (if (some-elem-contains? args "x") #f #t))
            (fields  (cond
-                      ((some-elem-contains? args "f")
+                      ((some-elem-contains? args "v")
                         #f)
                       ((some-elem-contains? args "u")
                         '(user pid user-time mem-rss tty state start-time name))
