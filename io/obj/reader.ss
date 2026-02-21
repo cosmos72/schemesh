@@ -241,6 +241,16 @@
     (make-reader %list-reader #f #f)))
 
 
+;; create and return a reader that generates the specified elements.
+;; each call to (reader-get rx) will return two values:
+;;  either (values elem #t) i.e. the next element from the list
+;;  or (values #<unspecified> #f) when the list is exhausted or after (reader-close rx) has been called.
+;;
+;; This function effectively converts arbitrary elements a reader
+(define (datum-reader . l)
+  (list-reader l))
+
+
 ;; create and return a reader that generates the elements of specified vector.
 ;; each call to (reader-get rx) will return two values:
 ;;  either (values elem #t) i.e. the next element from the vector

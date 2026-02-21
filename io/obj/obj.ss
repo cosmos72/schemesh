@@ -33,7 +33,8 @@
   (export
     ;; obj/reader.ss
     make-reader reader reader? reader-get reader-eof? reader-close reader-skip
-    for-reader in-reader constant-reader empty-reader list-reader iterator-reader vector-reader reader->list reader->vector readers
+    for-reader in-reader constant-reader datum-reader empty-reader list-reader iterator-reader vector-reader
+    reader->list reader->vector readers
 
     ;; obj/filter-reader.ss
     make-filter-reader filter-reader filter-reader?  filter-reader-inner
