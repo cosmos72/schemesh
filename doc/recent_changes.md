@@ -2,6 +2,7 @@
 
 ### TO DO
 
+* also accept non-directories in `(dir)` and in shell builtin `dir`
 * add shell builtin `answers` for displaying `(repl-answers)` with output format autodetection (json, table, wire)
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory
@@ -25,6 +26,7 @@
 * pretty-print types `time` and `date` and add convenience functions to create and convert them
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`
+* delete macro `(for)` and rename macro `(for*)` -> `(for)`
 * rename functions `(...producer...)` -> `(...queue-reader...)`
 * rename functions `(...consumer...)` -> `(...queue-writer...)`
 * rename function `(...channel...)` -> `(...wire-reader...)` or `(...wire-writer...)`
