@@ -86,12 +86,11 @@
 ;; customize how "bitmap" objects are printed
 (record-writer (record-type-descriptor %bitmap)
   (lambda (b port writer)
-    (display "(bitmap" port)
+    (put-string port "(bitmap")
     (do ((i 0 (fx1+ i))
          (n (bitmap-length b)))
         ((fx>=? i n))
-      (display #\space port)
-      (display (bitmap-ref b i) port))
-    (display ")" port)))
+      (put-string port (if (fxzero? (bitmap-ref b i)) " 0" " 1")))
+    (put-string port ")")))
 
 ) ; close library
