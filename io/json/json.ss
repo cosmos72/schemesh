@@ -41,8 +41,8 @@
 
 
 (include "io/json/info.ss")
-(include "io/json/read.ss")
-(include "io/json/write.ss")
+(include "io/json/reader.ss")
+(include "io/json/writer.ss")
 
 
 (record-writer (record-type-descriptor json-reader)

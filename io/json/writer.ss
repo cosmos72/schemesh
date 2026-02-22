@@ -379,8 +379,10 @@
   (let ((out (json-writer-out tx)))
     (if (json-writer-prologue? tx)
       (begin
-        (put-u8 out 91) ; #\[
         (json-writer-prologue?-set! tx #f)
-        (json-writer-epilogue?-set! tx #t))
+        (json-writer-epilogue?-set! tx #t)
+        (put-u8 out 91)) ; #\[
       (put-bytevector out #vu8(44 10))) ; ",\n"
-    (put/datum tx obj)))
+    (put/datum tx obj)
+    ;; really send json data to its destination, in case some other program is waiting for it
+    (flush-output-port out)))

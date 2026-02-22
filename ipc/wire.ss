@@ -260,7 +260,9 @@
         (fd-write-all out bv start end))
       (else ; (port? out)
         (check-interrupts)
-        (put-bytevector out bv start (fx- end start))))))
+        (put-bytevector out bv start (fx- end start))
+        ;; really send serialized data to its destination, in case some other program is waiting for it
+        (flush-output-port out)))))
 
 
 ;; called by (wire-writer-put) and (writer-put)
