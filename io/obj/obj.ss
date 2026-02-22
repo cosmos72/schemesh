@@ -154,13 +154,6 @@
           (do ((rx (reader-guardian) (reader-guardian)))
               ((not rx))
             ;; (debugf "closing ~s before garbage collecting it" rx)
-            (reader-close rx))
-
-          ;; finally, retrieve all writers ready to be garbage collected, and close them
-          (do ((tx (writer-guardian) (writer-guardian)))
-              ((not tx))
-            ;; (debugf "closing ~s before garbage collecting it" tx)
-            (writer-close tx)))))))
-
+            (reader-close rx)))))))
 
 ) ; close library
