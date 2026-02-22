@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme)  assertion-violationf clear-input-port clear-output-port enum-set? fx1+ fx1-
+    (only (chezscheme)  assertion-violationf break clear-input-port clear-output-port enum-set? fx1+ fx1-
                         get-bytevector-some! include input-port-ready?
                         logbit? make-input-port make-input/output-port make-output-port mark-port-closed!
                         port-closed? port-length port-name procedure-arity-mask record-writer
@@ -76,6 +76,26 @@
         0))
     0))
 
+
+#|
+(define io-count 0)
+
+(define (bport-write fd bv start n)
+  (unless (fxzero? io-count)
+    (fd-write 1 #vu8(42 42 42 32 110 101 115 116 101 100 32 73 47 79 32 42 42 42 10))
+    (break))
+  (dynamic-wind
+    (lambda () (set! io-count (fx1+ io-count)))
+    (lambda ()
+      (if (and (bytevector? bv) (fixnum? start) (fixnum? n)
+               (< -1 start (+ start n) (fx1+ (bytevector-length bv))))
+        (let ((ret (fd-write fd bv start (fx+ start n))))
+          (if (and (integer? ret) (>= ret 0))
+            ret
+            0))
+        0))
+    (lambda () (set! io-count (fx1- io-count)))))
+|#
 
 (define (bport-write fd bv start n)
   (if (and (bytevector? bv) (fixnum? start) (fixnum? n)

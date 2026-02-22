@@ -794,9 +794,13 @@
 
 (define (sh-stdio-flush)
   ;; the ports (console-input-port) (console-output-port) (console-error-port)
-  ;; are unbuffered, no need to flush them
+  ;; are mostly unbuffered, no need to flush them
   ;;
   ;; flushing (current-...-port) also flushes the corresponding per-job binary and textual ports
-  (flush-ports-if-needed 0 (current-input-port))
-  (flush-ports-if-needed 1 (current-output-port))
-  (flush-ports-if-needed 2 (current-error-port)))
+  ;;
+  ;; inside an interrupt, we cannot do I/O on most ports. Reason:
+  ;; the interrupt may happen during I/O and scheme ports are not reentrant.
+  (unless (sh-inside-interrupt?)
+    (flush-ports-if-needed 0 (current-input-port))
+    (flush-ports-if-needed 1 (current-output-port))
+    (flush-ports-if-needed 2 (current-error-port))))

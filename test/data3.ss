@@ -233,7 +233,7 @@
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (writer-put tx
-        (make-dir-entry "." 'dir 4096 "" (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476) 
+        (make-dir-entry "." 'dir 4096 "" (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
                         (make-time-utc 1770314180 254027974) "rwxr-xr-x"  "nobody" "users" 1000 100 568413 2))
       (writer-close tx)
       (let* ((bv (to-bytevector))

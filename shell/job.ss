@@ -28,7 +28,7 @@
     fork-process make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-current-job-kill sh-current-job-suspend sh-preferred-job-id
+    sh-current-job-kill sh-current-job-suspend sh-preferred-job-id sh-inside-interrupt?
     sh-start sh-bg sh-fg sh-kill sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
@@ -228,7 +228,25 @@
       (job-ports-flush job)
       (unless (eq? job (sh-globals))
         (job-ports-close job)
-        (hashtable-clear! ports)))))
+        (hashtable-clear! ports))))
+  (when (sh-expr? job)
+    (jexpr-call-on-finish-forget job)))
+
+
+(define queued-job-ports-flush-close-forget (sh-make-thread-parameter '()))
+
+
+(define (queue-job-ports-flush-close-forget job)
+  (queued-job-ports-flush-close-forget (cons job (queued-job-ports-flush-close-forget))))
+
+
+(define (call-queued-job-ports-flush-close-forget)
+  (let ((l (queued-job-ports-flush-close-forget)))
+    (queued-job-ports-flush-close-forget '())
+    (do ((jobs l (cdr jobs)))
+        ((null? jobs))
+      (job-ports-flush-close-forget (car jobs)))))
+
 
 
 (define (job-default-parents-ports-flush job)
@@ -288,11 +306,11 @@
       ((ok exception failed killed)
         (%job-last-status-set! job status)
 
-        (sh-stdio-flush)
+        (sh-stdio-flush) ;; does nothing if inside an interrupt
 
-        (job-ports-flush-close-forget job)
-        (when (sh-expr? job)
-          (jexpr-call-on-finish-forget job))
+        (if (sh-inside-interrupt?)
+          (queue-job-ports-flush-close-forget job)
+          (job-ports-flush-close-forget job))
 
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
@@ -490,6 +508,7 @@
 
 (define (sh-consume-signals lctx)
   (check-interrupts)
+  (call-queued-job-ports-flush-close-forget)
   (when lctx
     (display-status-changes lctx)))
 
@@ -505,7 +524,9 @@
             (thread-display-summary id (car status.name) (cdr status.name) port))
 
           (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
-            (display-job-status-change job port))))
+            (display-job-status-change job port))
+
+          (flush-output-port port)))
       ;; more notifications may have arrived in the meantime
       (display-status-changes lctx))))
 
@@ -513,6 +534,7 @@
 (define (display-job-status-change job port)
   (let ((id  (job-id job))
         (oid (job-oid job)))
+    ;; (debugf "; display-job-status-change id ~s, oid ~s, job ~s" id oid job)
     (when (or id oid)
       (unless (or (eqv? -1 id) (eqv? -1 oid))
         (sh-job-display-summary job port))

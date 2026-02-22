@@ -38,6 +38,9 @@
               (make-message-condition msg))))))))
 
 
+(define sh-inside-interrupt? (sh-make-thread-parameter #f))
+
+
 (define (signal-handler-sigint sig)
   ;; received a SIGINT, for example from a keyboard CTRL+C.
   (when (main-thread?)
@@ -79,13 +82,23 @@
 
 (define (signal-handler-sigchld sig)
   (when (main-thread?)
-    (unless (sh-current-job-sigchld)
-      (unless (waiting-for-job)
-        ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
-        (scheduler-wait #f 'nonblocking)))
-    (let ((lctx (repl-args-linectx)))
-      (when lctx
-        (display-status-changes lctx)))))
+    ;; inside an interrupt, we cannot do I/O on most ports. Reason:
+    ;; the interrupt may happen during I/O and scheme ports are not reentrant.
+    ;;
+    ;; Use (console-...-port) hoping they are not being used:
+    ;; it's also useful in case (current-...-port) have been redirected
+    (parameterize ((sh-inside-interrupt? #t)
+                   (current-input-port  (console-input-port))
+                   (current-output-port (console-output-port))
+                   (current-error-port  (console-error-port)))
+      (unless (sh-current-job-sigchld)
+        (unless (waiting-for-job)
+          ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
+          (scheduler-wait #f 'nonblocking)))
+      ;; we used to also call (display-status-changes) here,
+      ;; but it's a bad idea: interrupts should do as little as possible,
+      ;; and it may interleave job's output with status changes notifications
+      )))
 
 
 ;; install Scheme procedures invoked when process receives SIGQUIT or SIGTSTP

@@ -52,23 +52,14 @@
   (c-environ->sh-global-env)
 
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
-  ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
-  ;; and are ordered with (current-input-port) (current-output-port) (current-error-port)
-  (let ((port0 (sh-port #t 0 'textual))
-        (port1 (sh-port #t 1 'textual))
-        (port2 (sh-port #t 2 'textual))
-        (try-flush-port-lambda
-          (lambda (port-lambda)
-            (try
-              (let ((port (port-lambda)))
-                (when (output-port? port)
-                  (flush-output-port port)))
-              (catch (ex)
-                (void))))))
-    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) 'rw #t (lambda () (try-flush-port-lambda current-input-port))  0))
-    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) 'rw #t (lambda () (try-flush-port-lambda current-output-port)) 0))
-    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) 'rw #t (lambda () (try-flush-port-lambda current-error-port))  0)))
-
+  ;; with minimally buffered UTF-8b textual input/output ports that can be interrupted.
+  ;;
+  ;; They are NOT ordered with (current-input-port) (current-output-port) (current-error-port)
+  ;; because we want to be able to use (console-...-port) from interrupts, which may happen during I/O
+  ;; and scheme ports are NOT reentrant.
+  (console-input-port  (fd->port 0 'rw 'textual (buffer-mode line)))
+  (console-output-port (fd->port 1 'rw 'textual (buffer-mode line)))
+  (console-error-port  (fd->port 2 'rw 'textual (buffer-mode line)))
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
   ;; with buffered binary input/output ports that can be interrupted and honor current job redirections.

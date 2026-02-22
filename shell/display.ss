@@ -34,6 +34,7 @@
     (let* ((id     (or (job-id job) (job-oid job)))
            (pid    (job-pid job))
            (status (if (eq? (void) status) (ok) status)))
+      ;; (debugf "; sh-job-display-summary* display-summary? ~s, port ~s, status ~s, id ~s, job ~s" (sh-job-display-summary?) port status id job)
       (if id
         (let ((preferred-mark (if (eqv? id (sh-preferred-job-id)) #\+ #\space)))
           (if pid
