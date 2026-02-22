@@ -197,76 +197,90 @@
 ;; If UTF-8b sequence is invalid, return #f instead of converted char.
 (define bytespan-ref/char
   (case-lambda
-    ((sp start end)
-      (assert* 'bytespan-ref/char (fx<=?* 0 start end (bytespan-length sp)))
-      (let ((offset (bytespan-peek-beg sp)))
-        (bytevector-char-ref (bytespan-peek-data sp) (fx+ start offset) (fx+ end offset))))
-    ((sp start)
-      (bytespan-ref/char sp start (bytespan-length sp)))))
+    ((bsp start end)
+      (assert* 'bytespan-ref/char (fx<=?* 0 start end (bytespan-length bsp)))
+      (let ((offset (bytespan-peek-beg bsp)))
+        (bytevector-char-ref (bytespan-peek-data bsp) (fx+ start offset) (fx+ end offset))))
+    ((bsp start)
+      (bytespan-ref/char bsp start (bytespan-length bsp)))))
 
 
 ;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx.
 ;; Return length in bytes of written UTF-8b sequence
-(define (bytespan-set/char! sp idx ch)
-  (assert* 'bytespan-set/char! (fx<=?* 0 idx (fx+ (bytespan-length sp) (char->utf8b-length ch))))
-  (bytevector-char-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
+(define (bytespan-set/char! bsp idx ch)
+  (assert* 'bytespan-set/char! (fx<=?* 0 idx (fx+ (bytespan-length bsp) (char->utf8b-length ch))))
+  (bytevector-char-set! (bytespan-peek-data bsp) (fx+ idx (bytespan-peek-beg bsp)) ch))
 
 ;; convert a character to UTF-8b sequence and prefix it to bytespan.
 ;; Return length in bytes of inserted UTF-8b sequence
-(define (bytespan-insert-left/char! sp ch)
-  (let ((new-len (fx+ (bytespan-length sp) (char->utf8b-length ch))))
-    (bytespan-resize-left! sp new-len)
-    (bytespan-set/char! sp 0 ch)))
+(define (bytespan-insert-left/char! bsp ch)
+  (let ((new-len (fx+ (bytespan-length bsp) (char->utf8b-length ch))))
+    (bytespan-resize-left! bsp new-len)
+    (bytespan-set/char! bsp 0 ch)))
 
 ;; convert a character to UTF-8b sequence and append it to bytespan.
 ;; Return length in bytes of inserted UTF-8b sequence
-(define (bytespan-insert-right/char! sp ch)
-  (let* ((old-len (bytespan-length sp))
+(define (bytespan-insert-right/char! bsp ch)
+  (let* ((old-len (bytespan-length bsp))
          (new-len (fx+ old-len (char->utf8b-length ch))))
-    (bytespan-resize-right! sp new-len)
-    (bytespan-set/char! sp old-len ch)))
+    (bytespan-resize-right! bsp new-len)
+    (bytespan-set/char! bsp old-len ch)))
 
-;; convert a string to UTF-8b sequences and append it to bytespan.
+
+;; convert a string to UTF-8b bytes and append them to bytespan.
 (define bytespan-insert-right/string!
-  (case-lambda
-    ((sp str start end)
-      (assert* 'bytespan-insert-right/string! (fx<=?* 0 start end (string-length str)))
-      (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
-      (do ((i start (fx1+ i)))
-          ((fx>=? i end))
-        (bytespan-insert-right/char! sp (string-ref str i))))
-    ((sp str)
-      (bytespan-insert-right/string! sp str 0 (string-length str)))))
+  (let ((c-string->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
+                                  (ptr fixnum fixnum ptr fixnum) ptr))
+        (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
+                                  (ptr fixnum fixnum) fixnum)))
+    (case-lambda
+      ((bsp str start end)
+        (assert* 'bytespan-insert-right/string! (fx<=?* 0 start end (string-length str)))
+        (case (fx- end start)
+          ((0)
+            (void))
+          ((1)
+            (bytespan-insert-right/char! bsp (string-ref str start)))
+          (else
+            (let* ((old-len (bytespan-length bsp))
+                   (byte-n  (c-string->utf8b-length str start end))
+                   (new-len (fx+ old-len byte-n)))
+              (bytespan-resize-right! bsp new-len)
+              (let* ((vec (bytespan-peek-data bsp))
+                     (pos (fx+ old-len (bytespan-peek-beg bsp)))
+                     (written-end (c-string->utf8b-append str start end vec pos)))
+                (unless (and (fixnum? written-end) (fx=? new-len written-end))
+                  (raise-utf8b-error 'bytespan-insert-right/string! new-len written-end)))))))
+      ((bsp str)
+        (bytespan-insert-right/string! bsp str 0 (string-length str))))))
 
 
-;; convert a charspan to UTF-8b sequences and append it to bytespan.
+;; convert a charspan to UTF-8b bytes and append them to bytespan.
 (define bytespan-insert-right/charspan!
   (case-lambda
-    ((sp csp start end)
+    ((bsp csp start end)
       (assert* 'bytespan-insert-right/charspan! (fx<=?* 0 start end (charspan-length csp)))
-      (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
-      (do ((i start (fx1+ i)))
-          ((fx>=? i end))
-        (bytespan-insert-right/char! sp (charspan-ref csp i))))
-    ((sp csp)
-      (bytespan-insert-right/charspan! sp csp 0 (charspan-length csp)))))
+      (let ((offset (charspan-peek-beg csp)))
+        (bytespan-insert-right/string! bsp (charspan-peek-data csp) (fx+ offset start) (fx+ offset end))))
+    ((bsp csp)
+      (bytespan-insert-right/charspan! bsp csp 0 (charspan-length csp)))))
 
 
 ;; convert a charspan to UTF-8b bytespan.
 (define charspan->utf8b
   (case-lambda
-    ((sp start end)
-      (let ((ret (make-bytespan 0)))
-        (bytespan-insert-right/charspan! ret sp start end)
-        ret))
-    ((sp)
-      (charspan->utf8b sp 0 (charspan-length sp)))))
+    ((csp start end)
+      (let ((bsp (make-bytespan 0)))
+        (bytespan-insert-right/charspan! bsp csp start end)
+        bsp))
+    ((csp)
+      (charspan->utf8b csp 0 (charspan-length csp)))))
 
 
 ;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
-(define (charspan->utf8b/0 sp)
-  (let ((ret (charspan->utf8b sp)))
-    (when (or (bytespan-empty? ret) (not (fxzero? (bytespan-ref-right/u8 ret))))
-      (bytespan-insert-right/u8! ret 0))
-    ret))
+(define (charspan->utf8b/0 csp)
+  (let ((bsp (charspan->utf8b csp)))
+    (when (or (bytespan-empty? bsp) (not (fxzero? (bytespan-ref-right/u8 bsp))))
+      (bytespan-insert-right/u8! bsp 0))
+    bsp))
 

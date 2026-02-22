@@ -24,7 +24,7 @@
                                            (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate!)
+    (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate! void)
     (only (scheme2k bootstrap)             assert* fx<=?* raise-assertf)
     (only (scheme2k containers bytevector) subbytevector-fill!)
     (only (scheme2k containers string)     string-iterate)
@@ -81,10 +81,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(define (raise-string->utf8b-error err)
+(define (raise-utf8b-error caller expected-end err)
   (if (char? err)
-    (raise-assertf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
-    (raise-assertf 'string->utf8b "invalid arguments")))
+    (raise-assertf caller "~s is not a valid unicode scalar value" (char->integer err))
+    (raise-assertf caller "invalid arguments, expecting conversion to end at byte position ~s, got ~s" expected-end err)))
 
 
 ;; convert a portion of a string to UTF-8b, and return bytevector containing the conversion result.
@@ -107,7 +107,7 @@
             (let* ((bvec      (make-bytevector (fx+ byte-n zeropad-byte-n)))
                    (written-n (c-string->utf8b-append str start end bvec 0)))
               (unless (and (fixnum? written-n) (fx=? byte-n written-n))
-                (raise-string->utf8b-error written-n))
+                (raise-utf8b-error 'string->utf8b byte-n written-n))
               (when (fx>? zeropad-byte-n 0)
                 (subbytevector-fill! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
               bvec))
@@ -129,6 +129,7 @@
                           1
                           0)))
     (string->utf8b str 0 len zeropad-len)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;     UTF-8b -> string functions    ;;;;;;;;;;;;;;;;;;;;;;;;;;

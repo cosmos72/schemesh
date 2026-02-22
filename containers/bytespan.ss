@@ -59,17 +59,25 @@
     (%make-bytespan 0 (bytevector-length vec) vec)))
 
 ;; create bytespan copying contents of specified bytevector
-(define (bytevector->bytespan vec)
-  (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))
+(define bytevector->bytespan
+  (case-lambda
+    ((vec)
+      (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))
+    ((vec start end)
+      (assert* 'bytevector->bytespan (fx<=?* 0 start end (bytevector-length vec)))
+      (let* ((n    (fx- end start))
+             (copy (make-bytevector n)))
+        (bytevector-copy! vec start copy 0 n)
+        (%make-bytespan 0 n copy)))))
 
 ;; view existing bytevector as bytespan
 (define bytevector->bytespan*
   (case-lambda
-    ((bv)
-      (%make-bytespan 0 (bytevector-length bv) bv))
-    ((bv start end)
-      (assert* 'bytevector->bytespan* (fx<=?* 0 start end (bytevector-length bv)))
-      (%make-bytespan start end bv))))
+    ((vec)
+      (%make-bytespan 0 (bytevector-length vec) vec))
+    ((vec start end)
+      (assert* 'bytevector->bytespan* (fx<=?* 0 start end (bytevector-length vec)))
+      (%make-bytespan start end vec))))
 
 ;; create a bytevector with initial size
 (define make-bytespan
@@ -90,7 +98,7 @@
   (let ((beg (bytespan-beg sp))
         (end (bytespan-end sp)))
     (if (fx>=? beg end)
-      #vu8(0) ;; allocated every time, can be modified
+      (make-bytevector 1 0)
       (let* ((n   (fx- end beg))
              (ret (make-bytevector (fx1+ n))))
         (bytevector-copy! (bytespan-vec sp) beg ret 0 n)
@@ -100,11 +108,15 @@
 ;; if possible, truncate bytespan to its length and view it as a bytevector.
 ;; otherwise convert it to bytevector as (bytespan->bytevector) does.
 (define (bytespan->bytevector*! sp)
-  (if (or (bytespan-empty? sp) (not (fxzero? (bytespan-beg sp))))
-    (bytespan->bytevector sp)
-    (let ((bv (bytespan-vec sp)))
-      (bytevector-truncate! bv (bytespan-end sp))
-      bv)))
+  (cond
+    ((bytespan-empty? sp)
+      #vu8())
+    ((fxzero? (bytespan-beg sp))
+      (let ((vec (bytespan-vec sp)))
+        (bytevector-truncate! vec (bytespan-end sp))
+        vec))
+    (else
+      (bytespan->bytevector sp))))
 
 (define (bytespan . u8vals)
   (list->bytespan u8vals))
@@ -141,14 +153,14 @@
   (case-lambda
     ((sp u8)
       (subbytevector-fill! (bytespan-vec sp) (bytespan-beg sp)
-                              (bytespan-end sp) u8))
+                           (bytespan-end sp) u8))
     ((sp start end u8)
       (assert* 'bytespan-fill! (fx<=?* 0 start end (bytespan-length sp)))
       (let ((offset (bytespan-beg sp)))
         (subbytevector-fill! (bytespan-vec sp) (fx+ start offset) (fx+ end offset) u8)))))
 
 (define (bytespan-copy src)
-  (let* ((n (bytespan-length src))
+  (let* ((n   (bytespan-length src))
          (dst (make-bytespan n)))
     (bytevector-copy! (bytespan-vec src) (bytespan-beg src)
                       (bytespan-vec dst) (bytespan-beg dst) n)
@@ -158,7 +170,7 @@
   (assert* 'bytespan-copy! (fx<=?* 0 src-start (fx+ src-start n) (bytespan-length src)))
   (assert* 'bytespan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (bytespan-length dst)))
   (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))
-                (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))
+                    (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))
 
 (define (bytespan=? left right)
   (or
@@ -166,12 +178,13 @@
     (and (eq?  (bytespan-vec left) (bytespan-vec right))
          (fx=? (bytespan-beg left) (bytespan-beg right))
          (fx=? (bytespan-end left) (bytespan-end right)))
-    (let* ((n1 (bytespan-length left))
-           (n2 (bytespan-length right))
-           (equal (fx=? n1 n2)))
-      (do ((i 0 (fx1+ i)))
-          ((or (not equal) (fx>=? i n1)) equal)
-        (set! equal (fx=? (bytespan-ref/u8 left i) (bytespan-ref/u8 right i)))))))
+    (let ((n (bytespan-length left)))
+      (and (fx=? n (bytespan-length right))
+           (do ((i 0 (fx1+ i)))
+               ((or (fx>=? i n)
+                    (not (fx=? (bytespan-ref/u8 left i)
+                               (bytespan-ref/u8 right i))))
+                (fx>=? i n)))))))
 
 (define (bytespan-reallocate-left! sp len cap)
   (assert* 'bytespan-reallocate-left! (fx<=? 0 len cap))
@@ -206,7 +219,7 @@
 ;; does NOT change the length
 (define (bytespan-reserve-left! sp len)
   (assert* 'bytespan-reserve-left! (fx>=? len 0))
-  (let ((vec (bytespan-vec sp))
+  (let ((vec      (bytespan-vec sp))
         (cap-left (bytespan-capacity-left sp)))
     (cond
       ((fx<=? len cap-left)
@@ -214,7 +227,7 @@
        (void))
       ((fx<=? len (bytevector-length vec))
         ;; bytevector is large enough, move elements to the back
-        (let* ((cap (bytespan-capacity sp))
+        (let* ((cap     (bytevector-length vec))
                (old-len (bytespan-length sp))
                (new-beg (fx- cap old-len)))
           (bytevector-copy! vec (bytespan-beg sp) vec new-beg old-len)
@@ -229,7 +242,7 @@
 ;; does NOT change the length
 (define (bytespan-reserve-right! sp len)
   (assert* 'bytespan-reserve-right! (fx>=? len 0))
-  (let ((vec (bytespan-vec sp))
+  (let ((vec       (bytespan-vec sp))
         (cap-right (bytespan-capacity-right sp)))
     (cond
       ((fx<=? len cap-right)
@@ -251,14 +264,21 @@
   (assert* 'bytespan-resize-left! (fx>=? len 0))
   (bytespan-reserve-left! sp len)
   (assert* 'bytespan-resize-left! (fx>=? (bytespan-capacity-left sp) len))
-  (bytespan-beg-set! sp (fx- (bytespan-end sp) len)))
+  (bytespan-beg-set! sp (fx- (bytespan-end sp) len))
+  (assert* 'bytespan-resize-left! (fx=? (bytespan-length sp) len)))
 
 ;; grow or shrink bytespan on the right (back), set length to n
 (define (bytespan-resize-right! sp len)
   (assert* 'bytespan-resize-right! (fx>=? len 0))
   (bytespan-reserve-right! sp len)
   (assert* 'bytespan-resize-right! (fx>=? (bytespan-capacity-right sp) len))
-  (bytespan-end-set! sp (fx+ len (bytespan-beg sp))))
+  ;;
+  ;; the equivalent (bytespan-end-set! sp (fx+ len (bytespan-beg sp)))
+  ;; seems to be sometimes miscompiled => assertion below sporadically fails
+  ;;
+  (let ((beg (bytespan-beg sp)))
+    (bytespan-end-set! sp (fx+ beg len))
+    (assert* 'bytespan-resize-right! (fx=? (bytespan-length sp) len))))
 
 (define (bytespan-insert-left/u8! sp . u8vals)
   (unless (null? u8vals)

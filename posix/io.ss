@@ -33,7 +33,7 @@
     (only (scheme2k containers list)        plist? plist-ref)
     (only (scheme2k containers string)      substring-move!)
     (only (scheme2k containers utf8b)       integer->char* utf8b->string utf8b->string-copy!
-                                            bytespan-insert-left/char! bytespan-insert-right/char!
+                                            bytespan-insert-left/char!
                                             bytespan-insert-right/string! bytespan-ref/char)
     (only (scheme2k conversions)            text->string)
     (only (scheme2k posix fd)               fd-close fd-seek fd-read fd-write file->fd))
