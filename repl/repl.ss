@@ -26,10 +26,12 @@
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
           sh-eval-parsectx/print* sh-eval-string/print*)
   (import
-    (rnrs)
+    (except (rnrs)                   current-input-port current-output-port current-error-port)
     (only (rnrs mutable-pairs) set-car!)
-    (only (chezscheme)               abort base-exception-handler break-handler bytevector-truncate! console-input-port console-output-port
-                                     console-error-port default-exception-handler display-condition eval exit-handler fx1+ include inspect
+    (only (chezscheme)               abort base-exception-handler break-handler bytevector-truncate!
+                                     console-input-port console-output-port console-error-port
+                                     current-input-port current-output-port current-error-port
+                                     default-exception-handler display-condition eval exit-handler fx1+ include inspect
                                      make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
