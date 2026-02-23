@@ -173,7 +173,7 @@
   (when (fx>? n 0)
     (let ((n0 (fxmin n (string-length str))))
       (put-string out str 0 n0)
-      (put-spaces out (fx- n n0)))))
+      (put-pad out str (fx- n n0)))))
 
 
 (define (put-spaces out n)
