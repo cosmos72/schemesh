@@ -62,18 +62,23 @@
 ;; easy wrapper for (make-dir-reader)
 (define dir
   (case-lambda
-    (()     (make-dir-reader (current-dir)))
-    ((path) (make-dir-reader path))))
+    (()           make-dir-reader (current-dir))
+    ((path)      (make-dir-reader path))
+    ((path opts) (make-dir-reader path opts))))
 
 
 ;; easy wrapper for multiple (dir)
-(define (dirs paths opts)
-  (let* ((opts (if (or (null? paths) (null? (cdr paths)))
-                 opts
-                 ;; two or more paths => add each path as prefix
-                 (fxior opts (dir-reader-options dir-path-as-prefix))))
-         (constructor (lambda (path) (make-dir-reader path opts))))
-    (apply readers (map constructor paths))))
+(define dirs
+  (case-lambda
+    ((paths opts)
+      (let* ((opts (if (or (null? paths) (null? (cdr paths)))
+                     opts
+                     ;; two or more paths => add each path as prefix
+                     (fxior opts (dir-reader-options dir-path-as-prefix))))
+             (constructor (lambda (path) (make-dir-reader path opts))))
+        (apply readers (map constructor paths))))
+    ((paths)
+      (dirs paths (dir-reader-options)))))
 
 
 ;; easy wrapper for (port-eof?) (reader-eof?) (writer-eof?)
@@ -484,6 +489,27 @@
 ;; additional shell builtins
 
 
+(define dir-list-dirs-not-their-contents 4)
+
+;; used by builtin-dir
+(define (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?)
+  (let %loop ((paths paths) (opts opts) (l '()))
+    (if (null? paths)
+      (apply readers (reverse! l))
+      (let* ((path (car paths))
+             (stat (file-stat path '(symlinks)))
+             (rx   (cond
+                     (list-dirs-not-their-contents?
+                       (unless (dir-entry? stat)
+                         (raise-c-errno 'file-stat 'lstat stat path))
+                       (datum-reader stat))
+                     ((and (dir-entry? stat) (not (eq? 'dir (dir-entry-type stat))))
+                       (datum-reader stat))
+                     (else
+                       (make-dir-reader path opts)))))
+        (%loop (cdr paths) opts (cons rx l))))))
+      
+
 ;; the "dir" builtin: display content of specified directory,
 ;; or current directory by default
 ;;
@@ -492,11 +518,20 @@
   (let-values (((paths options) (split-args-and-options prog-and-args)))
     ;; if no paths specified, list current directory
     (let* ((paths (if (null? paths) (list (sh-cwd)) paths))
+
            ;; hide files starting with "." by default. option -a shows them
-           (opts (if (some-string-contains? options "a")
-                   (dir-reader-options)
-                   (dir-reader-options dir-hide-dot-files)))
-           (r (dirs paths opts))
+           (opts (fxior
+                   (if (some-string-contains? options "a")
+                     (dir-reader-options)
+                     (dir-reader-options dir-hide-dot-files))
+                   (if (null? (cdr paths))
+                     (dir-reader-options)
+                     ;; two or more paths => add each path as prefix
+                     (dir-reader-options dir-path-as-prefix))))
+
+           (list-dirs-not-their-contents? (some-string-contains? options "d"))
+
+           (r (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?))
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (r (cond
                 ((some-string-contains? options "v")

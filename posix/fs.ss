@@ -9,7 +9,7 @@
 
 (library (scheme2k posix fs (0 9 3))
   (export
-      make-dir-entry  dir-entry  dir-entry?
+      make-dir-entry  dir-entry  dir-entry?  dir-entry-type
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
 
       directory-list directory-list-type directory-sort!
@@ -100,7 +100,7 @@
     (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
     (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
     path                ; directory being read
-    opts)               ; fixnum, bitwise-or of 1 = dir-hide-dot-files, 2 = dir-path-as-prefix
+    opts)               ; fixnum, bitwise-or of: 1 = dir-hide-dot-files, 2 = dir-path-as-prefix
   (protocol
     (lambda (args->new)
       (lambda (handle path options)

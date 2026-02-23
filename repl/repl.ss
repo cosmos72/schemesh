@@ -48,8 +48,8 @@
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k os)              make-process-reader)
           (schemesh parser)
-    (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all)
-    (only (scheme2k posix fs)        dir-reader-options file-type make-dir-reader)
+    (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
+    (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
           (scheme2k posix signal)
     (only (scheme2k posix status)    ok)
           (scheme2k posix tty)
@@ -491,9 +491,10 @@ Type ? or help for this help.
 
   (let ((t (sh-builtins-help)))
     (hashtable-set! t "dir"  (string->utf8 " [OPTION]... [PATH]...
-    display specified file or directory, or current directory by default.
+    display specified files and directories, or current directory by default.
     Options:
       -a            also display entries starting with .
+      -d            display directories themselves, not their contents
       -l            display more details for each entry
       -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
