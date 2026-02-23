@@ -63,11 +63,17 @@
 (define dir
   (case-lambda
     (()     (make-dir-reader (current-dir)))
-    ((path) (make-dir-reader path))
-    ((paths opts)
-      (let ((paths (if (null? paths) (list (current-dir)) paths))
-            (constructor (lambda (path) (make-dir-reader path opts))))
-         (apply readers (map constructor paths))))))
+    ((path) (make-dir-reader path))))
+
+
+;; easy wrapper for multiple (dir)
+(define (dirs paths opts)
+  (let* ((opts (if (or (null? paths) (null? (cdr paths)))
+                 opts
+                 ;; two or more paths => add each path as prefix
+                 (fxior opts (dir-reader-options dir-path-as-prefix))))
+         (constructor (lambda (path) (make-dir-reader path opts))))
+    (apply readers (map constructor paths))))
 
 
 ;; easy wrapper for (port-eof?) (reader-eof?) (writer-eof?)
@@ -484,15 +490,13 @@
 ;; As all builtins do, must return job status.
 (define (builtin-dir job prog-and-args options)
   (let-values (((paths options) (split-args-and-options prog-and-args)))
-    (let* ((opts (fxior
-                   ;; hide files starting with "." by default. option -a shows them
-                   (if (some-string-contains? options "a")
-                    (dir-reader-options)
-                    (dir-reader-options dir-hide-dot-files))
-                   (if (or (null? paths) (null? (cdr paths)))
-                     (dir-reader-options)
-                     (dir-reader-options dir-path-as-prefix)))) ;; two or more paths => add each path as prefix
-           (r (dir paths opts))
+    ;; if no paths specified, list current directory
+    (let* ((paths (if (null? paths) (list (sh-cwd)) paths))
+           ;; hide files starting with "." by default. option -a shows them
+           (opts (if (some-string-contains? options "a")
+                   (dir-reader-options)
+                   (dir-reader-options dir-hide-dot-files)))
+           (r (dirs paths opts))
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (r (cond
                 ((some-string-contains? options "v")

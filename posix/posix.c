@@ -47,12 +47,11 @@
 #include <sys/socket.h>   /* getaddrinfo(), socket(), socketpair(), AF_*, SOCK_* */
 #include <sys/stat.h>
 #include <sys/stat.h>  /* fstatat() */
-#include <sys/types.h> /* ... */
+#include <sys/types.h> /* fstatat() */
 #include <sys/un.h>    /* struct sockaddr_un */
 #include <sys/wait.h>  /* waitpid(), W... */
 #include <time.h>
-#include <time.h> /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
-#include <unistd.h>
+#include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
 #include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
@@ -799,6 +798,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_directory_list", &c_directory_list);
   Sregister_symbol("c_file_delete", &c_file_delete);
   Sregister_symbol("c_file_rename", &c_file_rename);
+  Sregister_symbol("c_file_stat", &c_file_stat);
   Sregister_symbol("c_file_type", &c_file_type);
 
   Sregister_symbol("c_thread_count", &c_thread_count);

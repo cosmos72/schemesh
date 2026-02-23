@@ -124,17 +124,20 @@
 ;; if proc-on-close is #t, attempts to close returned port are ignored
 (define textual-port-lambda->port
   (case-lambda
-    ((name port-lambda dir proc-on-close proc-before-write out-buffer-size)
+    ((name port-lambda dir proc-on-close proc-before-read proc-before-write out-buffer-size)
       (assert* 'textual-port-lambda->port (string? name))
       (assert* 'textual-port-lambda->port (procedure? port-lambda))
       (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
       (unless (boolean? proc-on-close)
         (assert* 'textual-port-lambda->port (procedure? proc-on-close))
         (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
+      (when proc-before-read
+        (assert* 'textual-port-lambda->port (procedure? proc-before-read))
+        (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-before-read))))
       (when proc-before-write
         (assert* 'textual-port-lambda->port (procedure? proc-before-write))
         (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-before-write))))
-      (let ((handler (textual-port-lambda-handler name port-lambda proc-on-close proc-before-write)))
+      (let ((handler (textual-port-lambda-handler name port-lambda proc-on-close proc-before-read proc-before-write)))
         (case dir
           ((read)
             (make-input-port handler (make-string 0)))
@@ -145,21 +148,21 @@
           (else
             (assert* 'textual-port-lambda->port (memq dir '(read 'write rw)))))))
 
-    ((name port-lambda dir proc-on-close proc-before-write)
-      (textual-port-lambda->port name port-lambda dir proc-on-close proc-before-write 4096))
+    ((name port-lambda dir proc-on-close proc-before-read proc-before-write)
+      (textual-port-lambda->port name port-lambda dir proc-on-close proc-before-read proc-before-write 4096))
 
     ((name port-lambda dir proc-on-close)
-      (textual-port-lambda->port name port-lambda dir proc-on-close #f))
+      (textual-port-lambda->port name port-lambda dir proc-on-close #f #f))
 
     ((name port-lambda dir)
-      (textual-port-lambda->port name port-lambda dir #f #f))
+      (textual-port-lambda->port name port-lambda dir #f #f #f))
 
     ((name port-lambda)
-      (textual-port-lambda->port name port-lambda 'rw #f #f))))
+      (textual-port-lambda->port name port-lambda 'rw #f #f #f))))
 
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
-(define (textual-port-lambda-handler name proc proc-on-close proc-before-write)
+(define (textual-port-lambda-handler name proc proc-on-close proc-before-read proc-before-write)
   ;; return a closure
   (case-lambda
     ((msg p)
@@ -195,6 +198,8 @@
         ((port-name)
           name)
         ((read-char)
+          (when proc-before-read
+            (proc-before-read))
           (read-char (proc)))
         (else
           (raise-bad-msg msg))))
@@ -232,6 +237,8 @@
       ;; (debugf "redir port handler for ~s: (~s ~s ~s ~s)" (proc) msg p str len)
       (case msg
         ((block-read)
+          (when proc-before-read
+            (proc-before-read))
           (get-string-some! (proc) str 0 len))
         ((block-write)
           (when proc-before-write

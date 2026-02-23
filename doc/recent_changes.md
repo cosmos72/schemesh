@@ -13,6 +13,8 @@
 
 ### git main branch
 
+* add type `dir-entry` and function `(dir)` returning a reader on specified directory
+* and type `process-entry` and function `(proc)` returning a reader on system processes
 * add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
 * add types `reader` and `writer`
@@ -23,6 +25,7 @@
 * add type `table-writer`
 * add types `wire-reader` and `wire-writer`
 * add library `(scheme2k reflect)` with functions for simplifing reflection
+* add buffering to `(console-input-port)` `(console-output-port)` and `(console-error-port)`
 * pretty-print types `time` and `date` and add convenience functions to create and convert them
 * rename functions `(wire-get)` -> `(wire-get-from-bytevector)` and `(wire-put)` -> `(wire-put-to-bytespan)`
 * add function `(wire-get-from-bytespan)`

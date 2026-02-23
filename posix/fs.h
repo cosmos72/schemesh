@@ -208,6 +208,49 @@ static void fillTime(ptr vec, unsigned i, unsigned flag, const struct timespec* 
 }
 #endif /* __APPLE__ */
 
+/**
+ * fill Scheme vector with file stat information.
+ *
+ * Used by c_dir_get() and c_file_stat()
+ */
+static e_type file_stat_to_vec(const struct stat* st, e_type type, ptr vec, unsigned flags) {
+  if (flags & e_dir_flag_type) {
+    if (type == e_type_unknown) {
+      type = modeToFileType(st->st_mode);
+    }
+    Svector_set(vec, e_vec_type, Sunsigned32(type));
+  }
+  if (flags & e_dir_flag_size) {
+    Svector_set(vec, e_vec_size, Sunsigned64(st->st_size));
+  }
+#ifdef __APPLE__
+  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, st->st_mtime);
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, st->st_atime);
+  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, st->st_ctime);
+#else
+  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, &(st->st_mtim));
+  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, &(st->st_atim));
+  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, &(st->st_ctim));
+#endif
+
+  if (flags & e_dir_flag_mode) {
+    Svector_set(vec, e_vec_mode, Sunsigned32(st->st_mode & 07777));
+  }
+  if (flags & e_dir_flag_uid) {
+    Svector_set(vec, e_vec_uid, Sinteger(st->st_uid));
+  }
+  if (flags & e_dir_flag_gid) {
+    Svector_set(vec, e_vec_gid, Sinteger(st->st_gid));
+  }
+  if (flags & e_dir_flag_inode) {
+    Svector_set(vec, e_vec_inode, Sunsigned64(st->st_ino));
+  }
+  if (flags & e_dir_flag_num_links) {
+    Svector_set(vec, e_vec_num_links, Sunsigned64(st->st_nlink));
+  }
+  return type;
+}
+
 static ptr c_dir_open(ptr path) {
   DIR*        dir;
   const char* path0;
@@ -294,16 +337,8 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   }
 
   /* fstatat() is successful, fill all fields */
+  type = file_stat_to_vec(&st, type, vec, flags);
 
-  if (flags & e_dir_flag_type) {
-    if (type == e_type_unknown) {
-      type = modeToFileType(st.st_mode);
-    }
-    Svector_set(vec, e_vec_type, Sunsigned32(type));
-  }
-  if (flags & e_dir_flag_size) {
-    Svector_set(vec, e_vec_size, Sunsigned64(st.st_size));
-  }
   if ((flags & e_dir_flag_target)) {
     ptr target;
     if (type != e_type_lnk) {
@@ -320,31 +355,7 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     }
     Svector_set(vec, e_vec_target, target);
   }
-#ifdef __APPLE__
-  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, st.st_mtime);
-  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, st.st_atime);
-  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, st.st_ctime);
-#else
-  fillTime(vec, e_vec_modified, flags & e_dir_flag_modified, &(st.st_mtim));
-  fillTime(vec, e_vec_accessed, flags & e_dir_flag_accessed, &(st.st_atim));
-  fillTime(vec, e_vec_ino_changed, flags & e_dir_flag_ino_changed, &(st.st_ctim));
-#endif
 
-  if (flags & e_dir_flag_mode) {
-    Svector_set(vec, e_vec_mode, Sunsigned32(st.st_mode & 07777));
-  }
-  if (flags & e_dir_flag_uid) {
-    Svector_set(vec, e_vec_uid, Sinteger(st.st_uid));
-  }
-  if (flags & e_dir_flag_gid) {
-    Svector_set(vec, e_vec_gid, Sinteger(st.st_gid));
-  }
-  if (flags & e_dir_flag_inode) {
-    Svector_set(vec, e_vec_inode, Sunsigned64(st.st_ino));
-  }
-  if (flags & e_dir_flag_num_links) {
-    Svector_set(vec, e_vec_num_links, Sunsigned64(st.st_nlink));
-  }
   return 2;
 }
 
@@ -570,6 +581,63 @@ static ptr c_file_type(ptr bytevector0_path, int keep_symlinks) {
     return Sfalse;
   }
   return Sinteger(-err);
+}
+
+/**
+ * Return information about a filesystem path.
+ * bytevector0_path must be a 0-terminated bytevector.
+ *
+ * If file exists, fill vec with info and return Sfixnum(0).
+ * If file does not exist, return Sfalse.
+ * On errors, return Sinteger(c_errno())
+ */
+static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks, ptr vec) {
+  struct stat st;
+  const char* path0;
+  iptr        path_len;
+  iptr        vec_n;
+  unsigned    flags;
+  e_type      type;
+  if (!Sbytevectorp(bytevector0_path) ||                                              /**/
+      (path_len = Sbytevector_length(bytevector0_path)) <= 0 ||                       /**/
+      (path0 = (const char*)Sbytevector_data(bytevector0_path))[path_len - 1] != 0 || /**/
+      !Svectorp(vec)) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  if ((vec_n = Svector_length(vec)) > e_vec_n) {
+    vec_n = e_vec_n;
+  }
+  // unset flags that require access beyond the end of vec
+  flags = ((1 << vec_n) - 1);
+
+  if (keep_symlinks ? lstat(path0, &st) : stat(path0, &st) < 0) {
+    int err = c_errno();
+    return err == -ENOENT ? Sfalse : Sinteger(err);
+  }
+
+  /* file name can be arbitrary bytes, not only valid UTF-8 */
+  if (flags & e_dir_flag_name) {
+    Svector_set(vec, e_vec_name, scheme2k_Sstring_utf8b(path0, path_len - 1));
+  }
+  type = file_stat_to_vec(&st, e_type_unknown, vec, flags);
+
+  if ((flags & e_dir_flag_target)) {
+    ptr target;
+    if (type != e_type_lnk) {
+      target = Sfalse; /* not a symlink */
+    } else {
+      char    buf[PATH_MAX];
+      ssize_t len = readlink(path0, buf, sizeof(buf));
+      if (len <= 0) {
+        target = Svoid; /* failed to read symlink */
+      } else {
+        /* link target can be arbitrary bytes, not only valid UTF-8 */
+        target = scheme2k_Sstring_utf8b(buf, len);
+      }
+    }
+    Svector_set(vec, e_vec_target, target);
+  }
+  return Sfixnum(0);
 }
 
 typedef enum { o_symlinks = 1, o_append_slash = 2, o_bytes = 4, o_types = 8 } o_dir_options;

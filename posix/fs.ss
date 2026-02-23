@@ -13,7 +13,7 @@
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
 
       directory-list directory-list-type directory-sort!
-      file-delete file-rename file-type mkdir
+      file-delete file-rename file-stat file-type mkdir
       gid->groupname uid->username)
   (import
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
@@ -86,6 +86,9 @@
     (%make-dir-entry name type size link modified accessed inode-changed mode user group uid gid inode nlink)))
 
 
+(define (make-dir-entry-vector)
+  (make-vector 12 (void)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; streaming API
 
@@ -102,7 +105,7 @@
     (lambda (args->new)
       (lambda (handle path options)
         ((args->new %dir-reader-get %dir-reader-skip %dir-reader-close)
-          handle (make-vector 12 (void)) #f #f path options))))
+          handle (make-dir-entry-vector) #f #f path options))))
   (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
@@ -229,35 +232,47 @@
 
 
 (define (if-uid->username rx uid)
-  (if (and (integer? uid) (exact? uid))
-    ;; use short-lived cache uid -> username stored in dir-reader
-    ;; reduces syscall clutter
-    (let ((cache (or (dir-reader-uid-cache rx)
-                     (let ((ht (make-eqv-hashtable)))
-                       (dir-reader-uid-cache-set! rx ht)
-                       ht))))
-      (or (hashtable-ref cache uid #f)
-          (let* ((xname (uid->username uid))
-                 (name  (if (string? xname) (string->immutable-string xname) (void))))
-            (hashtable-set! cache uid name) ;; also cache lookup failures
-            name)))
-    (void)))
+  (cond
+    ((not (and (integer? uid) (exact? uid)))
+      ;; no uid => no username
+      (void))
+    ((not rx)
+      ;; no rx => convert uid to username without any cache
+      (uid->username uid))
+    (else
+      ;; use short-lived cache uid -> username stored in dir-reader
+      ;; reduces syscall clutter
+      (let ((cache (or (dir-reader-uid-cache rx)
+                       (let ((ht (make-eqv-hashtable)))
+                         (dir-reader-uid-cache-set! rx ht)
+                         ht))))
+        (or (hashtable-ref cache uid #f)
+            (let* ((xname (uid->username uid))
+                   (name  (if (string? xname) (string->immutable-string xname) (void))))
+              (hashtable-set! cache uid name) ;; also cache lookup failures
+              name))))))
 
 
 (define (if-gid->groupname rx gid)
-  (if (and (integer? gid) (exact? gid))
-    ;; use short-lived cache gid -> groupname stored in dir-reader
-    ;; reduces syscall clutter
-    (let ((cache (or (dir-reader-gid-cache rx)
-                     (let ((ht (make-eqv-hashtable)))
-                       (dir-reader-gid-cache-set! rx ht)
-                       ht))))
-      (or (hashtable-ref cache gid #f)
-          (let* ((xname (gid->groupname gid))
-                 (name  (if (string? xname) (string->immutable-string xname) (void))))
-            (hashtable-set! cache gid name) ;; also cache lookup failures
-            name)))
-    (void)))
+  (cond
+    ((not (and (integer? gid) (exact? gid)))
+      ;; no gid => no groupname
+      (void))
+    ((not rx)
+      ;; no rx => convert gid to groupname without any cache
+      (gid->groupname gid))
+    (else
+      ;; use short-lived cache gid -> groupname stored in dir-reader
+      ;; reduces syscall clutter
+      (let ((cache (or (dir-reader-gid-cache rx)
+                       (let ((ht (make-eqv-hashtable)))
+                         (dir-reader-gid-cache-set! rx ht)
+                         ht))))
+        (or (hashtable-ref cache gid #f)
+            (let* ((xname (gid->groupname gid))
+                   (name  (if (string? xname) (string->immutable-string xname) (void))))
+              (hashtable-set! cache gid name) ;; also cache lookup failures
+              name))))))
 
 
 (define (path-append a b)
@@ -268,11 +283,12 @@
 
 (define (vector->dir-entry rx vec)
   (let ((name (vector-ref vec 0)))
-    (if (and (dir-hide-dot-files? (dir-reader-opts rx))
+    (if (and rx
+             (dir-hide-dot-files? (dir-reader-opts rx))
              (string-prefix? name "."))
       #f ; skip this dir entry, it starts with a dot
       (make-dir-entry
-        (if (dir-path-as-prefix? (dir-reader-opts rx))
+        (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
           (path-append (dir-reader-path rx) name)
           name)
         (if-fixnum->type   (vector-ref vec 1))
@@ -442,6 +458,37 @@
               (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))
       ((path)
         (file-type path '())))))
+
+
+;; Check existence and retrieve information for filesystem path.
+;; Mandatory first argument path must be a bytevector, string, bytespan or charspan.
+;; Second optional argument options must be a list containing zero or more:
+;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
+;;   'symlinks - if path refers to a symlink, return info about the symlink itself.
+;;               by default, return info about the file it points to.
+;;
+;; If file exists, return a dir-entry containing information about it.
+;; Return #f if file does not exist.
+;; Raise condition on errors, unless options contain 'catch
+(define file-stat
+  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr int ptr) ptr)))
+    (case-lambda
+      ((path options)
+        (let* ((vec       (make-dir-entry-vector))
+               (symlinks? (memq 'symlinks options))
+               (err       (c-file-stat (text->bytevector0 path) (if symlinks? 1 0) vec)))
+          (cond
+            ((and (fixnum? err) (fx>=? err 0))
+              (vector->dir-entry #f vec))
+            ((not err)
+              #f) ; path does not exist
+            ((memq 'catch options)
+              (if (fixnum? err) err c-errno-einval))
+            (else
+              (raise-c-errno 'file-stat (if symlinks? 'lstat 'stat) err path)))))
+      ((path)
+        (file-stat path '())))))
+
 
 
 (define (%find-and-convert-text-option caller options key)

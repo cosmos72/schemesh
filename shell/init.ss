@@ -52,14 +52,31 @@
   (c-environ->sh-global-env)
 
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
-  ;; with minimally buffered UTF-8b textual input/output ports that can be interrupted.
+  ;; with buffered UTF-8b textual input/output ports that can be interrupted
   ;;
   ;; They are NOT ordered with (current-input-port) (current-output-port) (current-error-port)
   ;; because we want to be able to use (console-...-port) from interrupts, which may happen during I/O
   ;; and scheme ports are NOT reentrant.
-  (console-input-port  (fd->port 0 'rw 'textual (buffer-mode line)))
-  (console-output-port (fd->port 1 'rw 'textual (buffer-mode line)))
-  (console-error-port  (fd->port 2 'rw 'textual (buffer-mode line)))
+  ;;
+  ;; Sanity: ignore attempts to close any of (console-input-port) (console-output-port) (console-error-port)
+  ;;
+  ;;         Implemented via (textual-port-lambda->port) that internally uses Chez Scheme (make-[input][output]-port)
+  ;;           and completely replaces the logic executed by (close-port).
+  ;;         Instead (fd->port) internally uses R6RS (make-custom-textual-[input][output]-port):
+  ;;           (fd->port) can ignore (close-port) requests, but Chez Scheme runtime still marks the port as closed.
+  (let* ((port0 (fd->port 0 'rw 'textual (buffer-mode block) "console-input-port"  #f))
+         (port1 (fd->port 1 'rw 'textual (buffer-mode block) "console-output-port" #f))
+         (port2 (fd->port 2 'rw 'textual (buffer-mode block) "console-error-port"  #f))
+         (out   (textual-port-lambda->port "console-output-port" (lambda () port1) 'rw #t #f #f 8192))
+         (err   (textual-port-lambda->port "console-error-port"  (lambda () port2) 'rw #t #f #f 128))
+         ;; Chez scheme (debug) and (inspect) do not flush any output port before reading user input.
+         ;; => intercept reading from (console-input-port), and flush (console-output-port) and (console-error-port)
+         ;;    before proceeding with the read.
+         (proc-before-read (lambda () (flush-output-port out) (flush-output-port err))))
+
+    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) 'rw #t proc-before-read #f 128))
+    (console-output-port out)
+    (console-error-port  err))
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
   ;; with buffered binary input/output ports that can be interrupted and honor current job redirections.
@@ -82,7 +99,7 @@
   ;; The alternative is calling (current-...-port some-port) i.e. installing a port each time the current job changes,
   ;; which requires eagerly creating textual i/o ports for each job: expensive both in RAM and CPU.
   ;;
-  ;; sanity: ignore attempts to close (current-input-port) (current-output-port) (current-error-port)
+  ;; Sanity: ignore attempts to close any of (current-input-port) (current-output-port) (current-error-port)
   (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-port #f 0 'textual)) 'rw #t))
   (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-port #f 1 'textual)) 'rw #t))
   (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-port #f 2 'textual)) 'rw #t))
