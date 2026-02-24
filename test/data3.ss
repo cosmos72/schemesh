@@ -80,7 +80,7 @@
                 (list-reader '(a b))
                 (vector-reader '#(#\c))))               (1 2 3 a b #\c)
 
-  ;; -------------------- filter-reader, list-reader, range-reader, where ----------------------------
+  ;; ------------- filter-reader, datum-reader, list-reader, range-reader, where -------------------
 
   (let* ((r (list-reader '(1 2 3 4 5)))
          (f (where r (fxodd? @@))))
@@ -92,11 +92,11 @@
       (list obj1 obj2 obj3 ok4)))                       (1 3 5 #f)
 
 
-  (let ((r (list-reader '(1 2 3 4 5))))
-    (all (first (skip r 2) 2)))                         (3 4)
+  (let ((r (datum-reader 1 2 3 4 5)))
+    (all (first (skip-first r 2) 2)))                   (3 4)
 
 
-  ;; ------------------ for-reader ---------------------------------------------
+  ;; ------------------ for-reader -----------------------------------------------------------------
 
   (let ((l '()))
     (for-reader ((obj (==> list-reader '(1 2 3 4 5) => where (fxodd? @@))))

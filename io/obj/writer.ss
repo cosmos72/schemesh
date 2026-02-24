@@ -21,6 +21,10 @@
   (nongenerative %writer-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
+;; guardian to close writers before garbage collecting them
+(define writer-guardian (make-guardian))
+
+
 ;; called internally by make-writer: create and return a writer
 (define (%make-writer new put-proc close-proc)
   (assert* 'make-writer (procedure? put-proc))
@@ -29,7 +33,14 @@
     (assert* 'make-writer (procedure? close-proc))
     (assert* 'make-writer (logbit? 1 (procedure-arity-mask close-proc))))
 
-  (new put-proc (box (or close-proc void1)) (void)))
+  (let ((writer (new put-proc (box (or close-proc void1)) (void))))
+    ;; if close-proc is specified, register the newly created writer into guardian
+    ;; so that close-proc will be called before the writer is garbage collected,
+    ;; in case the user forgets to manually close it
+    (when close-proc
+      (writer-guardian writer)
+      writer)))
+
 
 
 ;; return #t if writer was closed,
@@ -132,9 +143,4 @@
          (%vector-writer-close ;; name shown when displaying the closure
            (lambda (tx)
              (list-reverse->vector l))))
-    ;; do NOT register writer into a guardian.
-    ;; Reason: garbage collection may run during I/O, and we would use the guardian
-    ;; to close writers before garbage collecting them.
-    ;; But closing a guardian may perform I/O (example: json-writer needs to write the final "]")
-    ;; which is not allowed during I/O: scheme ports are NOT reentrant.
     (make-writer %vector-writer-put %vector-writer-close)))

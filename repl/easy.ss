@@ -84,9 +84,25 @@
 ;; easy wrapper for (port-eof?) (reader-eof?) (writer-eof?)
 (define (eof? obj)
   (cond
-    ((port? obj)        (port-eof? obj))
+    ((port? obj)    (port-eof?   obj))
     ((reader? obj)  (reader-eof? obj))
     ((writer? obj)  (writer-eof? obj))))
+
+
+(define (file-stat/symlinks path)
+  (file-stat path '(symlinks)))
+
+
+;; easy wrapper for (file-stat)
+(define (file path)
+  (let ((stat (file-stat/symlinks path)))
+    (datum-reader stat)))
+
+
+;; easy wrapper for multiple (file-stat)
+(define (files . paths)
+  (let ((stats (map file-stat/symlinks paths)))
+    (list-reader stats)))
 
 
 ;; easy wrapper for (fd-read) (get-bytevector-some) (get-line) (reader-get)
@@ -145,14 +161,14 @@
 ;; always returns one value:
 ;;   #t if one element was skipped,
 ;;   or #f if reader is exhausted
-(define (skip! from)
+(define (skip from)
   (cond
     ((and (port? from) (textual-port? from))
       (not (eof-object? (get-line from))))
     ((reader? from)
       (reader-skip from))
     (else
-      (raise-errorf 'skip! "unsupported reader: ~s" from))))
+      (raise-errorf 'skip "unsupported reader: ~s" from))))
 
 
 ;; iterate (get from) then (put to) until from is exhausted
@@ -198,10 +214,12 @@
 ;; easy wrapper for (make-json-reader)
 (define from-json
   (case-lambda
+    ((in close-in?)
+      (make-json-reader in close-in?))
     ((in)
-      (make-json-reader in))
+      (make-json-reader in #f))
     (()
-      (make-json-reader (sh-port #f 0 'binary)))))
+      (make-json-reader (sh-port #f 0 'binary) #f))))
 
 
 ;; easy wrapper for (list-reader)
@@ -225,16 +243,45 @@
 ;; easy wrapper for (make-wire-reader)
 (define from-wire
   (case-lambda
+    ((in close-in?)
+      (make-wire-reader in close-in?))
     ((in)
-      (make-wire-reader in))
+      (make-wire-reader in #f))
     (()
-      (make-wire-reader (sh-port #f 0 'binary)))))
+      (make-wire-reader (sh-port #f 0 'binary) #f))))
 
 
-;; create a reader that autodetects protocol upon the first call to (reader-get)
-;; FIXME: currently always creates a json-reader
-(define (from-stdin)
-  (from-json))
+;; Dispatch to one of (from-...) functions depending on options
+;;
+;; If no options, create a reader that autodetects protocol upon the first call to (reader-get)
+;; FIXME: currently creates a json-reader
+(define from-port
+  (case-lambda
+    ((in close-in? options)
+      (cond
+        ((some-string-is? options "--from-json")  (from-json in close-in?))
+        ((some-string-is? options "--from-wire")  (from-wire in close-in?))
+        (else                                     (from-port in close-in?))))
+    ((in close-in?)
+      ;; FIXME: autodetect protocol upon the first call to (reader-get)
+      (from-json in close-in?))
+    ((in)
+      (from-port in #f))))
+
+
+;; Dispatch to one of (from-...) functions depending on options
+;;
+;; If no options, create a reader that autodetects protocol upon the first call to (reader-get)
+;; FIXME: currently creates a json-reader
+(define from-stdin
+  (case-lambda
+    ((options)
+      (cond
+        ((some-string-is? options "--from-json")  (from-json))
+        ((some-string-is? options "--from-wire")  (from-wire))
+        (else                                     (from-stdin))))
+    (()
+      (from-json)))) ;; FIXME: autodetect protocol upon the first call to (reader-get)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -244,65 +291,56 @@
 ;; easy wrapper for (make-wire-writer)
 (define to-json
   (case-lambda
-    ((from out)
-      (copy-all/close from (make-json-writer out)))
-    ((from)
-      (to-json from (sh-port #f 1 'binary)))))
+    ((rx out close-out?)
+      (copy-all/close rx (make-json-writer out close-out?)))
+    ((rx out)
+      (copy-all/close rx (make-json-writer out #f)))
+    ((rx)
+      (to-json rx (sh-port #f 1 'binary)))))
 
 
 ;; easy wrapper for (all)
-(define (to-list from)
-  (with-sh-closable ((from from))
-    (all from)))
+(define (to-list rx)
+  (with-sh-closable ((rx rx))
+    (all rx)))
 
 
 ;; easy wrapper for (make-queue-writer)
-(define (to-queue from)
-  (copy-all/close from (make-queue-writer)))
+(define (to-queue rx)
+  (copy-all/close rx (make-queue-writer)))
 
 
 ;; easy wrapper for (make-table-writer)
 (define to-table
   (case-lambda
-    ((from out theme colors)
-      (copy-all/close from (make-table-writer out #f theme colors #f)))
-    ((from out theme)
-      (to-table from out theme #f))
-    ((from out)
-      (to-table from out 'default #f))
-    ((from)
-      (to-table from (sh-port #f 1 'textual) 'default (eq? 'tty (fd-type (sh-fd 1)))))))
+    ((rx out theme colors)
+      (copy-all/close rx (make-table-writer out #f theme colors #f)))
+    ((rx out theme)
+      (to-table rx out theme #f))
+    ((rx out)
+      (to-table rx out 'default #f))
+    ((rx)
+      (to-table rx (sh-port #f 1 'textual) 'default (eq? 'tty (fd-type (sh-fd 1)))))))
 
 
 ;; easy wrapper for (all/vector)
-(define (to-vector from)
-  (with-sh-closable ((from from))
-    (all/vector from)))
+(define (to-vector rx)
+  (with-sh-closable ((rx rx))
+    (all/vector rx)))
 
 
 ;; easy wrapper for (make-wire-writer)
 (define to-wire
   (case-lambda
-    ((from out)
-      (copy-all/close from (make-wire-writer out)))
-    ((from)
+    ((rx out)
+      (copy-all/close rx (make-wire-writer out)))
+    ((rx)
       (when (eq? 'tty (fd-type (sh-fd 1)))
         (raise-errorf 'to-wire "refusing to write binary data to a terminal"))
-      (to-wire from (sh-port #f 1 'binary)))))
+      (to-wire rx (sh-port #f 1 'binary)))))
 
 
-;; Dispatch to one of (to-...) functions depending on stdout fd type:
-;;   tty chardev => to-table
-;;   socket      => to-wire
-;;   else        => to-json
-(define (to-stdout from)
-  (case (fd-type (sh-fd 1))
-    ((tty chardev)
-      (to-table from (sh-port #f 1 'textual) 'default (tty-colors)))
-    ((socket)
-      (to-wire from))
-    (else
-      (to-json from))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (define (split-args-and-options prog-and-args)
@@ -328,14 +366,27 @@
   (any (lambda (s) (string=? s key)) options))
 
 
-;; Dispatch to one of (to-...) functions depending on options
-(define (to-auto r options)
-  (cond
-    ((some-string-is? options "--to-json")  (to-json  r))
-    ((some-string-is? options "--to-table") (to-table r))
-    ((some-string-is? options "--to-wire")  (to-wire  r))
-    (else                                 (to-stdout r)))
-  (void))
+;; Dispatch to one of (to-...) functions depending on options,
+;; or on stdout fd type if no options:
+;;   tty chardev => to-table
+;;   socket      => to-wire
+;;   else        => to-json
+(define to-stdout
+  (case-lambda
+    ((rx options)
+      (cond
+        ((some-string-is? options "--to-json")  (to-json   rx))
+        ((some-string-is? options "--to-table") (to-table  rx))
+        ((some-string-is? options "--to-wire")  (to-wire   rx))
+        (else                                   (to-stdout rx)))) ;; autodetect stdout fd type
+    ((rx)
+      (case (fd-type (sh-fd 1))
+        ((tty chardev)
+          (to-table rx (sh-port #f 1 'textual) 'default (tty-colors)))
+        ((socket)
+          (to-wire rx))
+        (else
+          (to-json rx))))))
 
 
 ;; detect number of colors supported by current terminal.
@@ -362,6 +413,15 @@
               8))
           ;; $TERM is not set
           #f)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define-syntax copy==>
+  (syntax-rules ()
+    ((_ body ...)
+      (==> from-stdin => body ... => to-stdout))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -413,33 +473,38 @@
 ;;; first
 
 
-;; create and return a range-reader wrapping a user-provided "inner" reader.
-;; usage: (first reader n)
-;;
-;; created range-reader will generate only the first n elements of inner reader,
+;; create a range-reader that will generate only the first n elements of inner reader,
 ;; then it will be exhausted.
 ;;
-;; n must be an exact integer >= 0
+;; usage: (first reader [n])
 ;;
-(define (first reader n)
-  (assert* 'first (integer? n))
-  (make-range-reader reader 0 n 'close-inner))
+;; n must be an exact integer >= 0 and defaults to 1.
+;;
+(define first
+  (case-lambda
+    ((reader n)
+      (make-range-reader reader 0 n 'close-inner))
+    ((reader)
+      (make-range-reader reader 0 1 'close-inner))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; skip
+;;; skip-first
 
 
-;; create and return a range-reader wrapping a user-provided "inner" reader.
-;; usage: (skip reader n)
-;;
 ;; created range-reader will skip the first n elements of inner reader,
 ;; then it generate the remaining elements (if any) of the inner reader.
 ;;
-;; n must be an exact integer >= 0
+;; usage: (skip-first reader [n])
 ;;
-(define (skip reader n)
-  (make-range-reader reader n #t 'close-inner))
+;; n must be an exact integer >= 0 and defaults to 1.
+;;
+(define skip-first
+  (case-lambda
+    ((reader n)
+      (make-range-reader reader n #t 'close-inner))
+    ((reader)
+      (make-range-reader reader 1 #t 'close-inner))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -486,10 +551,8 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; additional shell builtins
+;; shell builtin: dir
 
-
-(define dir-list-dirs-not-their-contents 4)
 
 ;; used by builtin-dir
 (define (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?)
@@ -497,20 +560,17 @@
     (if (null? paths)
       (apply readers (reverse! l))
       (let* ((path (car paths))
-             (stat (file-stat path '(symlinks)))
-             (rx   (cond
-                     (list-dirs-not-their-contents?
-                       (unless (dir-entry? stat)
-                         (raise-c-errno 'file-stat 'lstat stat path))
-                       (datum-reader stat))
-                     ((and (dir-entry? stat) (not (eq? 'dir (dir-entry-type stat))))
-                       (datum-reader stat))
-                     (else
-                       (make-dir-reader path opts)))))
-        (%loop (cdr paths) opts (cons rx l))))))
+             (stat (file-stat/symlinks path)))
+        (unless (dir-entry? stat)
+          (raise-c-errno 'dir 'lstat stat path))
+        (let ((rx (if (or list-dirs-not-their-contents?
+                          (not (eq? 'dir (dir-entry-type stat))))
+                    (datum-reader stat)
+                    (make-dir-reader path opts))))
+          (%loop (cdr paths) opts (cons rx l)))))))
       
 
-;; the "dir" builtin: display content of specified directory,
+;; the "dir" builtin: display specified files or directories contents,
 ;; or current directory by default
 ;;
 ;; As all builtins do, must return job status.
@@ -531,16 +591,45 @@
 
            (list-dirs-not-their-contents? (some-string-contains? options "d"))
 
-           (r (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?))
+           (rx (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?))
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
-           (r (cond
+           (rx (cond
                 ((some-string-contains? options "v")
-                  r)
+                  rx)
                 ((some-string-contains? options "l")
-                  (select r name type size link modified accessed mode user group))
+                  (select rx name type size link modified accessed mode user group))
                 (else
-                  (select r name type size link modified)))))
-      (to-auto (sort-by r name) options))))
+                  (select rx name type size link modified)))))
+      (to-stdout (sort-by rx name) options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: first
+
+
+;; the "first" builtin: read from stdin autodetecting input format,
+;; write to stdout the first N elements (1 by default) autodetecting output format.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-first job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((n (cond
+                ((null? args)
+                  1)
+                ((null? (cdr args))
+                  (let ((n (string->number (car args))))
+                    (assert* 'first (integer? n))
+                    (assert* 'first (exact? n))
+                    n))
+                (else
+                 (raise-errorf 'first "too many arguments"))))
+            (rx (from-stdin options))
+            (rx (make-range-reader rx 0 n)))
+      (to-stdout rx options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: jobs
 
 
 (define (status->verbose status)
@@ -566,7 +655,30 @@
                               'status (status->verbose (sh-job-status job))
                               'cmdline (sh-job->string job)))))
     (let-values (((args options) (split-args-and-options prog-and-args)))
-      (to-auto (span-reader sp) options))))
+      (to-stdout (span-reader sp) options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: open
+
+
+;; the "open" builtin:
+;; open a file and read structured data from it with format autodetection, or with specified --from-FORMAT,
+;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-open job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (when (null? args)
+      (raise-errorf 'open "too few arguments"))
+    (unless (null? (cdr args))
+      (raise-errorf 'open "too many arguments"))
+    (let ((in (file->port (car args) 'read '() 'binary (buffer-mode block))))
+      (to-stdout (from-port in 'close-in options) options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: proc
 
 
 ;; the "proc" builtin: display information about active processes.
@@ -585,45 +697,45 @@
                         '(user pid user-time mem-rss tty state start-time name))
                       (else
                         '(pid tty start-time name))))
-           (r   (proc))
-           (r   (if user
-                  (make-filter-reader r (lambda (elem cache)
-                                          (equiv? user (field elem 'user cache)))
-                                      'close-inner)
-                  r))
-           (r   (if tty?
-                  (make-filter-reader r (lambda (elem cache)
-                                          (let ((tty (field elem 'tty cache)))
-                                            (and (string? tty) (not (fxzero? (string-length tty))))))
-                                      'close-inner)
-                  r))
-           (r   (if fields
-                  (make-field-reader r fields 'close-inner)
-                  r)))
-      (to-auto r options))))
+           (rx   (proc))
+           (rx   (if user
+                   (make-filter-reader rx (lambda (elem cache)
+                                            (equiv? user (field elem 'user cache)))
+                                       'close-inner)
+                  rx))
+           (rx   (if tty?
+                   (make-filter-reader rx (lambda (elem cache)
+                                            (let ((tty (field elem 'tty cache)))
+                                              (and (string? tty) (not (fxzero? (string-length tty))))))
+                                       'close-inner)
+                   rx))
+           (rx   (if fields
+                   (make-field-reader rx fields 'close-inner)
+                   rx)))
+      (to-stdout rx options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: to
 
 
 ;; the "to" builtin:
-;; read from standard input with (from-stdin) that will perform format autodetection
-;; parse data, and write it to standard output with format autodetection, or with specified format.
+;; read structured data from standard input with format autodetection, or with specified --from-FORMAT,
+;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-to job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (let ((from (cond
-                  ((some-string-is? options "--from-json")
-                    from-json)
-                  ((some-string-is? options "--from-wire")
-                    from-wire)
-                  (else
-                    from-stdin)))
-          (to (cond
-                ((some-string-is? args "table")
-                  to-table)
-                ((some-string-is? args "json")
-                  to-json)
-                ((some-string-is? args "wire")
-                  to-wire)
-                (else
-                  to-stdout))))
+    (when (null? args)
+      (raise-errorf 'to "too few arguments"))
+    (unless (null? (cdr args))
+      (raise-errorf 'to "too many arguments"))
+    (let* ((from (cond ((some-string-is? options "--from-json") from-json)
+                       ((some-string-is? options "--from-wire") from-wire)
+                       (else                                    from-stdin)))
+           (arg (car args))
+           (to (cond ((string=? arg "table")  to-table)
+                     ((string=? arg "json")   to-json)
+                     ((string=? arg "wire")   to-wire)
+                     (else                    to-stdout))))
       (to (from)))))

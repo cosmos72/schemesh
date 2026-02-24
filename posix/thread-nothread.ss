@@ -13,11 +13,6 @@
 (define make-thread-parameter make-parameter)
 
 
-;; acquire $tc-mutex, but don't disable interrupts
-(define-syntax with-tc-mutex*
-  (identifier-syntax begin))
-
-
 ;; disable interrupts and acquire $tc-mutex
 (define-syntax with-tc-mutex
   (identifier-syntax with-interrupts-disabled))

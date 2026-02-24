@@ -125,6 +125,7 @@
           (scheme2k conversions)
           (scheme2k posix)
     (only (scheme2k posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
+    (only (scheme2k io obj)            readers-writers-collect)
           (scheme2k io redir)
           (scheme2k io stdio)
     (only (scheme2k vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
@@ -508,6 +509,7 @@
 
 (define (sh-consume-signals lctx)
   (check-interrupts)
+  (readers-writers-collect)
   (call-queued-job-ports-flush-close-forget)
   (when lctx
     (display-status-changes lctx)))

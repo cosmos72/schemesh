@@ -12,10 +12,10 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir dirs eof? first get put
-          proc select skip skip! sort-by tty-colors where where@ with-sh-closable
+          all all/vector close copy==> copy-all copy-all/close dir dirs eof? file files first get put
+          proc select skip skip-first sort-by tty-colors where where@ with-sh-closable
 
-          from-stdin from-json from-list from-queue from-vector from-wire
+          from-stdin from-json from-list from-queue from-vector from-wire from-port
            to-stdout   to-json   to-list   to-queue   to-vector   to-wire   to-table
 
           ;; repl/repl.ss
@@ -50,6 +50,7 @@
           (schemesh parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
+    (only (scheme2k posix io)        file->port)
           (scheme2k posix signal)
     (only (scheme2k posix status)    ok)
           (scheme2k posix tty)
@@ -485,6 +486,7 @@ Type ? or help for this help.
   (let ((t (sh-builtins)))
     ;; additional builtins
     (hashtable-set! t "dir"        builtin-dir)
+    (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "jobs"       builtin-jobs)
     (hashtable-set! t "proc"       builtin-proc)
     (hashtable-set! t "to"         builtin-to))
@@ -499,6 +501,14 @@ Type ? or help for this help.
       -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
 
+    (hashtable-set! t "first"  (string->utf8 " [OPTION]... [N]
+    read structured data from stdin, autodetecting input format,
+    and copy the first N elements to stdout, autodetecting output format.
+    By default, N is 1.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT
+      --to-FORMAT   write elements to stdout in given FORMAT\n"))
+
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
     display jobs and their status.\n"))
 
@@ -511,7 +521,7 @@ Type ? or help for this help.
       x             also display processes running without a terminal
       --to-FORMAT   display processes in given FORMAT\n"))
 
-    (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] [FORMAT]
+    (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] FORMAT
     parse data from standard input, and write it to standard output.
     Options:
       --from-FORMAT assume data from standard input has specified FORMAT,

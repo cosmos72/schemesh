@@ -39,6 +39,9 @@
     ;; obj/filter-reader.ss
     make-filter-reader filter-reader filter-reader?  filter-reader-inner
 
+    ;; obj/obj.ss
+    readers-writers-collect
+
     ;; obj/nested-reader.ss
     nested-reader nested-reader? nested-reader-inner nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
 
@@ -95,6 +98,27 @@
 (include "io/obj/range-reader.ss")
 
 
+(define (readers-writers-collect)
+  (meta-cond
+    ;; On Chez Scheme >= 10, collect-io retrieves unreachable readers and writers
+    ;; immediately before they are garbage collected, and closes them
+    ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
+
+      ;; retrieve all readers ready to be garbage collected, and close them
+      (do ((rx (reader-guardian) (reader-guardian)))
+          ((not rx))
+        ;; (debugf "closing ~s before garbage collecting it" rx)
+        (reader-close rx))
+
+      ;; retrieve all writers ready to be garbage collected, and close them
+      (do ((tx (writer-guardian) (writer-guardian)))
+          ((not tx))
+        ;; (debugf "closing ~s before garbage collecting it" tx)
+        (writer-close tx)))
+    (else
+      (void))))
+
+
 (define (reader-display r port writer label)
   (put-string port "#<")
   (put-string port label)
@@ -137,23 +161,5 @@
     (put-char port #\space)
     (writer (unbox (writer-close-box w)) port)
     (put-char port #\>)))
-
-
-;; On Chez Scheme >= 10, install into collect-request-handler a procedure that retrieves
-;; unreachable readers and writers immediately before they are garbage collected,
-;; and closes them
-(meta-cond
-  ((call-with-values scheme-version-number (lambda (major minor patch) (fx>=? major 10)))
-    (let ((gc (collect-request-handler)))
-      (collect-request-handler
-        (lambda ()
-          ;; first, call the original collect-request-handler
-          (gc)
-
-          ;; then, retrieve all readers ready to be garbage collected, and close them
-          (do ((rx (reader-guardian) (reader-guardian)))
-              ((not rx))
-            ;; (debugf "closing ~s before garbage collecting it" rx)
-            (reader-close rx)))))))
 
 ) ; close library

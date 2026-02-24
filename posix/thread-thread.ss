@@ -50,20 +50,12 @@
     (identifier-syntax chez:with-mutex)))
 
 
-;; acquire $tc-mutex, but don't disable interrupts
-(define-syntax with-tc-mutex*
-  (syntax-rules ()
-    ((_ body1 body2 ...)
-      (with-mutex $tc-mutex
-        body1 body2 ...))))
-
-
 ;; acquire $tc-mutex and disable interrupts
 (define-syntax with-tc-mutex
   (syntax-rules ()
     ((_ body1 body2 ...)
-      (with-mutex $tc-mutex
-        (with-interrupts-disabled
+      (with-interrupts-disabled
+        (with-mutex $tc-mutex
           body1 body2 ...)))))
 
 
@@ -159,7 +151,7 @@
     ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
       (let ()
         (import (only (chezscheme) condition-wait))
-        (with-tc-mutex*
+        (with-tc-mutex
           (let %%thread-join (($tc-cond ($primitive $terminated-cond)))
             (cond
               ((eqv? 0 ($thread-tc thread))
@@ -171,10 +163,10 @@
                 (%%thread-join $tc-cond)))))))
     (else
       ;; there's no $terminated-cond we can wait for
-      (until (eqv? 0 (with-tc-mutex* ($thread-tc thread)))
+      (until (eqv? 0 (with-tc-mutex ($thread-tc thread)))
         (check-interrupts)
         (sleep short-timeout)) ; sleep is interruptible
-      (with-tc-mutex*
+      (with-tc-mutex
         ($thread-status thread)))))
 
 
@@ -198,7 +190,7 @@
       ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
         (let ()
           (import (only (chezscheme) condition-wait))
-          (with-tc-mutex*
+          (with-tc-mutex
             (let %%thread-timed-join (($tc-cond ($primitive $terminated-cond))
                                       (now      (current-time 'time-utc)))
               (cond
@@ -217,8 +209,8 @@
         ;; there's no $terminated-cond we can wait for
         (let %%thread-timed-join ((now (current-time 'time-utc)))
           (cond
-            ((eqv? 0 (with-tc-mutex* ($thread-tc thread)))
-              (with-tc-mutex*
+            ((eqv? 0 (with-tc-mutex ($thread-tc thread)))
+              (with-tc-mutex
                 ($thread-status thread)))
             ((time<=? deadline now)
               (running))
@@ -348,14 +340,14 @@
 ;; return name of specified thread
 (define (thread-name thread-or-id)
   (let ((thread (datum->thread thread-or-id)))
-    (with-tc-mutex*
+    (with-tc-mutex
       ($thread-name thread))))
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
 (define (thread-status thread-or-id)
   (let ((thread (datum->thread thread-or-id)))
-    (with-tc-mutex*
+    (with-tc-mutex
       ($thread-status thread))))
 
 
