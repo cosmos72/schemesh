@@ -62,7 +62,7 @@
 ;; easy wrapper for (make-dir-reader)
 (define dir
   (case-lambda
-    (()           make-dir-reader (current-dir))
+    (()          (make-dir-reader (current-dir)))
     ((path)      (make-dir-reader path))
     ((path opts) (make-dir-reader path opts))))
 
@@ -420,7 +420,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(define-syntax copy==>
+(define-syntax filter==>
   (syntax-rules ()
     ((_ body ...)
       (==> from-stdin => body ... => to-stdout))))

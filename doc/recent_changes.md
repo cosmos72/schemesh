@@ -18,7 +18,7 @@
 * add type `dir-entry` and functions `(dir)` `(dirs)` `(file)` `(files)`
   returning a reader that generates `dir-entry` objects for specified files and/or directories
 * and type `process-entry` and function `(proc)` returning a reader that generates `process-entry` objects for system processes
-* add Racket-compatible macro `(~>)`, cleanup macro `(==>)` and add macros `(copy==>)`
+* add Racket-compatible macro `(~>)`, cleanup macro `(==>)` and add macro `(filter==>)`
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
 * add types `reader` and `writer` and lots of functions for using them
 * add types `field-reader` `filter-reader` and `sort-reader`
