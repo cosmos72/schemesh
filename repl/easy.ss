@@ -661,20 +661,20 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; shell builtin: open
+;; shell builtin: parse
 
 
-;; the "open" builtin:
+;; the "parse" builtin:
 ;; open a file and read structured data from it with format autodetection, or with specified --from-FORMAT,
 ;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
-(define (builtin-open job prog-and-args options)
+(define (builtin-parse job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
     (when (null? args)
-      (raise-errorf 'open "too few arguments"))
+      (raise-errorf 'parse "too few arguments"))
     (unless (null? (cdr args))
-      (raise-errorf 'open "too many arguments"))
+      (raise-errorf 'parse "too many arguments"))
     (let ((in (file->port (car args) 'read '() 'binary (buffer-mode block))))
       (to-stdout (from-port in 'close-in options) options))))
 

@@ -488,6 +488,7 @@ Type ? or help for this help.
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "jobs"       builtin-jobs)
+    (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
     (hashtable-set! t "to"         builtin-to))
 
@@ -511,6 +512,13 @@ Type ? or help for this help.
 
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
     display jobs and their status.\n"))
+
+    (hashtable-set! t "parse" (string->utf8 " FILE [--from-FORMAT] [--to-FORMAT]
+    open a file and read structured data from it, autodetecting input format.
+    Copy elements to stdout, autodetecting output format.
+    Options:
+      --from-FORMAT read elements from file in given FORMAT
+      --to-FORMAT   write elements to stdout in given FORMAT\n"))
 
     (hashtable-set! t "proc" (string->utf8 " [auvx] [--to-FORMAT]
     display active processes.
