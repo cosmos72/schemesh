@@ -717,6 +717,27 @@
       (to-stdout rx options))))
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: sort-by
+
+
+;; the "sort-by" builtin: read from stdin autodetecting input format,
+;; sort elements by specified field names,
+;; write sorted elements to stdout autodetecting output format.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-sort-by job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (when (null? args)
+      (raise-errorf 'sort-by "too few arguments"))
+
+    (let* ((field-names (map string->symbol args))
+           (rx (from-stdin options))
+           (rx (make-sort-reader rx field-names 'close-inner)))
+      (to-stdout rx options))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: to
 

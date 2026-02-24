@@ -490,6 +490,7 @@ Type ? or help for this help.
     (hashtable-set! t "jobs"       builtin-jobs)
     (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
+    (hashtable-set! t "sort-by"    builtin-sort-by)
     (hashtable-set! t "to"         builtin-to))
 
   (let ((t (sh-builtins-help)))
@@ -517,8 +518,8 @@ Type ? or help for this help.
     open a file and read structured data from it, autodetecting input format.
     Copy elements to stdout, autodetecting output format.
     Options:
-      --from-FORMAT read elements from file in given FORMAT
-      --to-FORMAT   write elements to stdout in given FORMAT\n"))
+      --from-FORMAT read elements from file in given FORMAT, instead of autodetecting it
+      --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
 
     (hashtable-set! t "proc" (string->utf8 " [auvx] [--to-FORMAT]
     display active processes.
@@ -529,11 +530,18 @@ Type ? or help for this help.
       x             also display processes running without a terminal
       --to-FORMAT   display processes in given FORMAT\n"))
 
-    (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] FORMAT
-    parse data from standard input, and write it to standard output.
+    (hashtable-set! t "sort-by" (string->utf8 " FIELD-NAME ... [--from-FORMAT] [--to-FORMAT]
+    parse data from standard input, autodetecting input format.
+    sort elements by specified FIELD-NAMEs,
+    and write sorted elements to standard output autodetecting output format.
     Options:
-      --from-FORMAT assume data from standard input has specified FORMAT,
-                    instead of autodetecting it
+      --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it
+      --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
+
+    (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] FORMAT
+    parse data from standard input, and write it to standard output with specified FORMAT.
+    Options:
+      --from-FORMAT read elements from file in given FORMAT, instead of autodetecting it
 
     Argument:
       auto          default. choose display format depending on standard output
