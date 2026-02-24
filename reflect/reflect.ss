@@ -611,7 +611,7 @@
     ((rtd info type-symbol deserializer)
       (assert* 'reflect-info-set! (record-type-descriptor? rtd))
       (assert* 'reflect-info-set! (reflect-info? info))
-      (when (or type-symbol deserializer)
+      (when (and type-symbol deserializer)
         (assert* 'reflect-info-set! (symbol? type-symbol))
         (assert* 'reflect-info-set! (procedure? deserializer))
         (assert* 'reflect-info-set! (logbit? 1 (procedure-arity-mask deserializer)))
@@ -629,14 +629,18 @@
    (hashtable-ref reflect-infos type-symbol #f))
 
 
-;; customize visible fields and deserializer of objects having specified rtd:
+;; customize visible fields and optionally deserializer of objects having specified rtd:
 ;; autodetect via reflection info and record-type-name from rtd,
 ;; create a deserializer from info and caller-specified constructor,
 ;; and store all of them into global table reflect-infos.
-(define (reflect-info-set-autodetect! rtd constructor)
-  (let ((info (make-reflect-info-autodetect rtd)))
-    (reflect-info-set! rtd info (record-type-name rtd)
-      (make-reflect-deserializer constructor info))))
+(define reflect-info-set-autodetect!
+  (case-lambda
+    ((rtd constructor)
+      (let ((info (make-reflect-info-autodetect rtd)))
+        (reflect-info-set! rtd info (record-type-name rtd)
+          (and constructor (make-reflect-deserializer constructor info)))))
+    ((rtd)
+      (reflect-info-set-autodetect! rtd #f))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

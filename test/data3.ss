@@ -241,8 +241,9 @@
         (list
           (utf8->string bv)
           (first-value (reader-get rx))))))             ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
-                                                           (make-dir-entry "." dir 4096 "" (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
-                                                           (make-time-utc 1770314180 254027974) "rwxr-xr-x" "nobody" "users" 1000 100 568413 2))
+                                                          (<type> "dir-entry" name "." type "dir" size 4096 link "" modified (make-time-utc 1768467392 0)
+                                                            accessed (make-time-utc 1770666829 82454476) inode-changed (make-time-utc 1770314180 254027974)
+                                                            mode "rwxr-xr-x" user "nobody" group "users" uid 1000 gid 100 inode 568413 nlink 2))
 
   ;; serialize and deserialize a `process-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
@@ -257,9 +258,10 @@
         (list
           (utf8->string bv)
           (first-value (reader-get rx))))))             ,("[{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
-                                                          (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 14536704 25296896
-                                                            (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
-                                                            (make-time-duration 0 0) 20 0 1 10839 160))
+                                                          (<type> "process-entry" pid 1 name "systemd" tty #f state "S" user "root" group "root"
+                                                            uid 0 gid 0 ppid 0 pgrp 1 sid 1 mem-rss 14536704 mem-virtual 25296896
+                                                            start-time (make-time-monotonic 0 110000000) user-time (make-time-duration 0 330000000)
+                                                            sys-time (make-time-duration 0 920000000) iowait-time (make-time-duration 0 0) priority 20 nice 0 threads 1 min-fault 10839 maj-fault 160))
 
 
   ;; ---------------------------- lineedit io ----------------------------------

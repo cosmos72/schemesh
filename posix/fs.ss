@@ -642,8 +642,9 @@
         (writer ((vector-ref accessors i) e) port)))))
 
 
-;; customize visible reflect fields and deserializer for `dir-entry` objects
-(reflect-info-set-autodetect! (record-type-descriptor dir-entry) make-dir-entry)
+;; customize visible reflect fields for `dir-entry` objects.
+;; do NOT register a deserializer that calls (make-dir-entry), because it alters incoming fields order
+(reflect-info-set-autodetect! (record-type-descriptor dir-entry) #f)
 
 
 ) ; close library

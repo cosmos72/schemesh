@@ -242,8 +242,9 @@
 (let ((rtd (record-type-descriptor process-entry))
       (tag-process-entry 239))
 
-  ;; customize how library `reflect` deserializes `process-entry` objects and the fields it reports for them
-  (reflect-info-set-autodetect! rtd make-process-entry)
+  ;; customize visible reflect fields for `process-entry` objects.
+  ;; do NOT register a deserializer that calls (make-process-entry), because it alters incoming fields order
+  (reflect-info-set-autodetect! rtd #f)
 
   ;; customize how `wire` library serializes/deserializes `process-entry` objects
   (wire-register-rtd-reflect rtd tag-process-entry make-process-entry))

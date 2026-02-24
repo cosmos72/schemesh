@@ -2,7 +2,8 @@
 
 ### TO DO
 
-* also accept non-directories in `(dir)` and in shell builtin `dir`
+* stop deserializing `dir-entry`, `process-entry` etc. in `wire-reader` ? it loses incoming fields relative order.
+
 * add shell builtin `answers` for displaying `(repl-answers)` with output format autodetection (json, table, wire)
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory
@@ -13,11 +14,13 @@
 
 ### git main branch
 
-* add type `dir-entry` and function `(dir)` returning a reader on specified directory
-* and type `process-entry` and function `(proc)` returning a reader on system processes
-* add Racket-compatible macro `(~>)` and cleanup macro `(==>)`
+* add shell builtins `dir` `first` `parse` `proc` `skip` `sort-by` `to`
+* add type `dir-entry` and functions `(dir)` `(dirs)` `(file)` `(files)`
+  returning a reader that generates `dir-entry` objects for specified files and/or directories
+* and type `process-entry` and function `(proc)` returning a reader that generates `process-entry` objects for system processes
+* add Racket-compatible macro `(~>)`, cleanup macro `(==>)` and add macros `(copy==>)`
 * add type `ordered-hash` a hashtable that preserves insertion order, and functions to use it
-* add types `reader` and `writer`
+* add types `reader` and `writer` and lots of functions for using them
 * add types `field-reader` `filter-reader` and `sort-reader`
 * add types `fifo-reader` `fifo-writer` and new macro `(thread==>)` that uses them
 * add types `json-reader` and `json-writer`
