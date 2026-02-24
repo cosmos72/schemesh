@@ -294,7 +294,7 @@
     ((rx out close-out?)
       (copy-all/close rx (make-json-writer out close-out?)))
     ((rx out)
-      (copy-all/close rx (make-json-writer out #f)))
+      (to-json rx out #f))
     ((rx)
       (to-json rx (sh-port #f 1 'binary)))))
 
@@ -332,12 +332,14 @@
 ;; easy wrapper for (make-wire-writer)
 (define to-wire
   (case-lambda
+    ((rx out close-out?)
+      (copy-all/close rx (make-wire-writer out close-out?)))
     ((rx out)
-      (copy-all/close rx (make-wire-writer out)))
+      (to-wire rx out #f))
     ((rx)
       (when (eq? 'tty (fd-type (sh-fd 1)))
         (raise-errorf 'to-wire "refusing to write binary data to a terminal"))
-      (to-wire rx (sh-port #f 1 'binary)))))
+      (to-wire rx (sh-port #f 1 'binary) #f))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
