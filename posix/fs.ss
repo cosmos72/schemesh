@@ -43,7 +43,7 @@
     (mutable link)     ; (void) or #f or string: symlink target
     (mutable modified) ; (void) or time-utc
     (mutable accessed) ; (void) or time-utc
-    (mutable inode-changed) ; (void) or time-utc
+    (mutable status-changed) ; (void) or time-utc
     (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
     (mutable user)     ; (void) or immutable string
     (mutable group)    ; (void) or immutable string
@@ -67,14 +67,14 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size link modified accessed inode-changed mode user group uid gid inode nlink)
+(define (make-dir-entry name type size link modified accessed status-changed mode user group uid gid inode nlink)
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
   (assert* 'make-dir-entry (string-or-void? link))
   (assert* 'make-dir-entry (time-or-void? modified))
   (assert* 'make-dir-entry (time-or-void? accessed))
-  (assert* 'make-dir-entry (time-or-void? inode-changed))
+  (assert* 'make-dir-entry (time-or-void? status-changed))
   (assert* 'make-dir-entry (string-or-void? mode))
   (assert* 'make-dir-entry (string-or-void? user))
   (assert* 'make-dir-entry (string-or-void? group))
@@ -83,7 +83,7 @@
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link modified accessed inode-changed mode user group uid gid inode nlink)))
+    (%make-dir-entry name type size link modified accessed status-changed mode user group uid gid inode nlink)))
 
 
 (define (make-dir-entry-vector)
@@ -296,7 +296,7 @@
         (or (vector-ref vec 3) "") ; symlink target
         (if-pair->time-utc (vector-ref vec 4)) ; modified
         (if-pair->time-utc (vector-ref vec 6)) ; accessed
-        (if-pair->time-utc (vector-ref vec 6)) ; inode-changed
+        (if-pair->time-utc (vector-ref vec 6)) ; status-changed
         (if-mode->string   (vector-ref vec 7))
         (if-uid->username  rx (vector-ref vec 8))
         (if-gid->groupname rx (vector-ref vec 9))
@@ -630,7 +630,7 @@
 ;; customize how "dir-entry" objects are printed
 (record-writer (record-type-descriptor dir-entry)
   (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size    dir-entry-link
-                           dir-entry-modified dir-entry-accessed dir-entry-inode-changed
+                           dir-entry-modified dir-entry-accessed dir-entry-status-changed
                            dir-entry-mode     dir-entry-user     dir-entry-group   dir-entry-uid
                            dir-entry-gid      dir-entry-inode    dir-entry-nlink)))
     (lambda (e port writer)

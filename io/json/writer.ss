@@ -71,6 +71,18 @@
   (put-bytevector out (bytespan-peek-data wbuf) (bytespan-peek-beg wbuf) (bytespan-length wbuf)))
 
 
+;; write a bytevector to json as {"<type>":"base64","value:":"DATA"}
+(define write/base64
+  (case-lambda
+    ((out wbuf bv start end)
+      (put-bytevector out #vu8(123 34 60 116 121 112 101 62 34 58 34 98 97 115
+                               101 54 52 34 44 34 118 97 108 117 101 58 34 58 34))
+      (put-base64 out bv start end wbuf)
+      (put-bytevector out #vu8(34 125)))
+    ((out wbuf bv)
+      (write/base64 out wbuf bv 0 (bytevector-length bv)))))
+
+
 (define (u4-to-hex-digit-byte u4)
   (if (fx<? u4 10)
     (fx+ u4 48)   ; #\0 ... #\9
@@ -124,6 +136,7 @@
     ((symbol? key) (write/symbol out wbuf key))
     ((string? key) (write/string out wbuf key))
     (else          (raise-errorf 'json-writer-put "unsupported object key: ~s" key))))
+
 
 (define (write/ratio out wbuf ratio)
   (bytespan-clear! wbuf)
@@ -282,16 +295,16 @@
 ;;; serialize scheme datum to json
 
 
-(define (put/key+value tx first? key val)
+(define (write/key+value tx first? key val)
   (let ((out (json-writer-out tx)))
     (unless first?
       (put-u8 out 44)) ; #\,
     (write/key out (json-writer-wbuf tx) key)
     (put-u8 out 58) ; #\:
-    (put/datum tx val)))
+    (write/datum tx val)))
 
 
-(define (put/array tx obj)
+(define (write/array tx obj)
   (let ((out (json-writer-out tx)))
     (put-u8 out 91) ; #\[
     (do ((i 0 (fx1+ i))
@@ -300,38 +313,37 @@
         ((fx>=? i n))
       (unless (fxzero? i)
         (put-u8 out 44)) ; #\,
-      (put/datum tx (ref obj i)))
+      (write/datum tx (ref obj i)))
     (put-u8 out 93))) ; #\]
 
 
-(define (put/bytespan tx obj)
-  ;; FIXME remove roundtrip bytespan -> string -> bytespan
-  (write/string (json-writer-out tx) (json-writer-wbuf tx) (utf8b-bytespan->string obj)))
+(define (write/bytespan tx obj)
+   (write/base64 (json-writer-out tx) (json-writer-wbuf tx)
+     (bytespan-peek-data obj) (bytespan-peek-beg obj) (bytespan-peek-end obj)))
 
 
-(define (put/bytevector tx obj)
-  ;; FIXME remove roundtrip bytespan -> string -> bytespan
-  (write/string (json-writer-out tx) (json-writer-wbuf tx) (utf8b->string obj)))
+(define (write/bytevector tx obj)
+  (write/base64 (json-writer-out tx) (json-writer-wbuf tx) obj))
 
 
-(define (put/htable tx obj)
+(define (write/htable tx obj)
   (let ((out (json-writer-out tx))
         (first? #t))
     (put-u8 out 123) ; #\{
     (for ((k v (in-htable obj)))
-      (put/key+value tx first? k v)
+      (write/key+value tx first? k v)
       (set! first? #f))
     (put-u8 out 125))) ; #\}
 
 
-(define (put/list tx obj)
+(define (write/list tx obj)
   (unless (plist? obj)
     (raise-errorf 'json-writer-put "list is not a plist: ~s" obj))
   (let ((out (json-writer-out tx)))
     (put-u8 out 123) ; #\{
     (do ((l obj (cddr l)))
         ((null? l))
-      (put/key+value tx (eq? l obj) (car l) (cadr l)))
+      (write/key+value tx (eq? l obj) (car l) (cadr l)))
     (put-u8 out 125))) ; #\}
 
 
@@ -342,34 +354,34 @@
         cache)))
 
 
-(define (put/record tx obj)
+(define (write/record tx obj)
   (let ((seq  (json-in-fields obj (ensure-cache tx)))
         (out  (json-writer-out tx)))
     (put-u8 out 123) ; #\{
-    (let %put/record ((seq seq) (first? #t))
+    (let %write/record ((seq seq) (first? #t))
       (let-values (((key value ok?) (seq)))
         (when ok?
-          (put/key+value tx first? key value)
-          (%put/record seq #f))))
+          (write/key+value tx first? key value)
+          (%write/record seq #f))))
     (put-u8 out 125))) ; #\}
 
 
-(define (put/datum tx obj)
+(define (write/datum tx obj)
   (cond
     ((write/atomic? (json-writer-out tx) (json-writer-wbuf tx) obj)
       (void))
     ((or (null? obj) (pair? obj))
-      (put/list tx obj))
+      (write/list tx obj))
     ((array? obj)
-      (put/array tx obj))
+      (write/array tx obj))
     ((bytespan? obj)
-      (put/bytespan tx obj))
+      (write/bytespan tx obj))
     ((bytevector? obj)
-      (put/bytevector tx obj))
+      (write/bytevector tx obj))
     ((htable? obj)
-      (put/htable tx obj))
+      (write/htable tx obj))
     ((record? obj)
-      (put/record tx obj))
+      (write/record tx obj))
     (else
       (raise-errorf 'json-writer-put "unsupported datum: ~s" obj))))
 
@@ -383,6 +395,6 @@
         (json-writer-epilogue?-set! tx #t)
         (put-u8 out 91)) ; #\[
       (put-bytevector out #vu8(44 10))) ; ",\n"
-    (put/datum tx obj)
+    (write/datum tx obj)
     ;; really send json data to its destination, in case some other program is waiting for it
     (flush-output-port out)))

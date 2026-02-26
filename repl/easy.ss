@@ -570,7 +570,7 @@
                     (datum-reader stat)
                     (make-dir-reader path opts))))
           (%loop (cdr paths) opts (cons rx l)))))))
-      
+
 
 ;; the "dir" builtin: display specified files or directories contents,
 ;; or current directory by default

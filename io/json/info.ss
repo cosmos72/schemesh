@@ -13,6 +13,14 @@
 (define-syntax _type (identifier-syntax '<type>))
 
 
+;; construct a bytevector from json deserialized base64
+(define (deserialize-base64 plist)
+  (let ((value (plist-ref plist 'value)))
+    (or (and (string? value)
+             (base64-string->bytevector value))
+        (raise-errorf 'json-reader-get "invalid base64 string: ~s" value))))
+
+
 ;; construct a `date` from json deserialized plist
 (define (deserialize-date plist)
   (let ((value (plist-ref plist 'value)))
@@ -30,9 +38,15 @@
                       (exact second)))))
 
 
+;; customize how `base64` data is deserialized from json
+(define (add-base64-info table)
+  (hashtable-set! table 'base64 deserialize-base64)
+  table)
+
+
 ;; customize how `date` objects are serialized to / deserialized from json
 (define (add-date-info table)
-  (let ((rtd (record-rtd (date 1970 1 1  0 0 0  0 0))))
+  (let ((rtd (record-rtd (date 1970 1 1  +0))))
     (hashtable-set! table rtd
       (make-reflect-info 'date (list 'value date->string))))
   ;; hack: put in the same eq-hashtable both rtd -> reflect-info and symbol -> deserializer
@@ -64,9 +78,10 @@
 ;; describes how to serialize/deserialize records from/to json
 ;; and overrides fields autodiscovery via reflection i.e. (field) (field-names) (in-fields)
 (define json-reflect-infos
-  (add-date-info
-    (add-time-info
-      (make-eq-hashtable))))
+  (add-base64-info
+    (add-date-info
+      (add-time-info
+        (make-eq-hashtable)))))
 
 
 ;; add a reflect-info entry to json-reflect-infos

@@ -23,7 +23,7 @@
     (only (scheme2k containers bytespan)  bytespan bytespan? bytespan-clear! bytespan-delete-right!
                                           bytespan-display-right/integer! bytespan-display-right/unsigned-k-digits!
                                           bytespan-insert-right/bytevector! bytespan-insert-right/u8!
-                                          bytespan-length bytespan-peek-beg bytespan-peek-data
+                                          bytespan-length bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                           bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
     (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
@@ -35,6 +35,7 @@
                                           utf8b-bytespan->string utf8b->string)
     (only (scheme2k io obj)               reader reader-eof? reader-close reader-get reader-skip
                                           writer writer-eof? writer-close writer-put)
+    (only (scheme2k io port)              put-base64 base64-string->bytevector)
     (only (scheme2k io stdio)             sh-stdin sh-stdout)
     (only (scheme2k posix fs)             dir-entry make-dir-entry)
     (scheme2k reflect))

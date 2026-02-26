@@ -148,6 +148,16 @@
               (reader-eof? rx)
               (writer-eof? tx)))))                      (#t #t #t)
 
+  ;; ------------------------------ base64 -------------------------------------
+
+  (bytevector->base64-string #vu8())                    ""
+  (bytevector->base64-string #vu8(255))                 "/w=="
+  (bytevector->base64-string #vu8(127 128 0))           "f4AA"
+  (bytevector->base64-string #vu8(0 1 2 254 255))       "AAEC/v8="
+
+  (base64-string->bytevector
+    (bytevector->base64-string #vu8(0 31 128 201 253))) #vu8(0 31 128 201 253)
+
   ;; ---------------------------- json-reader ----------------------------------
 
   ;; parse only whitespace. not a valid json, but accepted by (reader-get #<json-reader>)
@@ -172,6 +182,19 @@
       (list (span? obj1) obj1 obj2 obj3
             (eof-object? obj4))))                       ,(#t (span 1 23/10 2.3 #t #f) (a "\x20ac;") "foo" #t)
 
+
+  (let ((rx (make-json-reader
+              (open-bytevector-input-port
+                (string->utf8b
+                  "{\"<type>\":\"base64\", \"value\":\"ABCdef7890==\"}")))))
+    (all rx))                                           (#vu8(0 16 157 121 254 252 247))
+
+
+  (let-values (((out bv-proc) (open-bytevector-output-port)))
+    (let ((tx (make-json-writer out)))
+      (writer-put tx #vu8(255 254 253 147 95 15 7 1 0))
+      (writer-close tx))
+    (utf8->string (bv-proc)))                           "[{\"<type>\":\"base64\",\"value:\":\"//79k18PBwEA\"}]\n"
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
     (let loop ((rx (make-json-reader
@@ -240,9 +263,9 @@
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"inode-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
                                                           (<type> "dir-entry" name "." type "dir" size 4096 link "" modified (make-time-utc 1768467392 0)
-                                                            accessed (make-time-utc 1770666829 82454476) inode-changed (make-time-utc 1770314180 254027974)
+                                                            accessed (make-time-utc 1770666829 82454476) status-changed (make-time-utc 1770314180 254027974)
                                                             mode "rwxr-xr-x" user "nobody" group "users" uid 1000 gid 100 inode 568413 nlink 2))
 
   ;; serialize and deserialize a `process-entry`
