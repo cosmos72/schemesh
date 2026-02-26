@@ -57,6 +57,7 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
+  (include "io/base64.ss")
   (include "io/field.ss")           ; requires reflect/reflect.ss
   (include "io/http.ss")            ; requires io/posix/posix.ss
   (include "io/redir.ss")

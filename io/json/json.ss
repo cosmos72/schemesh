@@ -35,7 +35,7 @@
                                           utf8b-bytespan->string utf8b->string)
     (only (scheme2k io obj)               reader reader-eof? reader-close reader-get reader-skip
                                           writer writer-eof? writer-close writer-put)
-    (only (scheme2k io port)              put-base64 base64-string->bytevector)
+    (only (scheme2k io base64)            put-base64 base64-string->bytevector)
     (only (scheme2k io stdio)             sh-stdin sh-stdout)
     (only (scheme2k posix fs)             dir-entry make-dir-entry)
     (scheme2k reflect))
