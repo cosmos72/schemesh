@@ -84,7 +84,7 @@
         (put-bytespan out wbuf)
         (bytespan-clear! wbuf)))
     ((out bv start end)
-      (put-base64 out bv 0 (bytevector-length bv) (bytespan)))
+      (put-base64 out bv start end (bytespan)))
     ((out bv)
       (put-base64 out bv 0 (bytevector-length bv) (bytespan)))))
 
