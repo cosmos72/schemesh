@@ -286,6 +286,14 @@
                                                             start-time (make-time-monotonic 0 110000000) user-time (make-time-duration 0 330000000)
                                                             sys-time (make-time-duration 0 920000000) iowait-time (make-time-duration 0 0) priority 20 nice 0 threads 1 min-fault 10839 maj-fault 160))
 
+  ;; also test pure JSON writer
+  (let-values (((port to-bytevector) (open-bytevector-output-port)))
+    (let ((tx (make-json-writer port)))
+      (writer-put tx '(foo 1 bar "2"))
+      (writer-put tx (date 1970 1 1 +0))
+      (writer-put tx (make-time-utc 1234 5678))
+      (writer-close tx))
+    (utf8->string (to-bytevector)))                     "[{\"foo\":1,\"bar\":\"2\"},\n{\"<type>\":\"date\",\"value\":\"1970-01-01T00:00:00Z\"},\n{\"<type>\":\"time-utc\",\"value\":1234.000005678}]\n"
 
   ;; ---------------------------- lineedit io ----------------------------------
   (read

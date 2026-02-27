@@ -21,7 +21,7 @@
     close-out?)           ; boolean, #t if closing the json-writer must close the underlying binary output port
   (protocol
     (lambda (args->new)
-      (lambda (out close-out? json-or-ndjson cache)
+      (lambda (out close-out? cache json-or-ndjson)
         ((args->new %json-writer-put %json-writer-close)
           out (bytespan) #f (eq? 'json json-or-ndjson) #f (and close-out? #t)))))
   (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be43))
@@ -73,16 +73,16 @@
 (define make-json-writer
   (case-lambda
     ((out close-out? cache)
-      (assert* 'make-ndjson-writer (port? out))
-      (assert* 'make-ndjson-writer (binary-port? out))
-      (assert* 'make-ndjson-writer (output-port? out))
+      (assert* 'make-json-writer (port? out))
+      (assert* 'make-json-writer (binary-port? out))
+      (assert* 'make-json-writer (output-port? out))
       (%make-json-writer out close-out? cache 'json))
     ((out close-out?)
-      (make-ndjson-writer out close-out? #f))
+      (make-json-writer out close-out? #f))
     ((out)
-      (make-ndjson-writer out #f #f))
+      (make-json-writer out #f #f))
     (()
-      (make-ndjson-writer (sh-stdout) #f #f))))
+      (make-json-writer (sh-stdout) #f #f))))
 
 
 ;; called by (json-writer-close) and (writer-close)
