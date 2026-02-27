@@ -40,7 +40,7 @@
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix?)
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)
-    (only (scheme2k io json)         make-json-reader  make-json-writer)
+    (only (scheme2k io json)         make-json-reader  make-ndjson-writer)
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)

@@ -292,7 +292,7 @@
 (define to-json
   (case-lambda
     ((rx out close-out?)
-      (copy-all/close rx (make-json-writer out close-out?)))
+      (copy-all/close rx (make-ndjson-writer out close-out?)))
     ((rx out)
       (to-json rx out #f))
     ((rx)

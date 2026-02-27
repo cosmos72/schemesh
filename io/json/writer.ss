@@ -16,14 +16,14 @@
     out                   ; binary output port
     wbuf                  ; bytespan, write buffer
     (mutable cache)       ; #f or eq-hashtable rtd -> reflect-info, set in construction or created lazily
-    (mutable prologue?)   ; #t before first call to any (json-writer-put...) function
-    (mutable epilogue?)   ; #t if we should write #\] before closing the port
+    (mutable prologue?)   ; boolean, #t if we should write #\[ before the first element
+    (mutable epilogue?)   ; boolean, #t if we should write #\, after each element and #\] before closing the port
     close-out?)           ; boolean, #t if closing the json-writer must close the underlying binary output port
   (protocol
     (lambda (args->new)
-      (lambda (out close-out? cache)
+      (lambda (out close-out? json-or-ndjson cache)
         ((args->new %json-writer-put %json-writer-close)
-          out (bytespan) #f #t #f (and close-out? #t)))))
+          out (bytespan) #f (eq? 'json json-or-ndjson) #f (and close-out? #t)))))
   (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
@@ -31,6 +31,37 @@
 ;;   (writer-put) (json-writer-put-value) or (json-writer-put-token),
 ;; serializes the received data in streaming mode,
 ;; and writes it to the underlying binary output port.
+;;
+;; Writes NDJSON - see (make-json-writer) for writing pure JSON.
+;;
+;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a json-writer should take ownership of the binary output port passed to the constructor,
+;; then the optional argument close-out? must be truish.
+;;
+;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
+(define make-ndjson-writer
+  (case-lambda
+    ((out close-out? cache)
+      (assert* 'make-ndjson-writer (port? out))
+      (assert* 'make-ndjson-writer (binary-port? out))
+      (assert* 'make-ndjson-writer (output-port? out))
+      (%make-json-writer out close-out? cache 'ndjson))
+    ((out close-out?)
+      (make-ndjson-writer out close-out? #f))
+    ((out)
+      (make-ndjson-writer out #f #f))
+    (()
+      (make-ndjson-writer (sh-stdout) #f #f))))
+
+
+;; Create a json-writer that, at each call to one of
+;;   (writer-put) (json-writer-put-value) or (json-writer-put-token),
+;; serializes the received data in streaming mode,
+;; and writes it to the underlying binary output port.
+;;
+;; Writes pure JSON - see (make-ndjson-writer) for writing NDJSON.
 ;;
 ;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
@@ -42,16 +73,16 @@
 (define make-json-writer
   (case-lambda
     ((out close-out? cache)
-      (assert* 'make-json-writer (port? out))
-      (assert* 'make-json-writer (binary-port? out))
-      (assert* 'make-json-writer (output-port? out))
-      (%make-json-writer out close-out? cache))
+      (assert* 'make-ndjson-writer (port? out))
+      (assert* 'make-ndjson-writer (binary-port? out))
+      (assert* 'make-ndjson-writer (output-port? out))
+      (%make-json-writer out close-out? cache 'json))
     ((out close-out?)
-      (make-json-writer out close-out? #f))
+      (make-ndjson-writer out close-out? #f))
     ((out)
-      (make-json-writer out #f #f))
+      (make-ndjson-writer out #f #f))
     (()
-      (make-json-writer (sh-stdout) #f #f))))
+      (make-ndjson-writer (sh-stdout) #f #f))))
 
 
 ;; called by (json-writer-close) and (writer-close)
@@ -389,12 +420,18 @@
 ;; called by (json-writer-put) and (writer-put)
 (define (%json-writer-put tx obj)
   (let ((out (json-writer-out tx)))
-    (if (json-writer-prologue? tx)
-      (begin
+    (cond
+      ((json-writer-prologue? tx)
+        ;; json: write prologue
         (json-writer-prologue?-set! tx #f)
         (json-writer-epilogue?-set! tx #t)
         (put-u8 out 91)) ; #\[
-      (put-bytevector out #vu8(44 10))) ; ",\n"
+      ((json-writer-epilogue? tx)
+        ;; json: write separator
+       (put-bytevector out #vu8(44 10)))) ; ",\n"
     (write/datum tx obj)
+    (unless (json-writer-epilogue? tx)
+      ;; ndjson: write a newline after obj
+      (put-u8 out 10))
     ;; really send json data to its destination, in case some other program is waiting for it
     (flush-output-port out)))

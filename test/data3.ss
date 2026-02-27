@@ -191,10 +191,10 @@
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
-    (let ((tx (make-json-writer out)))
+    (let ((tx (make-ndjson-writer out)))
       (writer-put tx #vu8(255 254 253 147 95 15 7 1 0))
       (writer-close tx))
-    (utf8->string (bv-proc)))                           "[{\"<type>\":\"base64\",\"value\":\"//79k18PBwEA\"}]\n"
+    (utf8->string (bv-proc)))                           "{\"<type>\":\"base64\",\"value\":\"//79k18PBwEA\"}\n"
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
     (let loop ((rx (make-json-reader
@@ -202,14 +202,14 @@
                        (string->utf8b
                          ;; we parse json numbers as inexact only if number contains "e..."
                          "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
-               (tx (make-json-writer out)))
+               (tx (make-ndjson-writer out)))
       (let-values (((tok ok?) (reader-get rx)))
         (if ok?
           (begin
             (writer-put tx tok)
             (loop rx tx))
           (writer-close tx))))
-    (utf8->string (bv-proc)))                           "[0,\n0.0e0,\n{\"foo\":-1},\nnull]\n"
+    (utf8->string (bv-proc)))                           "0\n0.0e0\n{\"foo\":-1}\nnull\n"
 
 
   ;; (reader-get) and (reader-skip) on #<json-reader> look inside top-level arrays and return their elements one by one.
@@ -238,13 +238,13 @@
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
-                  "[{\"<type>\":\"time-utc\",\"value\":1770224910.283978890}]")))))
+                  "{\"<type>\":\"time-utc\",\"value\":1770224910.283978890}")))))
     (let-values (((obj ok) (reader-get rx)))
       (list (time? obj) obj ok)))                       ,(#t (make-time-utc 1770224910 283978890) #t)
 
   ;; serialize and deserialize a `date`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-json-writer port)))
+    (let ((tx (make-ndjson-writer port)))
       (writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
       (writer-close tx)
       (let* ((bv (to-bytevector))
@@ -254,7 +254,7 @@
 
   ;; serialize and deserialize a `dir-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-json-writer port)))
+    (let ((tx (make-ndjson-writer port)))
       (writer-put tx
         (make-dir-entry "." 'dir 4096 "" (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
                         (make-time-utc 1770314180 254027974) "rwxr-xr-x"  "nobody" "users" 1000 100 568413 2))
@@ -263,14 +263,14 @@
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}]\n"
+          (first-value (reader-get rx))))))             ,("{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}\n"
                                                           (<type> "dir-entry" name "." type "dir" size 4096 link "" modified (make-time-utc 1768467392 0)
                                                             accessed (make-time-utc 1770666829 82454476) status-changed (make-time-utc 1770314180 254027974)
                                                             mode "rwxr-xr-x" user "nobody" group "users" uid 1000 gid 100 inode 568413 nlink 2))
 
   ;; serialize and deserialize a `process-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-json-writer port)))
+    (let ((tx (make-ndjson-writer port)))
       (writer-put tx
         (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
@@ -280,7 +280,7 @@
              (rx (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (reader-get rx))))))             ,("[{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}]\n"
+          (first-value (reader-get rx))))))             ,("{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}\n"
                                                           (<type> "process-entry" pid 1 name "systemd" tty #f state "S" user "root" group "root"
                                                             uid 0 gid 0 ppid 0 pgrp 1 sid 1 mem-rss 14536704 mem-virtual 25296896
                                                             start-time (make-time-monotonic 0 110000000) user-time (make-time-duration 0 330000000)
@@ -565,7 +565,7 @@ B=2})                                                  ,@"#<void>"
     $(==> vector-reader
             (vector (date 2001 02 03 -86400)
                     (date 2012 03 04 +86400))
-        => to-json))                                    "[{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"},\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}]\n"
+        => to-json))                                  "{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"}\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}\n"
 
 
   ;; ------------------------- repl ---------------------------------------
