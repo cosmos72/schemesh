@@ -76,7 +76,7 @@
   (case-lambda
     ((out wbuf bv start end)
       (put-bytevector out #vu8(123 34 60 116 121 112 101 62 34 58 34 98 97 115
-                               101 54 52 34 44 34 118 97 108 117 101 58 34 58 34))
+                               101 54 52 34 44 34 118 97 108 117 101 34 58 34))
       (put-base64 out bv start end wbuf)
       (put-bytevector out #vu8(34 125)))
     ((out wbuf bv)

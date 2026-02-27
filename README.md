@@ -253,20 +253,36 @@ Examples:
 ("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
  "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
 
+;; classic Scheme iteration
+> (do ((l (shell-glob {*.[ch]}) (cdr l)))
+      ((null? l))
+    (format #t "~s " (car l)))
+"chezscheme.h" "eval.c" "eval.h" "main.c"
+
+;; shorter, equivalent to the previous one
 > (for-list ((i (shell-glob {*.[ch]})))
+    (format #t "~s " i))
+"chezscheme.h" "eval.c" "eval.h" "main.c"
+
+;; even shorter, equivalent to the previous one
+> (for-glob i {*.[ch]}
     (format #t "~s " i))
 "chezscheme.h" "eval.c" "eval.h" "main.c"
 
 > (shell-string {$PATH:$HOME/.local/bin})
 "/usr/local/bin:/usr/bin:/bin:/home/user/.local/bin"
 
-> (shell-string {abc`echo def`})
-"abcdef"
+> (shell-string {abc$HOME})
+"abc/home/user"
 ```
 
-Together, the macros `(shell-glob)` and `(shell-string)` can be used to replace most traditional shell-based loops
+Together, the macros `(shell-glob)` and `(shell-string)` can replace most traditional shell-based loops
 with faster Scheme-based iteration that is immune to classic shell scripting pitfalls:
-spaces or newlines in file names, paths starting with `-`, misconfigured environment variable `$IFS`, etc.
+spaces or newlines in file names, paths starting with `-`, misconfigured environment variable `$IFS`,
+accidental program execution etc.
+
+Note: if you need command substitution inside the arguments of `(shell-glob)` and `(shell-string)`,
+use `(shell-glob*)` and `(shell-string*)` instead.
 
 
 ## Full Scheme REPL

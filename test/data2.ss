@@ -438,6 +438,27 @@
     '(shell (shell-wildcard "l" "s"))))                (sh-cmd* "ls")
   (caddr (expand
     '(shell (shell-wildcard "l" "s") ".")))            (sh-cmd* "ls" ".")
+
+  (caddr (expand
+    '(shell-glob {~${USER}?[123]*})))                  ,@(wildcard #f '~ (lambda (job) (sh-env-ref job "USER")) '? '% "123" '*)
+  (caddr (expand
+    '(shell-glob* {*`echo`*})))                        ,@(wildcard #f '* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo))) '*)
+  (try
+    (caddr (expand '(shell-glob {*`echo`*})))          ; backquote not allowed in (shell-glob)
+    (catch (ex)
+      #t))                                             #t
+
+
+  (caddr (expand
+    '(shell-string {~${USER}?[123]*})))                ,@(wildcard1 #f '~ (lambda (job) (sh-env-ref job "USER")) '? '% "123" '*)
+  (caddr (expand
+    '(shell-string* {*$[echo]*})))                     ,@(wildcard1 #f '* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo))) '*)
+  (try
+    (caddr (expand '(shell-string {*$[echo]*})))       ; backquote not allowed in (shell-string)
+    (catch (ex)
+      #t))                                             #t
+
+
   (caddr (expand
     '(shell (shell-backquote "echo" "ls"))))           ,(sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd "echo" "ls"))))
   ;; test wildcards and patterns [...]

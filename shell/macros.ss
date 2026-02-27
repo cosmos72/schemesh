@@ -10,7 +10,7 @@
 (library (schemesh shell macros (0 9 3))
   (export
     for-glob in-glob sh-include sh-include*
-    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard
+    shell shell-backquote shell-env shell-expr shell-glob shell-glob* shell-list shell-string shell-string* shell-subshell shell-wildcard
     with-fd with-port with-sh-resource with-parameterized-resource)
   (import
     (rnrs)
@@ -117,12 +117,28 @@
   ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
   ;;
   ;; wrap non-constant (shell-wildcard ...) in a (lambda (,job) (,proc ,job ...))
-  (define-macro (%shell-wildcard proc job . args)
+  (define-macro (%shell-wildcard exec? proc job . args)
     (let-values (((wildcards? rev-args) (%wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
         (if wildcards?
           `(lambda (,job) (,proc ,job ,@args))
           (apply string-append args)))))
+
+
+  (define (%validate-no-exec caller stx)
+    ;; (debugf "%validate-no-exec ~s" stx)
+    (syntax-case stx ()
+      ((left . right)
+        (%validate-no-exec caller #'left)
+        (%validate-no-exec caller #'right))
+      (datum
+        (let ((id #'datum))
+          (when (identifier? id)
+            (unless (or (free-identifier=? id #'shell-env)
+                        (free-identifier=? id #'shell-wildcard)
+                        (memq (syntax->datum id) '(% ? * ~)))
+              (raise-errorf caller "~s is not one of the allowed symbol: % ? * ~~ shell-wildcard shell-env" (syntax->datum id))))))))
+
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
   ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
@@ -151,13 +167,48 @@
         (string? (syntax->datum (syntax arg)))
         #`arg)
       ((_ . args)
-        #`(%shell-wildcard wildcard1+ job . args)))))
+        #`(%shell-wildcard #t wildcard1+ job . args)))))
 
 
-;; extract the arguments inside a (shell-glob {...}) macro,
+;; extract the arguments inside a (shell-glob* {...}) macro,
 ;; simplify them, and return a form that executes them from Scheme syntax and returns a list of strings.
 ;;
 ;; WARNING: will also execute commands found inside shell job substitution syntax `...` or $[...]
+;;
+;; Example: (shell-glob* {~/*.txt}) expands to an (wildcard ...) form that, when executed,
+;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
+;;
+;; If no filesystem path matches the shell glob pattern, when the form is executed
+;; it will return an empty list.
+;;;
+;; If the argument of shell-glob* is a NOT a shell glob pattern, then it must be a list of literal strings
+;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
+;;
+;; Example: (shell-glob* {~bob}) expands to an (wildcard ...) form that, when executed,
+;; return a list containing a single string: the home directory of user "bob"
+(define-syntax shell-glob*
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (macro-name arg))
+        #'(shell-glob* #f (macro-name arg)))
+      ((_ job-or-id (macro-name (submacro-name arg)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-env))
+        #`(%shell-glob wildcard job-or-id (sh-env-ref job-or-id arg)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-backquote))
+        #`(%shell-glob wildcard job-or-id (shell-backquote . args)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-wildcard))
+        #`(%shell-glob wildcard job-or-id . args)))))
+
+
+;; extract the arguments inside a (shell-glob* {...}) macro,
+;; simplify them, and return a form that executes them from Scheme syntax and returns a list of strings.
+;;
+;; Will produce a compile-time error if arguments contain shell job substitution syntax `...` or $[...]
 ;;
 ;; Example: (shell-glob {~/*.txt}) expands to an (wildcard ...) form that, when executed,
 ;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
@@ -178,18 +229,18 @@
       ((_ job-or-id (macro-name (submacro-name arg)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
-        #`(%shell-glob wildcard job-or-id (sh-env-ref job-or-id arg)))
-      ((_ job-or-id (macro-name (submacro-name . args)))
-        (and (free-identifier=? #'macro-name #'shell )
-             (free-identifier=? #'submacro-name #'shell-backquote))
-        #`(%shell-glob wildcard job-or-id (shell-backquote . args)))
+        (begin
+          (%validate-no-exec 'shell-glob #'arg)
+          #`(%shell-glob wildcard job-or-id (sh-env-ref job-or-id arg))))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
-        #`(%shell-glob wildcard job-or-id . args)))))
+        (begin
+          (%validate-no-exec 'shell-glob #'args)
+          #`(%shell-glob wildcard job-or-id . args))))))
 
 
-;; extract the arguments inside a (shell-string {...}) macro,
+;; extract the arguments inside a (shell-string* {...}) macro,
 ;; simplify them, and return a form that will execute them from Scheme syntax and return a *single* string,
 ;; or raises an exception if the form would return multiple strings.
 ;;
@@ -198,7 +249,7 @@
 ;; If the argument inside {...} must be either a shell glob pattern or a sequence of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
 
-;; Example: (shell-string {$FOO-$BAR}) expands to an (wildcard ...) form that, when executed,
+;; Example: (shell-string* {$FOO-$BAR}) expands to an (wildcard ...) form that, when executed,
 ;; returns a string containing the concatenation of:
 ;; 1. value of environment variable "FOO"
 ;; 2. string "-"
@@ -207,15 +258,15 @@
 ;; If the arguments inside {...} are a shell glob pattern, and they match a single filesystem entry,
 ;; such path is returned as string.
 ;;
-;; Example: (shell-string {~/my/file.txt}) expands to a form that, when executed,
+;; Example: (shell-string* {~/my/file.txt}) expands to a form that, when executed,
 ;; returns a string containing user's home directory followed by "/my/file.txt"
 ;;;
 ;; If the shell glob pattern matches multiple filesystem entries, the form will raise an exception when executed.
-(define-syntax shell-string
+(define-syntax shell-string*
   (lambda (stx)
     (syntax-case stx ()
       ((_ (macro-name arg))
-        #'(shell-string #f (macro-name arg)))
+        #'(shell-string* #f (macro-name arg)))
       ((_ job-or-id (macro-name (submacro-name arg)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
@@ -228,6 +279,48 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
         #`(%shell-glob wildcard1 job-or-id . args)))))
+
+
+
+;; extract the arguments inside a (shell-string* {...}) macro,
+;; simplify them, and return a form that will execute them from Scheme syntax and return a *single* string,
+;; or raises an exception if the form would return multiple strings.
+;;
+;; Will produce a compile-time error if arguments contain shell job substitution syntax `...` or $[...]
+;;
+;; If the argument inside {...} must be either a shell glob pattern or a sequence of literal strings
+;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
+
+;; Example: (shell-string* {$FOO-$BAR}) expands to an (wildcard ...) form that, when executed,
+;; returns a string containing the concatenation of:
+;; 1. value of environment variable "FOO"
+;; 2. string "-"
+;; 3. value of environment variable "BAR"
+;;
+;; If the arguments inside {...} are a shell glob pattern, and they match a single filesystem entry,
+;; such path is returned as string.
+;;
+;; Example: (shell-string* {~/my/file.txt}) expands to a form that, when executed,
+;; returns a string containing user's home directory followed by "/my/file.txt"
+;;;
+;; If the shell glob pattern matches multiple filesystem entries, the form will raise an exception when executed.
+(define-syntax shell-string
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (macro-name arg))
+        #'(shell-string #f (macro-name arg)))
+      ((_ job-or-id (macro-name (submacro-name arg)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-env))
+        (begin
+          (%validate-no-exec 'shell-string #'arg)
+          #`(sh-env-ref job-or-id arg)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-wildcard))
+        (begin
+          (%validate-no-exec 'shell-string #'args)
+          #`(%shell-glob wildcard1 job-or-id . args))))))
 
 
 ;; (for-glob var glob body ...) iterates on shell paths produced by glob,
@@ -243,20 +336,20 @@
 (define-syntax for-glob
   (syntax-rules ()
     ((_ ((var glob) ...) body ...)
-      (for-list ((var (shell-glob glob)) ...)
+      (for-list ((var (shell-glob* glob)) ...)
          body ...))
     ((_ var glob body ...)
-      (for-list ((var (shell-glob glob)))
+      (for-list ((var (shell-glob* glob)))
          body ...))))
 
 
-;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
+;; (in-glob ...) is a shortcut for (in-list (shell-glob* ...))
 ;;
 ;; Added in schemesh 0.9.3
 (define-syntax in-glob
   (syntax-rules ()
     ((_ . args)
-      (in-list (shell-glob . args)))))
+      (in-list (shell-glob* . args)))))
 
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (close-proc expr-value) ...

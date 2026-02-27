@@ -194,7 +194,7 @@
     (let ((tx (make-json-writer out)))
       (writer-put tx #vu8(255 254 253 147 95 15 7 1 0))
       (writer-close tx))
-    (utf8->string (bv-proc)))                           "[{\"<type>\":\"base64\",\"value:\":\"//79k18PBwEA\"}]\n"
+    (utf8->string (bv-proc)))                           "[{\"<type>\":\"base64\",\"value\":\"//79k18PBwEA\"}]\n"
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
     (let loop ((rx (make-json-reader
