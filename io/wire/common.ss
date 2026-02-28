@@ -620,6 +620,11 @@
       (and (valid-payload-len? pos) (vlen+ pos pos)))))
 
 
+;; append wire magic bytes to bytespan
+(define (wire-put-magic-to-bytespan bsp)
+  (bytespan-insert-right/bytevector! bsp wire-magic-bytes))
+
+
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
 ;; return number of written bytes, or #f on errors.
 (define wire-put-to-bytespan

@@ -84,15 +84,15 @@
 ;;;                                         followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                         followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;       55 ... 88  => datum is a known symbol
-;;;      89 ... 240 => datum is a user-registered record type
-;;;     241 ... 253 => datum is a pre-registered record type
-;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
+;;;      89 ... 242 => datum is a user-registered record type
+;;;     243 ... 253 => datum is a pre-registered record type
+;;;     254 => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
 ;;;     255 => datum starts with extended tag
 
 
 (library (scheme2k io wire (0 9 3))
   (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
-          wire-register-rtd  wire-register-rtd-reflect  wire-reserve-tag
+          wire-put-magic-to-bytespan wire-register-rtd  wire-register-rtd-reflect  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           ;; and that cannot be handled by functions (wire-register-rtd...)
           (rename (len/any wire-inner-len)  (tag+    wire-inner-len-tag)
@@ -101,16 +101,15 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) box box? bwp-object? fxsrl unbox
+    (only (chezscheme) box box? bwp-object? bytevector bytevector->immutable-bytevector
                        bytevector-ieee-double-ref bytevector-ieee-double-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
                        cfl= cfl+ cflonum? current-time date-year date-month date-day date-hour date-minute
                        date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
                        fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
-                       include integer-length logbit? make-fxvector make-time meta-cond
-                       procedure-arity-mask reverse!
-                       time? time=? time-type time-second time-nanosecond void)
+                       include integer-length logbit? make-fxvector make-time meta-cond procedure-arity-mask
+                       reverse! time? time=? time-type time-second time-nanosecond unbox void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
@@ -118,7 +117,8 @@
             chez:)
 
     (only (scheme2k bootstrap)               assert* bwp-object fx<=?*)
-    (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-length bytespan-peek-beg bytespan-peek-data
+    (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-insert-right/bytevector!
+                                             bytespan-length bytespan-peek-beg bytespan-peek-data
                                              bytespan-reserve-right! bytespan-resize-right! bytevector->bytespan*)
     (only (scheme2k containers bytevector)   bytevector-hash bytevector-sint-ref* bytevector-sint-set*!)
     (only (scheme2k containers charspan)     charspan charspan-length charspan-ref charspan-set! make-charspan)

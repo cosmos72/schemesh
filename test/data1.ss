@@ -328,6 +328,10 @@
   (datum->wire
     (make-time-utc #x80000000 999999999))              #vu8(14 246 88 20 5 0 0 0 128 0 19 255 201 154 59)
 
+  (let ((bsp (bytespan)))
+    (wire-put-magic-to-bytespan bsp)
+    bsp)                                               ,(bytespan 8 254 119 105 114 101 0 0)
+
   (datum->wire
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 49 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (datum->wire

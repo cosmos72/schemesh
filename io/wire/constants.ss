@@ -92,10 +92,12 @@
 (define tag-charspan8     251) ; n encoded as vlen, followed by n characters each encoded as u8
 (define tag-charspan16    252) ; n encoded as vlen, followed by n characters each encoded as u16
 (define tag-charspan24    253) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-magic-bytes   254)
+(define tag-wire-magic    254)
 
-;;; magic bytes: #x8 #xFE w i r e #x0 #x0
-;;;              the last three bytes are version-hi version-mid
+;;; magic bytes: 8 254 #\w #\i #\r #\e 0 0
+;;;              the last two bytes are version-hi version-lo
+(define wire-magic-bytes (bytevector->immutable-bytevector
+                           (bytevector 8 tag-wire-magic 119 105 114 101 0 0)))
 
 (define known-sym
   (eq-hashtable
