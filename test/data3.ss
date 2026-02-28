@@ -191,7 +191,7 @@
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
-    (let ((tx (make-ndjson-writer out)))
+    (let ((tx (make-json-writer out)))
       (writer-put tx #vu8(255 254 253 147 95 15 7 1 0))
       (writer-close tx))
     (utf8->string (bv-proc)))                           "{\"<type>\":\"base64\",\"value\":\"//79k18PBwEA\"}\n"
@@ -202,7 +202,7 @@
                        (string->utf8b
                          ;; we parse json numbers as inexact only if number contains "e..."
                          "[0.0, 0.0e0, {\"foo\": -1}, null]"))))
-               (tx (make-ndjson-writer out)))
+               (tx (make-json-writer out)))
       (let-values (((tok ok?) (reader-get rx)))
         (if ok?
           (begin
@@ -244,7 +244,7 @@
 
   ;; serialize and deserialize a `date`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-ndjson-writer port)))
+    (let ((tx (make-json-writer port)))
       (writer-put tx (date 9999 12 31  23 59 59  999999999  +86400))
       (writer-close tx)
       (let* ((bv (to-bytevector))
@@ -254,7 +254,7 @@
 
   ;; serialize and deserialize a `dir-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-ndjson-writer port)))
+    (let ((tx (make-json-writer port)))
       (writer-put tx
         (make-dir-entry "." 'dir 4096 "" (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
                         (make-time-utc 1770314180 254027974) "rwxr-xr-x"  "nobody" "users" 1000 100 568413 2))
@@ -270,7 +270,7 @@
 
   ;; serialize and deserialize a `process-entry`
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-ndjson-writer port)))
+    (let ((tx (make-json-writer port)))
       (writer-put tx
         (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
@@ -288,7 +288,7 @@
 
   ;; also test pure JSON writer
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
-    (let ((tx (make-json-writer port)))
+    (let ((tx (make-json1-writer port)))
       (writer-put tx '(foo 1 bar "2"))
       (writer-put tx (date 1970 1 1 +0))
       (writer-put tx (make-time-utc 1234 5678))
@@ -573,7 +573,14 @@ B=2})                                                  ,@"#<void>"
     $(==> vector-reader
             (vector (date 2001 02 03 -86400)
                     (date 2012 03 04 +86400))
-        => to-json))                                  "{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"}\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}\n"
+        => to-json))                                    "{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"}\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}\n"
+
+
+  ;; test (to-json1) and redirecting its output
+  (sh-run/string
+    $(==> datum-reader (date 2001 02 03 -86400)
+                       (date 2012 03 04 +86400)
+        => to-json1))                                   "[{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"},\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}]\n"
 
 
   ;; ------------------------- repl ---------------------------------------

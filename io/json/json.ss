@@ -8,8 +8,8 @@
 #!r6rs
 
 (library (scheme2k io json (0 9 3))
-  (export                    make-json-reader json-reader json-reader? json-reader-depth json-reader-restart
-          make-ndjson-writer make-json-writer json-writer json-writer?
+  (export make-json-reader json-reader json-reader? json-reader-depth json-reader-restart
+          make-json-writer json-writer json-writer?          make-json1-writer
 
           json-reader-get-token json-reader-get-value json-reader-skip-token json-reader-skip-value
           json-writer-put-token json-writer-put-value
@@ -70,7 +70,7 @@
 #|
 (define (json-copy-all bin-in txt-out)
   (let loop ((r (make-json-reader bin-in))
-             (w (make-json-writer txt-out)))
+             (w (make-json1-writer txt-out)))
     (let ((tok (json-reader-get-token r)))
       (unless (eof-object? tok)
         (json-writer-put-token w tok)

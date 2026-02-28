@@ -288,15 +288,26 @@
 ;;; to-....
 
 
-;; easy wrapper for (make-wire-writer)
+;; easy wrapper for (make-json-writer)
 (define to-json
   (case-lambda
     ((rx out close-out?)
-      (copy-all/close rx (make-ndjson-writer out close-out?)))
+      (copy-all/close rx (make-json-writer out close-out?)))
     ((rx out)
       (to-json rx out #f))
     ((rx)
       (to-json rx (sh-port #f 1 'binary)))))
+
+
+;; easy wrapper for (make-json1-writer)
+(define to-json1
+  (case-lambda
+    ((rx out close-out?)
+      (copy-all/close rx (make-json1-writer out close-out?)))
+    ((rx out)
+      (to-json1 rx out #f))
+    ((rx)
+      (to-json1 rx (sh-port #f 1 'binary)))))
 
 
 ;; easy wrapper for (all)
@@ -378,6 +389,7 @@
     ((rx options)
       (cond
         ((some-string-is? options "--to-json")  (to-json   rx))
+        ((some-string-is? options "--to-json1") (to-json1  rx))
         ((some-string-is? options "--to-table") (to-table  rx))
         ((some-string-is? options "--to-wire")  (to-wire   rx))
         (else                                   (to-stdout rx)))) ;; autodetect stdout fd type
@@ -757,8 +769,9 @@
                        ((some-string-is? options "--from-wire") from-wire)
                        (else                                    from-stdin)))
            (arg (car args))
-           (to (cond ((string=? arg "table")  to-table)
-                     ((string=? arg "json")   to-json)
+           (to (cond ((string=? arg "json")   to-json)
+                     ((string=? arg "json1")  to-json1)
+                     ((string=? arg "table")  to-table)
                      ((string=? arg "wire")   to-wire)
                      (else                    to-stdout))))
       (to (from)))))

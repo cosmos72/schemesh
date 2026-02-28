@@ -40,7 +40,13 @@
 
 ;; Create a json-reader that reads bytes from a binary input port,
 ;; parses them in streaming mode, and returns a chunk of parsed json data
-;; at each call to one of (json-reader-get) (json-reader-get-value) or (json-reader-get-token)
+;; at each call to one of (json-reader-get) (json-reader-get-value) or (json-reader-get-token).
+;;
+;; The functions (json-reader-get) and (json-reader-skip) support both pure JSON and NDJSON,
+;; and autodetect which one is being read.
+;; To disable such autodetection, in case you need full control on whether JSON or NDJSON
+;; is being read, use the functions (json-reader-get-value) (json-reader-get-token)
+;; (json-reader-skip-value) (json-reader-skip-token) and, only for NDJSON, (json-reader-restart).
 ;;
 ;; Note: as per reader contract, by default closing a json-reader does NOT close the underlying binary input port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.

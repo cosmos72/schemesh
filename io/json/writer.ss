@@ -10,7 +10,7 @@
 ;; this file should be included only by file io/json/json.ss
 
 
-(define-record-type (json-writer %make-json-writer json-writer?)
+(define-record-type (json-writer %make-json1-writer json-writer?)
   (parent writer)
   (fields
     out                   ; binary output port
@@ -32,36 +32,7 @@
 ;; serializes the received data in streaming mode,
 ;; and writes it to the underlying binary output port.
 ;;
-;; Writes NDJSON - see (make-json-writer) for writing pure JSON.
-;;
-;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
-;; because it is a pre-existing, borrowed resource passed to the constructor.
-;;
-;; If a json-writer should take ownership of the binary output port passed to the constructor,
-;; then the optional argument close-out? must be truish.
-;;
-;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
-(define make-ndjson-writer
-  (case-lambda
-    ((out close-out? cache)
-      (assert* 'make-ndjson-writer (port? out))
-      (assert* 'make-ndjson-writer (binary-port? out))
-      (assert* 'make-ndjson-writer (output-port? out))
-      (%make-json-writer out close-out? cache 'ndjson))
-    ((out close-out?)
-      (make-ndjson-writer out close-out? #f))
-    ((out)
-      (make-ndjson-writer out #f #f))
-    (()
-      (make-ndjson-writer (sh-stdout) #f #f))))
-
-
-;; Create a json-writer that, at each call to one of
-;;   (writer-put) (json-writer-put-value) or (json-writer-put-token),
-;; serializes the received data in streaming mode,
-;; and writes it to the underlying binary output port.
-;;
-;; Writes pure JSON - see (make-ndjson-writer) for writing NDJSON.
+;; Writes NDJSON. For writing pure JSON see (make-json1-writer).
 ;;
 ;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
 ;; because it is a pre-existing, borrowed resource passed to the constructor.
@@ -76,13 +47,42 @@
       (assert* 'make-json-writer (port? out))
       (assert* 'make-json-writer (binary-port? out))
       (assert* 'make-json-writer (output-port? out))
-      (%make-json-writer out close-out? cache 'json))
+      (%make-json1-writer out close-out? cache 'ndjson))
     ((out close-out?)
       (make-json-writer out close-out? #f))
     ((out)
       (make-json-writer out #f #f))
     (()
       (make-json-writer (sh-stdout) #f #f))))
+
+
+;; Create a json-writer that, at each call to one of
+;;   (writer-put) (json-writer-put-value) or (json-writer-put-token),
+;; serializes the received data in streaming mode,
+;; and writes it to the underlying binary output port.
+;;
+;; Writes pure JSON. For writing NDJSON see (make-json-writer).
+;;
+;; Note: as per writer contract, by default closing a json-writer does NOT close the underlying binary output port,
+;; because it is a pre-existing, borrowed resource passed to the constructor.
+;;
+;; If a json-writer should take ownership of the binary output port passed to the constructor,
+;; then the optional argument close-out? must be truish.
+;;
+;; Optional argument cache must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
+(define make-json1-writer
+  (case-lambda
+    ((out close-out? cache)
+      (assert* 'make-json1-writer (port? out))
+      (assert* 'make-json1-writer (binary-port? out))
+      (assert* 'make-json1-writer (output-port? out))
+      (%make-json1-writer out close-out? cache 'json))
+    ((out close-out?)
+      (make-json1-writer out close-out? #f))
+    ((out)
+      (make-json1-writer out #f #f))
+    (()
+      (make-json1-writer (sh-stdout) #f #f))))
 
 
 ;; called by (json-writer-close) and (writer-close)
