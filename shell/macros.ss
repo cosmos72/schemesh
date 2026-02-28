@@ -125,19 +125,29 @@
           (apply string-append args)))))
 
 
-  (define (%validate-no-exec caller stx)
-    ;; (debugf "%validate-no-exec ~s" stx)
+  (define (%validate-no-exec caller stx first?)
+    ;; (debugf "%validate-no-exec stx ~s, first? ~s" stx first?)
     (syntax-case stx ()
+      (((left . mid) . right)
+        (begin
+          (%validate-no-exec caller #'left  #t)
+          (%validate-no-exec caller #'mid   #f)
+          (%validate-no-exec caller #'right #f)))
       ((left . right)
-        (%validate-no-exec caller #'left)
-        (%validate-no-exec caller #'right))
+        (begin
+          (%validate-no-exec caller #'left  first?)
+          (%validate-no-exec caller #'right #f)))
       (datum
         (let ((id #'datum))
           (when (identifier? id)
-            (unless (or (free-identifier=? id #'shell-env)
-                        (free-identifier=? id #'shell-wildcard)
-                        (memq (syntax->datum id) '(% ? * ~)))
-              (raise-errorf caller "~s is not one of the allowed symbol: % ? * ~~ shell-wildcard shell-env" (syntax->datum id))))))))
+            (unless (if first? (or (free-identifier=? id #'shell-env)
+                                   (free-identifier=? id #'shell-wildcard))
+                               (memq (syntax->datum id) '(% %! ? * ~)))
+              (raise-errorf caller
+                (if first?
+                  "~s is not one of the allowed symbols: % %! ? * ~~"
+                  "~s is not one of the allowed symbols: shell-wildcard shell-env")
+                (syntax->datum id))))))))
 
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
@@ -230,13 +240,13 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
         (begin
-          (%validate-no-exec 'shell-glob #'arg)
+          (%validate-no-exec 'shell-glob #'arg #t)
           #`(%shell-glob wildcard job-or-id (sh-env-ref job-or-id arg))))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
         (begin
-          (%validate-no-exec 'shell-glob #'args)
+          (%validate-no-exec 'shell-glob #'args #t)
           #`(%shell-glob wildcard job-or-id . args))))))
 
 
@@ -313,13 +323,13 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
         (begin
-          (%validate-no-exec 'shell-string #'arg)
+          (%validate-no-exec 'shell-string #'arg #t)
           #`(sh-env-ref job-or-id arg)))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
         (begin
-          (%validate-no-exec 'shell-string #'args)
+          (%validate-no-exec 'shell-string #'args #t)
           #`(%shell-glob wildcard1 job-or-id . args))))))
 
 
