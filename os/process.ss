@@ -228,7 +228,7 @@
 
 
 (let ((rtd (record-type-descriptor process-entry))
-      (tag-process-entry 239))
+      (tag-process-entry 243))
 
   ;; customize visible reflect fields for `process-entry` objects.
   ;; do NOT register a deserializer that calls (make-process-entry), because it alters incoming fields order

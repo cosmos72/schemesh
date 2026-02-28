@@ -78,28 +78,24 @@
 (define tag-ord-hash      54)
 
 (define min-tag-to-allocate   89)
-(define next-tag-to-allocate 238)
+(define next-tag-to-allocate 242)
 (define max-tag-to-allocate  253)
 
-(define tag-process-entry 239) ; allocated in os/process.ss
-(define tag-dir-entry     240)
-(define tag-date          241)
-(define tag-time          242)
-(define tag-status        243) ; implemented in wire/status.ss
-(define tag-span          244) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-gbuffer       245) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-bytespan      246) ; n encoded as vlen, followed by n bytes
-(define tag-bytegbuffer   247) ; NOT IMPLEMENTED
-(define tag-charspan8     248) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-charspan16    249) ; n encoded as vlen, followed by n characters each encoded as u16
-(define tag-charspan24    250) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-chargbuffer8  251) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-chargbuffer16 252) ; n encoded as vlen, followed by n characters each encoded as u16
-(define tag-chargbuffer24 253) ; n encoded as vlen, followed by n characters each encoded as u24
+(define tag-process-entry 243) ; implemented in os/process.ss
+(define tag-dir-entry     244)
+(define tag-date          245)
+(define tag-time          246)
+(define tag-status        247) ; implemented in wire/status.ss
+(define tag-span          248) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-gbuffer       249) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-bytespan      250) ; n encoded as vlen, followed by n bytes
+(define tag-charspan8     251) ; n encoded as vlen, followed by n characters each encoded as u8
+(define tag-charspan16    252) ; n encoded as vlen, followed by n characters each encoded as u16
+(define tag-charspan24    253) ; n encoded as vlen, followed by n characters each encoded as u24
 (define tag-magic-bytes   254)
 
-;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
-;;;              the last three bytes are version-lo version-mid version-hi
+;;; magic bytes: #x8 #xFE w i r e #x0 #x0
+;;;              the last three bytes are version-hi version-mid
 
 (define known-sym
   (eq-hashtable
