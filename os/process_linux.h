@@ -208,12 +208,12 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_char(&src, &state) && parse_int64(&src, vec, e_ppid) &&
        parse_int64(&src, vec, e_pgrp) && parse_int64(&src, vec, e_sid) &&
        parse_int64(&src, &tty_nr, 0) && parse_int64(&src, NULL, 0 /*tty_pgrp*/) &&
-       parse_uint64(&src, vec, e_flags) && parse_uint64(&src, vec, e_min_fault) &&
+       parse_uint64(&src, NULL, 0 /*flags*/) && parse_uint64(&src, vec, e_min_fault) &&
        parse_uint64(&src, NULL, 0 /*child_min_fault*/) && parse_uint64(&src, vec, e_maj_fault) &&
        parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, &user_time_ticks, 0) &&
        parse_uint64(&src, &sys_time_ticks, 0) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
        parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
-       parse_int64(&src, vec, e_nice) && parse_int64(&src, vec, e_num_threads) &&
+       parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_num_threads) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
        parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
 
@@ -226,7 +226,8 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
     }
     iowait_time_ticks = 0;
     if (i == 40) {
-      ok = parse_uint64(&src, vec, e_rt_priority) && parse_uint64(&src, vec, e_rt_policy) &&
+      ok = parse_uint64(&src, NULL, 0 /*rt_priority*/) && /**/
+           parse_uint64(&src, NULL, 0 /*rt_policy*/) &&   /**/
            parse_uint64(&src, &iowait_time_ticks, 0);
     }
 

@@ -274,17 +274,17 @@
       (writer-put tx
         (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
-          (make-time-duration 0 0) 20 0 1 10839 160))
+          (make-time-duration 0 0) 20 1 10839 160))
       (writer-close tx)
       (let* ((bv (to-bytevector))
              (rx (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (reader-get rx))))))             ,("{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"nice\":0,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}\n"
+          (first-value (reader-get rx))))))             ,("{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}\n"
                                                           (<type> "process-entry" pid 1 name "systemd" tty #f state "S" user "root" group "root"
                                                             uid 0 gid 0 ppid 0 pgrp 1 sid 1 mem-rss 14536704 mem-virtual 25296896
                                                             start-time (make-time-monotonic 0 110000000) user-time (make-time-duration 0 330000000)
-                                                            sys-time (make-time-duration 0 920000000) iowait-time (make-time-duration 0 0) priority 20 nice 0 threads 1 min-fault 10839 maj-fault 160))
+                                                            sys-time (make-time-duration 0 920000000) iowait-time (make-time-duration 0 0) priority 20 threads 1 min-fault 10839 maj-fault 160))
 
   ;; also test pure JSON writer
   (let-values (((port to-bytevector) (open-bytevector-output-port)))

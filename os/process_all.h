@@ -143,21 +143,17 @@ enum {
   e_ppid         = 3,
   e_pgrp         = 4,
   e_sid          = 5,
-  e_flags        = 6,
-  e_mem_resident = 7,  /* bytes, uint64 */
-  e_mem_virtual  = 8,  /* bytes, uint64 */
-  e_start_time   = 9,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
-  e_user_time    = 11, /* duration, timespec */
-  e_sys_time     = 13, /* duration, timespec */
-  e_iowait_time  = 15, /* duration, timespec */
-  e_priority     = 17, /* int64 */
-  e_nice         = 18, /* int64 */
-  e_rt_priority  = 19,
-  e_rt_policy    = 20,
-  e_num_threads  = 21,
-  e_min_fault    = 22,
-  e_maj_fault    = 23,
-  e_state        = 24,
+  e_mem_resident = 6,  /* bytes, uint64 */
+  e_mem_virtual  = 7,  /* bytes, uint64 */
+  e_start_time   = 8,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
+  e_user_time    = 10, /* duration, timespec */
+  e_sys_time     = 12, /* duration, timespec */
+  e_iowait_time  = 14, /* duration, timespec */
+  e_priority     = 16, /* int64 */
+  e_num_threads  = 17,
+  e_min_fault    = 18,
+  e_maj_fault    = 19,
+  e_state        = 20,
   e_byte_n       = e_state * 8 + 1,
 };
 

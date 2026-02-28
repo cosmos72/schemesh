@@ -34,7 +34,7 @@
     (lambda (args->new)
       (lambda (handle)
         ((args->new %process-reader-get %process-reader-skip %process-reader-close)
-          handle (make-bytevector (fx1+ (fx* 24 8))) #f #f))))
+          handle (make-bytevector (fx1+ (fx* 20 8))) #f #f))))
   (nongenerative %process-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
@@ -105,7 +105,6 @@
     (mutable ppid)          ; (void) or exact integer
     (mutable pgrp)          ; (void) or exact integer
     (mutable sid)           ; (void) or exact integer
-  ; (mutable flags)         ; (void) or exact integer REMOVED
     (mutable mem-rss)       ; (void) or exact integer
     (mutable mem-virtual)   ; (void) or exact integer
     (mutable start-time)    ; (void) or time-utc
@@ -113,13 +112,10 @@
     (mutable sys-time)      ; (void) or time-duration
     (mutable iowait-time)   ; (void) or time-duration
     (mutable priority)      ; (void) or exact integer
-    (mutable nice)          ; (void) or exact integer
-  ; (mutable rt-priority)   ; (void) or exact integer REMOVED
-  ; (mutable rt-policy)     ; (void) or exact integer REMOVED
     (mutable threads)       ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
-  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define (if-uid->username rx uid)
@@ -168,7 +164,7 @@
       (car l)                           ; process name, string
       (or (cdr l) "")                   ; tty,          string or (void)
       (u8->symbol
-        (bytevector-u8-ref bvec (fx* 24 8))) ; state,   symbol
+        (bytevector-u8-ref bvec (fx* 20 8))) ; state,   symbol
       (if-uid->username rx uid)         ; user name,    string or (void)
       (if-uid->username rx gid)         ; group name,   string or (void)
       uid                               ; uid,          uint64
@@ -176,28 +172,24 @@
       (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
       (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
       (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
-    ; (bvec-ref/u64 bvec (fx* 6 8))     ; flags,        uint64 REMOVED
-      (bvec-ref/u64 bvec (fx* 7 8))     ; mem-rss,      uint64
-      (bvec-ref/u64 bvec (fx* 8 8))     ; mem-virtual,  uint64
+      (bvec-ref/u64 bvec (fx* 6 8))     ; mem-rss,      uint64
+      (bvec-ref/u64 bvec (fx* 7 8))     ; mem-virtual,  uint64
       (make-time 'time-utc
-        (bvec-ref/u64 bvec (fx*  9 8))  ; start-time-utc, ns
-        (bvec-ref/s64 bvec (fx* 10 8))) ; start-time-utc, s
+        (bvec-ref/u64 bvec (fx* 8 8))   ; start-time-utc, ns
+        (bvec-ref/s64 bvec (fx* 9 8)))  ; start-time-utc, s
       (make-time 'time-duration
-        (bvec-ref/u64 bvec (fx* 11 8))  ; user-time, ns
-        (bvec-ref/s64 bvec (fx* 12 8))) ; user-time, s
+        (bvec-ref/u64 bvec (fx* 10 8))  ; user-time, ns
+        (bvec-ref/s64 bvec (fx* 11 8))) ; user-time, s
       (make-time 'time-duration
-        (bvec-ref/u64 bvec (fx* 13 8))  ; system-time, ns
-        (bvec-ref/s64 bvec (fx* 14 8))) ; system-time, s
+        (bvec-ref/u64 bvec (fx* 12 8))  ; system-time, ns
+        (bvec-ref/s64 bvec (fx* 13 8))) ; system-time, s
       (make-time 'time-duration
-        (bvec-ref/u64 bvec (fx* 15 8))  ; iowait-time, ns
-        (bvec-ref/s64 bvec (fx* 16 8))) ; iowait-time, s
-      (bvec-ref/s64 bvec (fx* 17 8))    ; priority,     int64
-      (bvec-ref/s64 bvec (fx* 18 8))    ; nice,         int64
-    ; (bvec-ref/u64 bvec (fx* 19 8))    ; rt-priority,  uint64 REMOVED
-    ; (bvec-ref/u64 bvec (fx* 20 8))    ; rt-policy,    uint64 REMOVED
-      (bvec-ref/s64 bvec (fx* 21 8))    ; threads,      int64
-      (bvec-ref/u64 bvec (fx* 22 8))    ; min-fault,    uint64
-      (bvec-ref/u64 bvec (fx* 23 8))))) ; maj-fault,    uint64
+        (bvec-ref/u64 bvec (fx* 14 8))  ; iowait-time, ns
+        (bvec-ref/s64 bvec (fx* 15 8))) ; iowait-time, s
+      (bvec-ref/s64 bvec (fx* 16 8))    ; priority,     int64
+      (bvec-ref/s64 bvec (fx* 17 8))    ; threads,      int64
+      (bvec-ref/u64 bvec (fx* 18 8))    ; min-fault,    uint64
+      (bvec-ref/u64 bvec (fx* 19 8))))) ; maj-fault,    uint64
 
 
 ;; customize how "process-reader" objects are printed
@@ -222,7 +214,6 @@
     (put-char port #\space) (writer (process-entry-ppid e) port)
     (put-char port #\space) (writer (process-entry-pgrp e) port)
     (put-char port #\space) (writer (process-entry-sid e) port)
-  ; (put-char port #\space) (writer (process-entry-flags e) port) ; REMOVED
     (put-char port #\space) (writer (process-entry-mem-rss e) port)
     (put-char port #\space) (writer (process-entry-mem-virtual e) port)
     (put-char port #\space) (writer (process-entry-start-time e) port)
@@ -230,9 +221,6 @@
     (put-char port #\space) (writer (process-entry-sys-time e) port)
     (put-char port #\space) (writer (process-entry-iowait-time e) port)
     (put-char port #\space) (writer (process-entry-priority e) port)
-    (put-char port #\space) (writer (process-entry-nice e) port)
-  ; (put-char port #\space) (writer (process-entry-rt-priority e) port) ; REMOVED
-  ; (put-char port #\space) (writer (process-entry-rt-policy e) port) ; REMOVED
     (put-char port #\space) (writer (process-entry-threads e) port)
     (put-char port #\space) (writer (process-entry-min-fault e) port)
     (put-char port #\space) (writer (process-entry-maj-fault e) port)
