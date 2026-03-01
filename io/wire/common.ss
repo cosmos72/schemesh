@@ -625,6 +625,18 @@
   (bytespan-insert-right/bytevector! bsp wire-magic-bytes))
 
 
+;; read magic bytes.
+;; return #t -NNN if they match, instructing caller that NNN bytes should be ignored,
+;; or raise condition if they don't match, because it means the other side uses an incompatible wire protocol.
+(define (check-magic bv pos end)
+  (let* ((start (fx1- pos))
+         (n     (fx- end start)))
+    (if (and (fx=? n (bytevector-length wire-magic-bytes))
+             (subbytevector=? bv start wire-magic-bytes 0 n))
+      (values #t (fx- n))
+      (raise-errorf 'wire-get-from-bytevector "incompatible wire protocol: ~s" (bytevector->bytespan* bv pos n)))))
+
+
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
 ;; return number of written bytes, or #f on errors.
 (define wire-put-to-bytespan

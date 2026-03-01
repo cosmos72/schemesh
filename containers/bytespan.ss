@@ -31,7 +31,7 @@
     bytespan-insert-left/bytespan! bytespan-insert-right/bytespan!
     bytespan-insert-left/bytevector! bytespan-insert-right/bytevector!
 
-    in-bytespan bytespan-iterate
+    in-bytespan bytespan-iterate subbytespan*
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
     latin1-bytespan->string)
@@ -171,6 +171,14 @@
   (assert* 'bytespan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (bytespan-length dst)))
   (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))
                     (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))
+
+;; create and return a new bytespan that is a view on a portion of existing bytespan.
+;; changes to either bytespan propagate to the other one, until one of the two is reallocated.
+(define (subbytespan* src start end)
+  (assert* 'subbytespan* (fx<=?* 0 start end (bytespan-length src)))
+  (let ((offset (bytespan-beg src)))
+    (%make-bytespan (bytespan-vec src) (fx+ offset (bytespan-beg src)) (fx+ offset (bytespan-end src)))))
+
 
 (define (bytespan=? left right)
   (or

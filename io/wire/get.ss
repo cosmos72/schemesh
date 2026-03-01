@@ -438,7 +438,7 @@
 ;;   either object and updated start position in range [start, end)
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
-;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
+;;   or #t -NNN if serialized bytes should be ignored or are invalid and NNN bytes should be discarded.
 (define wire-get-from-bytevector
   (case-lambda
     ((bv start end skip?)
@@ -449,16 +449,20 @@
             (let ((available (fx- end pos)))
               (if (fx>=? available len)
                 (if (fxzero? len)
-                  (values (void) pos) ; (void) can be encoded as header = 0
+                  (values (void) pos) ; (void) can be encoded as len = 0
                   (let ((end0 (fx+ pos len)))
-                    (if skip?
-                      (values #t end0)
-                      (let-values (((ret end1) (get/any bv pos end)))
-                        (if (and end1 (fx=? end0 end1))
-                          (values ret end1)
-                          ;; message deserialized, but it ends at unexpected position:
-                          ;; discard it, and tell how many bytes should be discarded.
-                          (values #t (fx- (fx+ len pos))))))))
+                    (cond
+                      ((fx=? tag-wire-magic (%get/tag bv pos))
+                        (check-magic bv pos end0))
+                      (skip?
+                        (values #t end0))
+                      (else
+                        (let-values (((ret end1) (get/any bv pos end)))
+                          (if (and end1 (fx=? end0 end1))
+                            (values ret end1)
+                            ;; message deserialized, but it ends at unexpected position:
+                            ;; discard it, and tell how many bytes should be discarded.
+                            (values #t (fx- len))))))))
                 ;; not enough bytes to deserialize message: tell how many more bytes are needed
                 (values #f (fx- available len)))))
           ((fx>=? start end)
@@ -481,7 +485,7 @@
 ;;   either object and updated start position in range [start, end)
 ;;   or #f #f if serialized bytes are invalid and cannot be parsed;
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
-;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
+;;   or #t -NNN if serialized bytes should be ignored or are invalid and NNN bytes should be discarded.
 (define wire-get-from-bytespan
   (case-lambda
     ((bsp start end skip?)

@@ -116,11 +116,11 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (scheme2k bootstrap)               assert* bwp-object fx<=?*)
+    (only (scheme2k bootstrap)               assert* bwp-object fx<=?* raise-errorf)
     (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-insert-right/bytevector!
                                              bytespan-length bytespan-peek-beg bytespan-peek-data
                                              bytespan-reserve-right! bytespan-resize-right! bytevector->bytespan*)
-    (only (scheme2k containers bytevector)   bytevector-hash bytevector-sint-ref* bytevector-sint-set*!)
+    (only (scheme2k containers bytevector)   bytevector-hash bytevector-sint-ref* bytevector-sint-set*! subbytevector=?)
     (only (scheme2k containers charspan)     charspan charspan-length charspan-ref charspan-set! make-charspan)
     (only (scheme2k containers date)         date date-or-false)
     (only (scheme2k containers flvector)     flvector? flvector-length flvector-ref flvector-set! make-flvector)

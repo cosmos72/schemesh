@@ -100,7 +100,14 @@
   (case-lambda
     ((out close-out?)
       (%validate-out out)
-      (%make-wire-writer (box out) (and out (bytespan)) close-out?))
+      (let ((tx (%make-wire-writer (box out) (and out (bytespan)) close-out?)))
+        (when out
+          ;; immediately send wire magic, telling our wire protocol to any receiver.
+          (let ((wbuf (wire-writer-wbuf tx)))
+            (wire-put-magic-to-bytespan wbuf)
+            (put-all tx wbuf)
+            (bytespan-clear! wbuf)))
+        tx))
     ((out)
       (make-wire-writer out #f))))
 

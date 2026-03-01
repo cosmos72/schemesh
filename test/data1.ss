@@ -330,7 +330,11 @@
 
   (let ((bsp (bytespan)))
     (wire-put-magic-to-bytespan bsp)
-    bsp)                                               ,(bytespan 8 254 119 105 114 101 0 0)
+    bsp)                                               ,(bytespan 7 255 119 105 114 101 0 0)
+
+  (let ((bsp (bytespan)))
+    (wire-put-magic-to-bytespan bsp)
+    (values->list (wire-get-from-bytespan bsp)))       (#t -8)
 
   (datum->wire
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 49 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
