@@ -634,7 +634,8 @@
     (if (and (fx=? n (bytevector-length wire-magic-bytes))
              (subbytevector=? bv start wire-magic-bytes 0 n))
       (values #t (fx- n))
-      (raise-errorf 'wire-get-from-bytevector "incompatible wire protocol: ~s" (bytevector->bytespan* bv pos n)))))
+      (raise-errorf 'wire-get-from-bytevector "incompatible wire protocol ~s, expecting ~s"
+        (bytevector->bytespan* bv start end) (bytevector->bytespan* wire-magic-bytes)))))
 
 
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
