@@ -29,11 +29,14 @@
 
 (define-record-type column
   (fields
-    name                    ; field-name, converted to string
-    align                   ; symbol, 'right if column must be right-aligned
-    (mutable maxlen)        ; maximum length of strings in this column
-    (mutable chosen-width)) ; #f or chosen column width
-  (nongenerative %table-column-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+    name                    ;; field-name, converted to string
+    align                   ;; symbol, 'right if column must be right-aligned
+    (mutable minlen)        ;; #f or minimum display length of strings in this column
+    (mutable maxlen)        ;; maximum string display length in this column
+    (mutable sumlen)        ;; sum of string display length in this column
+    (mutable sumlen2)       ;; sum^2 of string display lengths in this column
+    (mutable chosen-width)) ;; #f or chosen column width
+  (nongenerative %table-column-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define-record-type (table-writer %make-table-writer table-writer?)
@@ -463,11 +466,14 @@
     (let* ((cols (table-writer-cols tx))
            (col  (or (ordered-hash-ref cols k #f)
                      (let* ((name (symbol->string k))
-                            (col  (make-column name (if (or (number? v) (time? v)) 'right 'left) 0 #f)))
+                            (col  (make-column name (if (or (number? v) (time? v)) 'right 'left) (greatest-fixnum) 0 0 0 #f)))
                        (ordered-hash-set! cols k col)
-                       col))))
-      (column-maxlen-set! col (fxmax (column-maxlen col)
-                                     (string-display-length str))))))
+                       col)))
+           (len (string-display-length str)))
+      (column-minlen-set! col (fxmin (column-minlen col) len))
+      (column-maxlen-set! col (fxmax (column-maxlen col) len))
+      (column-sumlen-set! col (+ (column-sumlen col) len))
+      (column-sumlen2-set! col (+ (column-sumlen col) (* len len))))))
 
 
 (define (obj->row tx obj)
