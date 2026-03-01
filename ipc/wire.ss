@@ -158,6 +158,10 @@
 ;;   wire-receiver2 reads  serialized data from the second socket file descriptor of the same socket pair
 ;;   wire-sender2   writes serialized data to the same socket file descriptor as wire-receiver2
 ;;
+;; for bidirectional communication between two subsystems,
+;;   give wire-receiver1 and wire-sender1 to one subsystem,
+;;   and give wire-receiver2 and wire-sender2 to the other subsystem.
+;;
 ;; the returned wire-readers and wire-writers take ownership of the created socket file descriptors,
 ;; and closing one of them closes the corresponding socket file descriptor.
 (define (wire-socketpair-pair)
