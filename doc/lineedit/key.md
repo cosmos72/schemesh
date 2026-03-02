@@ -147,7 +147,7 @@ Added in 0.9.3
 `(lineedit-key-cmd-cd-old-dir lctx)` executes the shell command `{cd-}`, then redraws prompt and current lines.
 
 ##### (lineedit-key-cmd)
-`(lineedit-key-cmd-dir lctx cmd-name)` executes `cmd-name` as a shell command name, then redraws prompt and current lines.
+`(lineedit-key-cmd-dir lctx cmd-name args ...)` executes `cmd-name args ...` as a shell command, then redraws prompt and current lines.
 
 ### Examples
 

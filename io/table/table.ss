@@ -267,7 +267,7 @@
           (column-put-dashes col out theme x y)
           (set! x 1)))
       (put-corner out theme 2 y)
-      (newline out))))
+      (put-char out #\newline))))
 
 
 (define (display-header-cell tx col)
@@ -298,7 +298,7 @@
       (display-header-cell tx col))
     (let ((out (table-writer-out tx)))
       (put-vbar out (table-writer-theme tx))
-      (newline out))))
+      (put-char out #\newline))))
 
 
 (define (display-header tx)
@@ -366,7 +366,7 @@
           (put-vbar out theme)
           (display-row-cell tx col row-type k (ordered-hash-ref row k ""))))
       (put-vbar out theme)
-      (newline out))))
+      (put-char out #\newline))))
 
 
 (define (display-all tx)
@@ -494,18 +494,35 @@
       (column-sumlen2-set! col (+ (column-sumlen2 col) (square len))))))
 
 
-(define (choose-column-widths tx)
-  (let ((tty-width (table-writer-tty-width tx))
-        (row-n (span-length (table-writer-rows tx)))
-        (total-width 1))
-    (unless (fxzero? row-n)
+;; return the width needed to fully display all columns
+(define (columns-full-widths tx row-n)
+  (if (fxzero? row-n)
+    0
+    (let ((full-width 1))
       (for-ordered-hash ((k col (table-writer-cols tx)))
+        (unless (eq? k <type>)
+          (let ((namelen (string-length (column-name col)))
+                (maxlen  (column-maxlen col)))
+            (set! full-width (fx+ full-width (fx1+ (fxmax namelen maxlen)))))))
+      full-width)))
+
+
+(define (choose-column-widths tx)
+  (let* ((tty-width* (table-writer-tty-width tx))
+         (row-n      (span-length (table-writer-rows tx)))
+         (full-width (columns-full-widths tx row-n))
+         ;; #f if tty-width* is not set, or all columns fit tty-width*
+         (tty-width  (if (and tty-width* (fx>? full-width tty-width*)) tty-width* #f))
+         (total-width 1))
+    (for-ordered-hash ((k col (table-writer-cols tx)))
+      (if (fxzero? row-n)
+        (column-chosen-width-set! col 0)
         (let* ((namelen (string-length (column-name col)))
-               (left    (fx1- (fx- tty-width total-width)))
+               (left    (if tty-width (fx1- (fx- tty-width total-width)) (greatest-fixnum)))
                (trylen  (cond
                           ((eq? k <type>)
                             0)
-                          ((or (not tty-width) (eq? k 'tty))
+                          ((or (not tty-width) (eq? 'tty k) (eq? 'right (column-align col))) ; do not truncate numbers
                             (column-maxlen col))
                           (else
                             (let* ((avglen     (fl/ (inexact (column-sumlen col)) (inexact row-n)))
