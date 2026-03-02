@@ -324,14 +324,19 @@
 ;; easy wrapper for (make-table-writer)
 (define to-table
   (case-lambda
-    ((rx out theme colors)
-      (copy-all/close rx (make-table-writer out #f theme colors #f)))
-    ((rx out theme)
-      (to-table rx out theme #f))
+    ((rx out tty-width theme colors)
+      (copy-all/close rx (make-table-writer out #f tty-width theme colors #f)))
+    ((rx out tty-width theme)
+      (to-table rx out theme tty-width ))
+    ((rx out tty-width)
+      (to-table rx out tty-width 'default #f))
     ((rx out)
-      (to-table rx out 'default #f))
+      (to-table rx out #f 'default #f))
     ((rx)
-      (to-table rx (sh-port #f 1 'textual) 'default (eq? 'tty (fd-type (sh-fd 1)))))))
+      (let* ((fd1  (sh-fd #f 1)) ; file descriptor 1 of current job
+             (tty? (eq? 'tty (fd-type fd1)))
+             (sz   (and tty? (tty-size fd1))))
+      (to-table rx (sh-port #f 1 'textual) (and (pair? sz) (car sz)) 'default (and tty? (tty-colors)))))))
 
 
 ;; easy wrapper for (all/vector)
@@ -396,7 +401,7 @@
     ((rx)
       (case (fd-type (sh-fd 1))
         ((tty chardev)
-          (to-table rx (sh-port #f 1 'textual) 'default (tty-colors)))
+          (to-table rx))
         ((socket)
           (to-wire rx))
         (else

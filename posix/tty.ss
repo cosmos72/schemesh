@@ -19,8 +19,15 @@
 (define tty-setraw! (foreign-procedure "c_tty_setraw" () int))
 
 ;; (tty-size) calls C functions c_tty_size(),
-;; which returns controlling tty size as pair (width . height), or c_errno() < 0 on error
-(define tty-size   (foreign-procedure "c_tty_size" () ptr))
+;; which returns tty size of specified file descriptor (or of controlling by default)
+;; as pair (width . height), or c_errno() < 0 on error
+(define tty-size
+  (let ((c-tty-size (foreign-procedure "c_tty_size" (int) ptr)))
+    (case-lambda
+      ((fd)
+        (c-tty-size fd))
+      (()
+        (c-tty-size -1)))))
 
 (define-syntax with-cooked-tty
   (syntax-rules ()

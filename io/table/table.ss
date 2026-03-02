@@ -14,7 +14,7 @@
     (rnrs)
     (only (chezscheme)                       current-date date? date-year date-month date-day date-hour date-minute date-second date-zone-offset
                                              format fx1+ fx1- fx/ time? time-second time-type time-utc->date void)
-    (only (scheme2k bootstrap)               assert* for trace-call)
+    (only (scheme2k bootstrap)               assert* debugf for)
     (only (scheme2k containers bytespan)     bytespan bytespan-clear! bytespan-display-left/integer! bytespan-display-right/unsigned-k-digits!
                                              bytespan-insert-right/bytevector! bytespan-insert-right/u8! latin1-bytespan->string)
     (only (scheme2k containers date)         date->string)
@@ -43,6 +43,7 @@
   (parent writer)
   (fields
     out                   ; textual output port
+    tty-width             ; #f or fixnum
     theme                 ; 'basic or 'default
     colors                ; number of colors. one of: #f 8 16 256 #t, where #f means no colors and #t means truecolor i.e. 16 millions
     cols                  ; ordered-hash field-name -> column
@@ -55,14 +56,14 @@
     close-out?)           ; boolean, #t if closing the table-writer must close the underlying textual output port
   (protocol
     (lambda (args->new)
-      (lambda (out close-out? theme colors cache)
+      (lambda (out close-out? tty-width theme colors cache)
         ((args->new %table-writer-put %table-writer-close)
-          out theme colors (make-eq-ordered-hash) (span) (bytespan)
+          out tty-width theme colors (make-eq-ordered-hash) (span) (bytespan)
           (current-date) cache #t #f (and close-out? #t)))))
-  (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+  (nongenerative %table-writer-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
-(define-syntax _type (identifier-syntax '<type>))
+(define-syntax <type> (identifier-syntax '<type>))
 
 
 ;; Create a table-writer that, at each call to one of (writer-put) or (table-writer-put)
@@ -77,28 +78,36 @@
 ;;
 ;; Optional argument:
 ;;   close-out? - if truish, closing this writer will close output-port out
-;;   theme     - a symbol. Currently supported values are: 'basic 'default
-;;   colors   - one of: #f 8 16 256 #t, where #f means no colors and #t means truecolor i.e. 16 millions
-;;   cache   - must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
+;;   tty-width  - #f or width of output terminal
+;;   theme    - a symbol. Currently supported values are: 'basic 'default
+;;   colors  - one of: #f 8 16 256 #t, where #f means no colors and #t means truecolor i.e. 16 millions
+;;   cache  - must be #f or a possibly empty eq-hashtable containing rtd -> reflect-info
 (define make-table-writer
   (case-lambda
-    ((out close-out? theme colors cache)
+    ((out close-out? tty-width theme colors cache)
       (assert* 'make-table-writer (port? out))
       (assert* 'make-table-writer (textual-port? out))
       (assert* 'make-table-writer (output-port? out))
+      (when tty-width
+        (assert* 'make-table-writer (fixnum? tty-width))
+        (assert* 'make-table-writer (fx>? tty-width 0)))
       (assert* 'make-table-writer (symbol? theme))
       (assert* 'make-table-writer (memv colors '(#f 8 16 256 #t)))
       (when cache
         (assert* 'make-table-writer (hashtable? cache)))
-      (%make-table-writer out close-out? theme colors cache))
-    ((out close-out? theme colors)
-      (make-table-writer out close-out? theme colors #f))
-    ((out close-out? theme)
-      (make-table-writer out close-out? theme #f #f))
+      (%make-table-writer out close-out? tty-width theme colors cache))
+    ((out close-out? tty-width theme colors)
+      (make-table-writer out close-out? tty-width theme colors #f))
+    ((out close-out? tty-width theme)
+      (make-table-writer out close-out? tty-width theme #f #f))
+    ((out close-out? tty-width)
+      (make-table-writer out close-out? tty-width 'default #f #f))
+    ((out close-out?)
+      (make-table-writer out close-out? #f 'default #f #f))
     ((out)
-      (make-table-writer out #f 'default #f #f))
+      (make-table-writer out #f #f 'default #f #f))
     (()
-      (make-table-writer (current-output-port) #f 'default #f #f))))
+      (make-table-writer (current-output-port) #f #f 'default #f #f))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -241,15 +250,10 @@
   (put-string out "\x1b;[m"))
 
 
-(define (column-width col)
-  (or (column-chosen-width col)
-      (fxmax (column-maxlen col)
-             (string-length (column-name col)))))
-
-
 (define (column-put-dashes col out theme x y)
-  (put-corner out theme x y)
-  (put-dashes out theme (column-width col)))
+  (unless (fxzero? (column-chosen-width col))
+    (put-corner out theme x y)
+    (put-dashes out theme (column-chosen-width col))))
 
 
 (define (table-put-dashes tx y)
@@ -259,8 +263,9 @@
         (x     0))
     (unless (ordered-hash-empty? cols)
       (for-ordered-hash ((k col cols))
-        (column-put-dashes col out theme x y)
-        (set! x 1))
+        (unless (fxzero? (column-chosen-width col))
+          (column-put-dashes col out theme x y)
+          (set! x 1)))
       (put-corner out theme 2 y)
       (newline out))))
 
@@ -268,22 +273,23 @@
 (define (display-header-cell tx col)
   (let* ((name   (column-name col))
          (len    (string-length name))
-         (width  (column-width col))
+         (width  (column-chosen-width col))
          (pad    (fx- width len))
          (lpad   (fx/ pad 2))
          (rpad   (fx- pad lpad))
          (out    (table-writer-out tx))
          (theme  (table-writer-theme tx))
          (colors (table-writer-colors tx)))
-    (put-vbar out theme)
-    ;; (debugf "; display-header-cell name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
-    (put-spaces out lpad)
-    (when colors
-      (put-color-header out theme))
-    (put-string out name)
-    (when colors
-      (put-nocolor out theme))
-    (put-spaces out rpad)))
+    (unless (fxzero? width)
+      (put-vbar out theme)
+      ;; (debugf "; display-header-cell name ~s, len ~s, width ~s, pad ~s, lpad ~s, rpad ~s" name len width pad lpad rpad)
+      (put-spaces out lpad)
+      (when colors
+        (put-color-header out theme))
+      (put-string out name)
+      (when colors
+        (put-nocolor out theme))
+      (put-spaces out rpad))))
 
 
 (define (display-header-cells tx cols)
@@ -322,23 +328,30 @@
 
 
 (define (display-row-cell tx col row-type k v)
-  (let* ((len    (string-display-length v))
-         (width  (column-width col))
-         (align  (column-align col))
-         (pad    (fx- width len))
-         (out    (table-writer-out tx))
-         (theme  (table-writer-theme tx))
-         (colors (table-writer-colors tx)))
-    ;; (debugf "; put-cell v ~s, len ~s, width ~s, pad ~s, v len width pad)
-    (when (eq? 'right align)
-      (put-spaces out pad))
-    (when colors
-      (put-color-cell out theme row-type k v))
-    (put-string out v)
-    (when colors
-      (put-nocolor out theme))
-    (unless (eq? 'right align)
-      (put-spaces out pad))))
+  (unless (fxzero? (column-chosen-width col))
+    (let* ((len    (string-display-length v))
+           (width  (column-chosen-width col))
+           (align  (column-align col))
+           (pad    (fx- width len))
+           (out    (table-writer-out tx))
+           (theme  (table-writer-theme tx))
+           (colors (table-writer-colors tx)))
+      ;; (debugf "; put-cell v ~s, len ~s, width ~s, pad ~s, v len width pad)
+      (when (eq? 'right align)
+        (put-spaces out pad))
+      (when colors
+        (put-color-cell out theme row-type k v))
+      (if (fx<=? len width)
+        (put-string out v)
+        (let ((xlen (fxmin (fx1- width) (string-length v))))
+          ;; FIXME: visible len can be < (string-length v), and we should NOT truncate in the middle of colors
+          (when (fx>? xlen 0)
+            (put-string out v 0 xlen))
+          (put-string out "\x1b;[1m\x2026;\x1b;[m"))) ; ellipsis ...
+      (when colors
+        (put-nocolor out theme))
+      (unless (eq? 'right align)
+        (put-spaces out pad)))))
 
 
 (define (display-row-cells tx row)
@@ -346,11 +359,12 @@
         (theme  (table-writer-theme  tx))
         (colors (table-writer-colors tx))
         (cols   (table-writer-cols   tx))
-        (row-type (ordered-hash-ref row _type #f)))
+        (row-type (ordered-hash-ref row <type> #f)))
     (unless (ordered-hash-empty? cols)
       (for-ordered-hash ((k col cols))
-        (put-vbar out theme)
-        (display-row-cell tx col row-type k (ordered-hash-ref row k "")))
+        (unless (fxzero? (column-chosen-width col))
+          (put-vbar out theme)
+          (display-row-cell tx col row-type k (ordered-hash-ref row k ""))))
       (put-vbar out theme)
       (newline out))))
 
@@ -461,8 +475,12 @@
         (%loop str (fx1+ i) n (fx1+ ret))))))
 
 
+(define (square n)
+  (* n n))
+
+
 (define (update-column tx k v str)
-  (unless (eq? _type k)
+  (unless (eq? k <type>)
     (let* ((cols (table-writer-cols tx))
            (col  (or (ordered-hash-ref cols k #f)
                      (let* ((name (symbol->string k))
@@ -473,7 +491,43 @@
       (column-minlen-set! col (fxmin (column-minlen col) len))
       (column-maxlen-set! col (fxmax (column-maxlen col) len))
       (column-sumlen-set! col (+ (column-sumlen col) len))
-      (column-sumlen2-set! col (+ (column-sumlen col) (* len len))))))
+      (column-sumlen2-set! col (+ (column-sumlen2 col) (square len))))))
+
+
+(define (choose-column-widths tx)
+  (let ((tty-width (table-writer-tty-width tx))
+        (row-n (span-length (table-writer-rows tx)))
+        (total-width 1))
+    (unless (fxzero? row-n)
+      (for-ordered-hash ((k col (table-writer-cols tx)))
+        (let* ((namelen (string-length (column-name col)))
+               (left    (fx1- (fx- tty-width total-width)))
+               (trylen  (cond
+                          ((eq? k <type>)
+                            0)
+                          ((or (not tty-width) (eq? k 'tty))
+                            (column-maxlen col))
+                          (else
+                            (let* ((avglen     (fl/ (inexact (column-sumlen col)) (inexact row-n)))
+                                   (sigma2     (fl- (fl/ (inexact (column-sumlen2 col)) (inexact row-n))
+                                                    (square avglen)))
+                                   (sigma      (sqrt (flmax 0.0 sigma2)))
+                                   (avg+2sigma (exact (round (fl+ avglen (fl* 2.0 sigma)))))
+                                   (maxlen     (column-maxlen col)))
+                              (fxmin avg+2sigma maxlen)))))
+               (width (cond
+                        ((fx<? left namelen)
+                          0)
+                        ((fx>=? left trylen)
+                          (fxmax namelen trylen))
+                        ((fx>? left 0)
+                          (fxmax namelen left))
+                        (else
+                          0))))
+          ;; (debugf "choose-column-widths k ~s, namelen ~s, width ~s, left ~s" k namelen width left)
+          (column-chosen-width-set! col width)
+          (unless (fxzero? width)
+            (set! total-width (fx1+ (fx+ total-width width)))))))))
 
 
 (define (obj->row tx obj)
@@ -493,6 +547,7 @@
 ;; called by (table-writer-close) and (writer-close)
 (define (%table-writer-close tx)
   (delete-empty-columns tx)
+  (choose-column-widths tx)
   (display-all tx)
   (let ((out (table-writer-out tx)))
     (if (table-writer-close-out? tx)

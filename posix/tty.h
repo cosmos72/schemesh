@@ -169,13 +169,13 @@ static int c_tty_setraw(void) {
 static unsigned long c_parse_unsigned_long(const char* str);
 
 /** return a cons (width . height), or c_errno() on error */
-static ptr c_tty_size(void) {
+static ptr c_tty_size(int fd) {
   unsigned long width = 0, height = 0;
   int           err = 0;
 #ifdef TIOCGWINSZ
   {
     struct winsize wsize;
-    while ((err = ioctl(tty_fd, TIOCGWINSZ, &wsize)) != 0 && errno == EINTR) {
+    while ((err = ioctl(fd >= 0 ? fd : tty_fd, TIOCGWINSZ, &wsize)) != 0 && errno == EINTR) {
     }
     if (err != 0) {
       /* save ioctl() error */
@@ -186,11 +186,13 @@ static ptr c_tty_size(void) {
     }
   }
 #endif /* TIOCGWINSZ */
-  if (width == 0) {
-    width = c_parse_unsigned_long(getenv("COLUMNS"));
-  }
-  if (height == 0) {
-    width = c_parse_unsigned_long(getenv("LINES"));
+  if (fd < 0) {
+    if (width == 0) {
+      width = c_parse_unsigned_long(getenv("COLUMNS"));
+    }
+    if (height == 0) {
+      width = c_parse_unsigned_long(getenv("LINES"));
+    }
   }
   if (width != 0 && height != 0) {
     return Scons(Sunsigned(width), Sunsigned(height));
