@@ -2,8 +2,6 @@
 
 ### TO DO
 
-* stop deserializing `dir-entry`, `process-entry` etc. in `wire-reader` ? it loses incoming fields relative order.
-
 * add shell builtin `answers` for displaying `(repl-answers)` with output format autodetection (json, table, wire)
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory

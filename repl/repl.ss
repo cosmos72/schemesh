@@ -9,7 +9,7 @@
 
 (library (schemesh repl (0 9 3))
   (export ;; repl/answers.ss
-          repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
+          repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
           all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first get put
@@ -64,8 +64,8 @@
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 
 
-(include "repl/answers.ss")
 (include "repl/easy.ss")
+(include "repl/answers.ss")
 
 
 ;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
@@ -485,6 +485,7 @@ Type ? or help for this help.
 (begin
   (let ((t (sh-builtins)))
     ;; additional builtins
+    (hashtable-set! t "answers"    builtin-answers)
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "jobs"       builtin-jobs)
@@ -494,7 +495,12 @@ Type ? or help for this help.
     (hashtable-set! t "to"         builtin-to))
 
   (let ((t (sh-builtins-help)))
-    (hashtable-set! t "dir"  (string->utf8 " [OPTION]... [PATH]...
+    (hashtable-set! t "answers"  (string->utf8 " [--to-FORMAT]
+    display values returned by recent expressions evaluated at repl.
+    Options:
+      --to-FORMAT   display answers in given FORMAT\n"))
+
+    (hashtable-set! t "dir"  (string->utf8 " [OPTIONS] [PATH]...
     display specified files and directories, or current directory by default.
     Options:
       -a            also display entries starting with .
@@ -503,7 +509,7 @@ Type ? or help for this help.
       -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
 
-    (hashtable-set! t "first"  (string->utf8 " [OPTION]... [N]
+    (hashtable-set! t "first"  (string->utf8 " [OPTIONS] [N]
     read structured data from stdin, autodetecting input format,
     and copy the first N elements to stdout, autodetecting output format.
     By default, N is 1.
@@ -512,7 +518,9 @@ Type ? or help for this help.
       --to-FORMAT   write elements to stdout in given FORMAT\n"))
 
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
-    display jobs and their status.\n"))
+    display jobs and their status.
+    Options:
+      --to-FORMAT   display answers in given FORMAT\n"))
 
     (hashtable-set! t "parse" (string->utf8 " FILE [--from-FORMAT] [--to-FORMAT]
     open a file and read structured data from it, autodetecting input format.

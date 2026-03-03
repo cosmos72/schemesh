@@ -60,18 +60,24 @@
   (span-clear! (repl-answers)))
 
 
-;; display (repl-answers) to port,
-;; which defaults to (current-output-port)
-(define repl-answers-display
-  (case-lambda
-    ((port)
-      (let ((ans (repl-answers)))
-        (do ((i 0 (fx1+ i))
-             (n (span-length ans)))
-            ((fx>=? i n))
-          (write      i port)
-          (write-char #\tab port)
-          (write      (span-ref ans i) port)
-          (newline    port))))
-    (()
-      (repl-answers-display (current-output-port)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: answers
+
+
+;; the "answers" builtin: display (repl-answers) i.e. values returned by recent expressions evaluated at repl.
+;;
+;; As all builtins do, must return job status.
+;;
+(define (builtin-answers job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((sp (repl-answers))
+           (%answer-reader ;; name shown when displaying the closure
+              (let ((i 0))
+                (lambda (rx)
+                  (if (fx>=? i (span-length sp))
+                    (values #f #f)
+                    (let ((plist (list 'idx i 'answer (span-ref sp i))))
+                      (set! i (fx1+ i))
+                      (values plist #t))))))
+           (rx (make-reader %answer-reader #f #f)))
+      (to-stdout rx options))))
