@@ -64,6 +64,7 @@
           ((null? l))
         (let ((old-name-new-name (car l)))
           (unless (symbol? old-name-new-name)
+            (assert* 'make-field-reader (list? old-name-new-name))
             (assert* 'make-field-reader (fx=? 2 (length old-name-new-name)))
             (assert* 'make-field-reader (symbol? (car  old-name-new-name)))
             (assert* 'make-field-reader (symbol? (cadr old-name-new-name))))))

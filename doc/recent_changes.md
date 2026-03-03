@@ -11,7 +11,7 @@
 
 ### git main branch
 
-* add shell builtins `answers` `dir` `first` `parse` `proc` `skip` `sort-by` `to`
+* add shell builtins `answers` `dir` `first` `parse` `proc` `select` `skip` `sort-by` `to`
 * add type `dir-entry` and functions `(dir)` `(dirs)` `(file)` `(files)`
   returning a reader that generates `dir-entry` objects for specified files and/or directories
 * and type `process-entry` and function `(proc)` returning a reader that generates `process-entry` objects for system processes

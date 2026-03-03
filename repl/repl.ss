@@ -491,6 +491,8 @@ Type ? or help for this help.
     (hashtable-set! t "jobs"       builtin-jobs)
     (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
+    (hashtable-set! t "select"     builtin-select)
+    (hashtable-set! t "skip"       builtin-skip)
     (hashtable-set! t "sort-by"    builtin-sort-by)
     (hashtable-set! t "to"         builtin-to))
 
@@ -522,7 +524,7 @@ Type ? or help for this help.
     Options:
       --to-FORMAT   display answers in given FORMAT\n"))
 
-    (hashtable-set! t "parse" (string->utf8 " FILE [--from-FORMAT] [--to-FORMAT]
+    (hashtable-set! t "parse" (string->utf8 " [OPTIONS] FILE
     open a file and read structured data from it, autodetecting input format.
     Copy elements to stdout, autodetecting output format.
     Options:
@@ -538,7 +540,24 @@ Type ? or help for this help.
       x             also display processes running without a terminal
       --to-FORMAT   display processes in given FORMAT\n"))
 
-    (hashtable-set! t "sort-by" (string->utf8 " FIELD-NAME ... [--from-FORMAT] [--to-FORMAT]
+    (hashtable-set! t "select" (string->utf8 " [OPTIONS] FIELD-NAME...
+    parse data from standard input, autodetecting input format.
+    extract only specified FIELD-NAMEs from parsed elements,
+    and write them to standard output autodetecting output format.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it
+      --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
+
+    (hashtable-set! t "skip"  (string->utf8 " [OPTIONS] [N]
+    read structured data from stdin, autodetecting input format,
+    skip the first N elements,
+    and write the following ones to stdout, autodetecting output format.
+    By default, N is 1.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT
+      --to-FORMAT   write elements to stdout in given FORMAT\n"))
+
+    (hashtable-set! t "sort-by" (string->utf8 " [OPTIONS] FIELD-NAME...
     parse data from standard input, autodetecting input format.
     sort elements by specified FIELD-NAMEs,
     and write sorted elements to standard output autodetecting output format.
@@ -555,7 +574,8 @@ Type ? or help for this help.
       auto          default. choose display format depending on standard output
                     file descriptor type: tty => table, socket => wire, else => json
       table         display data in table format
-      json          display data in json format
+      json          display data in ndjson format
+      json1         display data in single-document json format
       wire          write data in binary wire format\n"))))
 
 

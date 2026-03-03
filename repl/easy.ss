@@ -736,6 +736,50 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: select
+
+
+;; the "select" builtin:
+;; read from stdin autodetecting input format, select only the fields specified in command line,
+;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-select job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (when (null? args)
+      (raise-errorf 'select "too few arguments"))
+    (let* ((rx (from-stdin options))
+           (rx (make-field-reader rx (map string->symbol args))))
+      (to-stdout rx options))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: skip
+
+
+;; the "skip" builtin: read from stdin autodetecting input format,
+;; skip first N elements (1 by default), write the remaining elements to stdout autodetecting output format.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-skip job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((n (cond
+                ((null? args)
+                  1)
+                ((null? (cdr args))
+                  (let ((n (string->number (car args))))
+                    (assert* 'skip (integer? n))
+                    (assert* 'skip (exact? n))
+                    n))
+                (else
+                 (raise-errorf 'skip "too many arguments"))))
+            (rx (from-stdin options))
+            (rx (make-range-reader rx n #t)))
+      (to-stdout rx options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: sort-by
 
 
@@ -748,7 +792,6 @@
   (let-values (((args options) (split-args-and-options prog-and-args)))
     (when (null? args)
       (raise-errorf 'sort-by "too few arguments"))
-
     (let* ((field-names (map string->symbol args))
            (rx (from-stdin options))
            (rx (make-sort-reader rx field-names 'close-inner)))
