@@ -15,12 +15,12 @@
     (rnrs)
     (only (chezscheme)                   1+ foreign-procedure fx1+ fx1- make-time record-writer string->immutable-string void)
     (only (scheme2k bootstrap)           assert*)
-    (only (scheme2k containers list)     plist-ref)
+    (only (scheme2k containers list)     plist-ref plist-update!)
     (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k io wire)             wire-register-rtd-reflect)
     (only (scheme2k posix fd)            raise-c-errno)
     (only (scheme2k posix fs)            gid->groupname uid->username)
-    (only (scheme2k reflect)             reflect-info-set-autodetect!))
+    (only (scheme2k reflect)             make-reflect-info-autodetect reflect-info-set!))
 
 
 (define-record-type (process-reader %make-process-reader process-reader?)
@@ -192,6 +192,15 @@
       (bvec-ref/u64 bvec (fx* 19 8))))) ; maj-fault,    uint64
 
 
+;; only convert string->symbol the field process-entry-state
+(define (deserialize-process-entry plist)
+  (plist-update! plist 'state (lambda (val)
+                               (if (string? val)
+                                 (string->symbol val)
+                                 val)))
+  plist)
+
+
 ;; customize how "process-reader" objects are printed
 (record-writer (record-type-descriptor process-reader)
   (lambda (rx port writer)
@@ -227,12 +236,14 @@
     (put-string port ")")))
 
 
-(let ((rtd (record-type-descriptor process-entry))
-      (tag-process-entry 243))
+(let* ((rtd (record-type-descriptor process-entry))
+       (type-sym (record-type-name rtd))
+       (tag-process-entry 243))
 
   ;; customize visible reflect fields for `process-entry` objects.
-  ;; do NOT register a deserializer that calls (make-process-entry), because it alters incoming fields order
-  (reflect-info-set-autodetect! rtd #f)
+  ;; register a deserializer that does NOT call (make-process-entry), because it would alters incoming fields order:
+  ;; it only converts string->symbol the field process-entry-state
+  (reflect-info-set! rtd (make-reflect-info-autodetect rtd type-sym) type-sym deserialize-process-entry)
 
   ;; customize how `wire` library serializes/deserializes `process-entry` objects
   (wire-register-rtd-reflect rtd tag-process-entry make-process-entry))

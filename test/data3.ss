@@ -264,7 +264,7 @@
         (list
           (utf8->string bv)
           (first-value (reader-get rx))))))             ,("{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"inode\":568413,\"nlink\":2}\n"
-                                                          (<type> "dir-entry" name "." type "dir" size 4096 link "" modified (make-time-utc 1768467392 0)
+                                                          (<type> "dir-entry" name "." type dir size 4096 link "" modified (make-time-utc 1768467392 0)
                                                             accessed (make-time-utc 1770666829 82454476) status-changed (make-time-utc 1770314180 254027974)
                                                             mode "rwxr-xr-x" user "nobody" group "users" uid 1000 gid 100 inode 568413 nlink 2))
 
@@ -281,7 +281,7 @@
         (list
           (utf8->string bv)
           (first-value (reader-get rx))))))             ,("{\"<type>\":\"process-entry\",\"pid\":1,\"name\":\"systemd\",\"tty\":false,\"state\":\"S\",\"user\":\"root\",\"group\":\"root\",\"uid\":0,\"gid\":0,\"ppid\":0,\"pgrp\":1,\"sid\":1,\"mem-rss\":14536704,\"mem-virtual\":25296896,\"start-time\":{\"<type>\":\"time-monotonic\",\"value\":0.11},\"user-time\":{\"<type>\":\"time-duration\",\"value\":0.33},\"sys-time\":{\"<type>\":\"time-duration\",\"value\":0.92},\"iowait-time\":{\"<type>\":\"time-duration\",\"value\":0},\"priority\":20,\"threads\":1,\"min-fault\":10839,\"maj-fault\":160}\n"
-                                                          (<type> "process-entry" pid 1 name "systemd" tty #f state "S" user "root" group "root"
+                                                          (<type> "process-entry" pid 1 name "systemd" tty #f state S user "root" group "root"
                                                             uid 0 gid 0 ppid 0 pgrp 1 sid 1 mem-rss 14536704 mem-virtual 25296896
                                                             start-time (make-time-monotonic 0 110000000) user-time (make-time-duration 0 330000000)
                                                             sys-time (make-time-duration 0 920000000) iowait-time (make-time-duration 0 0) priority 20 threads 1 min-fault 10839 maj-fault 160))

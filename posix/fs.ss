@@ -24,14 +24,14 @@
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
-    (only (scheme2k containers list)       for-list)
+    (only (scheme2k containers list)       for-list plist-update!)
     (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
     (only (scheme2k io obj)                reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k posix fd)              c-errno->string raise-c-errno)
-    (only (scheme2k reflect)               reflect-info-set-autodetect!))
+    (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
 
 ;; info about a filesystem entry: a file, dir, socket, pipe, symlink...
@@ -618,6 +618,15 @@
         c-errno-einval))))
 
 
+;; only convert string->symbol the field dir-entry-type
+(define (deserialize-dir-entry plist)
+  (plist-update! plist 'type (lambda (val)
+                               (if (string? val)
+                                 (string->symbol val)
+                                 val)))
+  plist)
+
+
 ;; customize how "dir-reader" objects are printed
 (record-writer (record-type-descriptor dir-reader)
   (lambda (rx port writer)
@@ -643,8 +652,10 @@
 
 
 ;; customize visible reflect fields for `dir-entry` objects.
-;; do NOT register a deserializer that calls (make-dir-entry), because it alters incoming fields order
-(reflect-info-set-autodetect! (record-type-descriptor dir-entry) #f)
-
+;; the deserializer does NOT call (make-dir-entry), because it alters incoming fields order:
+;; it only converts string->symbol the field dir-entry-type
+(let* ((rtd (record-type-descriptor dir-entry))
+       (type-sym (record-type-name rtd)))
+  (reflect-info-set! rtd (make-reflect-info-autodetect rtd type-sym) type-sym deserialize-dir-entry))
 
 ) ; close library

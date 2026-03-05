@@ -13,7 +13,7 @@
 
     list-copy* list-index list-quoteq! list-reverse*! list-reverse->vector list-remove-consecutive-duplicates!
 
-    plist? plist-add plist-ref plist-delete plist-delete/pred
+    plist? plist-add plist-ref plist-delete plist-delete/pred plist-update!
 
     symbol-list?)
 
@@ -407,7 +407,7 @@
 
 
 ;; given a property list plist, i.e. a list containing alternate keys and values,
-;; return a new new property list all keys that cause (pred key) to return truish have been removed.
+;; return a new property list, where all keys that cause (pred key) to return truish have been removed.
 ;; Does not modify plist.
 (define (plist-delete/pred plist pred)
   (let %plist-delete/pred ((ret '()) (plist plist) (pred pred))
@@ -421,6 +421,18 @@
         (%plist-delete/pred (cons (cadr plist) (cons (car plist) ret))
                             (cddr plist)
                             pred)))))
+
+
+;; given a property list plist, i.e. a list containing alternate keys and values,
+;; find value corresponding to specified key, and replace it with (proc value)
+;; return #t if plist contains key, otherwise return #f
+(define (plist-update! plist key proc)
+  (let ((l (memq key plist)))
+    (if (and (pair? l) (pair? (cdr l)))
+      (begin
+        (set-car! (cdr l) (proc (cadr l)))
+        #t)
+      #f)))
 
 
 ;; create and return a closure that iterates on elements of property list plist.
