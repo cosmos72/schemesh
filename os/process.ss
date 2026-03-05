@@ -15,7 +15,7 @@
     (rnrs)
     (only (chezscheme)                   1+ foreign-procedure fx1+ fx1- make-time record-writer string->immutable-string void)
     (only (scheme2k bootstrap)           assert*)
-    (only (scheme2k containers list)     plist-ref plist-update!)
+    (only (scheme2k containers list)     plist-update!)
     (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k io wire)             wire-register-rtd-reflect)
     (only (scheme2k posix fd)            raise-c-errno)
@@ -195,9 +195,9 @@
 ;; only convert string->symbol the field process-entry-state
 (define (deserialize-process-entry plist)
   (plist-update! plist 'state (lambda (val)
-                               (if (string? val)
-                                 (string->symbol val)
-                                 val)))
+                                (if (string? val)
+                                  (string->symbol val)
+                                  val)))
   plist)
 
 
