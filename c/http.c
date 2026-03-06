@@ -10,6 +10,7 @@
 #include "http.h"
 
 #include <curl/curl.h>
+#include <errno.h>  /* ENOMEM */
 #include <stdlib.h> /* malloc(), free*( )*/
 #include <string.h> /* strerror() */
 
@@ -516,4 +517,76 @@ int http_select(http* ctx, int timeout_ms) {
     ret = 0;
   }
   return ret;
+}
+
+int http_copy_to(http* ctx, FILE* out) {
+  char buf[65536];
+  for (;;) {
+    size_t n   = http_try_read(ctx, buf, 0, sizeof(buf));
+    int    err = http_errcode(ctx);
+    switch (n) {
+      case 0:
+        if (err != 0 || (err = http_select(ctx, 500)) != 0) {
+          return err;
+        }
+        break;
+      case (size_t)-1:
+        return err;
+      default:
+        (void)fwrite(buf, 1, n, out);
+        (void)fflush(out);
+        break;
+    }
+  }
+}
+
+int main(int argc, char* argv[]) {
+  http*         ctx   = NULL;
+  const char*   url   = NULL;
+  int           err   = 0;
+  unsigned char ginit = 0, open = 0;
+  if (argc != 3 || strcmp("get", argv[1])) {
+    fprintf(stderr, "Usage: http get URL\n");
+    return 1;
+  }
+  url = argv[2];
+
+  if ((err = http_global_init()) != 0) {
+    fprintf(stderr, "# http error %d in global_init(): %s\n", err, http_global_strerror(err));
+    goto fail;
+  }
+  ginit = 1;
+  if ((ctx = http_new()) == NULL) {
+    fprintf(stderr, "# http error %d_new() : %s\n", ENOMEM, strerror(ENOMEM));
+    goto fail;
+  }
+  if ((err = http_open(ctx, url)) != 0) {
+    fprintf(stderr, "# http error %d in open(\"%s\"): ", err, url);
+    http_fprint_error(ctx, stderr);
+    fputc('\n', stderr);
+    goto fail;
+  }
+  open = 1;
+
+  if ((err = http_copy_to(ctx, stdout)) != 0) {
+    fprintf(stderr, "# http error %d in read(\"%s\"): ", err, url);
+    http_fprint_error(ctx, stderr);
+    fputc('\n', stderr);
+    goto fail;
+  }
+
+  return 0;
+fail:
+  if (open) {
+    http_close(ctx);
+  }
+  if (ctx) {
+    http_del(ctx);
+    ctx = NULL;
+  }
+  if (ginit) {
+    http_global_cleanup();
+    ginit = 0;
+  }
+  return err & 0xFF ? err & 0xFF : 1;
 }

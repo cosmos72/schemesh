@@ -64,8 +64,9 @@
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?
-    vlines-next-xy vlines-prev-xy vlines-cell-at-xy vlines-char-at-xy
-    vlines-char-before-xy vlines-char-after-xy
+    vlines-next-xy vlines-prev-xy
+    vlines-cell-at-xy vlines-cell-before-xy vlines-cell-after-xy
+    vlines-char-at-xy vlines-char-before-xy vlines-char-after-xy
     in-vlines open-vlines-input-port
 
     ;; vscreen.ss
@@ -76,10 +77,11 @@
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
     vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
     vscreen-length-at-y  vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
-    vscreen-cell-at-xy   vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
+    vscreen-cell-at-xy   vscreen-cell-before-xy  vscreen-cell-after-xy
+    vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
-    vscreen-clear!       vscreen-empty?
+    vscreen-clear!       vscreen-empty?          vscreen-line-at-y
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
     vscreen-delete-left/vline!  vscreen-delete-right/vline!

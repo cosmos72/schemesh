@@ -15,7 +15,6 @@
     (scheme2k io base64)
     (scheme2k io field)
     (scheme2k io json)
-    (scheme2k io http)
     (scheme2k io obj)
     (scheme2k io port)
     (scheme2k io redir)

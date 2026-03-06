@@ -65,7 +65,7 @@
 (define wire-register-rtd-reflect
   (case-lambda
     ((rtd tag-value constructor accessors)
-      (let ((tag-value   (or tag-value (wire-reserve-tag)))
+      (let ((tag-value   (or tag-value   (wire-reserve-tag)))
             (constructor (or constructor (chez:record-constructor rtd)))
             (accessors   (or accessors   (rtd-and-parent-accessors rtd))))
         (assert* 'wire-register-rtd-reflect (record-type-descriptor? rtd))
@@ -105,12 +105,13 @@
 (define (make-rtd-len-proc accessors)
   (let ((wire-len/rtd-fields ; name will be visible if procedure is displayed
           (lambda (pos obj)
-            (let %len/rtd-fields ((pos (tag+ pos)) (obj obj) (i 0)
-                                  (n (vector-length accessors)))
-              (if (and pos (fx<? i n))
-                (let ((accessor (vector-ref accessors i)))
-                  (%len/rtd-fields (len/any pos (accessor obj)) obj (fx1+ i) n))
-                pos)))))
+            (let* ((n   (vector-length accessors))
+                   (pos (vlen+ n (tag+ pos)))) ; also save number of fields/accessors
+              (let %wire-len/rtd-fields ((pos pos) (obj obj) (i 0) (n n))
+                (if (and pos (fx<? i n))
+                  (let ((accessor (vector-ref accessors i)))
+                    (%wire-len/rtd-fields (len/any pos (accessor obj)) obj (fx1+ i) n))
+                  pos))))))
     wire-len/rtd-fields))
 
 
@@ -119,13 +120,15 @@
 (define (make-rtd-put-proc tag-value accessors)
   (let ((wire-put/rtd-fields ; name will be visible if procedure is displayed
           (lambda (bv pos obj)
-            (let %put/rtd-fields ((bv bv) (pos (put/tag bv pos tag-value)) (obj obj)
-                                  (i 0) (n (vector-length accessors)))
-              (if (and pos (fx<? i n))
-                (let* ((accessor (vector-ref accessors i))
-                       (pos      (put/any bv pos (accessor obj))))
-                  (%put/rtd-fields bv pos obj (fx1+ i) n))
-                pos)))))
+            (let* ((n   (vector-length accessors))
+                   (pos (put/tag  bv pos tag-value))
+                   (pos (put/vlen bv pos n))) ; also save number of fields/accessors
+              (let %wire-put/rtd-fields ((bv bv) (pos pos) (obj obj) (i 0) (n n))
+                (if (and pos (fx<? i n))
+                  (let* ((accessor (vector-ref accessors i))
+                         (pos      (put/any bv pos (accessor obj))))
+                    (%wire-put/rtd-fields bv pos obj (fx1+ i) n))
+                  pos))))))
     wire-put/rtd-fields))
 
 
@@ -137,8 +140,25 @@
     ((1) (make-rtd-get-proc1 constructor))
     ((2) (make-rtd-get-proc2 constructor))
     ((3) (make-rtd-get-proc3 constructor))
-    ((4) (make-rtd-get-proc4 constructor))
     (else (make-rtd-get-procn constructor field-n))))
+
+
+;; read and skip n objects encoded as general datum
+;; return updated-position
+(define (wire-skip-n bv pos end n)
+  (if (and pos (fx>? n 0))
+    (let-values (((datum pos) (get/any bv pos end)))
+      (and pos (wire-skip-n bv pos end (fx1- n))))
+    pos))
+
+
+;; wrapper around (get/any):
+;; if present, read and return one object encoded as general datum;
+;; otherwise return (values (void) pos)
+(define (wire-get-1 bv pos end i n)
+  (if (fx<? i n)
+    (get/any bv pos end)
+    (values (void) pos)))
 
 
 ;; autogenerate and return a get-proc procedure that deserializes
@@ -146,7 +166,9 @@
 (define (make-rtd-get-proc0 constructor)
   (let ((wire-get/rtd-fields0 ; name will be visible if procedure is displayed
           (lambda (bv pos end)
-            (values (if pos (constructor) #f) pos))))
+            (let-values (((n pos) (get/vlen bv pos end)))
+              (let ((pos (wire-skip-n bv pos end n)))
+                (values (and pos (constructor)) pos))))))
     wire-get/rtd-fields0))
 
 
@@ -155,8 +177,10 @@
 (define (make-rtd-get-proc1 constructor)
   (let ((wire-get/rtd-fields1 ; name will be visible if procedure is displayed
           (lambda (bv pos end)
-            (let-values (((field0 pos) (get/any bv pos end)))
-              (values (if pos (constructor field0) #f) pos)))))
+            (let-values (((n pos) (get/vlen bv pos end)))
+              (let-values (((field0 pos) (wire-get-1 bv pos end 0 n)))
+                (let ((pos (wire-skip-n bv pos end (fx1- n))))
+                  (values (and pos (constructor field0)) pos)))))))
     wire-get/rtd-fields1))
 
 
@@ -165,9 +189,11 @@
 (define (make-rtd-get-proc2 constructor)
   (let ((wire-get/rtd-fields2 ; name will be visible if procedure is displayed
           (lambda (bv pos end)
-            (let*-values (((field0 pos) (get/any bv pos end))
-                          ((field1 pos) (get/any bv pos end)))
-              (values (if pos (constructor field0 field1) #f) pos)))))
+            (let-values (((n pos) (get/vlen bv pos end)))
+              (let*-values (((field0 pos) (wire-get-1 bv pos end 0 n))
+                            ((field1 pos) (wire-get-1 bv pos end 1 n)))
+                (let ((pos (wire-skip-n bv pos end (fx- n 2))))
+                  (values (and pos (constructor field0 field1)) pos)))))))
     wire-get/rtd-fields2))
 
 
@@ -176,24 +202,13 @@
 (define (make-rtd-get-proc3 constructor)
   (let ((wire-get/rtd-fields3 ; name will be visible if procedure is displayed
           (lambda (bv pos end)
-            (let*-values (((field0 pos) (get/any bv pos end))
-                          ((field1 pos) (get/any bv pos end))
-                          ((field2 pos) (get/any bv pos end)))
-              (values (if pos (constructor field0 field1 field2) #f) pos)))))
+            (let-values (((n pos) (get/vlen bv pos end)))
+              (let*-values (((field0 pos) (wire-get-1 bv pos end 0 n))
+                            ((field1 pos) (wire-get-1 bv pos end 1 n))
+                            ((field2 pos) (wire-get-1 bv pos end 2 n)))
+                (let ((pos (wire-skip-n bv pos end (fx- n 3))))
+                  (values (and pos (constructor field0 field1 field2)) pos)))))))
     wire-get/rtd-fields3))
-
-
-;; autogenerate and return a get-proc procedure that deserializes
-;; a user-defined record type object having specified constructor and four fields
-(define (make-rtd-get-proc4 constructor)
-  (let ((wire-get/rtd-fields4 ; name will be visible if procedure is displayed
-          (lambda (bv pos end)
-            (let*-values (((field0 pos) (get/any bv pos end))
-                          ((field1 pos) (get/any bv pos end))
-                          ((field2 pos) (get/any bv pos end))
-                          ((field3 pos) (get/any bv pos end)))
-              (values (if pos (constructor field0 field1 field2 field3) #f) pos)))))
-    wire-get/rtd-fields4))
 
 
 ;; autogenerate and return a get-proc procedure that deserializes
@@ -201,12 +216,11 @@
 (define (make-rtd-get-procn constructor field-n)
   (let ((wire-get/rtd-fields ; name will be visible if procedure is displayed
           (lambda (bv pos end)
-            (let %get/rtd-fields ((bv bv) (pos pos) (end end) (i 0) (fields '()))
-              (if (and pos (fx<? i field-n))
-                (let-values (((field-i pos) (get/any bv pos end)))
-                  (%get/rtd-fields bv pos end (fx1+ i) (cons field-i fields)))
-                (values (if pos
-                          (apply constructor (reverse! fields))
-                          #f)
-                        pos))))))
+            (let-values (((n pos) (get/vlen bv pos end)))
+              (let %wire-get/rtd-fields ((pos pos) (i 0) (fields '()))
+                (if (fx<? i field-n)
+                  (let-values (((field-i pos) (wire-get-1 bv pos end 1 n)))
+                    (%wire-get/rtd-fields pos (fx1+ i) (cons field-i fields)))
+                  (let ((pos (wire-skip-n bv pos end (fxmax 0 (fx- n field-n)))))
+                    (values (and pos (apply constructor (reverse! fields))) pos))))))))
     wire-get/rtd-fields))

@@ -127,6 +127,10 @@ Example:
 then removes empty lines from history, and finally deletes all lines.<br/>
 Added in 0.9.3
 
+##### (lineedit-key-transpose-char)
+`(lineedit-key-transpose-char lctx)` swaps the character under cursor with previous one, then advances cursor by one.<br/>
+Added in 0.9.4
+
 ##### (lineedit-key-insert-clipboard)
 `(lineedit-key-insert-clipboard lctx)` inserts the content of clipboard at cursor.
 

@@ -104,19 +104,39 @@
     0))
 
 
-;; return vscreen cell at specified x y, or #f if x y are out of range
-(define (vscreen-cell-at-xy screen x y)
-  (vlines-cell-at-xy screen x y))
-
-
-;; return vscreen char at specified x y, or #f if x y are out of range
-(define (vscreen-char-at-xy screen x y)
-  (let ((cl (vlines-cell-at-xy screen x y)))
-    (and cl (vcell->char cl))))
-
 ;; return two values: cursor x and y position in input vlines
 (define (vscreen-cursor-ixy screen)
   (values (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)))
+
+
+;; return vscreen cell at specified x y, or #f if x y are out of range
+(define vscreen-cell-at-xy vlines-cell-at-xy)
+
+;; return position immediately before x y, and cell at such position.
+;; return #f #f #f if x y are out of range or 0 0.
+(define vscreen-cell-before-xy vlines-cell-before-xy)
+
+
+;; return position immediately after x y, and cell at such position.
+;; return #f #f #f if x y are out of range.
+;; return x+1 y #f if x y correspond to the last cell in the last line
+(define vscreen-cell-after-xy vlines-cell-after-xy)
+
+
+
+;; return vscreen char at specified x y, or #f if x y are out of range
+(define vscreen-char-at-xy vlines-char-at-xy)
+
+;; return position immediately before x y, and char at such position.
+;; return #f #f #f if x y are out of range or 0 0.
+(define vscreen-char-before-xy vlines-char-before-xy)
+
+
+;; return position immediately after x y, and char at such position.
+;; return #f #f #f if x y are out of range.
+;; return x+1 y #f if x y correspond to the last character in the last line
+(define vscreen-char-after-xy vlines-char-after-xy)
+
 
 
 ;; set cursor x and y position in input vlines. notes:
@@ -389,12 +409,12 @@
 ;; return number of characters actually erased.
 (define vscreen-delete-left/n!
   (case-lambda
-    ((screen n)
-      (vscreen-delete-left/n! screen n #f))
     ((screen n clipboard)
       (clipboard-insert-vscreen/left! clipboard screen n)
       (let ((n (vscreen-cursor-move/left! screen n)))
-        (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n)))))
+        (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n)))
+    ((screen n)
+      (vscreen-delete-left/n! screen n #f))))
 
 
 ;; erase n characters from vscreen, starting at cursor and moving rightward.
@@ -736,17 +756,6 @@
     (if (and x1 y1)
       (values x1 y1 (fx1+ n))
       (values x y n))))
-
-
-;; return position immediately before x y, and char at such position.
-;; return #f #f #f if x y are out of range or 0 0.
-(define vscreen-char-before-xy vlines-char-before-xy)
-
-
-;; return position immediately after x y, and char at such position.
-;; return #f #f #f if x y are out of range.
-;; return x+1 y #f if x y correspond to the last character in the last line
-(define vscreen-char-after-xy vlines-char-after-xy)
 
 
 ;; return count of consecutive characters starting immediately before x y and moving backward

@@ -78,8 +78,36 @@
     (linectx-eof-set! lctx #t)
     (lineedit-key-del-right lctx)))
 
+
+;; transpose character under cursor with previous one,
+;; then move cursor one position to the right
 (define (lineedit-key-transpose-char lctx)
-  (void)) ;; TODO: implement
+  (let ((screen (linectx-vscreen lctx)))
+    (let* ((x1  (vscreen-cursor-ix screen))
+           (y1  (vscreen-cursor-iy screen))
+           (cl1 (vscreen-cell-at-xy screen x1 y1)))
+      (if cl1
+        (when (%lineedit-key-transpose-char screen x1 y1 cl1)
+          (vscreen-cursor-move/right! screen 1))
+        ;; if at end of input, transpose the two previous characters
+        (let-values (((x1 y1) (vscreen-prev-xy screen x1 y1)))
+          (let ((cl1 (vscreen-cell-at-xy screen x1 y1)))
+            (%lineedit-key-transpose-char screen x1 y1 cl1)))))))
+
+
+;; implementation of (lineedit-key-transpose-char)
+(define (%lineedit-key-transpose-char screen x1 y1 cl1)
+  (let-values (((x0 y0 cl0) (vscreen-cell-before-xy screen x1 y1)))
+    (and x0 y0 cl0
+         (let ((l0 (vscreen-line-at-y screen y0))
+               (l1 (vscreen-line-at-y screen y1)))
+           (and l0 l1
+                (begin
+                  (vscreen-dirty-set! screen #t)
+                  (vline-set! l0 x0 cl1)
+                  (vline-set! l1 x1 cl0)
+                  #t))))))
+
 
 ;; delete one character to the left of cursor.
 ;; moves cursor one character to the left.
@@ -346,6 +374,7 @@
   (tty-inspect lctx))
 
 (define (lineedit-key-toggle-insert lctx)
+  ;; TODO: implement?
   (void))
 
 (define (lineedit-key-cmd-cd-parent lctx)

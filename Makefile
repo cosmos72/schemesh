@@ -100,7 +100,7 @@ schemesh_test: test.o $(OBJS)
 $(SCHEMESH_SO): schemesh_test
 	./schemesh_test
 
-countdown: utils/countdown.c
+countdown: c/countdown.c
 	$(CC) -o $@ $< $(CFLAGS)  $(LDFLAGS)
 
 
@@ -123,11 +123,11 @@ uninstall:
 # by default, do *not* compile C shared libraries and optional Scheme libraries
 
 scheme2k:      scheme2k_so scheme2k_c_so
-scheme2k_full: scheme2k_so scheme2k_c_so scheme2k_http_c_so
+scheme2k_full: scheme2k_so scheme2k_c_so http_c
 batteries:     scheme2k_full
 
 install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
-install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
+install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_http_c
 install_batteries:     install_scheme2k_full
 
 install_scheme2k_dirs:
@@ -164,26 +164,24 @@ install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 
 
 ################################################################################
-# optional C shared library: libscheme2k_http_c_VERSION.so
-# wraps libcurl and is needed by function (http-url->port)
+# optional C executable: http
+# wraps libcurl
 ################################################################################
 
-LIB_CURL=-lcurl
+HTTP=http
 
-SCHEME2K_HTTP_C_SO=libscheme2k_http_c_0.9.3.so
+http_c: $(HTTP)
 
-scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
+$(HTTP): c/http.c
+	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -lcurl $(LDFLAGS)
 
-$(SCHEME2K_HTTP_C_SO): io/http.c
-	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
-
-install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) install_scheme2k_dirs
-	$(INSTALL_DATA) $(SCHEME2K_HTTP_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
+install_http_c: $(HTTP)
+	$(INSTALL) $(HTTP) '$(DESTDIR)$(bindir)'
 
 ################################################################################
 
 clean_scheme2k:
-	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO) $(SCHEME2K_HTTP_C_SO)
+	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO) $(HTTP)
 
 clean_batteries: clean_scheme2k
 

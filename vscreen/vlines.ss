@@ -357,29 +357,41 @@
         #f))
     #f))
 
+
+;; return position immediately before x y, and cell at such position.
+;; return #f #f #f if x y are out of range or 0 0.
+(define (vlines-cell-before-xy lines x y)
+  (let-values (((x y) (vlines-prev-xy lines x y)))
+    (values x y (and x y (vlines-cell-at-xy lines x y)))))
+
+
+;; return position immediately after x y, and cell at such position.
+;; return #f #f #f if x y are out of range.
+;; return x+1 y #f if x y correspond to the last char in the last line
+(define (vlines-cell-after-xy lines x y)
+  (let-values (((x y) (vlines-next-xy lines x y)))
+    (values x y (and x y (vlines-cell-at-xy lines x y)))))
+
+
 ;; return vlines char at specified x y, or #f if x y are out of range
 (define (vlines-char-at-xy lines x y)
-  (if (and (fixnum? x) (fixnum? y) (fx<? -1 y (vlines-length lines)))
-    (let* ((line (vlines-ref lines y))
-           (len  (vline-length line)))
-      (if (fx<? -1 x len)
-        (vline-ref/char line x)
-        #f))
-    #f))
+  (let ((cl (vlines-cell-at-xy lines x y)))
+    (and cl (vcell->char cl))))
+
 
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
 (define (vlines-char-before-xy lines x y)
-  (let-values (((x y) (vlines-prev-xy lines x y)))
-    (values x y (and x y (vlines-char-at-xy lines x y)))))
+  (let-values (((x y cl) (vlines-cell-before-xy lines x y)))
+    (values x y (and x y cl (vcell->char cl)))))
 
 
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last char in the last line
 (define (vlines-char-after-xy lines x y)
-  (let-values (((x y) (vlines-next-xy lines x y)))
-    (values x y (and x y (vlines-char-at-xy lines x y)))))
+  (let-values (((x y cl) (vlines-cell-after-xy lines x y)))
+    (values x y (and x y cl (vcell->char cl)))))
 
 
 ;; create and return a closure that iterates on elements of vlines lines.
