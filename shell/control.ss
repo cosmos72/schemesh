@@ -261,8 +261,8 @@
     (let* ((signal-name  (if (symbol? signal-name-or-condition-object)
                            signal-name-or-condition-object
                            'sigint))
-           (ex           (and signal-name-or-condition-object
-                              (not (symbol? signal-name-or-condition-object))))
+           (ex           (and (not (symbol? signal-name-or-condition-object))
+                              signal-name-or-condition-object))
            (fatal?       (or ex (signal-name-is-usually-fatal? signal-name)))
            (suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
            (pid          (job-pid job))
