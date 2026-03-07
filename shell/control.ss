@@ -251,23 +251,26 @@
 ;; If job is a sh-expr, may also call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; If job is started, return #t. Note: may not return, i.e. non-locally jump to job's continuation.
+;; If job is successfully killed, return #t. Note: may not return, i.e. non-locally jump to job's continuation.
 ;; If job is not a sh-job or is not started, immediately return #f.
 (define (job-kill job signal-name-or-condition-object)
   ;;y (debugf "job-kill job=~s suspend-proc=~s" job suspend-proc)
-  (if (and (sh-job? job) (job-started? job))
+  (and
+    (sh-job? job)
+    (job-started? job)
     (let* ((signal-name  (if (symbol? signal-name-or-condition-object)
                            signal-name-or-condition-object
                            'sigint))
-           (ex           (and (not (symbol? signal-name-or-condition-object))
-                              signal-name-or-condition-object))
+           (ex           (and signal-name-or-condition-object
+                              (not (symbol? signal-name-or-condition-object))))
            (fatal?       (or ex (signal-name-is-usually-fatal? signal-name)))
            (suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
-           (pid  (job-pid job))
-           (pgid (job-pgid job))
+           (pid          (job-pid job))
+           (pgid         (job-pgid job))
            ;; send signals to job's process group, if present.
            ;; otherwise send signals to job's process id.
-           (target-pid (if (and pgid (> pgid 0)) (- pgid) pid)))
+           (target-pid   (if (and pgid (> pgid 0)) (- pgid) pid)))
+
       ;; set job id and notify its status? causes verbose notifications...
       ;; (job-id-set! job)
       ;; (queue-job-display-summary job)
@@ -286,20 +289,23 @@
               ;; if job has a pid, status will be set when subprocess exits
               (job-status-set/running! job))
             (fatal?
-              (job-status-set! 'job-kill job (killed signal-name)))))
+              (job-status-set! 'job-kill job (killed signal-name))))
+          #t)
         (suspend-proc
           (when fatal?
             (job-status-set! 'job-kill job
               (if ex (exception ex) (killed signal-name)))
             ;; should not return
-            (suspend-proc (void))))
+            (suspend-proc (void)))
+          #t)
         ((sh-multijob? job)
           (when fatal?
             (job-status-set! 'job-kill job
               (if ex (exception ex) (killed signal-name))))
-          (multijob-kill job signal-name)))
-        #t)
-      #f))
+          (multijob-kill job signal-name)
+          #t)
+        (else
+          #f))))) ; shell builtin. do not kill it, let user choose from break handler
 
 
 ;; Kill current job and call its suspend-proc continuation,
