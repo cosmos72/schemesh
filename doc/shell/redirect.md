@@ -21,7 +21,7 @@ Scheme functions to **redirect** existing shell jobs, and to access redirected f
 * [`(sh-redirect)`](#sh-redirect)
 * [`(sh-run/bytevector)`](#sh-runbytevector)
 * [`(sh-run/string)`](#sh-runstring)
-* [`(sh-start/fd-stdout)`](#sh-startfd-stdout)
+* [`(sh-start/fd1)`](#sh-startfd1)
 * [`(sh-start/fds)`](#sh-startfds)
 * [`(sh-start/ports)`](#sh-startports)
 * [`(sh-stdin)`](#sh-stdin)
@@ -76,14 +76,6 @@ because each one consumes an OS-level file descriptor.
 
 The added redirections are *temporary* i.e. they are automatically removed when the job finishes.
 
-##### (sh-start/fd-stdout)
-`(sh-start/fd-stdout job)` or `(sh-start/fd-stdout job options)` starts a job in background, returns a file descriptor fixnum<br/>
-for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`.
-
-Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
-
-Returned file descriptor must be closed with `(fd-close)` when no longer needed.
-
 ##### (sh-start/ports)
 `(sh-start/ports job [redirections [transcoder-sym [buffer-mode [options]]]]))` starts a job in background,<br/>
 returns a list of binary or textual ports connected to the job.<br/>
@@ -132,6 +124,14 @@ Optional arguments are:
 
 Each returned file descriptor must be closed with `(fd-close)` when no longer needed,
 because each one consumes an OS-level file descriptor.
+
+##### (sh-start/fd1)
+`(sh-start/fd1 job)` or `(sh-start/fd1 job options)` starts a job in background, returns a file descriptor fixnum<br/>
+for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`.
+
+Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+
+Returned file descriptor must be closed with `(fd-close)` when no longer needed.
 
 
 ### Redirect a job without starting it

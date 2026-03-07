@@ -64,7 +64,7 @@
       (when cache
         (assert* 'make-json-reader (hashtable? cache))
         (assert* 'make-json-reader (eq? eq? (hashtable-equivalence-function cache))))
-      (%make-json-reader in cache close-in?))
+      (%make-json-reader in close-in? cache))
     ((in close-in?)
       (make-json-reader in close-in? #f))
     ((in)

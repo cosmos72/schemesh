@@ -154,7 +154,7 @@
   (case-lambda
     ((job redirections options)
       (assert-redirection-plist 'sh-start/fds redirections)
-      (options-validate 'sh-start/fd-stdout options)
+      (options-validate 'sh-start/fds options)
       (let* ((n    (fxarithmetic-shift-right (length redirections) 1))
              ;; vector of pipe pairs. car is our side, cdr is child side
              (fdv  (make-vector n))
@@ -174,7 +174,7 @@
             ;; job no longer needs fd remapping:
             ;; they also may contain a dup() of write-fd
             ;; which prevents detecting eof on read-fd
-            ;; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
+            ;; (debugf "pid ~s: sh-start/fds calling (job-unmap-fds) job=~s" (pid-get) job)
 
             (job-unmap-fds! job)
             (set! err? #f))
@@ -199,7 +199,7 @@
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define sh-start/fd-stdout
+(define sh-start/fd1
   (case-lambda
     ((job job-options)
       ;; return read-fd or #f
@@ -221,7 +221,7 @@
 ;;                            if not specified, defaults to '(0 <& 1 >& 2 >&)
 ;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
 ;;   optional b-mode          a buffer-mode, defaults to 'block
-;;   optional job-options     a possibly empty list as described in (sh-options)
+;;   optional job-options     a possibly empty plist as described in (sh-options)
 ;;
 ;; May raise exceptions.
 ;; On errors redirecting a file descriptor, such file descriptor may be returned as #f.
@@ -350,7 +350,7 @@
     ((job options)
       (job-raise-if-started/recursive 'sh-run/bytevector job)
       (%job-id-set! job -1) ;; prevents showing job notifications
-      (let ((read-fd (sh-start/fd-stdout job options)))
+      (let ((read-fd (sh-start/fd1 job options)))
         ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
         (sh-wait/fd-read-all job read-fd)))
     ((job)

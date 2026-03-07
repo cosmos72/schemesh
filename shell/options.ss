@@ -15,12 +15,15 @@
 ;; return unspecified value.
 ;; if key or value is not valid, raise an exception.
 (define (option-validate caller key value)
-  (let ((job-supported-options '(catch? fd-close process-group-id spawn?)))
+  (let ((job-supported-options '(catch? fd-close process-group-id reader spawn?)))
     (assert* caller (memq key job-supported-options)))
   (case key
     ((fd-close process-group-id)
       (assert* caller (integer? value))
       (assert* caller (>= value 0)))
+    ((reader)
+      ;; used by (sh-start/reader1)
+      (assert* caller (string? value)))
     (else
       (assert* caller (boolean? value)))))
 
@@ -35,7 +38,7 @@
 
 ;; create and return property list usable for (sh-start) job options.
 ;;
-;; options must be a list containing zero or more:
+;; options must be a plist containing zero or more:
 ;;
 ;;   (void) or #f followed by arbitrary value - ignored, and omitted from returned list.
 ;;
@@ -51,6 +54,8 @@
 ;;   'process-group-id id - id must be an integer and >= 0, otherwise an exception will be raised.
 ;;     If present, the new process will be inserted into the corresponding
 ;;     process group id - which must be either 0 or an already exist one.
+;;
+;;   'reader string - only used by (sh-start/reader1), see its documentation
 ;;
 ;;   'spawn? flag - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, then job will be started in a subprocess.

@@ -424,7 +424,7 @@
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created subprocess.
 ;;
-;; Options is an association list, see (sh-options) for allowed keys and values.
+;; Options is a property list, see (sh-options) for allowed keys and values.
 ;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
 ;;
 ;; Automatically creates a job wrapping the subprocess, and returns such job.

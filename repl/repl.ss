@@ -13,7 +13,7 @@
 
           ;; repl/easy.ss
           all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first get put
-          proc select skip skip-first sort-by tty-colors where where@ with-sh-closable
+          proc select skip skip-first sort-by tty-colors where where@ with-sh-closable sh-start/reader1
 
           from-stdin   from-json   from-list from-queue from-vector from-wire from-port
           to-stdout to-json to-json1 to-list   to-queue   to-vector   to-wire   to-table
@@ -35,7 +35,7 @@
                                      make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
-    (only (scheme2k containers list)      any for-list)
+    (only (scheme2k containers list)      any for-list plist-ref)
           (scheme2k containers span)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix?)
           (scheme2k lineedit lineedit)
@@ -50,7 +50,7 @@
           (schemesh parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
-    (only (scheme2k posix io)        file->port)
+    (only (scheme2k posix io)        fd->port file->port)
           (scheme2k posix signal)
     (only (scheme2k posix status)    ok)
           (scheme2k posix tty)
@@ -58,9 +58,10 @@
     (only (schemesh shell)
        repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind sh-env-ref
-       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler sh-fd sh-foreground-pgid
-       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs sh-inside-interrupt?
-       sh-make-linectx sh-port sh-schemesh-reload-count sh-run/i sh-stdio-flush with-sh-resource xdg-cache-home/ xdg-config-home/)
+       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler sh-fd
+       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
+       sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
+       with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 
 

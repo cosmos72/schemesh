@@ -94,7 +94,7 @@ The analogous job control mechanisms from Scheme syntax are:
 Some more advanced Scheme functions:
 * `(sh-run/bytevector job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme bytevector
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
-* `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum<br/>
+* `(sh-start/fd1 job-object)` start a job in background, return a file descriptor fixnum<br/>
   for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`
   File descriptor must be closed with `(fd-close)` when no longer needed.
 * `(sh-start/fds job-object)` start a job in background, return a list containing file descriptors<br/>

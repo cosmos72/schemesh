@@ -254,7 +254,7 @@
 * add shell builtins "help copyright" and "help warranty"
 * improve shell builtin "fg" to show job status if it's not finished yet when "fg" exits
 * when entering and leaving `(lineedit-read)`, sort by id then by pid the queued job status change notifications
-* mention `(sh-run/string)` and `(sh-start/fd-stdout)` in README.md
+* mention `(sh-run/string)` and `(sh-start/fd1)` in README.md
 
 ### release v0.7.3, 2025-02-09
 

@@ -377,11 +377,11 @@
 
 
 (define (some-string-contains? args key)
-  (any (lambda (s) (string-contains s key)) args))
+  (any (lambda (s) (and (string? s) (string-contains s key))) args))
 
 
 (define (some-string-is? options key)
-  (any (lambda (s) (string=? s key)) options))
+  (any (lambda (s) (and (string? s) (string=? s key))) options))
 
 
 ;; Dispatch to one of (to-...) functions depending on options,
@@ -433,6 +433,35 @@
           ;; $TERM is not set
           #f)))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; Start a job and return immediately.
+;; Redirects job's stdout file descriptor to a pipe and return a reader connected to the other side of such pipe.
+;;
+;; Optional argument options must be a plist containing zero or more options described in (sh-options),
+;; and may also contain a plist entry 'reader "--from-FORMAT", as for example
+;;  'reader "--from-json"
+;; or
+;;  'reader "--from-wire"
+;;
+;; May raise exceptions.
+;;
+;; Implementation note: job is always started in a subprocess,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define sh-start/reader1
+  (case-lambda
+    ((job options)
+      (let* ((fd   (sh-start/fd1 job options))
+             (port (fd->port fd 'read 'binary (buffer-mode block)
+                             (string-append "job-fd " (number->string fd))
+                             (lambda () (fd-close fd))))
+             (reader-option (plist-ref options 'reader)))
+        (from-port port #t (if reader-option (list reader-option) '()))))
+    ((job)
+      (sh-start/reader1 job '()))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
