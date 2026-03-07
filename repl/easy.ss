@@ -228,6 +228,17 @@
   (list-reader l))
 
 
+;; easy wrapper for (make-name0-reader)
+(define from-name0
+  (case-lambda
+    ((in close-in?)
+      (make-name0-reader in close-in?))
+    ((in)
+      (make-name0-reader in #f))
+    (()
+      (make-name0-reader (sh-port #f 0 'binary) #f))))
+
+
 ;; easy wrapper for (make-queue-reader)
 ;; q must be a queue-writer
 (define (from-queue q)
@@ -259,9 +270,10 @@
   (case-lambda
     ((in close-in? options)
       (cond
-        ((some-string-is? options "--from-json")  (from-json in close-in?))
-        ((some-string-is? options "--from-wire")  (from-wire in close-in?))
-        (else                                     (from-port in close-in?))))
+        ((some-string-is? options "--from-json")  (from-json  in close-in?))
+        ((some-string-is? options "--from-name0") (from-name0 in close-in?))
+        ((some-string-is? options "--from-wire")  (from-wire  in close-in?))
+        (else                                     (from-port  in close-in?))))
     ((in close-in?)
       ;; FIXME: autodetect protocol upon the first call to (reader-get)
       (from-json in close-in?))
@@ -278,6 +290,7 @@
     ((options)
       (cond
         ((some-string-is? options "--from-json")  (from-json))
+        ((some-string-is? options "--from-name0") (from-name0))
         ((some-string-is? options "--from-wire")  (from-wire))
         (else                                     (from-stdin))))
     (()
@@ -842,13 +855,10 @@
       (raise-errorf 'to "too few arguments"))
     (unless (null? (cdr args))
       (raise-errorf 'to "too many arguments"))
-    (let* ((from (cond ((some-string-is? options "--from-json") from-json)
-                       ((some-string-is? options "--from-wire") from-wire)
-                       (else                                    from-stdin)))
-           (arg (car args))
+    (let* ((arg (car args))
            (to (cond ((string=? arg "json")   to-json)
                      ((string=? arg "json1")  to-json1)
                      ((string=? arg "table")  to-table)
                      ((string=? arg "wire")   to-wire)
                      (else                    to-stdout))))
-      (to (from)))))
+      (to (from-stdin options)))))

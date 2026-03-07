@@ -32,8 +32,8 @@
 
 ;; Create and return a filter-reader that wraps another "inner" reader.
 ;;
-;; At each call to (reader-get) or (filter-reader-get)
-;; reads one element from the wrapped reader, then checks value returned by (pred element):
+;; At each call to (reader-get) reads one element from the wrapped reader,
+;; then checks value returned by (pred element):
 ;;   if truish, returns the element unchanged i.e. passes it
 ;;   otherwise discards the element and iterates: reads another element from the wrapped reader,
 ;;     and processes it again with (pred element) etc, possibly discarding multiple elements.

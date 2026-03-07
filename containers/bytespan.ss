@@ -21,7 +21,7 @@
     bytespan-fill! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-left! bytespan-reserve-right! bytespan-resize-left! bytespan-resize-right!
 
-    bytespan-delete-left! bytespan-delete-right! bytespan-index/u8
+    bytespan-delete-left! bytespan-delete-right! bytespan-index
 
     bytespan-display-left/fixnum! bytespan-display-left/integer!
     bytespan-display-right/fixnum! bytespan-display-right/integer!
@@ -425,18 +425,22 @@
       ((or (fx>=? i end) (not (proc (fx- i start) (bytevector-u8-ref bv i))))
        (fx>=? i end)))))
 
-;; (bytespan-index/u8) iterates on bytespan u8 elements in range [start, end)
-;; and returns the index of first bytespan u8 element that causes
-;; (predicate elem) to return truish. Returns #f if no such element is found.
-(define bytespan-index/u8
+;; (bytespan-index) iterates on bytespan u8 elements in range [start, end)
+;; and returns the index of first u8 element that causes (byte-or-pred elem) to return truish.
+;;
+;; Returned index will be in the range [start, end),
+;; or #f if no such element is found.
+;;
+;; Analogously to (bytevector-index), byte-or-pred can also be a fixnum in -128 ... 255.
+(define bytespan-index
   (case-lambda
-    ((sp start end predicate)
-      (assert* 'bytespan-index/u8 (fx<=?* 0 start end (bytespan-length sp)))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
-           (if (fx>=? i end) #f i))))
-    ((sp predicate)
-      (bytespan-index/u8 sp 0 (bytespan-length sp) predicate))))
+    ((sp start end byte-or-pred)
+      (assert* 'bytespan-index (fx<=?* 0 start end (bytespan-length sp)))
+      (let* ((offset (bytespan-beg sp))
+             (pos    (bytevector-index (bytespan-vec sp) (fx+ offset start) (fx+ offset end) byte-or-pred)))
+        (and pos (fx- pos offset))))
+    ((sp byte-or-pred)
+      (bytespan-index sp 0 (bytespan-length sp) byte-or-pred))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

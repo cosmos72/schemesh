@@ -32,7 +32,7 @@
   (let ((sp (bytespan 4 5 6)))
     (bytespan-insert-right/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
   (let ((bsp (bytespan 9 10 11 12)))
-    (bytespan-index/u8 bsp
+    (bytespan-index bsp
       (lambda (elem) (fx=? 11 elem))))             2
   ;; ----------------------- vcellspan -------------------------------------
   (vcellspan #\1 #\2 #\3)                           ,(string->vcellspan "123")

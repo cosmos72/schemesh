@@ -15,8 +15,8 @@
           all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first get put
           proc select skip skip-first sort-by tty-colors where where@ with-sh-closable sh-start/reader1
 
-          from-stdin   from-json   from-list from-queue from-vector from-wire from-port
-          to-stdout to-json to-json1 to-list   to-queue   to-vector   to-wire   to-table
+          from-stdin from-json from-name0 from-list from-queue from-vector from-wire from-port
+            to-stdout  to-json   to-json1   to-list   to-queue   to-vector   to-wire   to-table
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list repl-initial-parser
@@ -41,6 +41,7 @@
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer make-json1-writer)
+    (only (scheme2k io name0)        make-name0-reader)
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
