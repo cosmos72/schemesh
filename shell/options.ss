@@ -23,7 +23,7 @@
       (assert* caller (>= value 0)))
     ((reader)
       ;; used by (sh-start/reader1)
-      (assert* caller (string? value)))
+      (assert* caller (symbol? value)))
     (else
       (assert* caller (boolean? value)))))
 
