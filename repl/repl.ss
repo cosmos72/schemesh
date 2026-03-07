@@ -490,6 +490,7 @@ Type ? or help for this help.
     (hashtable-set! t "answers"    builtin-answers)
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "first"      builtin-first)
+    (hashtable-set! t "from"       builtin-from)
     (hashtable-set! t "jobs"       builtin-jobs)
     (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
@@ -514,12 +515,23 @@ Type ? or help for this help.
       --to-FORMAT   display entries in given FORMAT\n"))
 
     (hashtable-set! t "first"  (string->utf8 " [OPTIONS] [N]
-    read structured data from stdin, autodetecting input format,
+    parse data from stdin, autodetecting input format,
     and copy the first N elements to stdout, autodetecting output format.
     By default, N is 1.
     Options:
       --from-FORMAT read elements from stdin in given FORMAT
       --to-FORMAT   write elements to stdout in given FORMAT\n"))
+
+    (hashtable-set! t "from" (string->utf8 " FORMAT [--to-FORMAT]
+    parse data from standard input assuming it conforms to specified FORMAT,
+    and write it to standard output.
+    Options:
+      --to-FORMAT write elements to stdout in given FORMAT
+
+    Argument:
+      auto          autodetect data format
+      json          parse data from json format
+      wire          parse data from binary wire format\n"))
 
     (hashtable-set! t "jobs"       (string->utf8 " [--to-FORMAT]
     display jobs and their status.
@@ -527,7 +539,7 @@ Type ? or help for this help.
       --to-FORMAT   display answers in given FORMAT\n"))
 
     (hashtable-set! t "parse" (string->utf8 " [OPTIONS] FILE
-    open a file and read structured data from it, autodetecting input format.
+    open a file and parse data from it, autodetecting input format.
     Copy elements to stdout, autodetecting output format.
     Options:
       --from-FORMAT read elements from file in given FORMAT, instead of autodetecting it
@@ -551,7 +563,7 @@ Type ? or help for this help.
       --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
 
     (hashtable-set! t "skip"  (string->utf8 " [OPTIONS] [N]
-    read structured data from stdin, autodetecting input format,
+    parse data from stdin, autodetecting input format,
     skip the first N elements,
     and write the following ones to stdout, autodetecting output format.
     By default, N is 1.
@@ -573,11 +585,11 @@ Type ? or help for this help.
       --from-FORMAT read elements from file in given FORMAT, instead of autodetecting it
 
     Argument:
-      auto          default. choose display format depending on standard output
+      auto          choose output format depending on standard output
                     file descriptor type: tty => table, socket => wire, else => json
+      json          write data in ndjson format
+      json1         write data in single-document json format
       table         display data in table format
-      json          display data in ndjson format
-      json1         display data in single-document json format
       wire          write data in binary wire format\n"))))
 
 

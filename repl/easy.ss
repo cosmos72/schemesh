@@ -690,6 +690,29 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: from
+
+
+;; the "from" builtin, mirror of the "to" builtin:
+;; read structured data from standard input with format autodetection, or with specified FORMAT,
+;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-from job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (when (null? args)
+      (raise-errorf 'from "too few arguments"))
+    (unless (null? (cdr args))
+      (raise-errorf 'from "too many arguments"))
+    (let* ((arg (car args))
+           (from (cond ((string=? arg "json")   from-json)
+                       ((string=? arg "name0")  from-name0)
+                       ((string=? arg "wire")   from-wire)
+                       (else                    from-stdin))))
+      (to-stdout (from) options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: jobs
 
 
@@ -844,9 +867,9 @@
 ;; shell builtin: to
 
 
-;; the "to" builtin:
+;; the "to" builtin, mirror of the "from" builtin:
 ;; read structured data from standard input with format autodetection, or with specified --from-FORMAT,
-;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;; and write each element to standard output with format autodetection, or with specified FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-to job prog-and-args options)
