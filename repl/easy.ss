@@ -454,10 +454,10 @@
 ;; Redirects job's stdout file descriptor to a pipe and return a reader connected to the other side of such pipe.
 ;;
 ;; Optional argument options must be a plist containing zero or more options described in (sh-options),
-;; and may also contain a plist entry 'reader 'FORMAT, as for example
-;;  'reader 'json
+;; and may also contain a plist entry 'from 'FORMAT, as for example
+;;  'from 'json
 ;; or
-;;  'reader 'wire
+;;  'from 'wire
 ;;
 ;; May raise exceptions.
 ;;
@@ -467,15 +467,15 @@
 (define sh-start/reader1
   (case-lambda
     ((job options)
-      (let* ((fd   (sh-start/fd1 job options))
+      (let* ((sym  (plist-ref options 'from))
+             (options-from (if (symbol? sym)
+                             (list (string-append "--from-" (symbol->string sym)))
+                             '()))
+             (fd   (sh-start/fd1 job options))
              (port (fd->port fd 'read 'binary (buffer-mode block)
                              (string-append "job-fd " (number->string fd))
-                             (lambda () (fd-close fd))))
-             (sym     (plist-ref options 'reader))
-             (options (if (symbol? sym)
-                        (list (string-append "--from-" (symbol->string sym)))
-                        '())))
-        (from-port port #t options)))
+                             (lambda () (fd-close fd)))))
+        (from-port port #t options-from)))
     ((job)
       (sh-start/reader1 job '()))))
 

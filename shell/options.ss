@@ -15,13 +15,13 @@
 ;; return unspecified value.
 ;; if key or value is not valid, raise an exception.
 (define (option-validate caller key value)
-  (let ((job-supported-options '(catch? fd-close process-group-id reader spawn?)))
+  (let ((job-supported-options '(catch? fd-close from process-group-id spawn?)))
     (assert* caller (memq key job-supported-options)))
   (case key
     ((fd-close process-group-id)
       (assert* caller (integer? value))
       (assert* caller (>= value 0)))
-    ((reader)
+    ((from)
       ;; used by (sh-start/reader1)
       (assert* caller (symbol? value)))
     (else
