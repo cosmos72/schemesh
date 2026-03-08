@@ -466,13 +466,15 @@
 
 (define (string-display-length str)
   (let %loop ((str str) (i 0) (n (string-length str)) (ret 0))
-    (cond
-      ((fx>=? i n)
-        ret)
-      ((char=? #\esc (string-ref str i))
-        (%loop str (skip-escape-seq str (fx1+ i) n) n ret))
-      (else
-        (%loop str (fx1+ i) n (fx1+ ret))))))
+    (if (fx<? i n)
+      (case (string-ref str i)
+        ((#\esc)
+          (%loop str (skip-escape-seq str (fx1+ i) n) n ret))
+        ((#\x0) ; #\nul is a Chez Scheme extension
+          (%loop str (fx1+ i) n ret))
+        (else
+          (%loop str (fx1+ i) n (fx1+ ret))))
+      ret)))
 
 
 (define (square n)

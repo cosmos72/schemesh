@@ -82,17 +82,18 @@
 
 ;; read more data from port until a #\x0 is found, and return its position.
 ;; return #f if EOF is reached without finding #\x0
-(define (%name0-reader-read-until-nul-or-eof rx port rbuf)
-  (or (bytespan-index rbuf 0)
-      (and port
-           (%name0-reader-read-some rx port rbuf)
-           (%name0-reader-read-until-nul-or-eof rx port rbuf))))
+(define (%name0-reader-read-until-nul-or-eof rx port rbuf minpos)
+  (let ((len (bytespan-length rbuf)))
+    (or (bytespan-index rbuf minpos len 0)
+        (and port
+             (%name0-reader-read-some rx port rbuf)
+             (%name0-reader-read-until-nul-or-eof rx port rbuf len)))))
 
 
 ;; called by (reader-get) (reader-skip)
 (define (%name0-reader-get rx)
   (let* ((rbuf (name0-reader-rbuf rx))
-         (nul  (%name0-reader-read-until-nul-or-eof rx (name0-reader-port rx) rbuf))
+         (nul  (%name0-reader-read-until-nul-or-eof rx (name0-reader-port rx) rbuf 0))
          (len  (or nul (bytespan-length rbuf))))
     (cond
       (nul ; found nul-terminated fragment
