@@ -340,7 +340,7 @@
     ((rx out tty-width theme colors)
       (copy-all/close rx (make-table-writer out #f tty-width theme colors #f)))
     ((rx out tty-width theme)
-      (to-table rx out theme tty-width ))
+      (to-table rx out theme tty-width))
     ((rx out tty-width)
       (to-table rx out tty-width 'default #f))
     ((rx out)

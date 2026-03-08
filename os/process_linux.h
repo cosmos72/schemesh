@@ -11,6 +11,8 @@
 #include <inttypes.h>  /*           */
 #include <sys/types.h> /* opendir() */
 
+#include "process_util_linux.h"
+
 static struct timespec boot_time_utc = {0, -1};
 
 static struct timespec get_boot_time_utc(void) {
@@ -68,19 +70,6 @@ static size_t parse_linux_command(const unsigned char** src,
   }
   *src = src_end + (*src_end == ')');
   return len;
-}
-
-static int string_is_decimal_number(const char* str) {
-  char ch;
-  /* str must start with [1-9] */
-  if ((ch = *str) < '1' || ch > '9') {
-    return 0;
-  }
-  /* str can only continue with [0-9]* */
-  while ((ch = *str) >= '0' && ch <= '9') {
-    str++;
-  }
-  return *str == '\0';
 }
 
 static ptr make_tty_name(int64_t tty_nr) {
@@ -213,7 +202,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, &user_time_ticks, 0) &&
        parse_uint64(&src, &sys_time_ticks, 0) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
        parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
-       parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_num_threads) &&
+       parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_num_thread) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
        parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
 
