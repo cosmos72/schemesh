@@ -100,7 +100,7 @@
 
 
 ;; easy wrapper for multiple (file-stat)
-(define (files . paths)
+(define (files paths)
   (let ((stats (map file-stat/symlinks paths)))
     (list-reader stats)))
 

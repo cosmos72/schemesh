@@ -37,33 +37,59 @@
   (nongenerative %sort-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
+(define (%validate-field-name caller field-name)
+  (unless (symbol? field-name)
+    (assert* caller (list? field-name))
+    (assert* caller (fx=? 2 (length field-name)))
+    (assert* caller (memq (car field-name) '(+ -)))
+    (assert* caller (symbol? (cadr field-name)))))
+
+
+(define (%validate-field-names caller field-names)
+  (do ((l field-names (cdr l)))
+      ((null? l))
+    (%validate-field-name caller (car l))))
+
+
+;; create and return a closure that compares field-name in two objects
+(define (make-compare-proc1 field-name cache)
+  (let ((name    (if (symbol? field-name) field-name (cadr field-name)))
+        (ascend? (or (symbol? field-name) (eq? '+ (car field-name)))))
+    (if ascend?
+      (lambda (obj1 obj2)
+        (compare-type-and-value (field obj1 name cache)
+                                (field obj2 name cache)))
+      (lambda (obj1 obj2)
+        (let ((cmp (compare-type-and-value (field obj1 name cache)
+                                           (field obj2 name cache))))
+          (and cmp (fx- cmp))))))) ; found (- field-name) => invert comparison
+
+
+;; create and return a closure that compares field-names in two objects
 (define make-compare-proc
   (case-lambda
-    ((field-names cache)
+    ((caller field-names cache)
+      (%validate-field-names caller field-names)
       (when cache
-        (assert* 'make-compare-proc (hashtable? cache))
-        (assert* 'make-compare-proc (eq? eq? (hashtable-equivalence-function cache))))
-      (letrec* ((%cache (or cache (make-eq-hashtable)))
-                ;; compare a single field in obj1 and obj2
-                (compare-field-proc
-                  (lambda (obj1 obj2 field-name)
-                    (compare-type-and-value (field obj1 field-name %cache)
-                                            (field obj2 field-name %cache))))
-                ;; compare a list of fields in obj1 and obj2
-                (compare-fields-proc
-                  (lambda (obj1 obj2 field-names)
-                    (if (null? field-names)
-                      0
-                      (let ((cmp (compare-field-proc obj1 obj2 (car field-names))))
-                        (if (eqv? 0 cmp)
-                          ;; obj1 and obj2 have equivalent field => compare the remaining fields
-                          (compare-fields-proc obj1 obj2 (cdr field-names))
-                          cmp))))))
+        (assert* caller (hashtable? cache))
+        (assert* caller (eq? eq? (hashtable-equivalence-function cache))))
+      (let* ((cache         (or cache (make-eq-hashtable)))
+             (compare-procs (map (lambda (field-name) (make-compare-proc1 field-name cache))
+                                 field-names)))
+        ;; compare field-names in obj1 and obj2
         ;; WARNING: not a total order, obj1 and obj2 may compare as unordered
         (lambda (obj1 obj2)
-          (compare-fields-proc obj1 obj2 field-names))))
-    ((field-names)
-      (make-compare-proc field-names #f))))
+          (let compare-fields ((obj1 obj1) (obj2 obj2) (procs compare-procs))
+            (if (null? procs)
+              0
+              (let ((cmp ((car procs) obj1 obj2)))
+                (if (eqv? 0 cmp)
+                  ;; obj1 and obj2 have equivalent field => compare the remaining fields
+                  (compare-fields obj1 obj2 (cdr procs))
+                  cmp)))))))
+
+    ((caller field-names)
+      (make-compare-proc caller field-names #f))))
 
 
 ;; Create and return a sort-reader that wraps another "inner" reader.
@@ -82,8 +108,7 @@
   (case-lambda
     ((inner field-names close-inner?)
       (assert* 'make-sort-reader (reader? inner))
-      (assert* 'make-sort-reader (symbol-list? field-names))
-      (let ((compare-proc (make-compare-proc field-names)))
+      (let ((compare-proc (make-compare-proc 'make-sort-reader field-names)))
         (%make-sort-reader inner compare-proc close-inner?)))
     ((inner field-names)
       (make-sort-reader inner field-names #f))))
