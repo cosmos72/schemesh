@@ -550,11 +550,13 @@ Type ? or help for this help.
     (hashtable-set! t "proc" (string->utf8 " [auvx] [--to-FORMAT]
     display active processes.
     Options:
+      --to-FORMAT   display processes in given FORMAT, instead of autodetecting it
+
+    Arguments:
       a             also display processes started by other users
       u             display more details for each process
       v             display even more details for each process
-      x             also display processes running without a terminal
-      --to-FORMAT   display processes in given FORMAT\n"))
+      x             also display processes running without a terminal\n"))
 
     (hashtable-set! t "select" (string->utf8 " [OPTIONS] FIELD-NAME...
     parse data from standard input, autodetecting input format.
