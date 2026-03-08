@@ -374,15 +374,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; given a list of strings containing program name followed by mixed args and options,
+;; return two values:
+;;   a list of arguments i.e. all strings not starting with "-" or found after "--"
+;;   a list of options i.e. all strings starting with "-" and found before "--"
 (define (split-args-and-options prog-and-args)
   (let ((args    '())
         (options '())
         (options? #t))
-    (do ((l (cdr prog-and-args) (cdr l)))
+    (do ((l (cdr prog-and-args) (cdr l))) ; skip program name
         ((null? l)
          (values (reverse! args) (reverse! options)))
       (let ((e (car l)))
         (if (and options? (string-prefix? e "-"))
+          (if (string=? e "--")
+            (set! options? #f)
+            (set! options (cons e options)))
+          (set! args (cons e args)))))))
+
+
+;; given a list of strings containing program name followed by mixed args and options,
+;; return two values:
+;;   a list of all strings not starting with "--" or found after "--"
+;;   a list of all strings starting with "--" and found before "--"
+(define (split-double-hyphens prog-and-args)
+  (let ((args    '())
+        (options '())
+        (options? #t))
+    (do ((l (cdr prog-and-args) (cdr l))) ; skip program name
+        ((null? l)
+         (values (reverse! args) (reverse! options)))
+      (let ((e (car l)))
+        (if (and options? (string-prefix? e "--"))
           (if (string=? e "--")
             (set! options? #f)
             (set! options (cons e options)))
@@ -635,7 +658,8 @@
 
 
 ;; the "dir" builtin: display specified files or directories contents,
-;; or current directory by default
+;; or current directory by default.
+;; writes to standard output autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-dir job prog-and-args options)
@@ -671,8 +695,10 @@
 ;; shell builtin: first
 
 
-;; the "first" builtin: read from stdin autodetecting input format,
-;; write to stdout the first N elements (1 by default) autodetecting output format.
+;; the "first" builtin:
+;; parse elements from standard input autodetecting input format, or with specified --from-FORMAT,
+;; and write the first N elements
+;; to standard output autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-first job prog-and-args options)
@@ -697,8 +723,8 @@
 
 
 ;; the "from" builtin, mirror of the "to" builtin:
-;; read structured data from standard input with format autodetection, or with specified FORMAT,
-;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;; parse elements from standard input autodetecting input format, or with specified --from-FORMAT,
+;; and write each element to standard output autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-from job prog-and-args options)
@@ -725,7 +751,8 @@
     status))
 
 
-;; the "jobs" builtin: list known jobs
+;; the "jobs" builtin: write known jobs to standard output
+;; autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-jobs job prog-and-args options)
@@ -749,9 +776,9 @@
 ;; shell builtin: parse
 
 
-;; the "parse" builtin:
-;; open a file and read structured data from it with format autodetection, or with specified --from-FORMAT,
-;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
+;; the "parse" builtin: open a file
+;; and parse elements from it autodetecting input format, or with specified --from-FORMAT,
+;; and write each element to standard output autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-parse job prog-and-args options)
@@ -768,7 +795,8 @@
 ;; shell builtin: proc
 
 
-;; the "proc" builtin: display information about active processes.
+;; the "proc" builtin: write to stdout information about active processes
+;; autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 ;;
@@ -808,7 +836,8 @@
 
 
 ;; the "select" builtin:
-;; read from stdin autodetecting input format, select only the fields specified in command line,
+;; parse elements from stdin autodetecting input format, or with specified --from-FORMAT,
+;; select only the fields specified in command line,
 ;; and write each element to standard output with format autodetection, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
@@ -826,8 +855,10 @@
 ;; shell builtin: skip
 
 
-;; the "skip" builtin: read from stdin autodetecting input format,
-;; skip first N elements (1 by default), write the remaining elements to stdout autodetecting output format.
+;; the "skip" builtin:
+;; parse elements from stdin autodetecting input format, or with specified --from-FORMAT,
+;; skip first N elements (1 by default),
+;; write the remaining elements to stdout autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-skip job prog-and-args options)
@@ -891,3 +922,166 @@
                      ((string=? arg "wire")   to-wire)
                      (else                    to-stdout))))
       (to (from-stdin options)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: where
+
+
+(define (first-string=? args str)
+  (and (pair? args)
+       (string? (car args))
+       (string=? (car args) str)))
+
+
+(define (first-string args)
+  (and (pair? args)
+       (string? (car args))
+       (car args)))
+
+
+(define (second-string args)
+  (and (pair? args)
+       (pair? (cdr args))
+       (string? (cadr args))
+       (cadr args)))
+
+
+(define (third-string args)
+  (and (pair? args)
+       (pair? (cdr args))
+       (pair? (cddr args))
+       (string? (caddr args))
+       (caddr args)))
+
+
+(define (try-string->number str)
+  (try
+    (let ((num (string->number str)))
+      (and (real? num) num))
+    (catch (ex)
+      #f)))
+
+
+(define (sh-equal? obj str-value num-value)
+  (cond
+    ((string? obj) (string=? obj str-value))
+    ((number? obj) (and num-value (= obj num-value)))
+    (else          #f)))
+
+
+(define (sh-nequal? obj str-value num-value)
+  (not (sh-equal? obj str-value num-value)))
+
+
+(define (sh-less? obj str-value num-value)
+  (cond
+    ((string? obj) (string<? obj str-value))
+    ((number? obj) (and num-value (< obj num-value)))
+    (else          #f)))
+
+
+(define (sh-less-equal? obj str-value num-value)
+  (cond
+    ((string? obj) (string<=? obj str-value))
+    ((number? obj) (and num-value (<= obj num-value)))
+    (else          #f)))
+
+
+(define (sh-greater? obj str-value num-value)
+  (cond
+    ((string? obj) (string>? obj str-value))
+    ((number? obj) (and num-value (> obj num-value)))
+    (else          #f)))
+
+
+(define (sh-greater-equal? obj str-value num-value)
+  (cond
+    ((string? obj) (string>=? obj str-value))
+    ((number? obj) (and num-value (>= obj num-value)))
+    (else          #f)))
+
+
+(define parse-where/operators (hashtable string-hash string=? "-eq" sh-equal?   "-ne" sh-nequal?
+                                                              "-lt" sh-less?    "-le" sh-less-equal?
+                                                              "-gt" sh-greater? "-ge" sh-greater-equal?))
+
+
+(define (parse-where/cmp args)
+  ;; (debugf "parse-where/cmp ~s" args)
+  (if (first-string=? args "(")
+    (let-values (((expr rest) (parse-where/or (cdr args))))
+      (unless (first-string=? rest ")")
+        (raise-errorf 'where "missing \")\" in arguments: ~s" args))
+      (values expr (cdr rest)))
+    (let* ((name      (first-string args))
+           (str-op    (second-string args))
+           (str-value (third-string args))
+           (num-value (and str-value (try-string->number str-value))))
+      (unless str-value
+        (raise-errorf 'where "invalid comparison arguments: ~s" args))
+      (let ((op (hashtable-ref parse-where/operators str-op #f)))
+        (unless op
+          (raise-errorf 'where "invalid comparison operator ~s in arguments: ~s" str-op args))
+        (values (let ((sym (string->symbol name)))
+                  (lambda (obj cache)
+                    (op (field obj sym cache) str-value num-value)))
+                (cdddr args))))))
+
+
+(define (parse-where/not args)
+  ;; (debugf "parse-where/not ~s" args)
+  (if (first-string=? args "-not")
+    (let-values (((proc rest) (parse-where/not (cdr args))))
+      (values (lambda (obj cache)
+                (not (proc obj cache)))
+              rest))
+    (parse-where/cmp args)))
+
+
+(define (parse-where/and args)
+  ;; (debugf "parse-where/and ~s" args)
+  (let-values (((lhs args) (parse-where/not args)))
+    (if (first-string=? args "-and")
+      (let-values (((rhs args) (parse-where/and (cdr args))))
+        (values (lambda (obj cache)
+                   (and (lhs obj cache)
+                        (rhs obj cache)))
+                args))
+      (values lhs args))))
+
+
+(define (parse-where/or args)
+  ;; (debugf "parse-where/or  ~s" args)
+  (let-values (((lhs args) (parse-where/and args)))
+    (if (first-string=? args "-or")
+      (let-values (((rhs args) (parse-where/or (cdr args))))
+        (values (lambda (obj cache)
+                   (and (lhs obj cache)
+                        (rhs obj cache)))
+                args))
+      (values lhs args))))
+
+
+;; parse args, which may contain -not -and -or -eq -ne -ge -gt -le -lt
+;; and return a closure that evaluates parsed boolean expression on an object
+(define (parse-where args)
+  (let-values (((proc rest) (parse-where/or args)))
+    (unless (null? rest)
+      (raise-errorf 'where "unexpected arguments: ~s" rest))
+    proc))
+
+
+;; the "where" builtin:
+;; read structured data from standard input with format autodetection, or with specified --from-FORMAT,
+;; filter elements according to boolean condition specified in arguments,
+;; and write each element matching the filter
+;; to standard output with format autodetection, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-where job prog-and-args options)
+  (let-values (((args options) (split-double-hyphens prog-and-args)))
+    (let* ((proc (parse-where args))
+           (rx   (from-stdin options))
+           (rx   (make-filter-reader rx proc)))
+      (to-stdout rx options))))

@@ -11,7 +11,7 @@
 
 ### git main branch
 
-* add shell builtins `answers` `dir` `first` `from` `parse` `proc` `select` `skip` `sort-by` `to`
+* add shell builtins `answers` `dir` `first` `from` `parse` `proc` `select` `skip` `sort-by` `to` `where`
 * add functions  `(sh-start/reader1)` `(tty-colors)` and macro `(with-sh-closable)`
 * add type `dir-entry` and functions `(dir)` `(dirs)` `(file)` `(files)`
   returning a reader that generates `dir-entry` objects for specified files and/or directories
@@ -22,7 +22,7 @@
 * add many functions for `reader` types: `(all)` `(all/vector)` `(close)` `(constant-reader)` `(copy-all)` `(copy-all/close)` `(datum-reader)` `(empty-reader)` `(eof?)` `(first)` `(get)` `(in-reader)` `(iterator-reader)` `(list-reader)` `(put)` `(reader->list)` `(reader->vector)` `(readers)` `(skip)` `(skip-first)` `(vector-reader)`
 * add some functions for `writer` types: `(discard-writer)`  `(full-writer)` `(list-writer)` `(vector-writer)`
 * add several functions `(from-...)` and `(to-...)`
-* add macros for `reader` and `writer` types: `(for-reader)` `(filter==>)` `(select)` `(sort-by)` `(where)` `(where@)`  
+* add macros for `reader` and `writer` types: `(for-reader)` `(filter==>)` `(select)` `(sort-by)` `(where)` `(where@)`
 * add types `field-reader` `filter-reader` `name0-reader` `range-reader` and `sort-reader`
 * add types `fifo-reader` `fifo-writer` and new macro `(thread==>)` that uses them
 * add types `json-reader` and `json-writer`

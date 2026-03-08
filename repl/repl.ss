@@ -35,6 +35,7 @@
                                      make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
+    (only (scheme2k containers hashtable) hashtable)
     (only (scheme2k containers list)      any for-list plist-ref)
           (scheme2k containers span)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix?)
@@ -497,7 +498,8 @@ Type ? or help for this help.
     (hashtable-set! t "select"     builtin-select)
     (hashtable-set! t "skip"       builtin-skip)
     (hashtable-set! t "sort-by"    builtin-sort-by)
-    (hashtable-set! t "to"         builtin-to))
+    (hashtable-set! t "to"         builtin-to)
+    (hashtable-set! t "where"      builtin-where))
 
   (let ((t (sh-builtins-help)))
     (hashtable-set! t "answers"  (string->utf8 " [--to-FORMAT]
@@ -591,7 +593,25 @@ Type ? or help for this help.
       json          write data in ndjson format
       json1         write data in single-document json format
       table         display data in table format
-      wire          write data in binary wire format\n"))))
+      wire          write data in binary wire format\n"))
+
+    (hashtable-set! t "where" (string->utf8 " [OPTIONS] EXPR
+    parse data from standard input, autodetecting input format.
+    accept elements that satisfy predicate specified ARGS,
+    and write such elements to standard output autodetecting output format.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it
+      --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it
+
+    Argument EXPR must be one of:
+      NAME OP VALUE    accept elements whose field NAME satisfies comparison against VALUE.
+                       OP must be one of: -eq -ne -le -lt -ge -gt
+      -not EXPR        accept elements where EXPR is false
+      EXPR1 -and EXPR2 accept elements where both EXPR1 and EXPR2 are true
+      EXPR1 -or EXPR2  accept elements where at least one of EXPR1 or EXPR2 is true
+      ( EXPR )         accept elements where EXPR is true.  Used to override
+                       operators precedence. Note that ( ) are special characters
+                       and must be usually written \\( \\) or '(' ')'\n"))))
 
 
 ) ; close library
