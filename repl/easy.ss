@@ -860,9 +860,12 @@
   (let-values (((args options) (split-args-and-options prog-and-args)))
     (when (null? args)
       (raise-errorf 'sort-by "too few arguments"))
-    (let* ((field-names (map string->symbol args))
-           (rx (from-stdin options))
-           (rx (make-sort-reader rx field-names 'close-inner)))
+    (let* ((convert-field-name (if (some-string-is? options "-r")
+                                 (lambda (arg) (list '- (string->symbol arg)))
+                                 string->symbol))
+           (field-names  (map convert-field-name args))
+           (rx           (from-stdin options))
+           (rx           (make-sort-reader rx field-names 'close-inner)))
       (to-stdout rx options))))
 
 

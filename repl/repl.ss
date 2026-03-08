@@ -576,6 +576,7 @@ Type ? or help for this help.
     sort elements by specified FIELD-NAMEs,
     and write sorted elements to standard output autodetecting output format.
     Options:
+      -r            sort in reverse order
       --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it
       --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
 
