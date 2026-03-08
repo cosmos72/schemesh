@@ -48,7 +48,7 @@
                 (compare-field-proc
                   (lambda (obj1 obj2 field-name)
                     (compare-type-and-value (field obj1 field-name %cache)
-                                             (field obj2 field-name %cache))))
+                                            (field obj2 field-name %cache))))
                 ;; compare a list of fields in obj1 and obj2
                 (compare-fields-proc
                   (lambda (obj1 obj2 field-names)

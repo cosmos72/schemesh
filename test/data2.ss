@@ -440,6 +440,8 @@
     '(shell (shell-wildcard "l" "s") ".")))            (sh-cmd* "ls" ".")
 
   (caddr (expand
+    '(shell-glob {*.c})))                              ,@(wildcard #f '* ".c")
+  (caddr (expand
     '(shell-glob {~${USER}?[123]*})))                  ,@(wildcard #f '~ (lambda (job) (sh-env-ref job "USER")) '? '% "123" '*)
   (caddr (expand
     '(shell-glob* {*`echo`*})))                        ,@(wildcard #f '* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo))) '*)
