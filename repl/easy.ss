@@ -963,48 +963,62 @@
       #f)))
 
 
-(define (sh-equal? obj str-value num-value)
+(define (where-equal? obj str-value num-value)
   (cond
     ((string? obj) (string=? obj str-value))
     ((number? obj) (and num-value (= obj num-value)))
     (else          #f)))
 
 
-(define (sh-nequal? obj str-value num-value)
-  (not (sh-equal? obj str-value num-value)))
+(define (where-not-equal? obj str-value num-value)
+  (not (where-equal? obj str-value num-value)))
 
 
-(define (sh-less? obj str-value num-value)
+(define (where-less? obj str-value num-value)
   (cond
     ((string? obj) (string<? obj str-value))
     ((number? obj) (and num-value (< obj num-value)))
     (else          #f)))
 
 
-(define (sh-less-equal? obj str-value num-value)
+(define (where-less-equal? obj str-value num-value)
   (cond
     ((string? obj) (string<=? obj str-value))
     ((number? obj) (and num-value (<= obj num-value)))
     (else          #f)))
 
 
-(define (sh-greater? obj str-value num-value)
+(define (where-greater? obj str-value num-value)
   (cond
     ((string? obj) (string>? obj str-value))
     ((number? obj) (and num-value (> obj num-value)))
     (else          #f)))
 
 
-(define (sh-greater-equal? obj str-value num-value)
+(define (where-greater-equal? obj str-value num-value)
   (cond
     ((string? obj) (string>=? obj str-value))
     ((number? obj) (and num-value (>= obj num-value)))
     (else          #f)))
 
 
-(define parse-where/operators (hashtable string-hash string=? "-eq" sh-equal?   "-ne" sh-nequal?
-                                                              "-lt" sh-less?    "-le" sh-less-equal?
-                                                              "-gt" sh-greater? "-ge" sh-greater-equal?))
+(define (where-contains? obj str-value num-value)
+  (and (string? obj) (and (string-contains obj str-value) #t)))
+
+
+(define (where-starts? obj str-value num-value)
+  (and (string? obj) (string-prefix? obj str-value)))
+
+
+(define (where-ends? obj str-value num-value)
+  (and (string? obj) (string-suffix? obj str-value)))
+
+
+(define parse-where/operators
+  (hashtable string-hash string=?
+    "-lt" where-less? "-le" where-less-equal? "-gt" where-greater? "-ge" where-greater-equal?
+    "-eq" where-equal? "-ne" where-not-equal?
+    "-contains" where-contains? "-starts" where-starts? "-ends" where-ends?))
 
 
 (define (parse-where/cmp args)

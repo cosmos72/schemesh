@@ -607,7 +607,7 @@ Type ? or help for this help.
 
     Argument EXPR must be one of:
       NAME OP VALUE    accept elements whose field NAME satisfies comparison against VALUE.
-                       OP must be one of: -eq -ne -le -lt -ge -gt
+                       OP must be one of: -eq -ne -le -lt -ge -gt -starts -ends -contains
       -not EXPR        accept elements where EXPR is false
       EXPR1 -and EXPR2 accept elements where both EXPR1 and EXPR2 are true
       EXPR1 -or EXPR2  accept elements where at least one of EXPR1 or EXPR2 is true

@@ -583,6 +583,12 @@ B=2})                                                  ,@"#<void>"
         => to-json1))                                   "[{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"},\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}]\n"
 
 
+  ;; test shell builtin `where`
+  (sh-run/string
+    {$(==> datum-reader '(name "abc") '(name "def")
+         => to-json) | where name -contains b})         "{\"name\":\"abc\"}\n"
+
+
   ;; ------------------------- repl ---------------------------------------
   ;; {"(expand-omit-library-invocations #t)             ; avoid, requires Chez Scheme >= 10.0.0
 
