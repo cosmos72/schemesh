@@ -20,6 +20,8 @@
 #undef HAVE_LIBCURL_NOTIFY_ENABLE
 #endif
 
+#define WBUF_MAX 65536
+
 int http_global_init(void) {
   return (int)curl_global_init(CURL_GLOBAL_ALL);
 }
@@ -32,66 +34,11 @@ const char* http_global_strerror(int err) {
   return curl_easy_strerror((CURLcode)err);
 }
 
-struct recv_node_struct;
-typedef struct recv_node_struct recv_node;
-
-struct recv_node_struct {
-  recv_node* prev;
-  recv_node* next;
-  size_t     len;
-  /* void * bytes[0] */
-};
-
-typedef struct {
-  recv_node* head;
-  recv_node* tail;
-  size_t     offset; /* number of bytes already consumed in ->head */
-} recv_list;
-
-static CURLcode recv_list_push_back(recv_list* list, const void* bytes, const size_t len) {
-  recv_node* node;
-  if (len == 0) {
-    return CURLE_OK;
-  }
-  node = (recv_node*)malloc(sizeof(recv_node) + len);
-  if (!node) {
-    return CURLE_OUT_OF_MEMORY;
-  }
-  node->next = NULL;
-  node->len  = len;
-  if ((node->prev = list->tail) != NULL) {
-    node->prev->next = node;
-  } else {
-    list->head = node;
-  }
-  list->tail = node;
-  memcpy(node + 1, bytes, len);
-  return CURLE_OK;
-}
-
-static void recv_list_pop_front(recv_list* list) {
-  recv_node* node = list->head;
-  if (node == NULL) {
-    return;
-  }
-  recv_node* next = node->next;
-  free(node);
-  if (next) {
-    next->prev = NULL;
-  } else {
-    list->tail = NULL;
-  }
-  list->head = next;
-}
-
 typedef struct http_struct {
-  CURLM* multi;
-  CURL*  easy;
-  struct {
-    void*  bytes;
-    size_t len;
-  } torecv;
-  recv_list   received;
+  CURLM*      multi;
+  CURL*       easy;
+  FILE*       out;
+  size_t      copied_n;
   const char* errfunc;
   long        errdetail;
   CURLMcode   mc;
@@ -102,18 +49,15 @@ typedef struct http_struct {
 http* http_new(void) {
   http* ctx = (http*)malloc(sizeof(http));
   if (ctx) {
-    ctx->multi           = NULL;
-    ctx->easy            = NULL;
-    ctx->torecv.bytes    = NULL;
-    ctx->torecv.len      = 0;
-    ctx->received.head   = NULL;
-    ctx->received.tail   = NULL;
-    ctx->received.offset = 0;
-    ctx->errfunc         = NULL;
-    ctx->errdetail       = 0;
-    ctx->mc              = CURLM_OK;
-    ctx->err             = CURLE_OK;
-    ctx->errbuf[0]       = '\0';
+    ctx->multi     = NULL;
+    ctx->easy      = NULL;
+    ctx->out       = NULL;
+    ctx->copied_n  = 0;
+    ctx->errfunc   = NULL;
+    ctx->errdetail = 0;
+    ctx->mc        = CURLM_OK;
+    ctx->err       = CURLE_OK;
+    ctx->errbuf[0] = '\0';
   }
   return ctx;
 }
@@ -300,36 +244,11 @@ static void notify_multi(CURLM* multi, unsigned notification, CURL* easy, void* 
 }
 #endif /* HAVE_LIBCURL_NOTIFY_ENABLE */
 
-static size_t min2(size_t a, size_t b) {
-  return a < b ? a : b;
-}
-
-/** copy some data from src into caller-provided ctx->torecv */
-static size_t copy_some(http* ctx, const void* src, size_t len) {
-  const size_t copy_n = min2(len, ctx->torecv.len);
-  if (copy_n) {
-    char* dst = (char*)ctx->torecv.bytes;
-    memcpy(dst, src, copy_n);
-    ctx->torecv.bytes = dst + copy_n;
-    ctx->torecv.len -= copy_n;
-  }
-  return copy_n;
-}
-
 static size_t on_recv(void* bytes, size_t size, size_t nmemb, void* userp) {
-  http*        ctx = (http*)userp;
-  const size_t len = size * nmemb;
-  /* if no data is already buffered, copy some bytes directly into caller-provided ctx->torecv */
-  const size_t copied_n = ctx->received.head == NULL ? copy_some(ctx, bytes, len) : 0;
-  if (copied_n < len) {
-    /* some data did not fit ctx->torecv, buffer it */
-    CURLcode err = recv_list_push_back(&ctx->received, (char*)bytes + copied_n, len - copied_n);
-    if (err != CURLE_OK) {
-      fail_easy(ctx, err, "http_read()");
-      return CURL_WRITEFUNC_ERROR;
-    }
-  }
-  return len;
+  http*  ctx     = (http*)userp;
+  size_t written = ctx->out ? fwrite(bytes, size, nmemb, ctx->out) : size * nmemb;
+  ctx->copied_n += written;
+  return written;
 }
 
 static int setup_multi(http* ctx) {
@@ -383,7 +302,7 @@ static int setup_easy(http* ctx, const char* url) {
     (void)curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, ctx->errbuf);
 
     /* enlarge the receive buffer for potentially higher transfer speeds */
-    (void)curl_easy_setopt(easy, CURLOPT_BUFFERSIZE, 65536L);
+    (void)curl_easy_setopt(easy, CURLOPT_BUFFERSIZE, (long)WBUF_MAX);
 
     /* HTTP/2 please */
     (void)curl_easy_setopt(easy, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
@@ -442,42 +361,17 @@ int http_errcode(http* ctx) {
   return 0;
 }
 
-static void consume_some(http* ctx) {
-  recv_list* list = &ctx->received;
-
-  if (list->head != NULL && ctx->torecv.len != 0) {
-    size_t offset = list->offset;
-    size_t avail  = list->head->len;
-    if (avail > offset) {
-      /* we have some data in ctx->received that can be copied into ctx->torecv */
-      size_t copy_n = copy_some(ctx, (const char*)(list->head + 1) + offset, avail - offset);
-      if ((list->offset += copy_n) >= avail) {
-        /* we consumed the whole list->head, pop it */
-        recv_list_pop_front(list);
-      }
-    }
-  }
-}
-
-static size_t http_recv(http* ctx, void* dst, size_t dst_start, size_t dst_end, int may_block) {
-  size_t    dst_len;
-  size_t    got;
+static size_t http_copy_some(http* ctx, FILE* out, int may_block) {
   int       still_running = 1;
   CURLMcode mc;
 
   if (!ctx || !ctx->multi || !ctx->easy) {
-    return -1; /* EOF */
-  } else if (dst_end <= dst_start) {
-    return 0;
+    return (size_t)-1; /* EOF */
   }
-  dst_len = dst_end - dst_start;
+  ctx->out      = out;
+  ctx->copied_n = 0;
 
-  ctx->torecv.bytes = (char*)dst + dst_start;
-  ctx->torecv.len   = dst_len;
-
-  if (ctx->received.head != NULL) {
-    /* we have cached data, no need to call libcurl */
-  } else if (may_block && (mc = curl_multi_poll(ctx->multi, NULL, 0, 1000, NULL)) != CURLM_OK) {
+  if (may_block && (mc = curl_multi_poll(ctx->multi, NULL, 0, 1000, NULL)) != CURLM_OK) {
     fail_multi(ctx, mc, "curl_multi_poll()");
   } else if ((mc = curl_multi_perform(ctx->multi, &still_running)) != CURLM_OK) {
     fail_multi(ctx, mc, "curl_multi_perform()");
@@ -487,23 +381,18 @@ static size_t http_recv(http* ctx, void* dst, size_t dst_start, size_t dst_end, 
     // ctx->err may be set by notify_multi() callback
   } else if (loop_apply_msg(ctx, "http_read()") != CURLE_OK) {
   }
-  consume_some(ctx);
-  got = dst_len - ctx->torecv.len;
-  /* do not keep reference to caller-provided buffer */
-  ctx->torecv.bytes = NULL;
-  ctx->torecv.len   = 0;
-  if (got) {
-    return got;
+  if (ctx->copied_n != 0) {
+    return ctx->copied_n;
   }
   return still_running ? 0 : (size_t)-1; /* EOF */
 }
 
-size_t http_read(http* ctx, void* dst, size_t dst_start, size_t dst_end) {
-  return http_recv(ctx, dst, dst_start, dst_end, 1);
+size_t http_copy(http* ctx, FILE* out) {
+  return http_copy_some(ctx, out, 1);
 }
 
-size_t http_try_read(http* ctx, void* dst, size_t dst_start, size_t dst_end) {
-  return http_recv(ctx, dst, dst_start, dst_end, 0);
+size_t http_try_copy(http* ctx, FILE* out) {
+  return http_copy_some(ctx, out, 0);
 }
 
 int http_select(http* ctx, int timeout_ms) {
@@ -520,21 +409,18 @@ int http_select(http* ctx, int timeout_ms) {
 }
 
 int http_copy_to(http* ctx, FILE* out) {
-  char buf[65536];
   for (;;) {
-    size_t n   = http_try_read(ctx, buf, 0, sizeof(buf));
-    int    err = http_errcode(ctx);
+    size_t n = http_try_copy(ctx, out);
+    int    err;
     switch (n) {
       case 0:
-        if (err != 0 || (err = http_select(ctx, 500)) != 0) {
+        if ((err = http_errcode(ctx)) != 0 || (err = http_select(ctx, 500)) != 0) {
           return err;
         }
         break;
-      case (size_t)-1:
-        return err;
+      case (size_t)-1: /* EOF */
+        return http_errcode(ctx);
       default:
-        (void)fwrite(buf, 1, n, out);
-        (void)fflush(out);
         break;
     }
   }
@@ -566,6 +452,8 @@ int main(int argc, char* argv[]) {
     fputc('\n', stderr);
     goto fail;
   }
+  setvbuf(stdout, NULL, _IOFBF, WBUF_MAX);
+
   open = 1;
 
   if ((err = http_copy_to(ctx, stdout)) != 0) {

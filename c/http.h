@@ -28,25 +28,25 @@ int  http_open(http* ctx, const char* url);
 void http_close(http* ctx);
 
 /**
- * Receive up to dst_end - dst_start bytes and write them into dst[dst_start ...].
+ * Read some bytes and write them to FILE* out. If out == NULL, read bytes are discarded.
  *
- * @return number of bytes actually read, which may also be == 0 on success,
+ * @return number of bytes actually copied, which may also be == 0 on success,
  * and may also be != 0 on error. On end-of-file, returns (size_t)-1.
  *
  * To check for errors, call http_errcode() after this function returns.
  */
-size_t http_read(http* ctx, void* dst, size_t dststart, size_t dstend);
+size_t http_copy(http* ctx, FILE* out);
 
 /**
- * Non-blocking try to receive up to dst_end - dst_start bytes and write them
- * into dst[dst_start ...].
+ * Non-blocking try to read some bytes and write them to FILE* out.
+ * If out == NULL, read bytes are discarded.
  *
- * @return number of bytes actually read, which may also be == 0 on success,
+ * @return number of bytes actually copied, which may also be == 0 on success,
  * and may also be != 0 on error. On end-of-file, returns (size_t)-1.
  *
  * To check for errors, call http_errcode() after this function returns.
  */
-size_t http_try_read(http* ctx, void* dst, size_t dststart, size_t dstend);
+size_t http_try_copy(http* ctx, FILE* out);
 
 /**
  * Wait up to timeout_ms milliseconds for I/O to become available on http connection.

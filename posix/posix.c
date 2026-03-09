@@ -25,7 +25,7 @@
 #include <dirent.h>    /* opendir(), readdir(), closedir() */
 #include <dirent.h>
 #include <errno.h> /* EINVAL, EIO, ESRCH, errno */
-#include <fcntl.h>
+#include <fcntl.h> /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>
 #include <limits.h> /* INT_MAX, INT_MIN */
 #include <netdb.h>

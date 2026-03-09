@@ -1,10 +1,11 @@
 /countdown
+/dir
 /http
+/parse_sqlite
 /schemesh
 /schemesh_test
 /.vscode
 *.o
 *.so
 a.out
-#*#
-
+\#*#

@@ -117,21 +117,33 @@ uninstall:
 
 
 ################################################################################
-# optional libraries
+# optional programs and libraries
 ################################################################################
 
-# by default, do *not* compile C shared libraries and optional Scheme libraries
+# by default, do *not* compile optional programs and libraries
 
 scheme2k:      scheme2k_so scheme2k_c_so
-scheme2k_full: scheme2k_so scheme2k_c_so http_c
-batteries:     scheme2k_full
+batteries:     scheme2k_so scheme2k_c_so dir http parse_sqlite
 
-install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
-install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_http_c
-install_batteries:     install_scheme2k_full
+clean_scheme2k:
+	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO)
+
+clean_batteries: clean_scheme2k
+	rm -f dir http parse_sqlite
 
 install_scheme2k_dirs:
 	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
+
+install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
+install_batteries:     install_scheme2k_so install_scheme2k_c_so install_dir install_http install_parse_sqlite
+
+uninstall_scheme2k:
+	rm -f '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_SO)' '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_C_SO)'
+
+uninstall_batteries: uninstall_scheme2k
+	rm -f '$(DESTDIR)$(bindir)/dir' '$(DESTDIR)$(bindir)/http' '$(DESTDIR)$(bindir)/parse_sqlite'
+
+
 
 ################################################################################
 # optional Scheme library: libscheme2k_VERSION.so
@@ -162,26 +174,38 @@ $(SCHEME2K_C_SO): $(SRCS)
 install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
+################################################################################
+# optional C program: dir
+# minimal 'ls' reimplementation, with JSON output
+################################################################################
+
+dir: c/dir.c
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+
+install_dir: dir installdirs
+	$(INSTALL) dir '$(DESTDIR)$(bindir)'
 
 ################################################################################
-# optional C executable: http
+# optional C program: http
 # wraps libcurl
 ################################################################################
 
-HTTP=http
+http: c/http.c
+	$(CC) -o $@ $^ $(CFLAGS) -lcurl $(LDFLAGS)
 
-http_c: $(HTTP)
-
-$(HTTP): c/http.c
-	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -lcurl $(LDFLAGS)
-
-install_http_c: $(HTTP)
-	$(INSTALL) $(HTTP) '$(DESTDIR)$(bindir)'
+install_http: http installdirs
+	$(INSTALL) http '$(DESTDIR)$(bindir)'
 
 ################################################################################
+# optional C program: parse_sqlite
+# wraps libsqlite3
+################################################################################
 
-clean_scheme2k:
-	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO) $(HTTP)
+parse_sqlite: c/parse_sqlite.c
+	$(CC) -o $@ $^ $(CFLAGS) -lsqlite3 $(LDFLAGS)
 
-clean_batteries: clean_scheme2k
+install_parse_sqlite: parse_sqlite installdirs
+	$(INSTALL) parse_sqlite '$(DESTDIR)$(bindir)'
+
+################################################################################
 
