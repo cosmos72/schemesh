@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
       if (i != 0) {
         w_put_char(&w, ',');
       }
-      w_put_quoted_string(&w, (const unsigned char*)sqlite3_column_name(stmt, i));
+      w_put_quoted_escaped_chars(&w, sqlite3_column_name(stmt, i));
       w_put_char(&w, ':');
 
       int type = sqlite3_column_type(stmt, i);
@@ -105,12 +105,12 @@ int main(int argc, char** argv) {
           break;
 
         case SQLITE_TEXT:
-          w_put_quoted_string(&w, sqlite3_column_text(stmt, i));
+          w_put_quoted_escaped_chars(&w, (const char*)sqlite3_column_text(stmt, i));
           break;
 
         case SQLITE_NULL:
         default:
-          w_put_chars(&w, "null");
+          w_put_literal(&w, "null");
           break;
 
         case SQLITE_BLOB:
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
           break;
       }
     }
-    w_put_chars(&w, "}\n");
+    w_put_literal(&w, "}\n");
   }
 
   w_flush(&w);
