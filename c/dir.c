@@ -18,6 +18,7 @@
 #include <fcntl.h>     /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>       /* getgrgid_r()  */
 #include <pwd.h>       /* getpwuid_r()  */
+#include <stdlib.h>    /* exit() */
 #include <sys/stat.h>  /* fstatat()     */
 #include <sys/types.h> /* opendir(), closedir() */
 #include <unistd.h>    /* readlinkat()  */
@@ -53,8 +54,9 @@ typedef enum {
                     e_dir_flag_group,
   e_dir_flag_verbose = (1 << 13) - 1,
 
-  e_dir_flag_hidden    = 1 << 13, /* omit entries starting with "." */
-  e_dir_flag_dirprefix = 1 << 14, /* print dir path before entry name */
+  e_dir_flag_hidden      = 1 << 13, /* omit entries starting with "." */
+  e_dir_flag_dir_as_file = 1 << 14, /* show directories themselvers, not their contents */
+  e_dir_flag_dirprefix   = 1 << 15, /* print dir path before entry name */
 } e_dir_flag;
 
 typedef enum {
@@ -92,8 +94,10 @@ static void write_timespec(writer*                w,
     w_put_chars_len(w, label, label_len);
     w_put_literal(w, "{\"<type>\":\"time-utc\",\"value\":");
     w_put_int64(w, t->tv_sec);
-    w_put_char(w, '.');
-    w_put_fractional_digits(w, t->tv_nsec, 9);
+    if (t->tv_nsec != 0) {
+      w_put_char(w, '.');
+      w_put_fractional_digits(w, t->tv_nsec, 9);
+    }
     w_put_char(w, '}');
   }
 }
@@ -313,6 +317,23 @@ static void write_file_stat(writer* w, e_dir_flag flags, const struct stat* st) 
   write_uint64(w, flags & e_dir_flag_num_links, KEY("nlink"), st->st_nlink);
 }
 
+static int
+write_dir_entry_header(writer* w, e_dir_flag flags, const char* filepath, const string dirpath) {
+  w_put_literal(w, "{\"<type>\":\"dir-entry\",\"name\":");
+
+  /* dirpath and entry->d_name can be arbitrary bytes, not only valid UTF-8 */
+  w_put_char(w, '"');
+  if (flags & e_dir_flag_dirprefix) {
+    w_put_escaped_chars_len(w, dirpath.data, dirpath.len);
+    if (dirpath.len != 0 && dirpath.data[dirpath.len - 1] != '/') {
+      w_put_char(w, '/');
+    }
+  }
+  w_put_escaped_chars(w, filepath);
+  w_put_char(w, '"');
+  return 0;
+}
+
 static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir, const string dirpath) {
   struct stat    st;
   struct dirent* entry;
@@ -332,18 +353,7 @@ static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir, const string d
     }
   } while ((flags & e_dir_flag_hidden) == 0 && entry->d_name[0] == '.');
 
-  w_put_literal(w, "{\"<type>\":\"dir-entry\",\"name\":");
-
-  /* dirpath and entry->d_name can be arbitrary bytes, not only valid UTF-8 */
-  w_put_char(w, '"');
-  if (flags & e_dir_flag_dirprefix) {
-    w_put_escaped_chars_len(w, dirpath.data, dirpath.len);
-    if (dirpath.len != 0 && dirpath.data[dirpath.len - 1] != '/') {
-      w_put_char(w, '/');
-    }
-  }
-  w_put_escaped_chars(w, entry->d_name);
-  w_put_char(w, '"');
+  write_dir_entry_header(w, flags, entry->d_name, dirpath);
 
 #ifdef _DIRENT_HAVE_D_TYPE
   if (flags & e_dir_flag_type) {
@@ -386,6 +396,43 @@ static int write_dir(writer* w, e_dir_flag flags, const string dirpath) {
   return err;
 }
 
+static int write_file(writer* w, e_dir_flag flags, struct stat* st, const string filepath) {
+  const char* path = filepath.data;
+  e_type      type = modeToEtype(st->st_mode);
+  write_dir_entry_header(w, flags, path, make_string(NULL, 0));
+  write_etype(w, flags & e_dir_flag_type, type);
+  write_uint64(w, flags & e_dir_flag_size, KEY("size"), (uint64_t)(st->st_size));
+  write_symlink(w, flags & e_dir_flag_target, type, AT_FDCWD, path);
+  write_file_stat(w, flags, st);
+  w_put_literal(w, "}\n");
+  return 0;
+}
+
+static int write_file_or_dir(writer* w, e_dir_flag flags, const string path) {
+  struct stat st;
+  if (fstatat(AT_FDCWD, path.data, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+    return -errno;
+  } else if ((flags & e_dir_flag_dir_as_file) || (st.st_mode & S_IFMT) != S_IFDIR) {
+    return write_file(w, flags, &st, path);
+  } else {
+    return write_dir(w, flags, path);
+  }
+}
+
+static void usage(char* argv0) {
+  fprintf(stderr,
+          "Usage: %s [OPTION]... [FILE]...\n"
+          "Write JSON information about FILEs (the current directory by default).\n"
+          "Options:\n"
+          "  -a      also show entries starting with .\n"
+          "  -d      list directories themselves, not their contents\n"
+          "  -l      use a long listing format\n"
+          "  -v      use a very long listing format\n"
+          "  --      end of options\n"
+          "  --help  show this help\n",
+          argv0);
+}
+
 static e_dir_flag parse_dir_flag(int argc, char* argv[]) {
   char*      arg;
   int        i;
@@ -393,18 +440,25 @@ static e_dir_flag parse_dir_flag(int argc, char* argv[]) {
   for (i = 1; i < argc; ++i) {
     if (!(arg = argv[i]) || !strcmp(arg, "--")) {
       break;
+    } else if (arg[0] != '-') {
+      continue;
+    } else if (!strcmp(arg, "-a")) {
+      flag |= e_dir_flag_hidden;
+    } else if (!strcmp(arg, "-d")) {
+      flag |= e_dir_flag_dir_as_file;
     } else if (!strcmp(arg, "-l")) {
       flag |= e_dir_flag_long;
     } else if (!strcmp(arg, "-v")) {
       flag |= e_dir_flag_verbose;
-    } else if (!strcmp(arg, "-a")) {
-      flag |= e_dir_flag_hidden;
+    } else {
+      usage(argv[0]);
+      exit(strcmp(arg, "--help") ? 1 : 0);
     }
   }
   return flag;
 }
 
-static int count_dirs(int argc, char* argv[]) {
+static int count_args(int argc, char* argv[]) {
   char* arg;
   int   i;
   int   n       = 0;
@@ -427,11 +481,11 @@ int main(int argc, char* argv[]) {
   writer     w = {stdout, 0, {0}};
   char*      arg;
   e_dir_flag flags = parse_dir_flag(argc, argv);
-  int        err = 0, n = count_dirs(argc, argv);
+  int        err = 0, n = count_args(argc, argv);
   int        options, i;
 
   if (n == 0) {
-    err = write_dir(&w, flags, make_string(".", 1));
+    err = write_file_or_dir(&w, flags, make_string(".", 1));
     w_flush(&w);
     return err;
   }
@@ -447,7 +501,7 @@ int main(int argc, char* argv[]) {
         options = 0;
       }
     } else {
-      int err_i = write_dir(&w, flags, make_string(arg, strlen(arg)));
+      int err_i = write_file_or_dir(&w, flags, make_string(arg, strlen(arg)));
       if (err == 0 && err_i != 0) {
         err = err_i;
       }
