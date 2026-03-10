@@ -30,7 +30,8 @@
 #define SCHEME2K_C_DIR_HAVE_TIMESPEC
 #endif
 
-#define S(str) (",\"" str "\":"), (sizeof(str) + 3)
+#define KEY(str) (",\"" str "\":"), (sizeof(str) + 3)
+#define MKS(str) make_string("\"" str "\"", sizeof(str) + 1)
 
 typedef enum {
   /* e_dir_flag_name     = 1 << 0, */
@@ -60,6 +61,20 @@ typedef enum {
   e_type_sock    = 7,
 } e_type;
 
+typedef struct {
+  const char* data;
+  size_t      len;
+} string;
+
+static string make_string(const char* data, size_t len) {
+  string ret = {data, len};
+  return ret;
+}
+
+static void w_put_string(writer* w, string s) {
+  w_put_chars_len(w, s.data, s.len);
+}
+
 #ifdef SCHEME2K_C_DIR_HAVE_TIMESPEC
 static void write_timespec(writer*                w,
                            e_dir_flag             flags,
@@ -67,7 +82,7 @@ static void write_timespec(writer*                w,
                            const size_t           label_len,
                            const struct timespec* t) {
   if (flags) {
-    w_put_chars3(w, label, label_len);
+    w_put_chars_len(w, label, label_len);
     w_put_chars(w, "{\"<type>\":\"time-utc\",\"value\":");
     w_put_int64(w, t->tv_sec);
     w_put_char(w, '.');
@@ -79,7 +94,7 @@ static void write_timespec(writer*                w,
 static void
 write_time(writer* w, e_dir_flag flags, const char* label, const size_t label_len, const time_t t) {
   if (flags) {
-    w_put_chars3(w, label, label_len);
+    w_put_chars_len(w, label, label_len);
     w_put_chars(w, "{\"<type>\":\"time-utc\",\"value\":");
     w_put_int64(w, t);
     w_put_char(w, '}');
@@ -90,7 +105,7 @@ write_time(writer* w, e_dir_flag flags, const char* label, const size_t label_le
 static void write_int64(
     writer* w, e_dir_flag flags, const char* label, const size_t label_len, const int64_t num) {
   if (flags) {
-    w_put_chars3(w, label, label_len);
+    w_put_chars_len(w, label, label_len);
     w_put_int64(w, num);
   }
 }
@@ -98,13 +113,13 @@ static void write_int64(
 static void write_uint64(
     writer* w, e_dir_flag flags, const char* label, const size_t label_len, const uint64_t num) {
   if (flags) {
-    w_put_chars3(w, label, label_len);
+    w_put_chars_len(w, label, label_len);
     w_put_uint64(w, num);
   }
 }
 
 static void write_etype(writer* w, e_dir_flag flags, e_type type) {
-  const char* s = NULL;
+  string s;
   if (!flags) {
     return;
   }
@@ -113,29 +128,29 @@ static void write_etype(writer* w, e_dir_flag flags, e_type type) {
     default:
       return;
     case e_type_fifo:
-      s = "\"fifo\"";
+      s = MKS("fifo");
       break;
     case e_type_chr:
-      s = "\"char-device\"";
+      s = MKS("char-device");
       break;
     case e_type_dir:
-      s = "\"dir\"";
+      s = MKS("dir");
       break;
     case e_type_blk:
-      s = "\"block-device\"";
+      s = MKS("block-device");
       break;
     case e_type_reg:
-      s = "\"file\"";
+      s = MKS("file");
       break;
     case e_type_lnk:
-      s = "\"symlink\"";
+      s = MKS("symlink");
       break;
     case e_type_sock:
-      s = "\"socket\"";
+      s = MKS("socket");
       break;
   }
-  w_put_chars3(w, S("type"));
-  w_put_chars3(w, s, strlen(s));
+  w_put_chars_len(w, KEY("type"));
+  w_put_string(w, s);
 }
 
 static void write_mode(writer* w, e_dir_flag flags, uint32_t mode) {
@@ -144,7 +159,7 @@ static void write_mode(writer* w, e_dir_flag flags, uint32_t mode) {
   if (!flags) {
     return;
   }
-  w_put_chars3(w, S("mode"));
+  w_put_chars_len(w, KEY("mode"));
   w_put_char(w, '"');
   for (i = 0; i < 9; i++) {
     w_put_char(w, (mode & (0400 >> i)) ? rwx[i] : '-');
@@ -158,13 +173,13 @@ static void write_mode(writer* w, e_dir_flag flags, uint32_t mode) {
 }
 
 static void write_pw_username(writer* w, const char* username) {
-  w_put_chars3(w, S("user"));
-  w_put_string_quoted_json_escape(w, username);
+  w_put_chars_len(w, KEY("user"));
+  w_put_quoted_string(w, username);
 }
 
 static void write_gr_groupname(writer* w, const char* groupname) {
-  w_put_chars3(w, S("group"));
-  w_put_string_quoted_json_escape(w, groupname);
+  w_put_chars_len(w, KEY("group"));
+  w_put_quoted_string(w, groupname);
 }
 
 static void write_username(writer* w, e_dir_flag flags, uid_t uid) {
@@ -264,8 +279,8 @@ static void write_symlink(writer* w, e_dir_flag flags, e_type type, int dir_fd, 
     char    buf[PATH_MAX];
     ssize_t len = readlinkat(dir_fd, path, buf, sizeof(buf));
     if (len > 0) {
-      w_put_chars3(w, S("symlink"));
-      w_put_string_quoted_json_escape3(w, (const unsigned char*)buf, len);
+      w_put_chars_len(w, KEY("symlink"));
+      w_put_quoted_string_len(w, (const unsigned char*)buf, len);
     }
   }
 }
@@ -273,22 +288,22 @@ static void write_symlink(writer* w, e_dir_flag flags, e_type type, int dir_fd, 
 static void write_file_stat(writer* w, e_dir_flag flags, const struct stat* st) {
 
 #ifdef SCHEME2K_C_DIR_HAVE_TIMESPEC
-  write_timespec(w, flags & e_dir_flag_modified, S("modified"), &(st->st_mtim));
-  write_timespec(w, flags & e_dir_flag_accessed, S("accessed"), &(st->st_atim));
-  write_timespec(w, flags & e_dir_flag_ino_changed, S("status-changed"), &(st->st_ctim));
+  write_timespec(w, flags & e_dir_flag_modified, KEY("modified"), &(st->st_mtim));
+  write_timespec(w, flags & e_dir_flag_accessed, KEY("accessed"), &(st->st_atim));
+  write_timespec(w, flags & e_dir_flag_ino_changed, KEY("status-changed"), &(st->st_ctim));
 #else
-  write_time(w, flags & e_dir_flag_modified, S("modified"), st->st_mtime);
-  write_time(w, flags & e_dir_flag_accessed, S("accessed"), st->st_atime);
-  write_time(w, flags & e_dir_flag_ino_changed, S("status-changed"), st->st_ctime);
+  write_time(w, flags & e_dir_flag_modified, KEY("modified"), st->st_mtime);
+  write_time(w, flags & e_dir_flag_accessed, KEY("accessed"), st->st_atime);
+  write_time(w, flags & e_dir_flag_ino_changed, KEY("status-changed"), st->st_ctime);
 #endif
 
   write_mode(w, flags & e_dir_flag_mode, st->st_mode & 07777);
   write_username(w, flags & e_dir_flag_uid, st->st_uid);
   write_groupname(w, flags & e_dir_flag_gid, st->st_gid);
-  write_int64(w, flags & e_dir_flag_uid, S("uid"), st->st_uid);
-  write_int64(w, flags & e_dir_flag_gid, S("gid"), st->st_gid);
-  write_uint64(w, flags & e_dir_flag_inode, S("inode"), st->st_ino);
-  write_uint64(w, flags & e_dir_flag_num_links, S("nlink"), st->st_nlink);
+  write_int64(w, flags & e_dir_flag_uid, KEY("uid"), st->st_uid);
+  write_int64(w, flags & e_dir_flag_gid, KEY("gid"), st->st_gid);
+  write_uint64(w, flags & e_dir_flag_inode, KEY("inode"), st->st_ino);
+  write_uint64(w, flags & e_dir_flag_num_links, KEY("nlink"), st->st_nlink);
 }
 
 static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir) {
@@ -312,7 +327,7 @@ static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir) {
 
   w_put_chars(w, "{\"<type>\":\"dir-entry\",\"name\":");
   /* file name can be arbitrary bytes, not only valid UTF-8 */
-  w_put_string_quoted_json_escape(w, entry->d_name);
+  w_put_quoted_string(w, entry->d_name);
 
 #ifdef _DIRENT_HAVE_D_TYPE
   if (flags & e_dir_flag_type) {
@@ -326,7 +341,7 @@ static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir) {
     /* fstatat() is successful, write all fields */
     type = modeToEtype(st.st_mode);
     write_etype(w, flags & e_dir_flag_type, type);
-    write_uint64(w, flags & e_dir_flag_size, S("size"), (uint64_t)(st.st_size));
+    write_uint64(w, flags & e_dir_flag_size, KEY("size"), (uint64_t)(st.st_size));
     have_stat = 1;
   } else {
     /* write available fields: only type, symlink and inode */
@@ -337,7 +352,7 @@ static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir) {
   if (have_stat) {
     write_file_stat(w, flags, &st);
   } else {
-    write_int64(w, flags & e_dir_flag_inode, S("inode"), entry->d_ino);
+    write_int64(w, flags & e_dir_flag_inode, KEY("inode"), entry->d_ino);
   }
   w_put_chars(w, "}\n");
   return 1;

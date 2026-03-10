@@ -69,7 +69,7 @@ all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 
 schemesh_so: $(SCHEMESH_SO)
 
-clean:
+clean: clean_batteries
 	rm -f *~ *.o *.so schemesh schemesh_test countdown
 
 containers.o: containers/containers.c containers/containers.h eval.h
@@ -179,7 +179,7 @@ install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 # minimal 'ls' reimplementation, with JSON output
 ################################################################################
 
-dir: c/dir.c
+dir: c/dir.c c/writer.h
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 install_dir: dir installdirs
@@ -201,7 +201,7 @@ install_http: http installdirs
 # wraps libsqlite3
 ################################################################################
 
-parse_sqlite: c/parse_sqlite.c
+parse_sqlite: c/parse_sqlite.c c/writer.h
 	$(CC) -o $@ $^ $(CFLAGS) -lsqlite3 $(LDFLAGS)
 
 install_parse_sqlite: parse_sqlite installdirs

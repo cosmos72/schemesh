@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
       if (i != 0) {
         w_put_char(&w, ',');
       }
-      w_put_string_quoted_json_escape(&w, (const unsigned char*)sqlite3_column_name(stmt, i));
+      w_put_quoted_string(&w, (const unsigned char*)sqlite3_column_name(stmt, i));
       w_put_char(&w, ':');
 
       int type = sqlite3_column_type(stmt, i);
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
           break;
 
         case SQLITE_TEXT:
-          w_put_string_quoted_json_escape(&w, sqlite3_column_text(stmt, i));
+          w_put_quoted_string(&w, sqlite3_column_text(stmt, i));
           break;
 
         case SQLITE_NULL:

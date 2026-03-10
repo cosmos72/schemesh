@@ -38,33 +38,58 @@ static void w_put_char(writer* w, char c) {
   w->buf[w->pos++] = c;
 }
 
-#define w_put_chars(w, s) w_put_chars3(w, s, sizeof(s) - 1)
+#define w_put_chars(w, s) w_put_chars_len(w, s, sizeof(s) - 1)
 
-static void w_put_chars3(writer* w, const char* s, const size_t n) {
-  size_t i = 0;
-  while (i < n) {
-    size_t avail, copy_n;
+static void w_put_chars_len(writer* w, const char* s, const size_t n) {
+  const char* end = s + n;
+  while (s < end) {
+    size_t read_n, write_n, copy_n;
     if (w->pos >= WBUF_MAX) {
       w_flush(w);
     }
-    avail  = WBUF_MAX - w->pos;
-    copy_n = n < avail ? n : avail;
-    memcpy(&w->buf[w->pos], &s[i], copy_n);
+    read_n  = end - s;
+    write_n = WBUF_MAX - w->pos;
+    copy_n  = read_n < write_n ? read_n : write_n;
+    memcpy(&w->buf[w->pos], s, copy_n);
     w->pos += copy_n;
-    i += copy_n;
+    s += copy_n;
   }
+}
+
+static void w_put_chars_len2(writer* w, const char s[2]) {
+  if (w->pos > WBUF_MAX - 2) {
+    w_flush(w);
+  }
+  memcpy(&w->buf[w->pos], s, 2);
+  w->pos += 2;
+}
+
+static void w_put_chars_len4(writer* w, const char s[4]) {
+  if (w->pos > WBUF_MAX - 4) {
+    w_flush(w);
+  }
+  memcpy(&w->buf[w->pos], s, 4);
+  w->pos += 4;
+}
+
+static void w_put_chars_len6(writer* w, const char s[6]) {
+  if (w->pos > WBUF_MAX - 6) {
+    w_flush(w);
+  }
+  memcpy(&w->buf[w->pos], s, 6);
+  w->pos += 6;
 }
 
 static void w_put_int64(writer* w, int64_t num) {
   char buf[24];
   int  len = snprintf(buf, sizeof(buf), "%" PRIi64, num);
-  w_put_chars3(w, buf, len);
+  w_put_chars_len(w, buf, len);
 }
 
 static void w_put_uint64(writer* w, uint64_t num) {
   char buf[24];
   int  len = snprintf(buf, sizeof(buf), "%" PRIu64, num);
-  w_put_chars3(w, buf, len);
+  w_put_chars_len(w, buf, len);
 }
 
 static void w_put_fractional_digits(writer* w, uint64_t fraction, int digit_n) {
@@ -74,55 +99,64 @@ static void w_put_fractional_digits(writer* w, uint64_t fraction, int digit_n) {
   for (i = len; i < digit_n; i++) {
     w_put_char(w, '0');
   }
-  w_put_chars3(w, buf, len);
+  w_put_chars_len(w, buf, len);
 }
 
 static void w_put_double(writer* w, double num) {
   char buf[32];
   int  len = snprintf(buf, sizeof(buf), "%g", num);
-  w_put_chars3(w, buf, len);
+  w_put_chars_len(w, buf, len);
 }
 
 /* JSON escape */
 
-#define w_put_string_quoted_json_escape(w, s)                                                      \
-  w_put_string_quoted_json_escape3(w, (const unsigned char*)(s), (size_t)-1)
+#define w_put_quoted_string(w, s) w_put_quoted_string_len(w, (const unsigned char*)(s), (size_t)-1)
 
-static void w_put_string_quoted_json_escape3(writer* w, const unsigned char* s, size_t len) {
-  size_t        i;
-  unsigned char ch;
+static void w_put_quoted_string_len(writer* w, const unsigned char* s, size_t len) {
+  size_t i;
   w_put_char(w, '"');
-  for (i = 0; i < len && (ch = s[i]); i++) {
+  for (i = 0; i < len; i++) {
+    const unsigned char ch = s[i];
+    if (len == (size_t)-1 && ch == '\0') {
+      /* end of nul-terminated string */
+      break;
+    }
+    if (ch > '"') {
+      w_put_char(w, ch);
+      continue;
+    }
     switch (ch) {
+      case ' ':
+      case '!':
+        w_put_char(w, ch);
+        break;
       case '"':
-        w_put_chars(w, "\\\"");
+        w_put_chars_len2(w, "\\\"");
         break;
       case '\\':
-        w_put_chars(w, "\\\\");
+        w_put_chars_len2(w, "\\\\");
         break;
       case '\b':
-        w_put_chars(w, "\\b");
+        w_put_chars_len2(w, "\\b");
         break;
       case '\f':
-        w_put_chars(w, "\\f");
+        w_put_chars_len2(w, "\\f");
         break;
       case '\n':
-        w_put_chars(w, "\\n");
+        w_put_chars_len2(w, "\\n");
         break;
       case '\r':
-        w_put_chars(w, "\\r");
+        w_put_chars_len2(w, "\\r");
         break;
       case '\t':
-        w_put_chars(w, "\\t");
+        w_put_chars_len2(w, "\\t");
         break;
-      default:
-        if (ch < 32) {
-          char tmp[8];
-          snprintf(tmp, sizeof(tmp), "\\u%04x", *s);
-          w_put_chars3(w, tmp, 6);
-        } else {
-          w_put_char(w, ch);
-        }
+      default: {
+        char tmp[8];
+        snprintf(tmp, sizeof(tmp), "\\u%04x", *s);
+        w_put_chars_len6(w, tmp);
+        break;
+      }
     }
   }
   w_put_char(w, '"');
@@ -132,10 +166,12 @@ static void w_put_string_quoted_json_escape3(writer* w, const unsigned char* s, 
 
 static char base64_table(unsigned index) {
   index &= 63;
-  if (index < 27) {
-    return 'A' + index;
-  } else if (index < 54) {
-    return 'a' - 27 + index;
+  if (index < 26) {
+    return index + 'A';
+  } else if (index < 52) {
+    return index + ('a' - 26);
+  } else if (index < 62) {
+    return index - (52 - '0');
   } else if (index == 62) {
     return '+';
   } else {
@@ -145,22 +181,31 @@ static char base64_table(unsigned index) {
 
 static void w_put_base64(writer* w, const unsigned char* data, size_t len) {
 
+  size_t i;
+
   w_put_chars(w, "{\"<type>\":\"base64\",\"value\":\"");
 
-  for (size_t i = 0; i < len; i += 3) {
+  for (i = 0; i + 3 <= len; i += 3) {
+    unsigned triple = ((unsigned)data[i] << 16) | ((unsigned)data[i + 1] << 8) | data[i + 2];
 
-    size_t remain = len - i;
-
-    unsigned a = data[i];
-    unsigned b = (remain > 1) ? data[i + 1] : 0;
-    unsigned c = (remain > 2) ? data[i + 2] : 0;
-
+    char buf[4] = {base64_table(triple >> 18),
+                   base64_table(triple >> 12),
+                   base64_table(triple >> 6),
+                   base64_table(triple)};
+    w_put_chars_len4(w, buf);
+  }
+  if (i < len) {
+    size_t   remain = len - i;
+    unsigned a      = data[i];
+    unsigned b      = (remain > 1) ? data[i + 1] : 0;
+    unsigned c      = (remain > 2) ? data[i + 2] : 0;
     unsigned triple = (a << 16) | (b << 8) | c;
 
-    w_put_char(w, base64_table(triple >> 18));
-    w_put_char(w, base64_table(triple >> 12));
-    w_put_char(w, remain > 1 ? base64_table(triple >> 6) : '=');
-    w_put_char(w, remain > 2 ? base64_table(triple) : '=');
+    char buf[4] = {base64_table(triple >> 18),
+                   base64_table(triple >> 12),
+                   remain > 1 ? base64_table(triple >> 6) : '=',
+                   remain > 2 ? base64_table(triple) : '='};
+    w_put_chars_len4(w, buf);
   }
 
   w_put_chars(w, "\"}");
