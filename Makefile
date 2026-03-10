@@ -180,7 +180,7 @@ install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 ################################################################################
 
 dir: c/dir.c c/writer.h
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 install_dir: dir installdirs
 	$(INSTALL) dir '$(DESTDIR)$(bindir)'
@@ -191,7 +191,7 @@ install_dir: dir installdirs
 ################################################################################
 
 http: c/http.c
-	$(CC) -o $@ $^ $(CFLAGS) -lcurl $(LDFLAGS)
+	$(CC) -o $@ $< $(CFLAGS) -lcurl $(LDFLAGS)
 
 install_http: http installdirs
 	$(INSTALL) http '$(DESTDIR)$(bindir)'
@@ -202,7 +202,7 @@ install_http: http installdirs
 ################################################################################
 
 parse_sqlite: c/parse_sqlite.c c/writer.h
-	$(CC) -o $@ $^ $(CFLAGS) -lsqlite3 $(LDFLAGS)
+	$(CC) -o $@ $< $(CFLAGS) -lsqlite3 $(LDFLAGS)
 
 install_parse_sqlite: parse_sqlite installdirs
 	$(INSTALL) parse_sqlite '$(DESTDIR)$(bindir)'
