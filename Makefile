@@ -57,20 +57,43 @@ LDFLAGS_SO=-shared
 # no user-serviceable parts below this line
 ######################################################################################
 
+## by default, only compile and install additional programs that do *not* require
+## external dependencies (libcurl, libsqlite3 ...)
+
+default: countdown dir schemesh schemesh_test schemesh_so
+
+clean: clean_schemesh clean_scheme2k clean_utils
+	rm -f *~ *.o *.so
+
+install:     install_countdown   install_dir   install_schemesh
+uninstall: uninstall_countdown uninstall_dir uninstall_schemesh
+
+installdirs:
+	$(MKDIR_P) '$(DESTDIR)$(bindir)'
+	$(MKDIR_P) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+
 ######################################################################################
-# schemesh rules
+# all programs and libraries, including additional ones that require
+# external dependencies (libcurl, libsqlite3 ...)
+######################################################################################
+
+all: default scheme2k utils
+
+clean_all: clean
+
+install_all:     install_schemesh   install_scheme2k   install_utils
+uninstall_all: uninstall_schemesh uninstall_scheme2k uninstall_utils
+
+
+######################################################################################
+# schemesh
 ######################################################################################
 SCHEMESH_SO=libschemesh_0.9.3.so
 
 SRCS=containers/containers.c eval.c posix/posix.c
 OBJS=containers.o eval.o os.o posix.o
 
-all: schemesh schemesh_test $(SCHEMESH_SO) countdown
-
-schemesh_so: $(SCHEMESH_SO)
-
-clean: clean_batteries
-	rm -f *~ *.o *.so schemesh schemesh_test countdown
 
 containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
@@ -97,93 +120,68 @@ schemesh: main.o $(OBJS)
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
+schemesh_so: $(SCHEMESH_SO)
+
 $(SCHEMESH_SO): schemesh_test
 	./schemesh_test
+
+
+clean_schemesh:
+	rm -f schemesh schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
+
+install_schemesh: schemesh schemesh_so installdirs
+	$(INSTALL_PROGRAM) schemesh '$(DESTDIR)$(bindir)'
+	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+uninstall_schemesh:
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+
+
+################################################################################
+# additional programs. Some require external libraries (libcurl, libsqlite3 ...)
+################################################################################
+
+utils:                     countdown           dir           http           parse_sqlite
+clean_utils:         clean_countdown     clean_dir     clean_http     clean_parse_sqlite
+install_utils:     install_countdown   install_dir   install_http   install_parse_sqlite
+uninstall_utils: uninstall_countdown uninstall_dir uninstall_http uninstall_parse_sqlite
+
+
+################################################################################
+# C program: countdown
+# minimal 'sleep' reimplementation, suspends counting when stopped
+################################################################################
 
 countdown: c/countdown.c
 	$(CC) -o $@ $< $(CFLAGS)  $(LDFLAGS)
 
+clean_countdown:
+	rm -f countdown
 
-installdirs:
-	$(MKDIR_P) '$(DESTDIR)$(bindir)'
-	$(MKDIR_P) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_countdown: countdown installdirs
+	$(INSTALL_PROGRAM) countdown '$(DESTDIR)$(bindir)'
 
-install: all installdirs
-	$(INSTALL_PROGRAM) schemesh countdown '$(DESTDIR)$(bindir)'
-	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
-
-uninstall:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+uninstall_countdown:
+	rm -f '$(DESTDIR)$(bindir)/countdown'
 
 
 ################################################################################
-# optional programs and libraries
-################################################################################
-
-# by default, do *not* compile optional programs and libraries
-
-scheme2k:      scheme2k_so scheme2k_c_so
-batteries:     scheme2k_so scheme2k_c_so dir http parse_sqlite
-
-clean_scheme2k:
-	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO)
-
-clean_batteries: clean_scheme2k
-	rm -f dir http parse_sqlite
-
-install_scheme2k_dirs:
-	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
-
-install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
-install_batteries:     install_scheme2k_so install_scheme2k_c_so install_dir install_http install_parse_sqlite
-
-uninstall_scheme2k:
-	rm -f '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_SO)' '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_C_SO)'
-
-uninstall_batteries: uninstall_scheme2k
-	rm -f '$(DESTDIR)$(bindir)/dir' '$(DESTDIR)$(bindir)/http' '$(DESTDIR)$(bindir)/parse_sqlite'
-
-
-
-################################################################################
-# optional Scheme library: libscheme2k_VERSION.so
-################################################################################
-
-SCHEME2K_SO=libscheme2k_0.9.3.so
-
-scheme2k_so: $(SCHEME2K_SO)
-
-$(SCHEME2K_SO): schemesh_test
-	./schemesh_test --compile_scheme2k_so
-
-install_scheme2k_so: $(SCHEME2K_SO) install_scheme2k_dirs
-	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
-
-################################################################################
-# optional C shared library: libscheme2k_c_VERSION.so
-# contains C functions needed by libscheme2k_VERSION.so
-################################################################################
-
-SCHEME2K_C_SO=libscheme2k_c_0.9.3.so
-
-scheme2k_c_so: $(SCHEME2K_C_SO)
-
-$(SCHEME2K_C_SO): $(SRCS)
-	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
-
-install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
-	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
-
-################################################################################
-# optional C program: dir
+# C program: dir
 # minimal 'ls' reimplementation, with JSON output
 ################################################################################
 
 dir: c/dir.c c/writer.h
 	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
+clean_dir:
+	rm -f dir
+
 install_dir: dir installdirs
-	$(INSTALL) dir '$(DESTDIR)$(bindir)'
+	$(INSTALL_PROGRAM) dir '$(DESTDIR)$(bindir)'
+
+uninstall_dir:
+	rm -f '$(DESTDIR)$(bindir)/dir'
+
 
 ################################################################################
 # optional C program: http
@@ -193,8 +191,15 @@ install_dir: dir installdirs
 http: c/http.c
 	$(CC) -o $@ $< $(CFLAGS) -lcurl $(LDFLAGS)
 
+clean_http:
+	rm -f http
+
 install_http: http installdirs
-	$(INSTALL) http '$(DESTDIR)$(bindir)'
+	$(INSTALL_PROGRAM) http '$(DESTDIR)$(bindir)'
+
+uninstall_http:
+	rm -f '$(DESTDIR)$(bindir)/http'
+
 
 ################################################################################
 # optional C program: parse_sqlite
@@ -204,8 +209,72 @@ install_http: http installdirs
 parse_sqlite: c/parse_sqlite.c c/writer.h
 	$(CC) -o $@ $< $(CFLAGS) -lsqlite3 $(LDFLAGS)
 
+clean_parse_sqlite:
+	rm -f parse_sqlite
+
 install_parse_sqlite: parse_sqlite installdirs
-	$(INSTALL) parse_sqlite '$(DESTDIR)$(bindir)'
+	$(INSTALL_PROGRAM) parse_sqlite '$(DESTDIR)$(bindir)'
+
+uninstall_parse_sqlite:
+	rm -f '$(DESTDIR)$(bindir)/parse_sqlite'
+
+
+################################################################################
+# additional libraries. not compiled by default
+################################################################################
+
+scheme2k:                     scheme2k_c_so           scheme2k_so
+clean_scheme2k:         clean_scheme2k_c_so     clean_scheme2k_so
+install_scheme2k:     install_scheme2k_c_so   install_scheme2k_so
+uninstall_scheme2k: uninstall_scheme2k_c_so uninstall_scheme2k_so
+
+install_scheme2k_dirs:
+	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
+
+
+################################################################################
+# additional Scheme library: libscheme2k_VERSION.so
+# contains the LGPL-licensed subset of schemesh
+################################################################################
+
+SCHEME2K_SO=libscheme2k_0.9.3.so
+
+scheme2k_so: $(SCHEME2K_SO)
+
+$(SCHEME2K_SO): schemesh_test
+	./schemesh_test --compile_scheme2k_so
+
+clean_scheme2k_so:
+	rm -f $(SCHEME2K_SO) libscheme2k_temp.so
+
+install_scheme2k_so: scheme2k_so install_scheme2k_dirs
+	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
+
+uninstall_scheme2k_so:
+	rm -f '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_SO)'
+
+
+################################################################################
+# additional C shared library: libscheme2k_c_VERSION.so
+# contains LGPL-licensed C functions needed by libscheme2k_VERSION.so
+################################################################################
+
+SCHEME2K_C_SO=libscheme2k_c_0.9.3.so
+
+scheme2k_c_so: $(SCHEME2K_C_SO)
+
+$(SCHEME2K_C_SO): $(SRCS)
+	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
+
+clean_scheme2k_c_so:
+	rm -f $(SCHEME2K_C_SO)
+
+install_scheme2k_c_so: scheme2k_c_so install_scheme2k_dirs
+	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
+
+uninstall_scheme2k_c_so:
+	rm -f '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_C_SO)'
+
 
 ################################################################################
 

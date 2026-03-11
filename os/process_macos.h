@@ -32,32 +32,32 @@ static ptr make_tty_name(dev_t tty_nr) {
 
 static char to_state_char(char kp_stat) {
   switch (kp_stat) {
-  case SIDL:
-    return 'I';
-  case SRUN:
-    return 'R';
-  case SSLEEP:
-    return 'S';
-  case SSTOP:
-    return 'T';
-  case SZOMB:
-    return 'Z';
-  default:
-    return 0;
+    case SIDL:
+      return 'I';
+    case SRUN:
+      return 'R';
+    case SSLEEP:
+      return 'S';
+    case SSTOP:
+      return 'T';
+    case SZOMB:
+      return 'Z';
+    default:
+      return 0;
   }
 }
 
-static const char *omit_dirs(const char *path) {
-  const char *slash = strrchr(path, '/');
+static const char* omit_dirs(const char* path) {
+  const char* slash = strrchr(path, '/');
   return slash ? slash + 1 : path;
 }
-  
-static void c_process_info_fill(const struct kinfo_proc *kp, c_process_info *c) {
-  struct proc_taskinfo tinfo;
-  char name[PROC_PIDPATHINFO_MAXSIZE] = {0};
 
-  const struct extern_proc *p = &kp->kp_proc;
-  
+static void c_process_info_fill(const struct kinfo_proc* kp, c_process_info* c) {
+  struct proc_taskinfo tinfo;
+  char                 name[PROC_PIDPATHINFO_MAXSIZE] = {0};
+
+  const struct extern_proc* p = &kp->kp_proc;
+
   c->pid  = p->p_pid;
   c->uid  = kp->kp_eproc.e_ucred.cr_uid;
   c->gid  = kp->kp_eproc.e_ucred.cr_gid;
@@ -81,8 +81,7 @@ static void c_process_info_fill(const struct kinfo_proc *kp, c_process_info *c) 
   }
   c->name = c_string_new(*name ? omit_dirs(name) : p->p_comm);
 
-  if (proc_pidinfo(c->pid, PROC_PIDTASKINFO, 0,
-		   &tinfo, sizeof(tinfo)) == sizeof(tinfo)) {
+  if (proc_pidinfo(c->pid, PROC_PIDTASKINFO, 0, &tinfo, sizeof(tinfo)) == sizeof(tinfo)) {
 
     c->mem_rss    = tinfo.pti_resident_size;
     c->mem_virt   = tinfo.pti_virtual_size;
@@ -108,10 +107,10 @@ static c_process_infos* to_c_process_infos(ptr cs_s) {
  * on error, return c_errno() < 0
  */
 static ptr c_process_open(void) {
-  struct kinfo_proc *procs;
-  c_process_infos *cs;
-  int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
-  size_t size, n;
+  struct kinfo_proc* procs;
+  c_process_infos*   cs;
+  int                mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+  size_t             size, n;
 
   if (sysctl(mib, 4, NULL, &size, NULL, 0) < 0) {
     return Sinteger(c_errno());
@@ -150,7 +149,7 @@ static void c_process_close(ptr cs_s) {
  *   on error, return c_errno() < 0
  */
 static int c_process_skip(ptr cs_s) {
-  c_process_infos *cs = to_c_process_infos(cs_s);
+  c_process_infos* cs = to_c_process_infos(cs_s);
   if (cs && cs->i < cs->n) {
     cs->i++;
     return 1; /* ok, skipped one process */
@@ -166,15 +165,15 @@ static int c_process_skip(ptr cs_s) {
  *   on parsing errors, return #f
  */
 static ptr c_process_get(ptr cs_s, ptr bvec) {
-  c_process_infos *cs;
-  c_process_info  *c;
-  uint8_t         *vec;
-  
+  c_process_infos* cs;
+  c_process_info*  c;
+  uint8_t*         vec;
+
   if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
   }
   vec = Sbytevector_data(bvec);
-  cs = to_c_process_infos(cs_s);
+  cs  = to_c_process_infos(cs_s);
   if (cs == NULL || cs->i >= cs->n) {
     return Sfixnum(0); /* end of processes */
   }
@@ -188,20 +187,19 @@ static ptr c_process_get(ptr cs_s, ptr bvec) {
   set_int64(vec, e_gid, c->gid);
   set_int64(vec, e_ppid, c->ppid);
   set_int64(vec, e_pgrp, c->pgrp);
-  set_int64(vec, e_sid,  -1); /* unimplemented */
-  set_uint64(vec,   e_mem_resident, c->mem_rss);
-  set_uint64(vec,   e_mem_virtual,  c->mem_virt);
-  set_timespec(vec, e_start_time,   c->start_time);
-  set_timespec(vec, e_user_time,    c->user_time);
-  set_timespec(vec, e_sys_time,     c->sys_time);
+  set_int64(vec, e_sid, -1); /* unimplemented */
+  set_uint64(vec, e_mem_resident, c->mem_rss);
+  set_uint64(vec, e_mem_virtual, c->mem_virt);
+  set_timespec(vec, e_start_time, c->start_time);
+  set_timespec(vec, e_user_time, c->user_time);
+  set_timespec(vec, e_sys_time, c->sys_time);
   /* set_timespec(vec, e_iowait_time, ...); unimplemented */
-  set_int64(vec,  e_priority,   c->priority);
-  set_int64(vec,  e_num_thread, c->num_thread);
-  set_uint64(vec, e_min_fault,  c->min_fault);
-  set_uint64(vec, e_maj_fault,  c->maj_fault);
+  set_int64(vec, e_priority, c->priority);
+  set_int64(vec, e_num_thread, c->num_thread);
+  set_uint64(vec, e_min_fault, c->min_fault);
+  set_uint64(vec, e_maj_fault, c->maj_fault);
 
   vec[e_state * 8] = (uint8_t)c->state;
 
-  return Scons(scheme2k_Sstring_utf8b(c->name.data, c->name.len),
-	       make_tty_name(c->tty));  
+  return Scons(scheme2k_Sstring_utf8b(c->name.data, c->name.len), make_tty_name(c->tty));
 }

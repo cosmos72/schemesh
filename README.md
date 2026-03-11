@@ -103,6 +103,9 @@ Some more advanced Scheme functions:
 * `(sh-start/ports job-object)` start a job in background, return a list containing binary or textual ports<br/>
   connected to the spawned subprocess.<br/>
   Ports must be closed with `(close-port)` when no longer needed.
+* `(sh-start/reader1 job-object)` start a job in background, return a `reader` object<br/>
+  for parsing job's standard output - for example with `(for-reader)` `(all)` or `(to-table)`
+  Reader object must be closed with `(reader-close)` when no longer needed.
 * `(sh-redirect job-object fd dir to [more-redirections ...])` add redirections to an existing job, without starting it.
 
 For more information about functions for redirecting jobs input and output, see [doc/shell/redirect.md](doc/shell/redirect.md)
