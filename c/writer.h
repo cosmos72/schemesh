@@ -119,21 +119,14 @@ static void w_put_escaped_chars_len(writer* w, const char* s, size_t len) {
       /* end of nul-terminated string */
       break;
     }
-    if (ch > '"') {
+    if (ch == '"' || ch == '\\') {
+      w_put_char(w, '\\');
+    }
+    if (ch >= ' ') {
       w_put_char(w, ch);
       continue;
     }
     switch (ch) {
-      case ' ':
-      case '!':
-        w_put_char(w, ch);
-        break;
-      case '"':
-        w_put_chars_len2(w, "\\\"");
-        break;
-      case '\\':
-        w_put_chars_len2(w, "\\\\");
-        break;
       case '\b':
         w_put_chars_len2(w, "\\b");
         break;
