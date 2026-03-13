@@ -37,8 +37,8 @@
         ((fx>=? i n))
       (hashtable-set! htable (vector-ref keys i) (vector-ref ckeys i)))
     (lambda (who resource)
-      (let ((ckey (hashtable-ref htable resource #f)))
-        (unless ckey
+      (let ((ckey (hashtable-ref htable resource #t)))
+        (when (eq? #t ckey)
           ;; throw if resource is not among (rlimit-keys)
           (raise-errorf who "~s is not one of the known rlimit resources keys ~s" resource htable))
         ckey))))
