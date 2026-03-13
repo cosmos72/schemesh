@@ -27,18 +27,20 @@
           sh-eval-parsectx/print* sh-eval-string/print*)
   (import
     (except (rnrs)                   current-input-port current-output-port current-error-port)
-    (only (rnrs mutable-pairs) set-car!)
+    (only (rnrs mutable-pairs)       set-car!)
     (only (chezscheme)               abort base-exception-handler break-handler bytevector-truncate!
                                      console-input-port console-output-port console-error-port
                                      current-input-port current-output-port current-error-port
-                                     default-exception-handler display-condition eval exit-handler fx1+ include inspect
+                                     default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                      make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers charspan)  charspan->string)
-    (only (scheme2k containers hashtable) hashtable)
+    (only (scheme2k containers hashtable) hashtable plist->hashtable)
+    (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
     (only (scheme2k containers list)      any for-list plist-ref)
           (scheme2k containers span)
-    (only (scheme2k containers string)    string-contains string-prefix? string-suffix?)
+    (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
+    (only (scheme2k containers utf8b)     bytespan-insert-right/string!)
           (scheme2k lineedit lineedit)
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer make-json1-writer)
@@ -54,17 +56,29 @@
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
     (only (scheme2k posix io)        fd->port file->port)
           (scheme2k posix signal)
-    (only (scheme2k posix status)    ok)
+    (only (scheme2k posix status)    failed ok status?)
           (scheme2k posix tty)
     (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind sh-env-ref
-       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler sh-fd
-       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
+       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler
+       sh-fd sh-foreground-pgid sh-help
+       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
        sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
+       sh-ulimit-all sh-ulimit-ref sh-ulimit-set!
        with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
+
+
+;; write contents of bytespan wbuf to file descriptor fd,
+;; then clear bytespan wbuf
+;;
+;; returns (void)
+(define (fd-write/bytespan! fd wbuf)
+  (fd-write-all fd (bytespan-peek-data wbuf)
+                (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
+  (bytespan-clear! wbuf))
 
 
 (include "repl/easy.ss")
@@ -499,6 +513,7 @@ Type ? or help for this help.
     (hashtable-set! t "skip"       builtin-skip)
     (hashtable-set! t "sort-by"    builtin-sort-by)
     (hashtable-set! t "to"         builtin-to)
+    (hashtable-set! t "ulimit"     builtin-ulimit)
     (hashtable-set! t "where"      builtin-where))
 
   (let ((t (sh-builtins-help)))
@@ -596,6 +611,42 @@ Type ? or help for this help.
       json1         write data in single-document json format
       table         display data in table format
       wire          write data in binary wire format\n"))
+
+    (hashtable-set! t "ulimit" (string->utf8 " [OPTION]...
+    Show or modify shell resource limits.
+
+    Provides control over the resources available to the shell and processes it creates.
+
+    Options:
+      -S          show or set the `soft' resource limit
+      -H          show or set the `hard' resource limit
+      -a          show all resource limits
+      -c [LIMIT]  the maximum size of core files created
+      -d [LIMIT]  the maximum size of a process's data segment
+      -e [LIMIT]  the maximum scheduling priority (`nice')
+      -f [LIMIT]  the maximum size of files written by the shell and its children
+      -i [LIMIT]  the maximum number of pending signals
+     [-k [LIMIT]  the maximum number of kqueues allocated for this process]
+      -l [LIMIT]  the maximum size a process may lock into memory
+      -m [LIMIT]  the maximum resident set size
+      -n [LIMIT]  the maximum number of open file descriptors
+      -p [LIMIT]  the pipe buffer atomic size
+      -q [LIMIT]  the maximum number of bytes in POSIX message queues
+      -r [LIMIT]  the maximum real-time scheduling priority
+      -s [LIMIT]  the maximum stack size
+      -t [LIMIT]  the maximum amount of cpu time in seconds
+      -u [LIMIT]  the maximum number of user processes
+      -v [LIMIT]  the maximum size of virtual memory
+      -x [LIMIT]  the maximum number of file locks
+      -R [LIMIT]  the maximum time a real-time process can run before blocking
+
+    If LIMIT is given, it is the new value of the specified resource;
+    the special LIMIT value `unlimited' stand for no limit.
+
+    The updated value of the specified resource(s) is always printed,
+    both if LIMIT is given and if it's omitted.
+
+    Return success, unless an invalid option is supplied or an error occurs.\n"))
 
     (hashtable-set! t "where" (string->utf8 " [OPTIONS] EXPR
     parse data from standard input, autodetecting input format.

@@ -11,10 +11,9 @@
   (export rlimit-keys rlimit-ref rlimit-set!)
   (import
     (rnrs)
-    (only (chezscheme)                foreign-procedure)
-    (only (scheme2k bootstrap)        assert*) ; debugf
-    (only (scheme2k containers list)  for-list)
-    (only (scheme2k posix fd)         raise-c-errno))
+    (only (chezscheme)                 foreign-procedure fx1+)
+    (only (scheme2k bootstrap)         assert* raise-errorf) ; debugf
+    (only (scheme2k posix fd)          raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
@@ -22,23 +21,26 @@
 
 (define rlimit-keys
   (lambda ()
-    '(coredump-size data-size nice file-size pending-signals
-     locked-memory-size memory-size open-files pipe-size msgqueue-size
-     realtime-priority stack-size cpu-time user-processes
-     virtual-memory-size file-locks realtime-nonblocking-time)))
+    '#(coredump-size data-size nice file-size pending-signals
+       locked-memory-size memory-size open-files pipe-size msgqueue-size
+       realtime-priority stack-size cpu-time user-processes
+       virtual-memory-size file-locks realtime-nonblocking-time)))
 
 
 (define rlimit-key->ckey
-  (let ((htable (make-eq-hashtable)))
-    (for-list ((key  (rlimit-keys))
-               (ckey ((foreign-procedure "c_rlimit_keys" () ptr))))
-      (hashtable-set! htable key ckey))
+  (let ((htable (make-eq-hashtable))
+        (keys   (rlimit-keys))
+        (ckeys  ((foreign-procedure "c_rlimit_keys" () ptr))))
+    (assert* 'rlimit-key->ckey (fx=? (vector-length keys) (vector-length ckeys)))
+    (do ((i 0 (fx1+ i))
+         (n (vector-length keys)))
+        ((fx>=? i n))
+      (hashtable-set! htable (vector-ref keys i) (vector-ref ckeys i)))
     (lambda (who resource)
       (let ((ckey (hashtable-ref htable resource #f)))
         (unless ckey
           ;; throw if resource is not among (rlimit-keys)
-          (assert* who (memq resource (rlimit-keys))))
-        ;; ckey can be #f if resource is not among C rlimit_keys[]
+          (raise-errorf who "~s is not one of the known rlimit resources keys ~s" resource htable))
         ckey))))
 
 
@@ -49,7 +51,8 @@
   (let ((c-rlimit-get (foreign-procedure "c_rlimit_get" (int int) ptr)))
     (lambda (hard-soft resource)
       ;; (debugf "(rlimit-ref ~s ~s)" hard-soft resource)
-      (assert* 'rlimit-ref (memq hard-soft '(hard soft)))
+      (unless (memq hard-soft '(hard soft))
+        (raise-errorf 'rlimit-ref "~s is not one of the symbols 'soft 'hard"))
       (let* ((ckey (rlimit-key->ckey 'rlimit-ref resource))
              (ret  (and ckey (c-rlimit-get (if (eq? hard-soft 'hard) 1 0) ckey))))
         ;; (debugf "(rlimit-ref ~s ~s) -> ret = ~s" hard-soft resource ret)

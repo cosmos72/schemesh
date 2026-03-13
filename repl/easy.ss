@@ -925,6 +925,110 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: ulimit
+
+
+
+;; parse some "ulimit" options and append them to "parsed" span.
+;; return remaining arguments to be parsed
+(define ulimit-parse-some
+  (let ((htable
+          (plist->hashtable string-hash string=?
+            '("-H" hard "-S" soft "-a" all "-c" coredump-size "-d" data-size "-e" nice
+              "-f" file-size "-i" pending-signals "-l" locked-memory-size "-m" memory-size
+              "-n" open-files "-p" pipe-size "-q" msgqueue-size "-r" realtime-priority
+              "-s" stack-size "-t" cpu-time "-u" user-processes "-v" virtual-memory-size
+              "-x" file-locks "-R" realtime-nonblocking-time))))
+    (lambda (args parsed)
+      (let* ((arg  (car args))
+             (tail (cdr args))
+             (parsed-i (hashtable-ref htable arg #f)))
+        (cond
+          (parsed-i
+            (span-insert-right! parsed parsed-i)
+            (if (null? (cdr args))
+              tail
+              (let ((arg2 (cadr args)))
+                (cond
+                  ((string=? arg2 "unlimited")
+                    (span-insert-right! parsed 'unlimited)
+                    (cdr tail))
+                  ((string-is-unsigned-base10-integer? arg2)
+                    (span-insert-right! parsed (string->number arg2))
+                    (cdr tail))
+                  (else
+                    tail)))))
+          ((string=? arg "--help")
+            (sh-help "ulimit"))
+          (else
+            (let ((wbuf (make-bytespan 0)))
+              (bytespan-insert-right/string! wbuf "schemesh: ulimit: ")
+              (bytespan-insert-right/string! wbuf arg)
+              (bytespan-insert-right/string! wbuf ": invalid option
+ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
+              (fd-write/bytespan! (sh-fd #f 2) wbuf))
+            (failed 1)))))))
+
+
+;; parse all "ulimit" options and return them as a span.
+;; if an invalid option is found, write error to stderr and return failure status
+(define (ulimit-parse-args args)
+  (let %ulimit-parse-args ((tail args) (parsed (make-span 0)))
+    (if (null? tail)
+      parsed
+      (let ((next (ulimit-parse-some tail parsed)))
+        (if (status? next)
+          next
+          (%ulimit-parse-args next parsed)))))) ;; argument parsed successfully, iterate
+
+
+;; search (subspan parsed 0 pos) for the LAST occurrence
+;; of either symbol 'hard 'soft and return such symbol.
+;;
+;; if neither symbol 'hard 'soft is present, return 'soft
+(define (ulimit/hard-soft parsed pos)
+  (if (fx<=? pos 0)
+    #f
+    (let ((arg (span-ref parsed (fx1- pos))))
+      (if (memq arg '(hard soft))
+        arg
+        (ulimit/hard-soft parsed (fx1- pos))))))
+
+
+;; implementation of "ulimit" builtin
+(define (ulimit/apply parsed hard-soft start end)
+  (let* ((show-all? (span-index parsed start end (lambda (elem) (eq? elem 'all))))
+         (toshow    (if show-all? #f (make-span 0))))
+    (let %ulimit/apply ((pos start))
+      (if (fx>=? pos end)
+        (to-stdout (span-reader (if show-all? (sh-ulimit-all 'both) toshow)))
+        (let ((arg (span-ref parsed pos))
+              (pos+1 (fx1+ pos)))
+          (if (memq arg '(all hard soft))
+            (%ulimit/apply pos+1) ;; skip 'all 'hard 'soft
+            (let* ((new-value  (and (fx<? pos+1 end) (span-ref parsed pos+1)))
+                   (set-value? (or (eq? 'unlimited new-value) (integer? new-value))))
+              (when set-value?
+                (sh-ulimit-set! hard-soft arg new-value))
+              (unless show-all?
+                (span-insert-right! toshow (sh-ulimit-ref 'both arg)))
+              (%ulimit/apply
+                (if set-value? (fx1+ pos+1) pos+1))))))))) ;; skip arg and new-value if present
+
+
+;; the "ulimit" builtin: display or change resource limits
+;;
+;; As all builtins do, must return job status.
+(define (builtin-ulimit job prog-and-args options)
+  (let ((parsed (ulimit-parse-args (cdr prog-and-args))))
+    (if (status? parsed)
+      parsed
+      (let* ((len       (span-length parsed))
+             (hard-soft (ulimit/hard-soft parsed len)))
+        (ulimit/apply parsed hard-soft 0 len)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: where
 
 
@@ -1078,7 +1182,7 @@
 
 
 ;; parse args, which may contain -not -and -or -eq -ne -ge -gt -le -lt
-;; and return a closure that evaluates parsed boolean expression on an object
+;; and return a closure that evaluates sp boolean expression on an object
 (define (parse-where args)
   (let-values (((proc rest) (parse-where/or args)))
     (unless (null? rest)

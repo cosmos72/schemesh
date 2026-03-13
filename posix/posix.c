@@ -27,7 +27,7 @@
 #include <errno.h> /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h> /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>
-#include <limits.h> /* INT_MAX, INT_MIN */
+#include <limits.h> /* INT_MAX, INT_MIN, PIPE_BUF */
 #include <netdb.h>
 #include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
@@ -542,6 +542,13 @@ static ptr c_threads(void) {
 
 #define NOKEY INT_MIN
 
+/* try to avoid collisions with RLIMIT_* values */
+#if defined(RLIMIT_CORE) && RLIMIT_CORE < 0
+#define KEY_PIPE 1
+#else
+#define KEY_PIPE -1
+#endif
+
 static const int rlimit_keys[] = {
 /* order must match (rlimit-keys) */
 
@@ -595,7 +602,8 @@ static const int rlimit_keys[] = {
     NOKEY,
 #endif
 
-    NOKEY, /* pipe-size. Retrieved from PIPE_BUF, not getrlimit() */
+    /* pipe-size. Retrieved from PIPE_BUF, not getrlimit() */
+    KEY_PIPE,
 
 #ifdef RLIMIT_MSGQUEUE
     RLIMIT_MSGQUEUE, /* msgqueue-size */
@@ -648,20 +656,31 @@ static const int rlimit_keys[] = {
 };
 
 static ptr c_rlimit_keys(void) {
-  ptr l = Snil;
-  /* iteratively create list from tail */
-  for (size_t i = N_OF(rlimit_keys); i > 0; i--) {
-    const int key = rlimit_keys[i - 1];
-    l             = Scons(key == NOKEY ? Sfalse : Sinteger(key), l);
+  size_t i, n = N_OF(rlimit_keys);
+  ptr    v = Smake_vector(n, Sfalse);
+  for (i = 0; i < n; i++) {
+    const int key = rlimit_keys[i];
+    if (key != NOKEY) {
+      Svector_set(v, i, Sinteger(key));
+    }
   }
-  return l;
+  return v;
 }
 
 #undef NOKEY
 
 static ptr c_rlimit_get(int is_hard, int resource) {
   struct rlimit lim;
-  int           err = getrlimit(resource, &lim);
+  int           err;
+
+  if (resource == KEY_PIPE) {
+#ifdef PIPE_BUF
+    return Sunsigned64(PIPE_BUF);
+#else
+    return Sunsigned(512); /* POSIX requires PIPE_BUF >= 512 */
+#endif
+  }
+  err = getrlimit(resource, &lim);
   if (err < 0) {
     return Sinteger(c_errno());
   }
