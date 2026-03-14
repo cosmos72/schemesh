@@ -7,6 +7,9 @@
 
 #!r6rs
 
+;; this file should be included only by file posix/io.ss
+
+
 ;; transcoder between UTF-8b textual port and binary port.
 (define-record-type tport
   (fields

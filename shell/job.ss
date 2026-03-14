@@ -100,7 +100,9 @@
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
-          (scheme2k bootstrap)
+    (only (scheme2k bootstrap)    assert* catch check-interrupts nop parameter-swapper raise-assert1 raise-assertf raise-errorf
+                                  second-value sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version-number
+                                  try until warnf while)
     (only (scheme2k containers bytespan)  bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!
                                           bytespan-display-right/fixnum! bytespan-display-right/integer!
                                           bytespan-empty? bytespan-insert-right/bytevector! bytespan-insert-right/u8!
@@ -113,9 +115,7 @@
     (only (scheme2k containers list)      any every for-alist for-list for-plist list-quoteq! list-remove-consecutive-duplicates!
                                           plist? plist-delete/pred plist-ref)
     (only (scheme2k containers sort)      span-sort! subvector-sort!)
-    (only (scheme2k containers span)      list->span make-span span span? span->list span-copy span-delete-left! span-delete-right! span-empty?
-                                          span-index span-insert-left! span-insert-right! span-iterate
-                                          span-length span-ref span-ref-right span-set! vector->span*)
+          (scheme2k containers span)      ;; produces smaller libschemesh than listing each imported symbol
     (only (scheme2k containers string)    assert-string-list? string-index string-is-signed-base10-integer? string-is-unsigned-base10-integer?
                                           string-list? string-list-split-after-nuls string-rtrim-newlines! string-split-after-nuls
                                           string-prefix/char? string-suffix? string-suffix/char?)
@@ -123,18 +123,18 @@
                                           charspan->utf8b charspan->utf8b/0
                                           string->utf8b string->utf8b/0 utf8b->string)
     (only (scheme2k containers vector)    for-vector vector-iterate)
-          (scheme2k conversions)
-          (scheme2k posix)
-    (only (scheme2k posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
-    (only (scheme2k io obj)            readers-writers-collect)
+    (only (scheme2k conversions)          bytevector->bytevector0 list->argv string-hashtable->argv text->bytevector0)
+          (scheme2k posix)                ;; produces smaller libschemesh than listing each imported symbol
+    (only (scheme2k posix thread)         thread-count thread-id thread-signal-handle threads-status threads-status-changes)
+    (only (scheme2k io obj)               readers-writers-collect)
           (scheme2k io redir)
           (scheme2k io stdio)
-    (only (scheme2k vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
-    (only (scheme2k lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
-                                       lineedit-display-table lineedit-flush lineedit-undraw)
+    (only (scheme2k vscreen)              vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
+    (only (scheme2k lineedit lineedit)    linectx? linectx-history linectx-save-history linectx-wbuf
+                                          lineedit-display-table lineedit-flush lineedit-undraw)
           (schemesh shell fds)
-          (schemesh shell parameters)
-          (schemesh shell paths))
+    (only (schemesh shell parameters)     sh-eval sh-globals sh-pid-table)
+    (only (schemesh shell paths)          sh-path->subpath sh-path-append sh-path-absolute? text->sh-path*))
 
 
 ;; record types "job" "cmd" "multijob" and their accessors
