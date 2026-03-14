@@ -178,41 +178,6 @@ The following names are recognized as builtins:\n\n")
   (void))
 
 
-;; get all resource limits with getrlimit() - either hard, soft or both -
-;; and return them as a span of plists (name NAME soft VALUE1 hard VALUE2)
-(define sh-ulimit-all
-  (case-lambda
-    ((hard-soft)
-      (let* ((keys (rlimit-keys))
-             (len  (vector-length keys))
-             (ret  (make-span len)))
-        (let %sh-ulimit-all ((pos 0))
-          (if (fx>=? pos len)
-            ret
-            (let ((key (vector-ref keys pos)))
-              (span-set! ret pos (sh-ulimit-ref hard-soft key))
-              (%sh-ulimit-all (fx1+ pos)))))))
-    (()
-      (sh-ulimit-all 'both))))
-
-
-;; get resource limits with getrlimit()
-;; and return them as a plist (name NAME soft VALUE1 hard VALUE2)
-(define sh-ulimit-ref
-  (case-lambda
-    ((hard-soft key)
-      (if (eq? 'both hard-soft)
-        (list 'name key 'soft (rlimit-ref 'soft key) 'hard (rlimit-ref 'hard key))
-        (list 'name key hard-soft (rlimit-ref hard-soft key))))
-    ((key)
-      (sh-ulimit-ref 'both key))))
-
-
-;; set resource limits with setrlimit()
-(define (sh-ulimit-set! hard-soft key value)
-  (rlimit-set! hard-soft key value))
-
-
 ;; the "echo" builtin: write arguments to (sh-fd 1)
 ;; separating each pair with a #\space and terminating them with a #\newline
 ;;

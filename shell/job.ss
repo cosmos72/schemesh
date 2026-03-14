@@ -20,8 +20,9 @@
 
     ;; builtins.ss
     sh-builtins sh-builtins-help sh-builtin-find sh-exception-handler
-    sh-echo sh-false sh-help repl-history repl-history-display repl-args repl-args-linectx
-    sh-true sh-ulimit-all sh-ulimit-ref sh-ulimit-set!
+    sh-echo sh-false sh-help
+    repl-history repl-history-display repl-args repl-args-linectx
+    sh-true 
 
 
     ;; cmd.ss

@@ -77,10 +77,11 @@
 (define tag-eqv-ord-hash  53)
 (define tag-ord-hash      54)
 
-(define min-tag-to-allocate   89)
-(define next-tag-to-allocate 242)
+(define min-tag-to-allocate   90)
+(define next-tag-to-allocate 241)
 (define max-tag-to-allocate  253)
 
+(define tag-rlimit        242)
 (define tag-process-entry 243) ; implemented in os/process.ss
 (define tag-dir-entry     244)
 (define tag-date          245)
@@ -114,7 +115,8 @@
     'symbol=? 78 'symbol-hash 79
     'time=? 80 'time-collector-cpu 81 'time-collector-real 82
     'time-duration 83 ; UNUSED 84
-    'time-monotonic 85 'time-process 86 'time-thread 87 'time-utc 88))
+    'time-monotonic 85 'time-process 86 'time-thread 87 'time-utc 88
+    'unlimited 89))
 
 
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes

@@ -134,6 +134,7 @@
     (only (scheme2k containers time)         duration)
     (only (scheme2k containers utf8b)        integer->char*)
     (only (scheme2k posix fs)                make-dir-entry dir-entry)
+    (only (scheme2k posix rlimit)            rlimit rlimit-type)
           (scheme2k posix status))
 
 
@@ -160,6 +161,9 @@
 
   ;; customize how to serialize/deserialize `dir-entry` objects
   (wire-register-rtd-reflect (record-type-descriptor dir-entry)   tag-dir-entry   make-dir-entry)
+
+    ;; customize how to serialize/deserialize `rlimit` objects
+  (wire-register-rtd-reflect (record-type-descriptor rlimit-type) tag-rlimit      rlimit)
 
 
 ) ; close begin

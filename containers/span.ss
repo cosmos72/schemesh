@@ -491,11 +491,11 @@
 ;;  customize how "span" objects are printed
 (record-writer (record-type-descriptor %span)
   (lambda (sp port writer)
-    (display "(span" port)
+    (put-string port "(span")
     (span-iterate sp
       (lambda (i elem)
-        (display #\space port)
+        (put-char port #\space)
         (writer elem port)))
-    (display ")" port)))
+    (put-string port ")")))
 
 ) ; close library

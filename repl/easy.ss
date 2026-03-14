@@ -1001,7 +1001,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
          (toshow    (if show-all? #f (make-span 0))))
     (let %ulimit/apply ((pos start))
       (if (fx>=? pos end)
-        (to-stdout (span-reader (if show-all? (sh-ulimit-all 'both) toshow)))
+        (to-stdout (span-reader (if show-all? (rlimit-all) toshow)))
         (let ((arg (span-ref parsed pos))
               (pos+1 (fx1+ pos)))
           (if (memq arg '(all hard soft))
@@ -1009,9 +1009,10 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
             (let* ((new-value  (and (fx<? pos+1 end) (span-ref parsed pos+1)))
                    (set-value? (or (eq? 'unlimited new-value) (integer? new-value))))
               (when set-value?
-                (sh-ulimit-set! hard-soft arg new-value))
+                (rlimit-set! arg (and (eq? 'soft hard-soft) new-value)
+                                 (and (eq? 'hard hard-soft) new-value)))
               (unless show-all?
-                (span-insert-right! toshow (sh-ulimit-ref 'both arg)))
+                (span-insert-right! toshow (rlimit-ref arg)))
               (%ulimit/apply
                 (if set-value? (fx1+ pos+1) pos+1))))))))) ;; skip arg and new-value if present
 

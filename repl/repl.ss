@@ -26,19 +26,21 @@
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
           sh-eval-parsectx/print* sh-eval-string/print*)
   (import
-    (except (rnrs)                   current-input-port current-output-port current-error-port)
-    (only (rnrs mutable-pairs)       set-car!)
-    (only (chezscheme)               abort base-exception-handler break-handler bytevector-truncate!
-                                     console-input-port console-output-port console-error-port
-                                     current-input-port current-output-port current-error-port
-                                     default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
-                                     make-parameter optimize-level parameterize pretty-print read-token reset reset-handler reverse! void)
-          (scheme2k bootstrap)
+    (except (rnrs)                        current-input-port current-output-port current-error-port)
+    (only (rnrs mutable-pairs)            set-car!)
+    (only (chezscheme)                    abort base-exception-handler break-handler bytevector-truncate!
+                                          console-input-port console-output-port console-error-port
+                                          current-input-port current-output-port current-error-port
+                                          default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
+                                          make-parameter optimize-level parameterize pretty-print
+                                          read-token reset reset-handler reverse! void)
+    (only (scheme2k bootstrap)            assert* catch define-macro first-value-or-void nop raise-errorf while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
     (only (scheme2k containers list)      any for-list plist-ref)
-          (scheme2k containers span)
+    (only (scheme2k containers span)      make-span span-clear! span-delete-left! span-fill! span-index span-insert-right! span-length
+                                          span-reader span-ref span-set!)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
     (only (scheme2k containers utf8b)     bytespan-insert-right/string!)
           (scheme2k lineedit lineedit)
@@ -55,19 +57,19 @@
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
     (only (scheme2k posix io)        fd->port file->port)
+    (only (scheme2k posix rlimit)    rlimit-all rlimit-ref rlimit-set!)
           (scheme2k posix signal)
     (only (scheme2k posix status)    failed ok status?)
           (scheme2k posix tty)
     (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
-       repl-args repl-args-linectx repl-history repl-restart repl-restart? c-username sh-builtins sh-builtins-help
-       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd sh-dynamic-wind sh-env-ref
-       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string* sh-exception-handler
-       sh-fd sh-foreground-pgid sh-help
-       sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
-       sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
-       sh-ulimit-all sh-ulimit-ref sh-ulimit-set!
-       with-sh-resource xdg-cache-home/ xdg-config-home/)
+            c-username repl-args repl-args-linectx repl-history repl-restart repl-restart?
+            sh-builtins sh-builtins-help sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
+            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+            sh-exception-handler sh-fd sh-foreground-pgid sh-help
+            sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
+            sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
+            with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
 
 
