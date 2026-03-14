@@ -3,8 +3,8 @@
 
 Schemesh is an interactive shell scriptable in Lisp.
 
-It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.
-and an alternative to modern shells such as fish, nushell, xonsh etc.
+It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.<br/>
+and an alternative to modern shells such as elvish, fish, nushell, xonsh etc.
 
 As such, it supports interactive line editing, autocompletion, history and the familiar Unix shell syntax:
 it can start commands, including redirections, pipelines, job concatenation with `;` `&&` `||`,
@@ -18,8 +18,8 @@ but with shell and Scheme semantics - no need to learn a new language.
 For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
 Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
-  and an alternative to modern interactive Unix shells, as for example fish/nushell/xonsh etc.
+* a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.<br/>
+  and an alternative to modern interactive Unix shells, as for example elvish/fish/nushell/xonsh etc.
 
 * a Unix shell scriptable in Chez Scheme:<br/>
   just execute the command `schemesh PATH-TO-SOME-FILE`
@@ -334,7 +334,7 @@ This feature is inspired by nushell, but the implementation is completely indepe
 it seamlessly integrates with standard POSIX pipelines and with Scheme objects,
 without the need to learn a new language with custom semantics.
 
-At high level, it means three things:
+At high level, Structured Pipelines consist in three mechanisms:
 - external commands, shell builtins and Scheme functions can serialize structured data and write it to their standard output,
   in one of several supported formats (at the moment, JSON and WIRE - see below for details).
 - new shell builtins and Scheme functions exist, that read from their standard input, autodetect the serialized format,
@@ -347,10 +347,10 @@ At high level, it means three things:
 If desired, input and/or output format autodetection can also be disabled,
 by passing options to the shell builtin or Scheme function that indicate which format(s) to use.
 
-This mechanism preserves the streaming behaviour of pipelines:
+These mechanisms preserve the streaming behaviour of pipelines:
 each datum is serialized and deserialized individually and processed immediately,
 **without** waiting for the following data (with a few exceptions when strictly necessary:
-for example, sorting the list of structured data requires having them all).
+for example, sorting a list of structured data requires having them all).
 
 For more details, see [Structured pipelines examples](#structured-pipelines-examples)
 and [Shell builtins: structured pipelines](doc/shell/builtins.md#structured-pipelines)
@@ -425,6 +425,38 @@ the example above has the advantage that `for` can iterate simultaneously
 on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. ...
 
 #### Structured pipelines examples
+
+The shell builtin `dir` is a minimal replacement for `ls`, and produces structured data:
+```
+dir repl
+```
+outputs:
+```
+┌──────────┬────┬─────┬──────────┐
+│   name   │type│size │ modified │
+├──────────┼────┼─────┼──────────┤
+│answers.ss│file│ 2639│2026-03-04│
+│easy.ss   │file│41945│  11:27:16│
+│repl.ss   │file│29965│  12:40:01│
+└──────────┴────┴─────┴──────────┘
+```
+
+The shell builtin `proc` is a minimal replacement for `ps`, and produces structured data.
+The shell builtin `where` filters structured data matching user-specified criteria.
+```
+proc aux | where name -eq systemd
+```
+outputs something like:
+```
+┌────┬────┬─────────┬────────┬─────┬──────────┬───────┐
+│user│pid │user-time│mem-rss │state│start-time│ name  │
+├────┼────┼─────────┼────────┼─────┼──────────┼───────┤
+│root│   1│     0.64│16158720│S    │  14:07:47│systemd│
+│user│1885│     0.26│14049280│S    │  14:08:04│systemd│
+└────┴────┴─────────┴────────┴─────┴──────────┴───────┘
+```
+
+TODO: more examples
 
 
 #### Even more examples
