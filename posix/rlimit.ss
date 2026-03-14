@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix rlimit (0 9 3))
+(library (scheme2k posix rlimit (1 0 0))
   (export rlimit-keys rlimit-all rlimit-ref rlimit-set!
           (rename (make-rlimit rlimit) (rlimit rlimit-type))
           rlimit? rlimit-name rlimit-soft rlimit-hard rlimit-name-set! rlimit-soft-set! rlimit-hard-set!)

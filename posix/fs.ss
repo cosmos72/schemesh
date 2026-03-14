@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix fs (0 9 3))
+(library (scheme2k posix fs (1 0 0))
   (export
       make-dir-entry  dir-entry  dir-entry?  dir-entry-type
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path

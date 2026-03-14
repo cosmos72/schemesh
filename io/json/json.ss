@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k io json (0 9 3))
+(library (scheme2k io json (1 0 0))
   (export make-json-reader json-reader json-reader? json-reader-depth json-reader-restart
           make-json-writer json-writer json-writer?          make-json1-writer
 

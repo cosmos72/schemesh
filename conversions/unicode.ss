@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k conversions unicode (0 9 3))
+(library (scheme2k conversions unicode (1 0 0))
   (export char-display-wide?)
   (import
     (rnrs)

@@ -1,6 +1,6 @@
 
 
-(library (scheme2k example multitasking (0 9 3))
+(library (scheme2k example multitasking (1 0 0))
   (export
     tasks make-task task-yield task-resume)
 

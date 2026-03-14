@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix status (0 9 3))
+(library (scheme2k posix status (1 0 0))
   (export
        exit-with-status status-display-color?
        new running stopped exception failed killed ok

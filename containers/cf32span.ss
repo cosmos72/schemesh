@@ -11,7 +11,7 @@
 ;;;; define Scheme type "cf32span", a resizeable vector of complex-float-32 ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (scheme2k containers cf32span (0 9 3))
+(library (scheme2k containers cf32span (1 0 0))
   (export
     list->cf32span bytevector->cf32span bytevector->cf32span* make-cf32span
     cf32span->bytevector cf32span->bytevector*!

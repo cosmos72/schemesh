@@ -21,9 +21,9 @@ make -j scheme2k_c_so schemesh_so
 
 Finally, from Chez Scheme REPL:
 ```lisp
-(load-shared-object "./libscheme2k_c_0.9.3.so")
+(load-shared-object "./libscheme2k_c_1.0.0.so")
 ((foreign-procedure "scheme2k_register_c_functions" () int)) ; should return 0
-(load "./libschemesh_0.9.3.so")
+(load "./libschemesh_1.0.0.so")
 (import (schemesh))
 (repl) ; optional, user can also continue with Chez Scheme REPL
 ```

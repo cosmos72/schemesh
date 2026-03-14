@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k io field (0 9 3))
+(library (scheme2k io field (1 0 0))
   (export make-field-reader field-reader field-reader?)
   (import
     (rnrs)

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k io table (0 9 3))
+(library (scheme2k io table (1 0 0))
   (export make-table-writer table-writer table-writer?
           table-reflect-info-set!)
   (import

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix io (0 9 3))
+(library (scheme2k posix io (1 0 0))
   (export
     fd->port file->port port->utf8b-port)
   (import
