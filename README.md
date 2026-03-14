@@ -441,12 +441,13 @@ outputs:
 └──────────┴────┴─────┴──────────┘
 ```
 
-The shell builtin `proc` is a minimal replacement for `ps`, and produces structured data.
+The shell builtin `proc` is a minimal replacement for `ps`, and produces structured data.<br/>
 The shell builtin `where` filters structured data matching user-specified criteria.
+Together:
 ```
 proc aux | where name -eq systemd
 ```
-outputs something like:
+they output something like:
 ```
 ┌────┬────┬─────────┬────────┬─────┬──────────┬───────┐
 │user│pid │user-time│mem-rss │state│start-time│ name  │
