@@ -925,8 +925,31 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; shell builtin: ulimit
+;; shell builtin: threads
 
+;; the "threads" builtin: display known threads as structured data
+;;
+;; As all builtins do, must return job status.
+(define (builtin-threads job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (unless (null? args)
+      (raise-errorf 'threads "too many arguments"))
+    (let* ((iter (hash-cursor (threads-status)))
+           (%threads-status-reader ;; name shown when displaying the closure
+             (lambda (rx)
+               (let ((cell (hash-cursor-next! iter)))
+                 (if cell
+                   (let* ((t+status+name (cdr cell))
+                          (status (vector-ref t+status+name 1))
+                          (name   (vector-ref t+status+name 2)))
+                     (values (list 'id (car cell) 'status status 'name name) #t))
+                   (values #f #f)))))
+           (rx (make-reader %threads-status-reader #f #f)))
+      (to-stdout rx options))))
+    
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: ulimit
 
 
 ;; parse some "ulimit" options and append them to "parsed" span.

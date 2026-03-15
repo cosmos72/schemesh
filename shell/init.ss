@@ -125,7 +125,6 @@
     (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
     (hashtable-set! bt "status"     builtin-status)
-    (hashtable-set! bt "threads"    builtin-threads)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unset"      builtin-unset)
@@ -256,13 +255,8 @@
 
     return exit status of executed alias, builtin or command.\n"))
 
-    (hashtable-set! t "status"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or success if no arguments.\n"))
-
-    (hashtable-set! t "threads"       (string->utf8 " [arg ...]
-    ignore args. write known threads and their status to standard output.
-
-    return success.\n"))
+    (hashtable-set! t "status"   (string->utf8 " [ARG ...]
+    return ARG value specified as first argument, or success if no arguments.\n"))
 
     (hashtable-set! t "unalias"    (string->utf8 " [name ...]
     remove each NAME ... from the list of defined aliases.

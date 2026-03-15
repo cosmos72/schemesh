@@ -342,7 +342,7 @@ At high level, Structured Pipelines consist in three mechanisms:
   ready to be managed from the shell builtin or Scheme function itself.
 - the new shell builtins and Scheme functions also write structured data (possibly after transforming it)
   to their standard output, automatically choosing the most appropriate output format:
-  ascii-art table for terminals, JSON for pipes and files, WIRE for sockets, etc.
+  ascii-art table for terminals, WIRE for sockets, JSON in all other cases.
 
 If desired, input and/or output format autodetection can also be disabled,
 by passing options to the shell builtin or Scheme function that indicate which format(s) to use.
@@ -427,24 +427,24 @@ on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. .
 #### Structured pipelines examples
 
 The shell builtin `dir` is a minimal replacement for `ls`, and produces structured data:
+```shell
+dir -l repl
 ```
-dir repl
+outputs
 ```
-outputs:
-```
-┌──────────┬────┬─────┬──────────┐
-│   name   │type│size │ modified │
-├──────────┼────┼─────┼──────────┤
-│answers.ss│file│ 2639│2026-03-04│
-│easy.ss   │file│41945│  11:27:16│
-│repl.ss   │file│29965│  12:40:01│
-└──────────┴────┴─────┴──────────┘
+┌──────────┬────┬─────┬──────────┬──────────┬─────────┬────┬─────┐
+│   name   │type│size │ modified │ accessed │  mode   │user│group│
+├──────────┼────┼─────┼──────────┼──────────┼─────────┼────┼─────┤
+│answers.ss│file│ 2639│2026-03-04│2026-03-04│rw-r--r--│max │users│
+│easy.ss   │file│41945│2026-03-14│2026-03-14│rw-r--r--│max │users│
+│repl.ss   │file│29965│2026-03-14│2026-03-14│rw-r--r--│max │users│
+└──────────┴────┴─────┴──────────┴──────────┴─────────┴────┴─────┘
 ```
 
 The shell builtin `proc` is a minimal replacement for `ps`, and produces structured data.<br/>
-The shell builtin `where` filters structured data matching user-specified criteria.
-Together:
-```
+The shell builtin `where` filters structured data matching user-specified criteria.<br/>
+Together
+```shell
 proc aux | where name -eq systemd
 ```
 they output something like:
@@ -457,8 +457,39 @@ they output something like:
 └────┴────┴─────────┴────────┴─────┴──────────┴───────┘
 ```
 
-TODO: more examples
+As stated above, shell builtins for structured pipelines autodetect the output format:
+ascii-art table if displaying to a terminal, WIRE if writing to a socket, JSON in all other cases.
 
+To get data in JSON format, either redirect the output to a pipe or file, or add an option that specifies output format:
+```shell
+dir repl --to-json
+```
+and
+```shell
+dir repl | less
+```
+both output
+```json
+{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}}
+{"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}}
+{"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}
+```
+which technically not a single JSON document, but rather is NDJSON:
+the reason is that NDJSON is better suited for streaming mode, i.e. for parsing and processing one element at time.
+
+If you need a single JSON document, use the option `--to-json1`:
+```shell
+dir repl --to-json
+```
+outputs
+```json
+[{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}},
+{"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}},
+{"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}]
+```
+
+For a complete list of shell builtins that manage structured pipelines,
+see [Shell builtins: structured pipelines](doc/shell/builtins.md#structured-pipelines)
 
 #### Even more examples
 
