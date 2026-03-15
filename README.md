@@ -458,30 +458,17 @@ they output something like:
 ```
 
 As stated above, shell builtins for structured pipelines autodetect the output format:
-ascii-art table if displaying to a terminal, WIRE if writing to a socket, JSON in all other cases.
+ascii-art table if displaying to a terminal, WIRE if writing to a socket, NDJSON in all other cases.
 
-To get data in JSON format, either redirect the output to a pipe or file, or add an option that specifies output format:
-```shell
-dir repl --to-json
-```
-and
-```shell
-dir repl | less
-```
-both output
+To get data in NDJSON format, either redirect the output to a pipe or file, or add an option that specifies output format.
+For example, both `dir repl --to-json` and `dir repl | less` output
 ```json
 {"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}}
 {"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}}
 {"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}
 ```
-which technically not a single JSON document, but rather is NDJSON:
-the reason is that NDJSON is better suited for streaming mode, i.e. for parsing and processing one element at time.
 
-If you need a single JSON document, use the option `--to-json1`:
-```shell
-dir repl --to-json
-```
-outputs
+If you need a single JSON document, use the option `--to-json1`. For example, `dir repl --to-json` outputs
 ```json
 [{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}},
 {"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}},

@@ -253,8 +253,6 @@ Do nothing and return specified status, or success by default.
 
 Ignores second and further arguments.
 
-
-
 ##### true
 Syntax: `true [ARGS ...]`
 
