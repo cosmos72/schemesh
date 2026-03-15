@@ -10,7 +10,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (scheme2k io base64 (0 9 3))
+(library (scheme2k io base64 (1 0 0))
   (export base64-string->bytevector bytevector->base64-string bytespan-insert-right/base64! put-base64)
   (import
     (rnrs)

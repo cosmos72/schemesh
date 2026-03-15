@@ -29,7 +29,7 @@
 ;;;                       as for example closing a generator early,
 ;;                        or releasing OS-level resources (file descriptors ...)
 ;;;                       or waiting simultaneously on multiple generators
-(library (scheme2k io obj (0 9 3))
+(library (scheme2k io obj (1 0 0))
   (export
     ;; obj/reader.ss
     make-reader reader reader? reader-get reader-eof? reader-close reader-skip

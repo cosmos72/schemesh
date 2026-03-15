@@ -5,7 +5,7 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
-;; pure Scheme implementation of test/test.c that only compiles libchez_batteries_0.9.3.so
+;; pure Scheme implementation of test/test.c that only compiles libscheme2k_1.0.0.so
 ;;
 ;; It has the defect of requiring to find the correct Chez Scheme executable.
 
@@ -15,8 +15,8 @@
   (import (chezscheme))
 
   (parameterize ((optimize-level 2))
-    (compile-file "libchez_batteries.ss" "libchez_batteries_temp.so")
-    (strip-fasl-file "libchez_batteries_temp.so" "libchez_batteries_0.9.3.so"
+    (compile-file "libscheme2k.ss" "libscheme2k_temp.so")
+    (strip-fasl-file "libscheme2k_temp.so" "libscheme2k_1.0.0.so"
       (fasl-strip-options inspector-source source-annotations profile-source)))
 
 ;;) ; close top-level-program

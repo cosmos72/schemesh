@@ -2,7 +2,7 @@
 ;; example file containing a benchmark for (vector-sort!) and (subvector-sort!)
 ;; it is not read, compiled nor evaluated.
 
-(library (scheme2k benchmark sort (0 9 3))
+(library (scheme2k benchmark sort (1 0 0))
   (export
     benchmark-make-vector benchmark-vector-sort! benchmark-subvector-sort! )
   (import

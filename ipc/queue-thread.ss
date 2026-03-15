@@ -11,7 +11,7 @@
 ;;;
 ;;; exchanges arbitrary Scheme data through thread-safe in-memory queues
 ;;;
-(library (scheme2k ipc queue (0 9 3))
+(library (scheme2k ipc queue (1 0 0))
   (export make-queue-pair
           make-queue-reader queue-reader queue-reader? queue-reader-name queue-reader-timed-get queue-reader-try-get
           make-queue-writer queue-writer queue-writer? queue-writer-name)

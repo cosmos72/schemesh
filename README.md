@@ -3,7 +3,8 @@
 
 Schemesh is an interactive shell scriptable in Lisp.
 
-It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.
+It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.<br/>
+and an alternative to modern shells such as elvish, fish, nushell, xonsh etc.
 
 As such, it supports interactive line editing, autocompletion, history and the familiar Unix shell syntax:
 it can start commands, including redirections, pipelines, job concatenation with `;` `&&` `||`,
@@ -11,19 +12,26 @@ groups surrounded by `{ }`, subshells surrounded by `[ ]` (traditional shells us
 command substitution surrounded by `$[ ]` (traditional shells use `$( )`),
 and manage foreground/background jobs.
 
+From version 1.0.0 it also support structured pipelines inspired by nushell,
+but with shell and Scheme semantics - no need to learn a new language.
+
 For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
 Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
+* a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.<br/>
+  and an alternative to modern interactive Unix shells, as for example elvish/fish/nushell/xonsh etc.
 
 * a Unix shell scriptable in Chez Scheme:<br/>
-  just execute the command `schemesh PATH-TO-SOME-FILE`.
+  just execute the command `schemesh PATH-TO-SOME-FILE`
 
   You can also create a schemesh script file, let's say `my_script`,
   write `#!/usr/bin/env schemesh` in its first line, then  `chmod +x my_script`
   and launch it as an executable by typing `./my_script`
 
-* a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes.
+* a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes
+
+* a shell and Scheme environment for managing structured pipelines:
+  see [Structured Pipelines](#structured-pipelines) below.
 
 * a Scheme library for starting, redirecting and managing Unix processes:
   see [Loading schemesh from plain Chez Scheme](doc/schemesh_as_library.md)
@@ -318,6 +326,34 @@ You can compile and load Scheme files and libraries,
 including third-party libraries as the ones packaged by [https://akkuscm.org/](https://akkuscm.org/)
 by following the same instructions as for Chez Scheme.
 
+## Structured Pipelines
+
+From version 1.0.0, pipelines can also send and receive structured data.
+
+This feature is inspired by nushell, but the implementation is completely independent:
+it seamlessly integrates with standard POSIX pipelines and with Scheme objects,
+without the need to learn a new language with custom semantics.
+
+At high level, Structured Pipelines consist in three mechanisms:
+- external commands, shell builtins and Scheme functions can serialize structured data and write it to their standard output,
+  in one of several supported formats (at the moment, JSON, NDJSON or WIRE - also see below).
+- new shell builtins and Scheme functions exist, that read from their standard input, autodetect the serialized format,
+  and recreate the structured data as Scheme objects,
+  ready to be managed from the shell builtin or Scheme function itself.
+- the new shell builtins and Scheme functions also write structured data (possibly after transforming it)
+  to their standard output, automatically choosing the most appropriate output format:
+  ascii-art table for terminals, WIRE for sockets, NDJSON in all other cases.
+
+If desired, input and/or output format autodetection can also be disabled,
+by passing options to the shell builtin or Scheme function that indicate which format(s) to use.
+
+These mechanisms preserve the streaming behaviour of pipelines:
+each datum is serialized and deserialized individually and processed immediately,
+**without** waiting for the following data (with a few exceptions when strictly necessary:
+for example, sorting a list of structured data requires having them all).
+
+For more details, see [Structured pipelines examples](#structured-pipelines-examples)
+and [Shell builtins: structured pipelines](doc/shell/builtins.md#structured-pipelines)
 
 ## Examples
 
@@ -387,6 +423,60 @@ or even
 ```
 the example above has the advantage that `for` can iterate simultaneously
 on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. ...
+
+#### Structured pipelines examples
+
+The shell builtin `dir` is a minimal replacement for `ls`, and produces structured data:
+```shell
+dir -l repl
+```
+outputs something like:
+```
+┌──────────┬────┬─────┬──────────┬──────────┬─────────┬────┬─────┐
+│   name   │type│size │ modified │ accessed │  mode   │user│group│
+├──────────┼────┼─────┼──────────┼──────────┼─────────┼────┼─────┤
+│answers.ss│file│ 2639│2026-03-04│2026-03-04│rw-r--r--│max │users│
+│easy.ss   │file│41945│2026-03-14│2026-03-14│rw-r--r--│max │users│
+│repl.ss   │file│29965│2026-03-14│2026-03-14│rw-r--r--│max │users│
+└──────────┴────┴─────┴──────────┴──────────┴─────────┴────┴─────┘
+```
+
+The shell builtin `proc` is a minimal replacement for `ps`, and produces structured data.<br/>
+The shell builtin `where` filters structured data matching user-specified criteria.<br/>
+Together
+```shell
+proc aux | where name -eq systemd
+```
+they output something like:
+```
+┌────┬────┬─────────┬────────┬─────┬──────────┬───────┐
+│user│pid │user-time│mem-rss │state│start-time│ name  │
+├────┼────┼─────────┼────────┼─────┼──────────┼───────┤
+│root│   1│     0.64│16158720│S    │  14:07:47│systemd│
+│user│1885│     0.26│14049280│S    │  14:08:04│systemd│
+└────┴────┴─────────┴────────┴─────┴──────────┴───────┘
+```
+
+As stated above, shell builtins for structured pipelines autodetect the output format:
+ascii-art table if displaying to a terminal, WIRE if writing to a socket, NDJSON in all other cases.
+
+To get data in NDJSON format from a terminal, either redirect the output to a pipe or file, or add an option that specifies output format.
+For example, both `dir repl --to-json` and `dir repl | less` output
+```json
+{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}}
+{"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}}
+{"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}
+```
+
+If you need a single JSON document, use the option `--to-json1`. For example, `dir repl --to-json` outputs
+```json
+[{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}},
+{"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}},
+{"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}]
+```
+
+For a complete list of shell builtins that manage structured pipelines,
+see [Shell builtins: structured pipelines](doc/shell/builtins.md#structured-pipelines)
 
 #### Even more examples
 
@@ -462,7 +552,7 @@ and inspect the Scheme source or objects generated by shell syntax:
 (begin
   (#3%$invoke-library
     '(schemesh shell job)
-    '(0 9 3)
+    '(1 0 0)
     '#{job c35q9golxfpwdr5y269nhygk1-54})
   (sh-and
     (sh-cmd* "make" 1 '> "log")
@@ -658,6 +748,8 @@ The documentation currently include:
 * Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
 
 * Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
+
+* Shell builtins, see [doc/shell/builtins.md](doc/shell/builtins.md)
 
 * Prompt customization, see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
 

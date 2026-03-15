@@ -12,7 +12,7 @@
 ;;;
 ;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
-(library (scheme2k ipc wire (0 9 3))
+(library (scheme2k ipc wire (1 0 0))
   (export make-wire-reader wire-reader wire-reader?
           make-wire-writer wire-writer wire-writer?
           wire-pipe-pair wire-socketpair-pair)

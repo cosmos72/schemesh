@@ -13,7 +13,7 @@
 
 #!r6rs
 
-(library (scheme2k bootstrap functions (0 9 3))
+(library (scheme2k bootstrap functions (1 0 0))
   (export
       bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -299,14 +299,14 @@
 
 ;; return Schemesh version string
 (define sh-version
-  (let ((ret (string->immutable-string "Schemesh Version 0.9.3")))
+  (let ((ret (string->immutable-string "Schemesh Version 1.0.0")))
     (lambda ()
       ret)))
 
 
 ;; return three values: scheme2k version MAJOR, MINOR and PATCH fixnums
 (define (sh-version-number)
-  (values 0 9 3))
+  (values 1 0 0))
 
 
 (meta-cond

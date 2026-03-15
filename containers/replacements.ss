@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers replacements (0 9 3))
+(library (scheme2k containers replacements (1 0 0))
   ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
   ;; functions with the same names,
   ;;

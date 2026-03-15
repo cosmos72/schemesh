@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (scheme2k io sort (0 9 3))
+(library (scheme2k io sort (1 0 0))
   (export make-sort-reader sort-reader sort-reader?)
   (import
     (rnrs)

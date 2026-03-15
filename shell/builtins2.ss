@@ -307,20 +307,6 @@
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 
 
-;; the "threads" builtin: list known threads
-;;
-;; As all builtins do, must return job status.
-(define (builtin-threads job prog-and-args options)
-  (let ((port  (current-output-port))
-        (alist '()))
-    (for-hash ((id t+status+name (threads-status)))
-      (set! alist (cons (cons id t+status+name) alist)))
-    (for-alist ((id t+status+name (sort! car<? alist)))
-      (thread-display-summary id (vector-ref t+status+name 1) (vector-ref t+status+name 2) port))
-    (flush-output-port port))
-  (void))
-
-
 ;; the "unexport" builtin: unexport zero or more environment variables of parent job
 ;;
 ;; As all builtins do, must return job status.

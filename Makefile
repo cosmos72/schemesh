@@ -57,6 +57,8 @@ LDFLAGS_SO=-shared
 # no user-serviceable parts below this line
 ######################################################################################
 
+VERSION_STR=1.0.0
+
 ## by default, only compile and install additional programs that do *not* require
 ## external dependencies (libcurl, libsqlite3 ...)
 
@@ -89,7 +91,7 @@ uninstall_all: uninstall_schemesh uninstall_scheme2k uninstall_utils
 ######################################################################################
 # schemesh
 ######################################################################################
-SCHEMESH_SO=libschemesh_0.9.3.so
+SCHEMESH_SO=libschemesh_$(VERSION_STR).so
 
 SRCS=containers/containers.c eval.c posix/posix.c
 OBJS=containers.o eval.o os.o posix.o
@@ -237,7 +239,7 @@ install_scheme2k_dirs:
 # contains the LGPL-licensed subset of schemesh
 ################################################################################
 
-SCHEME2K_SO=libscheme2k_0.9.3.so
+SCHEME2K_SO=libscheme2k_$(VERSION_STR).so
 
 scheme2k_so: $(SCHEME2K_SO)
 
@@ -259,7 +261,7 @@ uninstall_scheme2k_so:
 # contains LGPL-licensed C functions needed by libscheme2k_VERSION.so
 ################################################################################
 
-SCHEME2K_C_SO=libscheme2k_c_0.9.3.so
+SCHEME2K_C_SO=libscheme2k_c_$(VERSION_STR).so
 
 scheme2k_c_so: $(SCHEME2K_C_SO)
 

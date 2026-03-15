@@ -6,7 +6,7 @@
 ;;; version 2 of the License, or (at your option) any later version.
 
 
-(library (scheme2k containers ordered-hash (0 9 3))
+(library (scheme2k containers ordered-hash (1 0 0))
   (export
      make-eq-ordered-hash make-eqv-ordered-hash make-equal-ordered-hash make-ordered-hash
 

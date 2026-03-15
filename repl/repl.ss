@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh repl (0 9 3))
+(library (schemesh repl (1 0 0))
   (export ;; repl/answers.ss
           repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
@@ -36,7 +36,7 @@
                                           read-token reset reset-handler reverse! void)
     (only (scheme2k bootstrap)            assert* catch define-macro first-value-or-void nop raise-errorf while try)
     (only (scheme2k containers charspan)  charspan->string)
-    (only (scheme2k containers hashtable) hashtable plist->hashtable)
+    (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
     (only (scheme2k containers list)      any plist-ref)
     (only (scheme2k containers span)      make-span span-clear! span-delete-left! span-fill! span-index span-insert-right! span-length
@@ -63,6 +63,7 @@
     (only (scheme2k posix rlimit)    rlimit-all rlimit-ref rlimit-set!)
     (only (scheme2k posix signal)    signal-init-sigwinch signal-restore-sigwinch)
     (only (scheme2k posix status)    failed ok status?)
+    (only (scheme2k posix thread)    threads-status)
           (scheme2k posix tty)
     (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
@@ -519,6 +520,7 @@ Type ? or help for this help.
     (hashtable-set! t "skip"       builtin-skip)
     (hashtable-set! t "sort-by"    builtin-sort-by)
     (hashtable-set! t "to"         builtin-to)
+    (hashtable-set! t "threads"    builtin-threads)
     (hashtable-set! t "ulimit"     builtin-ulimit)
     (hashtable-set! t "where"      builtin-where))
 
@@ -605,6 +607,14 @@ Type ? or help for this help.
       --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it
       --to-FORMAT   write elements to stdout in given FORMAT, instead of autodetecting it\n"))
 
+    (hashtable-set! t "threads"       (string->utf8 " [OPTIONS]
+    Display known threads and their status to stdout, autodetecting output format.
+
+    Options:
+      --to-FORMAT   write elements to stdout in given FORMAT
+
+    Return success.\n"))
+
     (hashtable-set! t "to" (string->utf8 " [--from-FORMAT] FORMAT
     parse data from standard input, and write it to standard output with specified FORMAT.
     Options:
@@ -624,8 +634,9 @@ Type ? or help for this help.
     Provides control over the resources available to the shell and processes it creates.
 
     Options:
-      -S          show or set the `soft' resource limit
-      -H          show or set the `hard' resource limit
+      --to-FORMAT write resource limits to stdout in given FORMAT, instead of autodetecting it
+      -H          set the `hard' resource limit
+      -S          set the `soft' resource limit (default)
       -a          show all resource limits
       -c [LIMIT]  the maximum size of core files created
       -d [LIMIT]  the maximum size of a process's data segment

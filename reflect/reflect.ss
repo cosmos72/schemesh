@@ -10,7 +10,7 @@
 ;;; Simple reflection on scheme records, hashtables, plists and vector-like containers
 ;;;
 
-(library (scheme2k reflect (0 9 3))
+(library (scheme2k reflect (1 0 0))
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-size in-htable
           compare compare-type-and-value equiv? greater-equiv? greater? less? less-equiv? unordered? reflect-compare-functions-set!
           field field-names fields->plist in-fields

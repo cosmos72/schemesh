@@ -13,7 +13,7 @@
 ;; only if it's not bound yet, and by retrieving its value if it's bound.
 
 
-(library (schemesh shell parameter1 (0 9 3))
+(library (schemesh shell parameter1 (1 0 0))
   (export
       sh-persistent-parameters)
   (import
