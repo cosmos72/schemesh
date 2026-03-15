@@ -336,13 +336,13 @@ without the need to learn a new language with custom semantics.
 
 At high level, Structured Pipelines consist in three mechanisms:
 - external commands, shell builtins and Scheme functions can serialize structured data and write it to their standard output,
-  in one of several supported formats (at the moment, JSON and WIRE - see below for details).
+  in one of several supported formats (at the moment, JSON, NDJSON or WIRE - also see below).
 - new shell builtins and Scheme functions exist, that read from their standard input, autodetect the serialized format,
   and recreate the structured data as Scheme objects,
   ready to be managed from the shell builtin or Scheme function itself.
 - the new shell builtins and Scheme functions also write structured data (possibly after transforming it)
   to their standard output, automatically choosing the most appropriate output format:
-  ascii-art table for terminals, WIRE for sockets, JSON in all other cases.
+  ascii-art table for terminals, WIRE for sockets, NDJSON in all other cases.
 
 If desired, input and/or output format autodetection can also be disabled,
 by passing options to the shell builtin or Scheme function that indicate which format(s) to use.
@@ -430,7 +430,7 @@ The shell builtin `dir` is a minimal replacement for `ls`, and produces structur
 ```shell
 dir -l repl
 ```
-outputs
+outputs something like:
 ```
 ┌──────────┬────┬─────┬──────────┬──────────┬─────────┬────┬─────┐
 │   name   │type│size │ modified │ accessed │  mode   │user│group│
@@ -460,7 +460,7 @@ they output something like:
 As stated above, shell builtins for structured pipelines autodetect the output format:
 ascii-art table if displaying to a terminal, WIRE if writing to a socket, NDJSON in all other cases.
 
-To get data in NDJSON format, either redirect the output to a pipe or file, or add an option that specifies output format.
+To get data in NDJSON format from a terminal, either redirect the output to a pipe or file, or add an option that specifies output format.
 For example, both `dir repl --to-json` and `dir repl | less` output
 ```json
 {"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}}

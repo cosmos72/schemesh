@@ -113,6 +113,9 @@ Change the current directory of parent job, setting it to previous current direc
 
 Return success if the directory is successfully changed, otherwise raise an exception.
 
+As for `cd` builtin, merely returning failure was considered too lenient, because executing commands in the wrong directory
+can easily have unintended effects, such as removing the wrong files or directories.
+
 ##### command
 Syntax: `command [COMMAND_NAME [ARG ...]]`
 
@@ -196,13 +199,13 @@ Syntax: `history [ARGS ...]`
 
 Display history to standard output. Ignores all arguments.
 
-Return Success.
+Return success.
 
 ##### parent
 Syntax: `parent [BUILTIN_NAME [ARGS ...]]`
 
 Execute a builtin, setting its parent job to the parent's parent.<br/>
-This means the executed builtin can affect grandparent's environment variables and global current directory.
+This means the executed builtin can affect grandparent's environment variables and grandparent's current directory.
 
 Return exit status of executed builtin, or failure if no such builtin was found.
 
@@ -260,15 +263,44 @@ Same as [:](#colon)
 
 Do nothing and return success. Ignores all arguments.
 
+##### unalias
+Syntax: `unalias [NAME ...]`
 
+Remove specified aliases.
 
+Return success.
 
+##### unexport
+Syntax: `unexport [VAR ...]`
 
+Mark specified environment variables as private i.e. *not* exported in parent job.
 
+Return success.
+
+##### unset
+Syntax: `unset [VAR ...]`
+
+Remove specified environment variables from parent job.
+
+Return success.
+
+##### wait
+Syntax: `wait [JOB_ID]`
+
+move a job to the foreground and wait for it to finish
+
+Resume a job, move it to the foreground, and wait for it to finish.
+Does *not* return if job is suspended.
+If `JOB_ID` is not specified, it defaults to last job.
+
+Return job exit status, or failure if job was not found.
+
+------------------------------------------------------------------------------------------------------
 ### Structured Pipelines
 
 ##### answers
 Syntax: `answers [--to-FORMAT]`
+<br/>Added in: v1.0.0
 
 Display as structured data the values returned by recent expressions or commands executed at repl.<br/>
 Options:
@@ -294,6 +326,7 @@ possible output:
 
 ##### dir
 Syntax: `dir [OPTIONS] [PATH ...]`
+<br/>Added in: v1.0.0
 
 Display specified files and directories as structured data, or current directory by default.<br/>
 Options:
@@ -322,6 +355,7 @@ possible output:
 
 ##### first
 Syntax: `first [OPTIONS] [COUNT]`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input,
 then write only the first `COUNT` elements to standard output, or 1 element by default.<br/>
@@ -333,6 +367,7 @@ Return success, or failure if `FORMAT` is not supported.
 
 ##### from
 Syntax: `from [OPTIONS] FORMAT`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input using specified `FORMAT`,
 then write each element to standard output.<br/>
@@ -348,6 +383,7 @@ Return success, or failure if `FORMAT` is not supported.
 
 ##### jobs
 Syntax: `jobs [OPTIONS]`
+<br/>Added in: v1.0.0
 
 Display jobs and their status as structured data.<br/>
 Options:
@@ -370,6 +406,7 @@ possible output:
 
 ##### parse
 Syntax: `parse [OPTIONS] FILE`
+<br/>Added in: v1.0.0
 
 Read specified file, parse structured data from it, then write each element to standard output.<br/>
 Options:
@@ -380,6 +417,7 @@ Return success, or failure if `FILE` cannot be read or if `FORMAT` is not suppor
 
 ##### proc
 Syntax: `proc [OPTIONS] [auvx]`
+<br/>Added in: v1.0.0
 
 Display active processes as structured data.<br/>
 Options:
@@ -408,6 +446,7 @@ possible output:
 
 ##### select
 Syntax: `select [OPTIONS] FIELD_NAME ...`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input,
 then write only the specified fields of each element to standard output, keeping the order of specified fields.<br/>
@@ -433,6 +472,7 @@ possible output:
 
 ##### skip
 Syntax: `skip [OPTIONS] [COUNT]`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input,
 skip the first `COUNT` elements (or 1 element by default),
@@ -459,6 +499,7 @@ possible output:
 
 ##### sort-by
 Syntax: `sort-by [OPTIONS] FIELD_NAME ...`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input,
 then sort all elements by specified fields,
@@ -487,6 +528,7 @@ possible output:
 
 ##### threads
 Syntax: `threads [OPTIONS]`
+<br/>Changed in: v1.0.0
 
 Display known threads and their status as structured data.<br/>
 Options:
@@ -510,6 +552,7 @@ possible output:
 
 ##### to
 Syntax: `to [OPTIONS] FORMAT`
+<br/>Added in: v1.0.0
 
 Read structured data from standard input,
 and write each element to standard output using specified `FORMAT`.<br/>
@@ -524,3 +567,99 @@ Arguments:
 * `wire` write data using WIRE format
 
 Return success, or failure if `FORMAT` is not supported.
+
+Example:
+```shell
+proc | to json1
+```
+possible output:
+```
+[{"<type>":"process-entry","pid":20253,"tty":"pts/0","start-time":{"<type>":"time-utc","value":1773602938.959103923},"name":"schemesh"},
+{"<type>":"process-entry","pid":101362,"tty":"pts/0","start-time":{"<type>":"time-utc","value":1773605353.809103923},"name":"schemesh"}]
+```
+
+##### ulimit
+Syntax: `ulimit [OPTION ...]`
+<br/>Changed in: v1.0.0
+
+Display shell resource limits as structured data, possibly after modifying them.<br/>
+Options:
+* `--to-FORMAT` write structured data using specified `FORMAT` instead of autodetecting it
+* `-H` set the `hard' resource limit
+* `-S` set the `soft' resource limit (default)
+* `-a` display all resource limits
+* `-c [LIMIT]` display or set the maximum size of core files created
+* `-d [LIMIT]` display or set the maximum size of a process's data segment
+* `-e [LIMIT]` display or set the maximum scheduling priority (`nice')
+* `-f [LIMIT]` display or set the maximum size of files written by the shell and its children
+* `-i [LIMIT]` display or set the maximum number of pending signals
+* `-k [LIMIT]` UNIMPLEMENTED. display or set the maximum number of kqueues allocated for this process
+* `-l [LIMIT]` display or set the maximum size a process may lock into memory
+* `-m [LIMIT]` display or set the maximum resident set size
+* `-n [LIMIT]` display or set the maximum number of open file descriptors
+* `-p [LIMIT]` display or set the pipe buffer atomic size
+* `-q [LIMIT]` display or set the maximum number of bytes in POSIX message queues
+* `-r [LIMIT]` display or set the maximum real-time scheduling priority
+* `-s [LIMIT]` display or set the maximum stack size
+* `-t [LIMIT]` display or set the maximum amount of cpu time in seconds
+* `-u [LIMIT]` display or set the maximum number of user processes
+* `-v [LIMIT]` display or set the maximum size of virtual memory
+* `-x [LIMIT]` display or set the maximum number of file locks
+* `-R [LIMIT]` display or set the maximum time a real-time process can run before blocking
+
+If `LIMIT` is specified, the corresponding resource limit is set, otherwise is displayed.
+Each `LIMIT` must be an unsigned integer, or the string `unlimited`.
+
+Return success, unless an invalid option is supplied or an error occurs.
+
+Example:
+```shell
+ulimit -c -d -e -f --to-json
+```
+possible output:
+```
+{"<type>":"rlimit","name":"coredump-size","soft":0,"hard":"unlimited"}
+{"<type>":"rlimit","name":"data-size","soft":"unlimited","hard":"unlimited"}
+{"<type>":"rlimit","name":"nice","soft":0,"hard":0}
+{"<type>":"rlimit","name":"file-size","soft":"unlimited","hard":"unlimited"}
+```
+
+##### where
+Syntax: `where [OPTIONS] EXPRESSION`
+<br/>Added in: v1.0.0
+
+Read structured data from standard input,
+and write to standard output only the elements satisfying specified expression.<br/>
+Options:
+* `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
+* `--to-FORMAT` write structured data using specified `FORMAT` instead of autodetecting it
+
+Argument `EXPRESSION` must be one of:
+* `EXPRESSION -or EXPRESSION` accept elements satisfying either expression
+* `EXPRESSION -and EXPRESSION` accept elements satisfying both expressions
+* `-not EXPRESSION` accept elements *not* satisfying expression
+* `FIELD_NAME OPERATOR VALUE` accept elements whose field `FIELD_NAME` satisfies expression
+* `(` `EXPRESSION` `)` accept elements satisfying expression
+
+Supported `OPERATOR`s are:
+`-lt` `-le` `-gt` `-ge` `-eq` `-ne` `-contains` `-starts` `-ends`
+
+As in most languages, `-or` has lower precedence than `-and`, which has lower precedence than `-not`.
+To alter their precedence, use parentheses (which must be escaped, because they are special characters in shell syntax).
+
+Also, operators `-or` and `-and` implement short-circuit logic: the right expression is evaluated only if needed.
+
+Example:
+```shell
+dir -l posix | where name -ends .h -and -not size -ge 10000
+```
+possible output:
+```
+┌────────┬────┬────┬──────────┬──────────┬─────────┬────┬─────┐
+│  name  │type│size│ modified │ accessed │  mode   │user│group│
+├────────┼────┼────┼──────────┼──────────┼─────────┼────┼─────┤
+│posix.h │file│1506│2026-01-15│2026-02-05│rw-r--r--│max │users│
+│socket.h│file│6413│2026-01-15│2026-02-05│rw-r--r--│max │users│
+│tty.h   │file│5361│2026-03-02│2026-03-02│rw-r--r--│max │users│
+└────────┴────┴────┴──────────┴──────────┴─────────┴────┴─────┘
+```

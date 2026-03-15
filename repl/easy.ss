@@ -1019,12 +1019,12 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 
 
 ;; implementation of "ulimit" builtin
-(define (ulimit/apply parsed hard-soft start end)
+(define (ulimit/apply parsed hard-soft start end options)
   (let* ((show-all? (span-index parsed start end (lambda (elem) (eq? elem 'all))))
          (toshow    (if show-all? #f (make-span 0))))
     (let %ulimit/apply ((pos start))
       (if (fx>=? pos end)
-        (to-stdout (span-reader (if show-all? (rlimit-all) toshow)))
+        (to-stdout (span-reader (if show-all? (rlimit-all) toshow)) options)
         (let ((arg (span-ref parsed pos))
               (pos+1 (fx1+ pos)))
           (if (memq arg '(all hard soft))
@@ -1044,12 +1044,13 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-ulimit job prog-and-args options)
-  (let ((parsed (ulimit-parse-args (cdr prog-and-args))))
-    (if (status? parsed)
-      parsed
-      (let* ((len       (span-length parsed))
-             (hard-soft (ulimit/hard-soft parsed len)))
-        (ulimit/apply parsed hard-soft 0 len)))))
+  (let-values (((args options) (split-double-hyphens prog-and-args)))
+    (let ((parsed (ulimit-parse-args (cdr args))))
+      (if (status? parsed)
+        parsed
+        (let* ((len       (span-length parsed))
+               (hard-soft (ulimit/hard-soft parsed len)))
+          (ulimit/apply parsed hard-soft 0 len options))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

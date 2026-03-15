@@ -634,8 +634,9 @@ Type ? or help for this help.
     Provides control over the resources available to the shell and processes it creates.
 
     Options:
-      -S          show or set the `soft' resource limit
-      -H          show or set the `hard' resource limit
+      --to-FORMAT write resource limits to stdout in given FORMAT, instead of autodetecting it
+      -H          set the `hard' resource limit
+      -S          set the `soft' resource limit (default)
       -a          show all resource limits
       -c [LIMIT]  the maximum size of core files created
       -d [LIMIT]  the maximum size of a process's data segment
