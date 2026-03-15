@@ -1045,7 +1045,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;; As all builtins do, must return job status.
 (define (builtin-ulimit job prog-and-args options)
   (let-values (((args options) (split-double-hyphens prog-and-args)))
-    (let ((parsed (ulimit-parse-args (cdr args))))
+    (let ((parsed (ulimit-parse-args args)))
       (if (status? parsed)
         parsed
         (let* ((len       (span-length parsed))
