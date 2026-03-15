@@ -9,7 +9,7 @@
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
-### git main branch
+### release v1.0.0, 2026-03-15
 
 * add shell builtins `answers` `dir` `first` `from` `parse` `proc` `select` `skip` `sort-by` `to` `where`
 * add functions  `(sh-start/reader1)` `(tty-colors)` and macro `(with-sh-closable)`
