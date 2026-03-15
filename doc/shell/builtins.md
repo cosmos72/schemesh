@@ -50,7 +50,7 @@ In shell syntax, the following shell builtins are recognized:
 
 ### Classic builtins
 
-##### <span id="dot">.</span>
+#### <span id="dot">.</span>
 Syntax: `. FILE`
 
 Same as [source](#source)
@@ -59,14 +59,14 @@ Read a file and execute the contained shell script or Scheme source code.
 
 Return exit status of last executed command, or value of last evaluated expression.
 
-##### <span id="colon">:</span>
+#### <span id="colon">:</span>
 Syntax: `: [ARGS ...]`
 
 Same as [true](#true)
 
 Do nothing and return success. Ignores all arguments.
 
-##### alias
+#### alias
 Syntax: `alias [NAME [EXPANSION ...]]`
 
 Define or display aliases.
@@ -78,21 +78,21 @@ Define or display aliases.
 
 Return success, or failure if `alias NAME` is executed and no such alias is defined.
 
-##### bg
+#### bg
 Syntax: `bg [JOB_ID]`
 
 Resume specified job, or last job by default, and move it to the background.
 
 Return success, or failure if job is not found.
 
-##### builtin
+#### builtin
 Syntax: `builtin [BUILTIN_NAME [ARG ...]]`
 
 Execute a builtin with specified arguments, even if it's shadowed by an alias.
 
 Return exit status of executed builtin, or failure if no such builtin was found.
 
-##### cd
+#### cd
 Syntax: `cd [DIR]`
 
 Change the current directory of parent job.
@@ -106,7 +106,7 @@ Return success if the directory is successfully changed, otherwise raise an exce
 Note: merely returning failure was considered too lenient, because executing commands in the wrong directory
 can easily have unintended effects, such as removing the wrong files or directories.
 
-##### cd-
+#### cd-
 Syntax: `cd-`
 
 Change the current directory of parent job, setting it to previous current directory.
@@ -116,28 +116,28 @@ Return success if the directory is successfully changed, otherwise raise an exce
 As for `cd` builtin, merely returning failure was considered too lenient, because executing commands in the wrong directory
 can easily have unintended effects, such as removing the wrong files or directories.
 
-##### command
+#### command
 Syntax: `command [COMMAND_NAME [ARG ...]]`
 
 Execute a command with specified arguments, even if it's shadowed by an alias or by a builtin.
 
 Return exit status of executed command, or failure if no such command was found.
 
-##### echo
+#### echo
 Syntax: `echo [ARG ...]`
 
 Display arguments to standard output, separating them with a single space, and terminating them with a single newline.
 
 Return success.
 
-##### echo0
+#### echo0
 Syntax: `echo0 [ARG ...]`
 
 Display arguments to standard output, separating them with a single NUL, and terminating them with a single NUL.
 
 Return success.
 
-##### exec
+#### exec
 Syntax: `exec [CMD [ARG ...]]`
 
 Replace the current shell with the command `CMD ARG ...`
@@ -147,14 +147,14 @@ If `CMD ARG ...` are specified, on success does not return. On failure, returns 
 If `CMD ARG ...` are not specified, applies any following redirection the current shell,
 then return success if the redirections are successful, otherwise return failure.
 
-##### exit
+#### exit
 Syntax: `exit [INT]`
 
 Exit the shell with exit status `INT`, or 0 by default.
 
 Does not return.
 
-##### export
+#### export
 Syntax: `export [VAR ...]`
 
 Display or export environment variables.
@@ -163,12 +163,12 @@ Display or export environment variables.
 * with one or more arguments, `export VAR ...` marks specified environment variables
   as exported in parent job.
 
-##### false
+#### false
 Syntax: `false [ARG ...]`
 
 Do nothing and return failure. Ignores all arguments.
 
-##### fg
+#### fg
 Syntax: `fg [JOB_ID]`
 
 Resume a job, move it to the foreground, and wait for it to finish or stop.
@@ -176,7 +176,7 @@ If `JOB_ID` is not specified, it defaults to last job.
 
 Return job exit status, or success if job is stopped, or failure if job was not found.
 
-##### global
+#### global
 Syntax: `global [BUILTIN_NAME [ARGS ...]]`
 
 Execute a builtin, setting its parent job to the shell itself.<br/>
@@ -184,7 +184,7 @@ This means the executed builtin can affect global environment variables and glob
 
 Return exit status of executed builtin, or failure if no such builtin was found.
 
-##### help
+#### help
 Syntax: `help [BUILTIN_NAME]`
 
 Display help about a builtin, or display all builtins.
@@ -194,14 +194,14 @@ Display help about a builtin, or display all builtins.
 
 Return success, unless a builtin name is specified but not found. 
 
-##### history
+#### history
 Syntax: `history [ARGS ...]`
 
 Display history to standard output. Ignores all arguments.
 
 Return success.
 
-##### parent
+#### parent
 Syntax: `parent [BUILTIN_NAME [ARGS ...]]`
 
 Execute a builtin, setting its parent job to the parent's parent.<br/>
@@ -209,7 +209,7 @@ This means the executed builtin can affect grandparent's environment variables a
 
 Return exit status of executed builtin, or failure if no such builtin was found.
 
-##### pwd
+#### pwd
 Syntax: `pwd [JOB_ID]`
 
 Display the current directory of specified job, or current directory by default.
@@ -217,7 +217,7 @@ Display the current directory of specified job, or current directory by default.
 Return success, unless a job is specified but not found.
 
 
-##### set
+#### set
 Syntax: `set [VAR [VALUE]]`
 
 Display or set environment variables.
@@ -228,7 +228,7 @@ Display or set environment variables.
 
 Return success, unless `set VAR` is executed and no such variable is found.
 
-##### source
+#### source
 Syntax: `source FILE`
 
 Same as [.](#dot)
@@ -237,7 +237,7 @@ Read a file and execute the contained shell script or Scheme source code.
 
 Return exit status of last executed command, or value of last evaluated expression.
 
-##### split-at-0
+#### split-at-0
 Syntax: `split-at-0 ALIAS_OR_BUILTIN_OR_COMMAND [ARG ...]`
 
 Split every `ARG` after each NUL character, and execute the resulting alias, builtin or command
@@ -249,42 +249,42 @@ as for example `split-at-0 editor $(find -name \*.txt -print0)`
 Return exit status of executed alias, builtin or command,
 or failure if no such alias, builtin or command is found.
 
-##### status
+#### status
 Syntax: `status [ARG ...]`
 
 Do nothing and return specified status, or success by default.
 
 Ignores second and further arguments.
 
-##### true
+#### true
 Syntax: `true [ARGS ...]`
 
 Same as [:](#colon)
 
 Do nothing and return success. Ignores all arguments.
 
-##### unalias
+#### unalias
 Syntax: `unalias [NAME ...]`
 
 Remove specified aliases.
 
 Return success.
 
-##### unexport
+#### unexport
 Syntax: `unexport [VAR ...]`
 
 Mark specified environment variables as private i.e. *not* exported in parent job.
 
 Return success.
 
-##### unset
+#### unset
 Syntax: `unset [VAR ...]`
 
 Remove specified environment variables from parent job.
 
 Return success.
 
-##### wait
+#### wait
 Syntax: `wait [JOB_ID]`
 
 move a job to the foreground and wait for it to finish
@@ -298,7 +298,7 @@ Return job exit status, or failure if job was not found.
 ------------------------------------------------------------------------------------------------------
 ### Structured Pipelines
 
-##### answers
+#### answers
 Syntax: `answers [--to-FORMAT]`
 <br/>Added in: v1.0.0
 
@@ -324,7 +324,7 @@ possible output:
 └───┴─────────────────┘
 ```
 
-##### dir
+#### dir
 Syntax: `dir [OPTIONS] [PATH ...]`
 <br/>Added in: v1.0.0
 
@@ -353,7 +353,7 @@ possible output:
 └──────────┴────┴─────┴──────────┴──────────┴─────────┴────┴─────┘
 ```
 
-##### first
+#### first
 Syntax: `first [OPTIONS] [COUNT]`
 <br/>Added in: v1.0.0
 
@@ -365,7 +365,7 @@ Options:
 
 Return success, or failure if `FORMAT` is not supported.
 
-##### from
+#### from
 Syntax: `from [OPTIONS] FORMAT`
 <br/>Added in: v1.0.0
 
@@ -381,7 +381,7 @@ Arguments:
 
 Return success, or failure if `FORMAT` is not supported.
 
-##### jobs
+#### jobs
 Syntax: `jobs [OPTIONS]`
 <br/>Added in: v1.0.0
 
@@ -404,7 +404,7 @@ possible output:
 └──┴────┴────┴───────────┴─────────┘
 ```
 
-##### parse
+#### parse
 Syntax: `parse [OPTIONS] FILE`
 <br/>Added in: v1.0.0
 
@@ -415,7 +415,7 @@ Options:
 
 Return success, or failure if `FILE` cannot be read or if `FORMAT` is not supported.
 
-##### proc
+#### proc
 Syntax: `proc [OPTIONS] [auvx]`
 <br/>Added in: v1.0.0
 
@@ -444,7 +444,7 @@ possible output:
 └────┴────┴─────────┴────────┴─────┴─────┴──────────┴────────┘
 ```
 
-##### select
+#### select
 Syntax: `select [OPTIONS] FIELD_NAME ...`
 <br/>Added in: v1.0.0
 
@@ -470,7 +470,7 @@ possible output:
 └────────┴─────┴─────┴─────┴───────────┴─────────┴─────┘
 ```
 
-##### skip
+#### skip
 Syntax: `skip [OPTIONS] [COUNT]`
 <br/>Added in: v1.0.0
 
@@ -497,7 +497,7 @@ possible output:
 └───────┴────┴─────┴──────────┘
 ```
 
-##### sort-by
+#### sort-by
 Syntax: `sort-by [OPTIONS] FIELD_NAME ...`
 <br/>Added in: v1.0.0
 
@@ -526,7 +526,7 @@ possible output:
 └──────────┴────┴─────┴──────────┴──────────┴─────────┴────┴─────┘
 ```
 
-##### threads
+#### threads
 Syntax: `threads [OPTIONS]`
 <br/>Changed in: v1.0.0
 
@@ -550,7 +550,7 @@ possible output:
 └──┴───────────┴──────┘
 ```
 
-##### to
+#### to
 Syntax: `to [OPTIONS] FORMAT`
 <br/>Added in: v1.0.0
 
@@ -578,7 +578,21 @@ possible output:
 {"<type>":"process-entry","pid":101362,"tty":"pts/0","start-time":{"<type>":"time-utc","value":1773605353.809103923},"name":"schemesh"}]
 ```
 
-##### ulimit
+Example:
+```shell
+ip -j route | to table
+```
+possible output:
+```
+┌──────────────┬───────────┬────┬───────────────┬────────┬─────┬───────────┐
+│     dst      │  gateway  │dev │     flags     │protocol│scope│  prefsrc  │
+├──────────────┼───────────┼────┼───────────────┼────────┼─────┼───────────┤
+│default       │192.168.0.1│eth0│(span "onlink")│        │     │           │
+│192.168.0.0/24│           │eth0│(span)         │kernel  │link │192.168.0.2│
+└──────────────┴───────────┴────┴───────────────┴────────┴─────┴───────────┘
+```
+
+#### ulimit
 Syntax: `ulimit [OPTION ...]`
 <br/>Changed in: v1.0.0
 
@@ -624,7 +638,7 @@ possible output:
 {"<type>":"rlimit","name":"file-size","soft":"unlimited","hard":"unlimited"}
 ```
 
-##### where
+#### where
 Syntax: `where [OPTIONS] EXPRESSION`
 <br/>Added in: v1.0.0
 
