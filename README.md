@@ -468,7 +468,7 @@ For example, both `dir repl --to-json` and `dir repl | less` output
 {"<type>":"dir-entry","name":"repl.ss","type":"file","size":29965,"link":"","modified":{"<type>":"time-utc","value":1773488401.21143423}}
 ```
 
-If you need a single JSON document, use the option `--to-json1`. For example, `dir repl --to-json` outputs
+If you need a single JSON document, use the option `--to-json1`. For example, `dir repl --to-json1` outputs
 ```json
 [{"<type>":"dir-entry","name":"answers.ss","type":"file","size":2639,"link":"","modified":{"<type>":"time-utc","value":1772613894.675450971}},
 {"<type>":"dir-entry","name":"easy.ss","type":"file","size":41945,"link":"","modified":{"<type>":"time-utc","value":1773484036.454501872}},
