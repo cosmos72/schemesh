@@ -103,7 +103,7 @@
 
 (define known-sym
   (eq-hashtable
-    'boolean=? 55 ; UNUSED 56
+    '<type> 55 'boolean=? 56
     'bytevector=? 57 'bytevector-hash 58
     'cfl= 59 ; UNUSED 60
     'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
