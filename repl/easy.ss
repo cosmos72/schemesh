@@ -1150,6 +1150,13 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
     "-contains" where-contains? "-starts" where-starts? "-ends" where-ends?))
 
 
+(define (field* obj sym cache)
+  (let ((value (field obj sym cache)))
+    (if (symbol? value)
+      (symbol->string value)
+      value)))
+
+
 (define (parse-where/cmp args)
   ;; (debugf "parse-where/cmp ~s" args)
   (if (first-string=? args "(")
@@ -1168,7 +1175,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
           (raise-errorf 'where "invalid comparison operator ~s in arguments: ~s" str-op args))
         (values (let ((sym (string->symbol name)))
                   (lambda (obj cache)
-                    (op (field obj sym cache) str-value num-value)))
+                    (op (field* obj sym cache) str-value num-value)))
                 (cdddr args))))))
 
 
