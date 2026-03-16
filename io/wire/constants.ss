@@ -96,7 +96,7 @@
 (define tag-extended      254) ; followed by extended tag encoded as vlen
 (define tag-wire-magic    255)
 
-;;; magic bytes: 8 254 #\w #\i #\r #\e 0 0
+;;; magic bytes: 7 255 #\w #\i #\r #\e 0 0
 ;;;              the last two bytes are version-hi version-lo
 (define wire-magic-bytes (bytevector->immutable-bytevector
                            (bytevector 7 tag-wire-magic 119 105 114 101 0 0)))
