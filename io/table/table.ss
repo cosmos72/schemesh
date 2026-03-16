@@ -233,13 +233,12 @@
     (lambda (out theme row row-type k v)
       ;; (debugf "; put-color-dir-entry-name row ~s, k ~s, v ~s" row k v)
       (let* ((type  (ordered-hash-ref row 'type #f))
-             (type? (string? type))
-             (color (and type? (hashtable-ref htable type #f))))
+             (color (and type (hashtable-ref htable type #f))))
         (if color
           (put-string out color)
-          (when (and type? (string=? type "file"))
+          (when (and type (string=? type "file"))
             (let* ((mode (ordered-hash-ref row 'mode #f))
-                   (color (and (string? mode) (string-index mode #\x) color-bold-green)))
+                   (color (and mode (string-index mode #\x) color-bold-green)))
               (when color
                 (put-string out color)))))))))
 
@@ -258,15 +257,17 @@
 
 
 (define (put-color-cell out theme row row-type k v)
-  (when (string? row-type)
+  (when row-type
     (let ((colors (hashtable-ref cell-colors-table row-type #f)))
       (when colors
         (let ((color (hashtable-ref colors k #f)))
           (cond
             ((procedure? color)
               (color out theme row row-type k v))
+            ((string? color)
+              (put-string out color))
             ((hashtable? color)
-              (let ((vcolor (if (string? color) color (hashtable-ref color v #f))))
+              (let ((vcolor (hashtable-ref color v #f)))
                 (when vcolor
                   (put-string out vcolor))))))))))
 
