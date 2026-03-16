@@ -389,8 +389,8 @@
       (if (char? char-or-predicate)
         (string-index/char str char-or-predicate start end)
         (string-index/pred str char-or-predicate start end)))
-    ((str predicate)
-      (string-index str predicate 0 (string-length str)))))
+    ((str char-or-predicate)
+      (string-index str char-or-predicate 0 (string-length str)))))
 
 
 ;; search string range [start, end) and return index of last character equal to ch.

@@ -192,7 +192,7 @@ Display help about a builtin, or display all builtins.
 * without arguments, `help` displays all builtins.
 * with one argument, `help BUILTIN_NAME` displays help about the specified builtin.
 
-Return success, unless a builtin name is specified but not found. 
+Return success, unless a builtin name is specified but not found.
 
 #### history
 Syntax: `history [ARGS ...]`

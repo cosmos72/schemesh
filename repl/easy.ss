@@ -687,7 +687,7 @@
                 ((some-string-contains? options "l")
                   (select rx name type size link modified accessed mode user group))
                 (else
-                  (select rx name type size link modified)))))
+                  (select rx name type size link modified mode)))))
       (to-stdout (sort-by rx name) options))))
 
 
@@ -946,7 +946,7 @@
                    (values #f #f)))))
            (rx (make-reader %threads-status-reader #f #f)))
       (to-stdout rx options))))
-    
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: ulimit
