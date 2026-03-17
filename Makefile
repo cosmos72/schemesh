@@ -112,9 +112,6 @@ os.o: os/process.c os/os.h os/process_all.h os/process_linux.h os/process_unsupp
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
-main_static.o: main.c containers/containers.h eval.h load.h posix/posix.h $(SCHEMESH_SO)
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_STATIC
-
 test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
@@ -127,7 +124,13 @@ schemesh: main.o $(OBJS)
 # embeds Chez Scheme boot files petite.boot scheme.boot
 # embeds libschemesh_VERSION.so
 # links against system-wide static libraries where feasible
-schemesh_static: main_static.o $(OBJS)
+main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'  -DSCHEMESH_STATIC
+
+asm_embed.o: asm_embed.S $(SCHEMESH_SO)
+	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
+
+schemesh_static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo $(LIB_UUID) $(LIB_ICONV) -Wl,-Bdynamic -lm -lpthread -ldl
 
 schemesh_test: test.o $(OBJS)

@@ -28,28 +28,6 @@
 #include <sys/mman.h> /* munmap()      */
 #include <unistd.h>   /* sysconf()     */
 
-/* clang-format off */
-#define EMBED_FILE(sym, filepath)         \
-  __asm__(".section .rodata\n"            \
-          ".balign 4096\n"                \
-          ".global " STR(sym) "_start\n"  \
-          STR(sym) "_start:\n"            \
-          ".incbin \"" filepath "\"\n"    \
-          ".global " STR(sym) "_end\n"    \
-          STR(sym) "_end:\n"              \
-          ".balign 4096\n"                \
-          ".section \".text\"\n")
-/* clang-format on */
-
-#ifndef CHEZ_SCHEME_DIR
-#error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
-#endif
-
-EMBED_FILE(petite_boot, STR(CHEZ_SCHEME_DIR) "/petite.boot");
-EMBED_FILE(scheme_boot, STR(CHEZ_SCHEME_DIR) "/scheme.boot");
-
-EMBED_FILE(libschemesh_so, "./" LIBSCHEMESH_SO);
-
 extern const char petite_boot_start[], petite_boot_end[];
 extern const char scheme_boot_start[], scheme_boot_end[];
 extern const char libschemesh_so_start[], libschemesh_so_end[];
