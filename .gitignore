@@ -2,8 +2,7 @@
 /dir
 /http
 /parse_sqlite
-/schemesh
-/schemesh_test
+/schemesh*
 /.vscode
 *.o
 *.so

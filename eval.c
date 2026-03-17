@@ -74,11 +74,6 @@ int scheme2k_load_library(const char* dir, const char* filename) {
   static ptr func_load = Sfalse;
   ptr        ret;
   if (func_load == Sfalse) {
-#if 0
-    func_load = scheme2k_eval("(lambda (dir filename)\n"
-                              "  (load (string-append dir \"/\" filename))\n"
-                              "  #t)\n");
-#else
     func_load = scheme2k_eval /*                       */
         ("(lambda (dir filename)\n"
          "  (let ((path (if (fxzero? (string-length dir))\n"
@@ -97,7 +92,6 @@ int scheme2k_load_library(const char* dir, const char* filename) {
          "          (lambda ()\n"
          "            (load path)\n"
          "            #t))))))\n"); /* success -> return #t */
-#endif
     Slock_object(func_load);
   }
   ret = Scall2(func_load,

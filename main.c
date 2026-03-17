@@ -10,11 +10,6 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-#include "containers/containers.h" /* scheme2k_Sstring_utf8b() */
-#include "eval.h"
-#include "load.h"
-#include "posix/posix.h"
-
 #include <errno.h>
 #include <setjmp.h>
 #include <stdio.h>
@@ -22,6 +17,11 @@
 #include <string.h> /* strcmp() */
 #include <time.h>
 #include <unistd.h>
+
+#include "containers/containers.h" /* scheme2k_Sstring_utf8b() */
+#include "eval.h"
+#include "load.h"
+#include "posix/posix.h"
 
 static int drop_privileges(void) {
   /* setting gid or uid on Android crashes with SIGSYS */
@@ -81,8 +81,14 @@ static int usage(const char* name) {
       "                                are specified)\n"
       "    --version                   display version information\n"
       "    -l, --login                 ignored. accepted for compatibility with other shells\n"
+      "    -p                          ignored. accepted for compatibility with other shells\n"
+#ifdef SCHEMESH_STATIC
+      "    --boot-dir DIR              ignored in this build. set Chez Scheme boot directory\n"
+      "    --library-dir DIR           ignored in this build. set schemesh library directory\n"
+#else
       "    --boot-dir DIR              load Chez Scheme boot files from DIR\n"
       "    --library-dir DIR           load schemesh libraries from DIR\n"
+#endif
       "    --                          end of options. always treat further arguments as files\n"
       "\n"
       "  the type of files, if they are not specified after options '--cmd-file', '--eval-file'\n"
@@ -175,7 +181,7 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
       usage(argv[0]);
     } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
       cmd->force_repl = 1;
-    } else if (!strcmp(arg, "-l") || !strcmp(arg, "--login")) {
+    } else if (!strcmp(arg, "-l") || !strcmp(arg, "--login") || !strcmp(arg, "-p")) {
       /* nop */
     } else if (!strcmp(arg, "--version")) {
       /* disable repl unless cmd->force_repl is set */
@@ -277,7 +283,7 @@ int main(int argc, const char* argv[]) {
   }
 
   on_exception = INIT_FAILED;
-  scheme2k_init(cmd.boot_dir, &handle_scheme_exception);
+  schemesh_init(cmd.boot_dir, &handle_scheme_exception);
   if ((err = scheme2k_register_c_functions()) != 0) {
     goto finish;
   }

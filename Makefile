@@ -112,12 +112,23 @@ os.o: os/process.c os/os.h os/process_all.h os/process_linux.h os/process_unsupp
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
+main_static.o: main.c containers/containers.h eval.h load.h posix/posix.h $(SCHEMESH_SO)
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_STATIC
+
 test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
 
 schemesh: main.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+
+# not compiled by default. Requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
+#
+# embeds Chez Scheme boot files petite.boot scheme.boot
+# embeds libschemesh_VERSION.so
+# links against system-wide static libraries where feasible
+schemesh_static: main_static.o $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo -luuid -Wl,-Bdynamic -lm -lpthread -ldl
 
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
@@ -129,14 +140,21 @@ $(SCHEMESH_SO): schemesh_test
 
 
 clean_schemesh:
-	rm -f schemesh schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
+	rm -f schemesh schemesh_static_gnu schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
 
 install_schemesh: schemesh schemesh_so installdirs
 	$(INSTALL_PROGRAM) schemesh '$(DESTDIR)$(bindir)'
 	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
+# schemesh_static is not compiled nor installed by default
+install_schemesh_static: schemesh_static installdirs
+	$(INSTALL_PROGRAM) schemesh_static '$(DESTDIR)$(bindir)'
+
 uninstall_schemesh:
 	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+
+uninstall_schemesh_static:
+	rm -f '$(DESTDIR)$(bindir)/schemesh_static
 
 
 ################################################################################

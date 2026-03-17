@@ -149,14 +149,14 @@ static int compile_scheme2k_so(const char* source_dir) {
 int main(int argc, const char* argv[]) {
   int err = 0;
 
-  scheme2k_init(NULL, &handle_scheme_exception);
+  schemesh_init(NULL, &handle_scheme_exception);
 
   if (argc == 2 && strcmp(argv[1], "--compile_scheme2k_so") == 0) {
     err = compile_scheme2k_so(".");
   } else {
     if (scheme2k_register_c_functions() == 0 && /*     */
         compile_schemesh_so(".") == 0 &&        /*     */
-        scheme2k_load_library(".", LIBSCHEMESH_SO) == 0) {
+        schemesh_load_library(".") == 0) {
 
       schemesh_import_all_libraries();
 

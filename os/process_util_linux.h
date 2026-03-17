@@ -224,10 +224,9 @@ static int string_is_decimal_number(const char* str) {
   return *str == '\0';
 }
 
-static uint64_t os_pagesize   = 0; /* OS page size, in bytes */
-static uint64_t os_tick_per_s = 0; /* OS clock ticks per second */
-
 static uint64_t get_os_tick_per_s(void) {
+  static uint64_t os_tick_per_s = 0; /* OS clock ticks per second */
+
   uint64_t n = os_tick_per_s;
   if (n == 0) {
 #ifdef _SC_CLK_TCK
@@ -249,13 +248,15 @@ static uint64_t get_os_tick_per_s(void) {
   return n;
 }
 
-static uint64_t get_os_pagesize(void) {
-  uint64_t n = os_pagesize;
+static size_t get_os_pagesize(void) {
+  static size_t os_pagesize = 0; /* OS page size, in bytes */
+
+  size_t n = os_pagesize;
   if (n == 0) {
 #ifdef _SC_PAGESIZE
     long val = sysconf(_SC_PAGESIZE);
     if (val > 0) {
-      n = (uint64_t)val;
+      n = (size_t)val;
     } else
 #endif
 
