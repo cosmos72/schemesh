@@ -38,5 +38,6 @@ static int c_process_skip(ptr dir_s) {
  */
 static ptr c_process_get(ptr dir_s, ptr bvec) {
   (void)dir_s;
+  (void)bvec;
   return Sfixnum(0);
 }

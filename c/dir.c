@@ -17,8 +17,9 @@
 #include <errno.h>     /* EINVAL, errno */
 #include <fcntl.h>     /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>       /* getgrgid_r()  */
+#include <limits.h>    /* PATH_MAX on *BSD */
 #include <pwd.h>       /* getpwuid_r()  */
-#include <stdlib.h>    /* exit() */
+#include <stdlib.h>    /* exit()        */
 #include <sys/stat.h>  /* fstatat()     */
 #include <sys/types.h> /* opendir(), closedir() */
 #include <unistd.h>    /* readlinkat()  */
