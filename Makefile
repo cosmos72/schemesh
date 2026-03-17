@@ -128,7 +128,7 @@ schemesh: main.o $(OBJS)
 # embeds libschemesh_VERSION.so
 # links against system-wide static libraries where feasible
 schemesh_static: main_static.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo -luuid -Wl,-Bdynamic -lm -lpthread -ldl
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo $(LIB_UUID) $(LIB_ICONV) -Wl,-Bdynamic -lm -lpthread -ldl
 
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
