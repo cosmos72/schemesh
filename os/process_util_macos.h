@@ -17,7 +17,7 @@ typedef struct {
   uid_t           uid;
   gid_t           gid;
   pid_t           ppid;
-  pid_t           pgrp;
+  pid_t           pgid;
   pid_t           sid; /* -1 if unknown */
   uint64_t        mem_rss;
   uint64_t        mem_virt;

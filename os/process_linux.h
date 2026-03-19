@@ -195,7 +195,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        (src_end = read_file_at(dirfd(dir), buf, (unsigned char*)buf, sizeof(buf), &uid, &gid)) &&
        parse_int64(&src, vec, e_pid) && parse_linux_command(&src, src_end, comm, sizeof(comm)) &&
        parse_char(&src, &state) && parse_int64(&src, vec, e_ppid) &&
-       parse_int64(&src, vec, e_pgrp) && parse_int64(&src, vec, e_sid) &&
+       parse_int64(&src, vec, e_pgid) && parse_int64(&src, vec, e_sid) &&
        parse_int64(&src, &tty_nr, 0) && parse_int64(&src, NULL, 0 /*tty_pgrp*/) &&
        parse_uint64(&src, NULL, 0 /*flags*/) && parse_uint64(&src, vec, e_min_fault) &&
        parse_uint64(&src, NULL, 0 /*child_min_fault*/) && parse_uint64(&src, vec, e_maj_fault) &&

@@ -103,7 +103,7 @@
     (mutable uid)           ; (void) or exact integer
     (mutable gid)           ; (void) or exact integer
     (mutable ppid)          ; (void) or exact integer
-    (mutable pgrp)          ; (void) or exact integer
+    (mutable pgid)          ; (void) or exact integer
     (mutable sid)           ; (void) or exact integer
     (mutable mem-rss)       ; (void) or exact integer
     (mutable mem-virtual)   ; (void) or exact integer
@@ -170,7 +170,7 @@
       uid                               ; uid,          uint64
       gid                               ; gid,          uint64
       (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
-      (bvec-ref/s64 bvec (fx* 4 8))     ; pgrp,         int64
+      (bvec-ref/s64 bvec (fx* 4 8))     ; pgid,         int64
       (bvec-ref/s64 bvec (fx* 5 8))     ; sid,          int64
       (bvec-ref/u64 bvec (fx* 6 8))     ; mem-rss,      uint64
       (bvec-ref/u64 bvec (fx* 7 8))     ; mem-virtual,  uint64
@@ -221,7 +221,7 @@
     (put-char port #\space) (writer (process-entry-uid e) port)
     (put-char port #\space) (writer (process-entry-gid e) port)
     (put-char port #\space) (writer (process-entry-ppid e) port)
-    (put-char port #\space) (writer (process-entry-pgrp e) port)
+    (put-char port #\space) (writer (process-entry-pgid e) port)
     (put-char port #\space) (writer (process-entry-sid e) port)
     (put-char port #\space) (writer (process-entry-mem-rss e) port)
     (put-char port #\space) (writer (process-entry-mem-virtual e) port)

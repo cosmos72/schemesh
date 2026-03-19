@@ -62,7 +62,7 @@ static void c_process_info_fill(const struct kinfo_proc* kp, c_process_info* c) 
   c->uid  = kp->kp_eproc.e_ucred.cr_uid;
   c->gid  = kp->kp_eproc.e_ucred.cr_gid;
   c->ppid = kp->kp_eproc.e_ppid;
-  c->pgrp = kp->kp_eproc.e_pgid;
+  c->pgid = kp->kp_eproc.e_pgid;
   c->sid  = -1; /* unimplemented */
 
   c->priority = p->p_priority;
@@ -186,7 +186,7 @@ static ptr c_process_get(ptr cs_s, ptr bvec) {
   set_int64(vec, e_uid, c->uid);
   set_int64(vec, e_gid, c->gid);
   set_int64(vec, e_ppid, c->ppid);
-  set_int64(vec, e_pgrp, c->pgrp);
+  set_int64(vec, e_pgid, c->pgid);
   set_int64(vec, e_sid, -1); /* unimplemented */
   set_uint64(vec, e_mem_resident, c->mem_rss);
   set_uint64(vec, e_mem_virtual, c->mem_virt);

@@ -54,7 +54,7 @@ enum {
   e_uid          = 1,  /* int64 */
   e_gid          = 2,  /* int64 */
   e_ppid         = 3,  /* int64 */
-  e_pgrp         = 4,  /* int64 */
+  e_pgid         = 4,  /* int64 */
   e_sid          = 5,  /* int64 */
   e_mem_resident = 6,  /* bytes, uint64 */
   e_mem_virtual  = 7,  /* bytes, uint64 */

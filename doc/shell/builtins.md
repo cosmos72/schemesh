@@ -458,12 +458,12 @@ Return success, or failure if `FORMAT` is not supported.
 
 Example:
 ```shell
-proc v | select name state pid pgrp mem-virtual min-fault tty
+proc v | select name state pid pgid mem-virtual min-fault tty
 ```
 possible output:
 ```
 ┌────────┬─────┬─────┬─────┬───────────┬─────────┬─────┐
-│  name  │state│ pid │pgrp │mem-virtual│min-fault│ tty │
+│  name  │state│ pid │pgid │mem-virtual│min-fault│ tty │
 ├────────┼─────┼─────┼─────┼───────────┼─────────┼─────┤
 │schemesh│S    │ 2586│ 2586│   70946816│    26503│pts/0│
 │schemesh│R    │15675│15675│   70946816│      122│pts/0│
