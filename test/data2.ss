@@ -419,7 +419,7 @@
   (caddr (expand (parse-shell-form1 (string->parsectx
     "{A=B ls}"))))                                     (sh-cmd* "A" '= "B" "ls")
   '{FOO=$BAR/subdir echo}                              (shell "FOO" = (shell-wildcard (shell-env "BAR") "/subdir") "echo")
-  (caddr (expand '{FOO=$BAR/subdir echo}))             ,@(sh-cmd* FOO '= (lambda (job) (wildcard1+ job
+  (caddr (expand '{FOO=$BAR/subdir echo}))             ,@(sh-cmd* FOO '= (lambda (job) (sh-string-append job
                                                            (lambda (job) (sh-env-ref job BAR)) /subdir)) echo)
   '{A=$[echo abc
         echo def]}                                     (shell "A" = (shell-backquote "echo" "abc" \x3B;
@@ -432,7 +432,7 @@
                      "echo" "def"))))                  ,(sh-cmd* "A" '= (lambda () (sh-run/string-rtrim-newlines
                                                            (sh-list (sh-cmd "echo" "abc") '\x3B; (sh-cmd "echo" "def")))))
   (caddr (expand '{FOO=$BAR/subdir echo}))
-                                                       ,@(sh-cmd* "FOO" '= (lambda (job) (wildcard1+ job (lambda (job)
+                                                       ,@(sh-cmd* "FOO" '= (lambda (job) (sh-string-append job (lambda (job)
                                                            (sh-env-ref job "BAR")) "/subdir")) "echo")
   (caddr (expand
     '(shell (shell-wildcard "l" "s"))))                (sh-cmd* "ls")

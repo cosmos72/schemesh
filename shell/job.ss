@@ -47,6 +47,7 @@
     ;; env.ss
     sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
+    sh-string-append
 
     ;; expr.ss
     sh-expr sh-expr-on-finish
@@ -100,7 +101,7 @@
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
-    (only (scheme2k bootstrap)    assert* catch check-interrupts nop parameter-swapper raise-assert1 raise-assertf raise-errorf
+    (only (scheme2k bootstrap)    assert* assert-not* catch check-interrupts nop parameter-swapper raise-assert1 raise-assertf raise-errorf
                                   second-value sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version-number
                                   try until warnf while)
     (only (scheme2k containers bytespan)  bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!

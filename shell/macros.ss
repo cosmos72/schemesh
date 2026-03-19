@@ -95,33 +95,36 @@
 
 
 (meta begin
-  (define (%wildcard-simplify wildcards? ret args)
-    ;; (debugf "... %wildcard-simplify wildcards? ~s, ret ~s, args ~s" wildcards? (reverse ret) args)
+  (define (%wildcard-simplify kind ret args)
+    ;; (debugf "... %wildcard-simplify kind ~s, ret ~s, args ~s" kind (reverse ret) args)
     (if (null? args)
-      (values wildcards? ret)
+      (values kind ret)
       (let ((arg (car args)))
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
-            (let-values (((inner-wildcards? inner-ret) (%wildcard-simplify wildcards? ret (cdr arg))))
-              (%wildcard-simplify inner-wildcards? inner-ret (cdr args))))
+            (let-values (((inner-kind inner-ret) (%wildcard-simplify kind ret (cdr arg))))
+              (%wildcard-simplify inner-kind inner-ret (cdr args))))
           ((wildcard? arg)
-            (%wildcard-simplify #t (cons (list 'quote arg) ret) (cdr args)))
+            (%wildcard-simplify 'wildcard (cons (list 'quote arg) ret) (cdr args)))
+          ((string? arg)
+            (%wildcard-simplify kind (cons arg ret) (cdr args)))
           (else
-            (%wildcard-simplify (or wildcards? (not (string? arg)))
-                                (cons arg ret)
-                                (cdr args)))))))
+            (%wildcard-simplify (or kind 'form) (cons arg ret) (cdr args)))))))
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
   ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
   ;; TODO: replace (shell-wildcard ...) containing only strings and lambdas with a call that concatenates them
   ;;
-  ;; wrap non-constant (shell-wildcard ...) in a (lambda (,job) (,proc ,job ...))
-  (define-macro (%shell-wildcard exec? proc job . args)
-    (let-values (((wildcards? rev-args) (%wildcard-simplify #f '() args)))
+  ;; wrap (shell-wildcard ...) containing wildcards in a (lambda (,job) (wildcard1+ ,job ...))
+  ;; wrap (shell-wildcard ...) containing strings and forms to a (lambda (,job) (sh-string-append ,job ...))
+  ;; expand (shell-wildcard ...) containing only strings to the concatenation of such strings
+  (define-macro (%shell-wildcard1+ job . args)
+    (let-values (((kind rev-args) (%wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
-        (if wildcards?
-          `(lambda (,job) (,proc ,job ,@args))
-          (apply string-append args)))))
+        (case kind
+          ((#f)   (apply string-append args))
+          ((form) `(lambda (,job) (sh-string-append ,job ,@args)))
+          (else   `(lambda (,job) (wildcard1+ ,job ,@args)))))))
 
 
   (define (%validate-no-exec caller stx first?)
@@ -154,11 +157,11 @@
   ;;
   ;; wrap non-constant (shell-wildcard ...) in a (,proc ,job-or-id ...)
   (define-macro (%shell-glob proc job-or-id . args)
-    (let-values (((wildcards? rev-args) (%wildcard-simplify #f '() args)))
+    (let-values (((kind rev-args) (%wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
-        (if wildcards?
-          `(,proc ,job-or-id ,@args)
-          (apply string-append args)))))
+        (case kind
+          ((#f) (apply string-append args))
+          (else `(,proc ,job-or-id ,@args))))))
 
 
 ) ; close meta
@@ -176,7 +179,7 @@
         (string? (syntax->datum (syntax arg)))
         #`arg)
       ((_ . args)
-        #`(%shell-wildcard #t wildcard1+ job . args)))))
+        #`(%shell-wildcard1+ job . args)))))
 
 
 ;; extract the arguments inside a (shell-glob* {...}) macro,

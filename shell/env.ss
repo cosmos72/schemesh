@@ -10,6 +10,26 @@
 ;; this file should be included only by file shell/job.ss
 
 
+;; Return a string obtained by concatenating args:
+;; each arg must be either:
+;;   a string
+;;   a closure accepting 0 or 1 argument (the job) and returning a string
+(define (sh-string-append job . args)
+  (let %sh-string-append ((job job) (args args) (ret '()))
+    (if (null? args)
+      (apply string-append (reverse! ret))
+      (let ((arg (car args)))
+        (if (string? arg)
+          (%sh-string-append job (cdr args) (cons arg ret))
+          (begin
+            (assert* 'sh-string-append (procedure? arg))
+            (let ((arity (procedure-arity-mask arg)))
+              (assert-not* 'sh-string-append (zero? (logand 3 arity)))
+              (let ((str (if (logbit? 1 arity) (arg job) (arg))))
+                (assert* 'sh-string-append (string? str))
+                (%sh-string-append job (cdr args) (cons str ret))))))))))
+
+
 ;; Return string value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
