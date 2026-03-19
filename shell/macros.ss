@@ -96,25 +96,24 @@
 
 (meta begin
   (define (%wildcard-simplify wildcards? ret args)
-    (do ((args args (cdr args)))
-        ((null? args) (values wildcards? ret))
-      ; (debugf "... %wildcard-simplify ret=~s args=~s" (reverse ret) args)
+    ;; (debugf "... %wildcard-simplify wildcards? ~s, ret ~s, args ~s" wildcards? (reverse ret) args)
+    (if (null? args)
+      (values wildcards? ret)
       (let ((arg (car args)))
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
             (let-values (((inner-wildcards? inner-ret) (%wildcard-simplify wildcards? ret (cdr arg))))
-              (set! wildcards? inner-wildcards?)
-              (set! ret        inner-ret)))
+              (%wildcard-simplify inner-wildcards? inner-ret (cdr args))))
           ((wildcard? arg)
-            (set! wildcards? #t)
-            (set! ret (cons (list 'quote arg) ret)))
+            (%wildcard-simplify #t (cons (list 'quote arg) ret) (cdr args)))
           (else
-            (unless (string? arg)
-              (set! wildcards? #t))
-            (set! ret (cons arg ret)))))))
+            (%wildcard-simplify (or wildcards? (not (string? arg)))
+                                (cons arg ret)
+                                (cdr args)))))))
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
   ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
+  ;; TODO: replace (shell-wildcard ...) containing only strings and lambdas with a call that concatenates them
   ;;
   ;; wrap non-constant (shell-wildcard ...) in a (lambda (,job) (,proc ,job ...))
   (define-macro (%shell-wildcard exec? proc job . args)
