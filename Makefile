@@ -143,7 +143,7 @@ $(SCHEMESH_SO): schemesh_test
 
 
 clean_schemesh:
-	rm -f schemesh schemesh_static_gnu schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
+	rm -f schemesh schemesh_static schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
 
 install_schemesh: schemesh schemesh_so installdirs
 	$(INSTALL_PROGRAM) schemesh '$(DESTDIR)$(bindir)'
