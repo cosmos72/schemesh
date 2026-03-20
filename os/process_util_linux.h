@@ -247,27 +247,3 @@ static uint64_t get_os_tick_per_s(void) {
   }
   return n;
 }
-
-static size_t get_os_pagesize(void) {
-  static size_t os_pagesize = 0; /* OS page size, in bytes */
-
-  size_t n = os_pagesize;
-  if (n == 0) {
-#ifdef _SC_PAGESIZE
-    long val = sysconf(_SC_PAGESIZE);
-    if (val > 0) {
-      n = (size_t)val;
-    } else
-#endif
-
-    /*else */ {
-#if defined(PAGESIZE) && PAGESIZE > 0
-      n = PAGESIZE;
-#else
-      n = 4096; /* guess */
-#endif
-    }
-    os_pagesize = n; /* cache for future calls */
-  }
-  return n;
-}

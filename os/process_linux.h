@@ -153,9 +153,9 @@ static int c_process_skip(ptr dir_s) {
   return 1; /* ok, skipped one pid */
 }
 
-/*
+/**
  * read one process from /proc.
- *   on success, return list (command_string, status_char, tty_string) and fill bvec.
+ *   on success, return cons (command_string . tty_string) and fill bvec.
  *   on end-of-dir, return 0
  *   on I/O error, return c_errno() < 0
  *   on parsing errors, return #f
@@ -204,7 +204,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
        parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_num_thread) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
-       parse_uint64(&src, vec, e_mem_virtual) && parse_uint64(&src, vec, e_mem_resident);
+       parse_uint64(&src, vec, e_mem_virt) && parse_uint64(&src, vec, e_mem_rss);
 
   if (ok) {
     uint64_t tick_per_s, iowait_time_ticks;
@@ -224,7 +224,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
     set_int64(vec, e_gid, gid);
 
     /* convert mem_resident from pages to bytes */
-    uint64_multiply(vec, e_mem_resident, get_os_pagesize());
+    uint64_multiply(vec, e_mem_rss, get_os_pagesize());
 
     tick_per_s = get_os_tick_per_s();
 

@@ -18,10 +18,18 @@ CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
 # required libraries
-LIB_ICONV:=$(shell uname -o | grep -q -E '(Android|Darwin)' && echo -liconv)
-LIB_UUID:=$(shell uname -o | grep -q -E '(FreeBSD|Darwin)' || echo -luuid)
+OS:=$(strip $(shell uname -o))
+ifeq ($(OS), Android)
+  LIBS_UTIL=-liconv -luuid
+else ifeq ($(OS), Darwin)
+  LIBS_UTIL:=-liconv
+else ifeq ($(OS), FreeBSD)
+  LIBS_UTIL:=-lutil
+else
+  LIBS_UTIL:=-luuid
+endif
 
-LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread $(LIB_UUID) $(LIB_ICONV)
+LIBS:=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses $(LIBS_UTIL) -ldl -lm -lpthread
 
 
 # installation directories. Names and values are taken from GNU Makefile conventions
@@ -131,7 +139,7 @@ asm_embed.o: asm_embed.S $(SCHEMESH_SO)
 	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 schemesh_static: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo $(LIB_UUID) $(LIB_ICONV) -Wl,-Bdynamic -lm -lpthread -ldl
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic -lkernel -lz -llz4 -lxxhash -ltinfo $(LIBS_UTIL) -Wl,-Bdynamic -lm -lpthread -ldl
 
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)

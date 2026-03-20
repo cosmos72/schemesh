@@ -188,8 +188,8 @@ static ptr c_process_get(ptr cs_s, ptr bvec) {
   set_int64(vec, e_ppid, c->ppid);
   set_int64(vec, e_pgid, c->pgid);
   set_int64(vec, e_sid, -1); /* unimplemented */
-  set_uint64(vec, e_mem_resident, c->mem_rss);
-  set_uint64(vec, e_mem_virtual, c->mem_virt);
+  set_uint64(vec, e_mem_rss, c->mem_rss);
+  set_uint64(vec, e_mem_virt, c->mem_virt);
   set_timespec(vec, e_start_time, c->start_time);
   set_timespec(vec, e_user_time, c->user_time);
   set_timespec(vec, e_sys_time, c->sys_time);

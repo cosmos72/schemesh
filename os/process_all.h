@@ -12,11 +12,11 @@
 #include <stddef.h> /* size_t */
 #include <stdint.h> /* int64_t, uint64_t */
 #include <stdio.h>
-#include <stdlib.h>   /* calloc(), free() */
-#include <string.h>   /* memcpy(), strrchr() */
-#include <sys/stat.h> /* fstat() */
+#include <stdlib.h>   /* calloc(), free(), BSD devname() */
+#include <string.h>   /* memcpy(), strrchr(), strcmp() */
+#include <sys/stat.h> /* fstat(), S_IFCH */
 #include <time.h>     /* clock_gettime(), struct timespec */
-#include <unistd.h>   /* close(), read(), sysconf() */
+#include <unistd.h>   /* close(), read(), BSD pagesize(), sysconf(), _SC_PAGESIZE */
 
 #include "../containers/containers.h"
 
@@ -50,30 +50,58 @@ static int c_errno(void) {
 }
 
 enum {
-  e_pid          = 0,  /* int64 */
-  e_uid          = 1,  /* int64 */
-  e_gid          = 2,  /* int64 */
-  e_ppid         = 3,  /* int64 */
-  e_pgid         = 4,  /* int64 */
-  e_sid          = 5,  /* int64 */
-  e_mem_resident = 6,  /* bytes, uint64 */
-  e_mem_virtual  = 7,  /* bytes, uint64 */
-  e_start_time   = 8,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
-  e_user_time    = 10, /* duration, timespec */
-  e_sys_time     = 12, /* duration, timespec */
-  e_iowait_time  = 14, /* duration, timespec */
-  e_priority     = 16, /* int64  */
-  e_num_thread   = 17, /* int64  */
-  e_min_fault    = 18, /* uint64 */
-  e_maj_fault    = 19, /* uint64 */
-  e_state        = 20, /* char   */
-  e_byte_n       = e_state * 8 + 1,
+  e_pid         = 0,  /* int64 */
+  e_uid         = 1,  /* int64 */
+  e_gid         = 2,  /* int64 */
+  e_ppid        = 3,  /* int64 */
+  e_pgid        = 4,  /* int64 */
+  e_sid         = 5,  /* int64 */
+  e_mem_rss     = 6,  /* bytes, uint64 */
+  e_mem_virt    = 7,  /* bytes, uint64 */
+  e_start_time  = 8,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
+  e_user_time   = 10, /* duration, timespec */
+  e_sys_time    = 12, /* duration, timespec */
+  e_iowait_time = 14, /* duration, timespec */
+  e_priority    = 16, /* int64  */
+  e_num_thread  = 17, /* int64  */
+  e_min_fault   = 18, /* uint64 */
+  e_maj_fault   = 19, /* uint64 */
+  e_state       = 20, /* char   */
+  e_byte_n      = e_state * 8 + 1,
 };
+
+static size_t get_os_pagesize(void) {
+  static size_t os_pagesize = 0; /* OS page size, in bytes */
+
+  size_t n = os_pagesize;
+  if (n == 0) {
+#ifdef _SC_PAGESIZE
+    long val = sysconf(_SC_PAGESIZE);
+    if (val > 0) {
+      n = (size_t)val;
+    } else
+#endif
+
+    /*else */ {
+#ifdef __FreeBSD__
+      n = getpagesize();
+#elif defined(PAGESIZE) && PAGESIZE > 0
+      n = PAGESIZE;
+#else
+      n = 4096; /* guess */
+#endif
+    }
+    os_pagesize = n; /* cache for future calls */
+  }
+  return n;
+}
 
 #if defined(__linux__)
 #include "process_linux.h"
 #elif defined(__APPLE__)
 #include "process_macos.h"
+#elif defined(__FreeBSD__)
+#include "process_freebsd.h"
 #else
 #include "process_unsupported.h"
 #endif
