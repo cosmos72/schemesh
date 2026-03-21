@@ -106,16 +106,18 @@ static int schemesh_load_library(const char* override_library_dir) {
        "        (lambda ()\n"
        "          (load-compiled-from-port\n"
        "            (open-bytevector-input-port bv))\n"
-       "          (collect (collect-maximum-generation))\n"
        "          #t)))))\n"); /* success -> return #t */
   iptr size = libschemesh_so_end - libschemesh_so_start;
-  ptr  bv   = Smake_bytevector(size, 0);
+  ptr  bv;
   int  ret;
 
   (void)override_library_dir;
+  Slock_object(func_load);
+  bv = Smake_bytevector(size, 0);
 
   memcpy(Sbytevector_data(bv), libschemesh_so_start, size);
   ret = Scall1(func_load, bv) ? 0 : -1;
+  Sunlock_object(func_load);
 
   schemesh_unmap(petite_boot_start, petite_boot_end);
   schemesh_unmap(scheme_boot_start, scheme_boot_end);
@@ -161,5 +163,7 @@ static int schemesh_load_library(const char* override_library_dir) {
 #endif
 
 static void schemesh_import_all_libraries(void) {
-  scheme2k_eval("(import (schemesh))");
+  scheme2k_eval("(begin\n"
+                "  (import (schemesh))\n"
+                "  (collect (collect-maximum-generation)))\n");
 }
