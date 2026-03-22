@@ -633,7 +633,7 @@
     (put-string port "#<dir-reader")
     (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (dir-reader-path rx) port)
-    (put-string port ">")))
+    (put-char port #\>)))
 
 
 ;; customize how "dir-entry" objects are printed

@@ -55,29 +55,29 @@
 ;;;      28 => datum is (void) needed inside a message, where 0-byte tag cannot be represented
 ;;;      29 => datum is (eof-object)
 ;;;      30 => datum is (bwp-object)
-;;;      31 => datum is character:         1 byte
-;;;      32 => datum is character:         2 byte, little endian
-;;;      33 => datum is character:         3 bytes, little endian
-;;;      34 => datum is box:               followed by unboxed tag+datum
-;;;      35 => datum is pair:              encoded as 2 tag+datum: car, cdr
-;;;      36 => datum is one-element list:  encoded as tag+datum: car
-;;;      37 => datum is improper list:     n encoded as u32, followed by n tag+datum: elements
-;;;      38 => datum is proper list:       n encoded as u32, followed by n tag+datum: elements
-;;;      39 => datum is vector:        n encoded as vlen, followed by n tag+datum
-;;;      40 => datum is bytevector:    n encoded as vlen, followed by n bytes
-;;;      41 => datum is string8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      42 => datum is string16:      n encoded as vlen, followed by characters each encoded as 2 bytes
-;;;      43 => datum is string24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      44 => datum is fxvector:      n encoded as vlen, followed by n tag+datum
-;;;      45 => datum is flvector:      n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
-;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
-;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      49 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
-;;;      50 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
-;;;      51 => datum is hashtable:     hash function name encoded as symbol, checked against a whitelist
-;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
-;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
+;;;      31 => datum is character:        1 byte
+;;;      32 => datum is character:        2 byte, little endian
+;;;      33 => datum is character:        3 bytes, little endian
+;;;      34 => datum is box:              followed by unboxed tag+datum
+;;;      35 => datum is pair:             encoded as 2 tag+datum: car, cdr
+;;;      36 => datum is one-element list: encoded as tag+datum: car
+;;;      37 => datum is improper list:    n encoded as u32, followed by n tag+datum: elements
+;;;      38 => datum is proper list:      n encoded as u32, followed by n tag+datum: elements
+;;;      39 => datum is vector:           n encoded as vlen, followed by n tag+datum
+;;;      40 => datum is bytevector:       n encoded as vlen, followed by n bytes
+;;;      41 => datum is string8:          n encoded as vlen, followed by characters each encoded as 1 byte
+;;;      42 => datum is string16:         n encoded as vlen, followed by characters each encoded as 2 bytes
+;;;      43 => datum is string24:         n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      44 => datum is fxvector:         n encoded as vlen, followed by n tag+datum
+;;;      45 => datum is flvector:         n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
+;;;      46 => datum is symbol8:          n encoded as vlen, followed by characters each encoded as 1 byte
+;;;      47 => datum is symbol16:         n encoded as vlen, followed by characters each encoded as 2 bytes
+;;;      48 => datum is symbol24:         n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      49 => datum is eq-hashtable:     n encoded as vlen, followed by 2 * n tag+datum
+;;;      50 => datum is eqv-hashtable:    n encoded as vlen, followed by 2 * n tag+datum
+;;;      51 => datum is hashtable:        hash function name encoded as symbol, checked against a whitelist
+;;;                                         followed by equal function name encoded as symbol, checked against a whitelist
+;;;                                         followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;;      52 => datum is eq-ordered-hash:  n encoded as vlen, followed by 2 * n tag+datum
 ;;;      53 => datum is eqv-ordered-hash: n encoded as vlen, followed by 2 * n tag+datum
 ;;;      54 => datum is ordered-hash:     hash function name encoded as symbol, checked against a whitelist
@@ -164,7 +164,7 @@
     (put-string port "#<wire-reader")
     (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (unbox (wire-reader-in-box rx)) port)
-    (put-string port ">")))
+    (put-char port #\>)))
 
 
 ;; customize how "wire-writer" objects are printed
@@ -173,7 +173,7 @@
     (put-string port "#<wire-writer")
     (put-string port (if (writer-eof? tx) " eof " " ok "))
     (writer (unbox (wire-writer-out-box tx)) port)
-    (put-string port ">")))
+    (put-char port #\>)))
 
 
 (begin

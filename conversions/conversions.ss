@@ -73,7 +73,7 @@
                                         (put-datum  port (condition-irritants c)))
               ((who-condition? c)       (put-string port " &who ")
                                         (put-datum  port (condition-who c))))))
-        (put-string port ">")))))
+        (put-char port #\>)))))
 
 (define (display-any x port)
   (if (condition? x)
