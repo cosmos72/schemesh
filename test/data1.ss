@@ -19,7 +19,7 @@
   (bytespan-capacity-right (bytespan 1 2 3))        3
   (bytespan-empty? (bytespan))                     #t
   (bytespan-empty? (bytespan 250))                 #f
-  (bytespan-ref-right/u8 (bytespan 251 252))            252
+  (bytespan-ref-right/u8 (bytespan 251 252) 0)     252
   (bytespan-ref/u8 (bytespan 252 253 254 255) 2)   254
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan v)))

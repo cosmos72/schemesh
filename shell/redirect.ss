@@ -619,7 +619,7 @@
             (slash 47))
         (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
           (let ((bspan (charspan->utf8b job-dir)))
-            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan)))
+            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan 0)))
               ;; append / after job's directory if missing
               (bytespan-insert-right/u8! bspan slash))
             (bytespan-insert-right/bytevector! bspan bvec)

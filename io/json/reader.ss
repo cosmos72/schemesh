@@ -373,7 +373,7 @@
     (bytespan-set/u8! st (fx1- (bytespan-length st)) state)))
 
 (define (state rx)
-  (bytespan-ref-right/u8 (json-reader-stack rx)))
+  (bytespan-ref-right/u8 (json-reader-stack rx) 0))
 
 (define (atomic-value-token? tok)
   (not (or (char? tok) (eof-object? tok))))

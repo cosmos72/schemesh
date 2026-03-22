@@ -162,8 +162,8 @@
   (let ((rx (make-csv-reader
               (open-bytevector-input-port
                 (string->utf8b
-                  " a , b , , 789 ")))))
-    (all rx))                                           ,@"((name a name b name #<void> name 789))"
+                  "a , b, c ,d,e\n x , y , , 78.9 ,123e99\n\n")))))
+    (all rx))                                           ((a\x20; " x " \x20;b " y " \x20;c\x20; " " d " 78.9 " e 1.23e101) ())
 
   ;; ---------------------------- json-reader ----------------------------------
 

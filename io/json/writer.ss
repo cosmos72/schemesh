@@ -182,7 +182,7 @@
             (bytespan-display-right/unsigned-k-digits! wbuf fraction*1e16 16)
             ;; remove least significant zeroes
             (do ()
-                ((not (fx=? 48 (bytespan-ref-right/u8 wbuf))))
+                ((not (fx=? 48 (bytespan-ref-right/u8 wbuf 0))))
               (bytespan-delete-right! wbuf 1)))))))
   (put-bytespan out wbuf))
 

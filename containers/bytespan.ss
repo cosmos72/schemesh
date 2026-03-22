@@ -142,9 +142,9 @@
   (assert* 'bytespan-ref/u8 (fx<? -1 idx (bytespan-length sp)))
   (bytevector-u8-ref (bytespan-vec sp) (fx+ idx (bytespan-beg sp))))
 
-(define (bytespan-ref-right/u8 sp)
-  (assert* 'bytespan-ref-right/u8 (not (bytespan-empty? sp)))
-  (bytevector-u8-ref (bytespan-vec sp) (fx1- (bytespan-end sp))))
+(define (bytespan-ref-right/u8 sp idx)
+  (assert* 'bytespan-ref-right/u8 (fx<? -1 idx (bytespan-length sp)))
+  (bytevector-u8-ref (bytespan-vec sp) (fx- (bytespan-end sp) (fx1+ idx))))
 
 (define (bytespan-set/u8! sp idx u8)
   (assert* 'bytespan-set/u8! (fx<? -1 idx (bytespan-length sp)))

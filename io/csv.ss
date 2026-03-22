@@ -27,14 +27,15 @@
   (parent reader)
   (fields
     in-box              ; box containing either #f or binary input port
-    rbuf                ; bytespan, read buffer
-    close-in?)          ; boolean, #t if closing the csv-reader must close in.
+    close-in?           ; boolean, #t if closing the csv-reader must close in.
+    (mutable cols)      ; #f or list of column name
+    rbuf)               ; bytespan, read buffer
   (protocol
     (lambda (args->new)
       (lambda (in close-in?)
         ((args->new csv-reader-get #f csv-reader-close)
-          (box in) (bytespan) (and close-in? #t)))))
-  (nongenerative csv-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+          (box in) (and close-in? #t) #f (bytespan)))))
+  (nongenerative csv-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define make-csv-reader
@@ -52,6 +53,7 @@
   (let ((b (get-u8 in)))
     (and (fixnum? b) b)))
 
+
 ;; peek next byte and return it, or #f on EOF
 (define (peek-byte in)
   (let ((b (lookahead-u8 in)))
@@ -59,55 +61,57 @@
 
 
 (define (trim rbuf)
-  (while (and (not (bytespan-empty? rbuf)) (fx<=? (bytespan-ref/u8 rbuf 0) 32))
+  (while (and (not (bytespan-empty? rbuf)) (fx<? (bytespan-ref/u8 rbuf 0) 32))
     (bytespan-delete-left! rbuf 1))
-  (while (and (not (bytespan-empty? rbuf)) (fx<=? (bytespan-ref-right/u8 rbuf) 32))
-    (bytespan-delete-right! rbuf 1))
-  rbuf)
+  (while (and (not (bytespan-empty? rbuf)) (fx<? (bytespan-ref-right/u8 rbuf 0) 32))
+    (bytespan-delete-right! rbuf 1)))
 
 
 ;; convert rbuf to number if possible, otherwise convert it to string
-(define (to-item rbuf)
+(define (to-item rbuf header?)
+  (trim rbuf)
   (if (bytespan-empty? rbuf)
-    (void)
+    (if header? "name" (void))
     ;; TODO: parse as exact number if no exponent
     (let ((str (utf8b-bytespan->string rbuf)))
-      (or (string->number str) str))))
+      (if header?
+        str
+        (or (string->number str) str)))))
 
 
-(define (csv-reader-get-quoted in rbuf)
+(define (csv-reader-get-quoted in rbuf header?)
   (read-byte in) ; consume #\"
   (bytespan-clear! rbuf)
-  (let %loop ((b (peek-byte in)) (in in) (rbuf rbuf))
+  (let %loop ((b (peek-byte in)))
     (case b
       ((#f)
-        (to-item rbuf))
+        (to-item rbuf header?))
       ((34)
         (read-byte in) ; consume #\"
         (if (eqv? 34 (peek-byte in))
           (begin
             (bytespan-insert-right/u8! rbuf b)
             (read-byte in) ; consume #\"
-            (%loop (peek-byte in) in rbuf))
-          (to-item rbuf)))
+            (%loop (peek-byte in)))
+          (to-item rbuf header?)))
       (else
         (bytespan-insert-right/u8! rbuf b)
-        (%loop (peek-byte in) in rbuf)))))
+        (%loop (peek-byte in))))))
 
 
-(define (csv-reader-get-unquoted in rbuf)
+(define (csv-reader-get-unquoted in rbuf header?)
   (bytespan-clear! rbuf)
-  (let %loop ((b (peek-byte in)) (in in) (rbuf rbuf))
+  (let %loop ((b (peek-byte in)))
     (case b
       ((#f 10 13 44) ; EOF #\newline #\return #\,
-        (to-item (trim rbuf)))
+        (to-item rbuf header?))
       (else
         (bytespan-insert-right/u8! rbuf b)
         (read-byte in) ; consume b
-        (%loop (peek-byte in) in rbuf)))))
+        (%loop (peek-byte in))))))
 
 
-(define (csv-reader-get-token in rbuf)
+(define (csv-reader-get-token in rbuf header?)
   (let ((u8 (lookahead-u8 in)))
     (if (eof-object? u8)
       'eof
@@ -117,28 +121,57 @@
           'nl)
         ((13) ; #\return
           (get-u8 in)
-          (csv-reader-get-token in rbuf))
+          (csv-reader-get-token in rbuf header?))
         ((34) ; #\"
-          (csv-reader-get-quoted in rbuf))
+          (csv-reader-get-quoted in rbuf header?))
         ((44) ; #\,
           (get-u8 in)
           'comma)
         (else
-          (csv-reader-get-unquoted in rbuf))))))
+          (csv-reader-get-unquoted in rbuf header?))))))
 
 
+;; parse column names and return them as a symbol list
+(define (csv-reader-get-columns rx)
+  (let ((in   (unbox (csv-reader-in-box rx)))
+        (rbuf (csv-reader-rbuf rx)))
+    (let %csv-reader-columns ((cols '()) (comma? #f))
+      (let ((token (csv-reader-get-token in rbuf #t)))
+        (case token
+          ((nl eof) (reverse! cols))
+          ((comma)  (%csv-reader-columns (if comma? cols (cons 'name cols)) #f))
+          (else     (%csv-reader-columns (cons (string->symbol token) cols) #t)))))))
+          
+
+;; if column names are already parsed, return them.
+;; otherwise parse them, store them in csv-reader-cols and and return them
+(define (csv-reader-columns rx)
+  (or (csv-reader-cols rx)
+      (let ((cols (csv-reader-get-columns rx)))
+        (csv-reader-cols-set! rx cols)
+        cols)))
+
+
+;; return (values plist #t) containing next CSV entry,
+;; or (values #<unspecified> #f) on EOF
 (define (csv-reader-get rx)
-  (let %csv-reader-get ((in     (unbox (csv-reader-in-box rx)))
-                        (rbuf   (csv-reader-rbuf rx))
-                        (ret    '())
-                        (comma? #f))
-    ;; TODO: parse first line as column names
-    (let ((token (csv-reader-get-token in rbuf)))
-      (case token
-        ((nl)    (values (reverse! ret) #t))
-        ((eof)   (values (reverse! ret) (not (null? ret))))
-        ((comma) (%csv-reader-get in rbuf (if comma? ret (cons (void) (cons 'name ret))) #f))
-        (else    (%csv-reader-get in rbuf (cons token (cons 'name ret))                  #t))))))
+  (let ((in   (unbox (csv-reader-in-box rx)))
+        (rbuf (csv-reader-rbuf rx)))
+    (let %csv-reader-get ((ret '()) (comma? #f) (cols (csv-reader-columns rx)))
+      (let ((token (csv-reader-get-token in rbuf #f)))
+        (case token
+          ((nl)    (values (reverse! ret) #t))
+          ((eof)   (values (reverse! ret) (not (null? ret))))
+          ((comma) (if comma?
+                     (%csv-reader-get ret #f cols)
+                     (let* ((col  (if (null? cols) 'name (car cols)))
+                            (cols (if (null? cols) cols (cdr cols)))
+                            (ret  (cons (void) (cons col ret))))
+                       (%csv-reader-get ret #f cols))))
+          (else     (let* ((col  (if (null? cols) 'name (car cols)))
+                           (cols (if (null? cols) cols (cdr cols)))
+                           (ret  (cons token (cons col ret))))
+                      (%csv-reader-get ret #t cols))))))))
 
 
 (define (csv-reader-close rx)

@@ -281,7 +281,7 @@
 ;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
 (define (charspan->utf8b/0 csp)
   (let ((bsp (charspan->utf8b csp)))
-    (when (or (bytespan-empty? bsp) (not (fxzero? (bytespan-ref-right/u8 bsp))))
+    (when (or (bytespan-empty? bsp) (not (fxzero? (bytespan-ref-right/u8 bsp 0))))
       (bytespan-insert-right/u8! bsp 0))
     bsp))
 
