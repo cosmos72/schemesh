@@ -188,8 +188,8 @@
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
-                  "[] [4.5] [] {\"<type>\":\"base64\", \"value\":\"ABCdef7890==\"}")))))
-    (all rx))                                           (9/2 #vu8(0 16 157 121 254 252 247))
+                  "[] [4.5] [{}] {\"<type>\":\"base64\", \"value\":\"ABCdef7890==\"}")))))
+    (all rx))                                           (9/2 () #vu8(0 16 157 121 254 252 247))
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))
