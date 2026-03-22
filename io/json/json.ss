@@ -24,7 +24,8 @@
                                           bytespan-display-right/integer! bytespan-display-right/unsigned-k-digits!
                                           bytespan-insert-right/bytevector! bytespan-insert-right/u8!
                                           bytespan-length bytespan-peek-beg bytespan-peek-data bytespan-peek-end
-                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!)
+                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8! bytespan-resize-right!
+                                          bytespan->real)
     (only (scheme2k containers date)      date date->string string->date)
     (only (scheme2k containers hashtable) eq-hashtable)
     (only (scheme2k containers list)      for-plist plist? plist-add plist-ref)

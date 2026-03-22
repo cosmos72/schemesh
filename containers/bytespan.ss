@@ -35,12 +35,12 @@
     in-bytespan bytespan-iterate subbytespan*
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
-    latin1-bytespan->string)
+    bytespan->real latin1-bytespan->string)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- meta-cond record-writer void)
-    (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
+    (only (scheme2k bootstrap) assert* assert-not* fx<=?* trace-define)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
 
@@ -644,14 +644,113 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; latin1-bytespan->string ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (latin1-bytespan->string sp)
-  (do ((i   0  (fx1+ i))
-       (pos (bytespan-peek-beg sp) (fx1+ pos))
-       (end (bytespan-peek-end sp))
-       (bv  (bytespan-peek-data sp))
-       (str (make-string (bytespan-length sp))))
-      ((fx>=? pos end) str)
-    (string-set! str i (integer->char (bytevector-u8-ref bv pos)))))
+
+(define latin1-bytespan->string
+  (case-lambda
+    ((sp start end)
+      (assert* 'latin1-bytespan->string (fx<=?* 0 start end (bytespan-length sp)))
+      (let* ((str    (make-string (fx- end start)))
+             (bv     (bytespan-peek-data sp))
+             (offset (bytespan-peek-beg sp))
+             (start  (fx+ start offset))
+             (end    (fx+ end offset)))
+        (do ((i   0     (fx1+ i))
+             (pos start (fx1+ pos)))
+            ((fx>=? pos end) str)
+          (string-set! str i (integer->char (bytevector-u8-ref bv pos))))))
+    ((sp)
+      (latin1-bytespan->string sp 0 (bytespan-length sp)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; bytespan->exact-real ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (valid-sign sp start end)
+  (and
+    (fx<? start end)
+    (let ((b (bytespan-ref/u8 sp start)))
+      (cond
+        ((fx<=? 48 b 57) ; #\0 .. #\9
+          start)
+        ((or (fx=? b 43) (fx=? b 45)) ; #\+ #\-
+          (fx1+ start))
+        (else
+          #f)))))
+
+
+(define (valid-dot? sp dot start end)
+  (and (fx<=? start dot (fx1- end))
+       (fx=? (bytespan-ref/u8 sp dot) 46))) ; #\.
+
+
+(define (valid-exponent? sp dot exponent start end)
+  (and (fx<? (or dot start) exponent (fx1- end))
+       (memv (bytespan-ref/u8 sp exponent) '(69 101)))) ; #\E #\e
+
+
+(define (valid-unsigned-digits? sp start end min-digit-n)
+  (and (fx>=? (fx- end start) min-digit-n)
+       (do ((pos start (fx1+ pos)))
+           ((or (fx>=? pos end)
+                (not (fx<=? 48 (bytespan-ref/u8 sp pos) 57)))
+            (fx>=? pos end)))))
+
+
+(define (valid-signed-digits? sp start end min-digit-n)
+  (let ((start (valid-sign sp start end)))
+    (and start (valid-unsigned-digits? sp start end min-digit-n))))
+
+
+(define (valid-real-digits? sp dot exponent)
+  (let* ((len   (bytespan-length sp))
+         (start (valid-sign sp 0 len)))
+    (and start
+         (fx>=? (or exponent len) (if dot 2 1))
+         (valid-unsigned-digits? sp start (or dot exponent len) (if dot 0 1))
+         (or (not dot)
+             (and (valid-dot? sp dot start len)
+                  (valid-unsigned-digits? sp (fx1+ dot) (or exponent len) 0)))
+         (or (not exponent)
+             (and (valid-exponent? sp dot exponent start len)
+                  (valid-signed-digits? sp (fx1+ exponent) len 1))))))
+
+
+;; convert bytespan to exact real number and return it.
+;; or #f if bytespan contains invalid digits
+(define (bytes->exact-real sp dot)
+  (let* ((end     (bytespan-length sp))
+         (integer (exact (string->number (latin1-bytespan->string sp 0 (or dot end))))))
+    (if dot
+      (let* ((start    (fx1+ dot))
+             (fraction (if dot (exact (string->number (latin1-bytespan->string sp start end))) 0))
+             (scaled   (* fraction (expt 1/10 (fx- end start)))))
+        (if (fx=? 45 (bytespan-ref/u8 sp 0)) ; #\-
+          (- integer scaled)
+          (+ integer scaled)))
+      integer)))
+
+
+;; convert bytespan to real number and return it.
+;; or #f if bytespan contains invalid digits
+;;
+;; convention: exponent means it's an inexact number,
+;;          no exponent means it's an exact number.
+(define bytespan->real
+  (case-lambda
+    ((sp dot exponent)
+      (and
+        (valid-real-digits? sp dot exponent)
+        (if exponent
+          (string->number (latin1-bytespan->string sp))
+          (bytes->exact-real sp dot))))
+    ((sp)
+      (bytespan->real
+        sp
+        (bytespan-index sp 46) ; #\.
+        (or (bytespan-index sp 101) ; #\e
+            (bytespan-index sp 69))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -16,9 +16,10 @@
   (import
     (rnrs)
     (only (chezscheme)                   box box-cas! record-writer reverse! unbox void)
-    (only (scheme2k bootstrap)           assert* while)
+    (only (scheme2k bootstrap)           assert* raise-errorf while)
     (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-empty? bytespan-delete-left! bytespan-delete-right!
-                                         bytespan-insert-right/u8! bytespan-is-signed-base10-integer? bytespan-ref/u8 bytespan-ref-right/u8)
+                                         bytespan-insert-right/u8! bytespan-is-signed-base10-integer? bytespan-ref/u8 bytespan-ref-right/u8
+                                         bytespan->real)
     (only (scheme2k containers utf8b)    utf8b-bytespan->string)
     (only (scheme2k io obj)              reader reader-eof?))
 
@@ -60,23 +61,21 @@
     (and (fixnum? b) b)))
 
 
-(define (trim rbuf)
-  (while (and (not (bytespan-empty? rbuf)) (fx<? (bytespan-ref/u8 rbuf 0) 32))
+(define (trim! rbuf)
+  (while (and (not (bytespan-empty? rbuf)) (fx<=? (bytespan-ref/u8 rbuf 0) 32))
     (bytespan-delete-left! rbuf 1))
-  (while (and (not (bytespan-empty? rbuf)) (fx<? (bytespan-ref-right/u8 rbuf 0) 32))
+  (while (and (not (bytespan-empty? rbuf)) (fx<=? (bytespan-ref-right/u8 rbuf 0) 32))
     (bytespan-delete-right! rbuf 1)))
 
 
-;; convert rbuf to number if possible, otherwise convert it to string
+;; convert rbuf to real number if possible, otherwise convert it to string
 (define (to-item rbuf header?)
-  (trim rbuf)
   (if (bytespan-empty? rbuf)
     (if header? "name" (void))
-    ;; TODO: parse as exact number if no exponent
-    (let ((str (utf8b-bytespan->string rbuf)))
-      (if header?
-        str
-        (or (string->number str) str)))))
+    (if header?
+      (utf8b-bytespan->string rbuf)
+      (or (bytespan->real rbuf)
+          (utf8b-bytespan->string rbuf)))))
 
 
 (define (csv-reader-get-quoted in rbuf header?)
@@ -96,6 +95,7 @@
           (to-item rbuf header?)))
       (else
         (bytespan-insert-right/u8! rbuf b)
+        (read-byte in) ; consume b
         (%loop (peek-byte in))))))
 
 
@@ -104,7 +104,12 @@
   (let %loop ((b (peek-byte in)))
     (case b
       ((#f 10 13 44) ; EOF #\newline #\return #\,
+        ;; RFC 4180 states: Spaces are considered part of a field and should not be ignored.
+        ;; We ignore it and trim unquoted fields
+        (trim! rbuf)
         (to-item rbuf header?))
+      ((34)
+        (raise-errorf 'csv-reader-get "~s not allowed in unquoted field" #\"))
       (else
         (bytespan-insert-right/u8! rbuf b)
         (read-byte in) ; consume b
@@ -112,23 +117,23 @@
 
 
 (define (csv-reader-get-token in rbuf header?)
-  (let ((u8 (lookahead-u8 in)))
-    (if (eof-object? u8)
-      'eof
-      (case u8
-        ((10) ; #\newline
-          (get-u8 in)
-          'nl)
-        ((13) ; #\return
-          (get-u8 in)
-          (csv-reader-get-token in rbuf header?))
-        ((34) ; #\"
-          (csv-reader-get-quoted in rbuf header?))
-        ((44) ; #\,
-          (get-u8 in)
-          'comma)
-        (else
-          (csv-reader-get-unquoted in rbuf header?))))))
+  (let ((u8 (peek-byte in)))
+    (case u8
+      ((#f)
+       'eof)
+      ((10) ; #\newline
+        (read-byte in)
+        'nl)
+      ((13) ; #\return
+        (read-byte in)
+        (csv-reader-get-token in rbuf header?))
+      ((34) ; #\"
+        (csv-reader-get-quoted in rbuf header?))
+      ((44) ; #\,
+        (read-byte in)
+        'comma)
+      (else
+        (csv-reader-get-unquoted in rbuf header?)))))
 
 
 ;; parse column names and return them as a symbol list

@@ -267,7 +267,7 @@
           (bytes-append! bytes b)
           (parse-exponent in bytes))))
 
-    (bytes->number bytes dot exponent)))
+    (bytes->real bytes dot exponent)))
 
 
 ;; parse zero or more base-10 digits
@@ -299,27 +299,12 @@
   (parse-digits in bytes))
 
 
-(define (bytes->exact-number bytes dot)
-  (let* ((integer         (string->number (bytes->string bytes 0 dot)))
-         (fraction-start  (fx1+ dot))
-         (fraction-end    (bytespan-length bytes))
-         (fraction        (string->number (bytes->string bytes fraction-start fraction-end)))
-         (scaled-fraction (* fraction (expt 1/10 (fx- fraction-end fraction-start)))))
-    (if (fx=? 45 (bytespan-ref/u8 bytes 0)) ; #\-
-      (- integer scaled-fraction)
-      (+ integer scaled-fraction))))
-
-
-(define (bytes->number bytes dot exponent)
-  (cond
-    ((not bytes)
-      0)
+(define (bytes->real bytes dot exponent)
+  (if bytes
     ;; convention: exponent means it's an inexact number,
     ;;          no exponent means it's an exact number
-    ((and dot (not exponent))
-      (bytes->exact-number bytes dot))
-    (else
-      (string->number (bytes->string bytes)))))
+    (bytespan->real bytes dot exponent)
+    0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Literal parsing
