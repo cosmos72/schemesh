@@ -405,7 +405,7 @@
 
 (define (validate-done rx tok)
   (unless (eof-object? tok)
-    (raise-json "trailing token ~s after top-level value" tok)))
+    (raise-json "trailing token ~s after top-level value. To parse NDJSON, call (json-reader-restart) after each JSON document" tok)))
 
 
 (define (validate-array-expect-value rx tok)
@@ -640,6 +640,7 @@
     (case tok0
       ((#\[)
         (let %deserialize-array ((rx rx) (sp (span)) (elem (deserialize rx)))
+          ;; (debugf "json-reader deserialize rx ~s, sp ~s, elem ~s" rx sp elem)
           (cond
             ((or (eof-object? elem) (eqv? elem #\]))
               sp)
@@ -684,8 +685,12 @@
         (when (fxzero? depth)
           ;; skip start of top-level json array, we want its elements one by one
           (json-reader-skip-token rx))
-        ;; deserialize one json value
-        (to-item (deserialize rx)))
+        (skip-ws in)
+        (if (eqv? (lookahead-u8 in) 93) ; #\]
+          (begin ;; skip empty array and retry
+            (json-reader-skip-token rx)
+            (%json-reader-get rx))
+          (to-item (deserialize rx)))) ;; deserialize one json value
       ((44 93) ; #\, #\]
         ;; found end of top-level json array,
         ;; or separator between elements in top-level json array.

@@ -172,22 +172,24 @@
               (open-bytevector-input-port
                 (string->utf8b
                   ;; we parse json numbers as inexact only if number contains "e..."
-                  "[1, 2.3, 2.3e0, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
+                  "[] [1, 2.3, 2.3e0, true, false] {\"a\": \"\\u20ac\"} \"foo\"")))))
     (let* ((obj1        (json-reader-get-value rx))
            (obj2 (begin (json-reader-restart rx)
                         (json-reader-get-value rx)))
            (obj3 (begin (json-reader-restart rx)
                         (json-reader-get-value rx)))
-           (obj4        (json-reader-get-value rx)))
-      (list (span? obj1) obj1 obj2 obj3
-            (eof-object? obj4))))                       ,(#t (span 1 23/10 2.3 #t #f) (a "\x20ac;") "foo" #t)
+           (obj4 (begin (json-reader-restart rx)
+                        (json-reader-get-value rx)))
+           (obj5        (json-reader-get-value rx)))
+      (list obj1 obj2 obj3 obj4 (eof-object? obj5))))   ,((span) (span 1 23/10 2.3 #t #f) (a "\x20ac;") "foo" #t)
 
 
+  ;; (reader-get) returns one-by-one the elements of top-level JSON arrays
   (let ((rx (make-json-reader
               (open-bytevector-input-port
                 (string->utf8b
-                  "{\"<type>\":\"base64\", \"value\":\"ABCdef7890==\"}")))))
-    (all rx))                                           (#vu8(0 16 157 121 254 252 247))
+                  "[] [4.5] [] {\"<type>\":\"base64\", \"value\":\"ABCdef7890==\"}")))))
+    (all rx))                                           (9/2 #vu8(0 16 157 121 254 252 247))
 
 
   (let-values (((out bv-proc) (open-bytevector-output-port)))

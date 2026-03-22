@@ -76,9 +76,10 @@ static ptr c_process_open(void) {
   if (!procs) {
     return Sinteger(c_errno()); /* < 0 */
   }
-  procs->kp  = kinfo_getallproc(&procs->count);
   procs->pos = 0;
-  if (procs == NULL || procs->count < 0) {
+  procs->kp  = kinfo_getallproc(&procs->count);
+  if (procs->kp == NULL || procs->count < 0) {
+    free(procs->kp);
     free(procs);
     return Sinteger(c_errno()); /* < 0 */
   }

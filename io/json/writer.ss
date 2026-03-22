@@ -361,7 +361,7 @@
   (let ((out (json-writer-out tx))
         (first? #t))
     (put-u8 out 123) ; #\{
-    (for ((k v (in-htable obj)))
+    (for ((k v (in-htable obj))) ;; obj may be a hashtable or a ordered-hash
       (write/key+value tx first? k v)
       (set! first? #f))
     (put-u8 out 125))) ; #\}
