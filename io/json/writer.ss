@@ -44,9 +44,8 @@
 (define make-json-writer
   (case-lambda
     ((out close-out? cache)
-      (assert* 'make-json-writer (port? out))
-      (assert* 'make-json-writer (binary-port? out))
       (assert* 'make-json-writer (output-port? out))
+      (assert* 'make-json-writer (binary-port? out))
       (%make-json1-writer out close-out? cache 'ndjson))
     ((out close-out?)
       (make-json-writer out close-out? #f))
@@ -73,9 +72,8 @@
 (define make-json1-writer
   (case-lambda
     ((out close-out? cache)
-      (assert* 'make-json1-writer (port? out))
-      (assert* 'make-json1-writer (binary-port? out))
       (assert* 'make-json1-writer (output-port? out))
+      (assert* 'make-json1-writer (binary-port? out))
       (%make-json1-writer out close-out? cache 'json))
     ((out close-out?)
       (make-json1-writer out close-out? #f))

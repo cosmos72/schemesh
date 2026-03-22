@@ -7,10 +7,7 @@
 
 #!r6rs
 
-;;; high-level procedures for reading from and writing to ports.
-;;;
-;;; procedure names and effect are intentionally compatible with
-;;; https://docs.racket-lang.org/reference/port-lib.html
+;;; base64 encoding and decoding procedures.
 ;;;
 (library (scheme2k io base64 (1 0 0))
   (export base64-string->bytevector bytevector->base64-string bytespan-insert-right/base64! put-base64)

@@ -158,6 +158,13 @@
   (base64-string->bytevector
     (bytevector->base64-string #vu8(0 31 128 201 253))) #vu8(0 31 128 201 253)
 
+  ;; ---------------------------- csv-reader -----------------------------------
+  (let ((rx (make-csv-reader
+              (open-bytevector-input-port
+                (string->utf8b
+                  " a , b , , 789 ")))))
+    (all rx))                                           ,@"((name a name b name #<void> name 789))"
+
   ;; ---------------------------- json-reader ----------------------------------
 
   ;; parse only whitespace. not a valid json, but accepted by (reader-get #<json-reader>)

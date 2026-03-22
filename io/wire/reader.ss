@@ -64,8 +64,8 @@
         (assert* 'make-wire-reader (fixnum? in))
         (assert* 'make-wire-reader (fx>=? in 0)))
       ((port? in)
-        (assert* 'make-wire-reader (binary-port? in))
-        (assert* 'make-wire-reader (input-port? in)))
+        (assert* 'make-wire-reader (input-port? in))
+        (assert* 'make-wire-reader (binary-port? in)))
       (else
         (raise-assertf 'make-wire-reader "(or (number? in) (port? in) (not in))"  in)))))
 

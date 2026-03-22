@@ -216,26 +216,26 @@
 ;; from (linectx-stdin lctx) and append them to (linectx-rbuf lctx).
 ;; return number of read bytes, or 0 on timeout, or -1 on eof or I/O error.
 (define (linectx-read-some lctx max-n read-timeout-milliseconds)
-  (let* ((fd   (linectx-stdin lctx))
+  (let* ((in   (linectx-stdin lctx))
          (rbuf (linectx-rbuf lctx))
          (rlen (bytespan-length rbuf))
          (got  0)
          (eof? #f))
     (bytespan-reserve-right! rbuf (fx+ rlen max-n))
     (try
-      (if (fixnum? fd)
-        ;; fd is a file descriptor -> call (fd-select) then (fd-read)
+      (if (fixnum? in)
+        ;; in is a file descriptor -> call (fd-select) then (fd-read)
         ;; fd-select raises exception on I/O errors,
-        (when (eq? 'read (fd-select fd 'read read-timeout-milliseconds))
+        (when (eq? 'read (fd-select in 'read read-timeout-milliseconds))
           (let ((end (bytespan-peek-end rbuf)))
             ;; fd-read-noretry raises exception on I/O errors,
             ;; and returns #t if interrupted.
-            (set! got (fd-read-noretry fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
+            (set! got (fd-read-noretry in (bytespan-peek-data rbuf) end (fx+ end max-n))))
           (set! eof? (eqv? 0 got)) ; means end of file
           (unless (and (integer? got) (> got 0))
             (set! got 0))) ; #t means interrupted
-        ; fd is a binary input port -> call (get-bytevector-n!)
-        (let ((n (get-bytevector-n! fd (bytespan-peek-data rbuf)
+        ; in is a binary input port -> call (get-bytevector-n!)
+        (let ((n (get-bytevector-n! in (bytespan-peek-data rbuf)
                                        (bytespan-peek-end rbuf) max-n)))
           (when (fixnum? n)
             (set! got n)

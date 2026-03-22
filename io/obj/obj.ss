@@ -61,7 +61,7 @@
 
 
 ;; private reimplementation of (list-reverse->vector)
-;; avoids circular dependency with (scheme2k containser list)
+;; avoids circular dependency with (scheme2k containers list)
 ;;
 ;; create and return a vector that contains
 ;; list elements in reverse order.

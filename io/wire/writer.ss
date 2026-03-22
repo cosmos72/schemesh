@@ -71,8 +71,8 @@
         (assert* 'make-wire-writer (fixnum? out))
         (assert* 'make-wire-writer (fx>=? out 0)))
       ((port? out)
-        (assert* 'make-wire-writer (binary-port? out))
-        (assert* 'make-wire-writer (output-port? out)))
+        (assert* 'make-wire-writer (output-port? out))
+        (assert* 'make-wire-writer (binary-port? out)))
       (else
         (raise-assertf 'make-wire-writer "(or (number? out) (port? out) (not out))"  out)))))
 

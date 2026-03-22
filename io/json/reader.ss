@@ -58,9 +58,8 @@
 (define make-json-reader
   (case-lambda
     ((in close-in? cache)
-      (assert* 'make-json-reader (port? in))
-      (assert* 'make-json-reader (binary-port? in))
       (assert* 'make-json-reader (input-port? in))
+      (assert* 'make-json-reader (binary-port? in))
       (when cache
         (assert* 'make-json-reader (hashtable? cache))
         (assert* 'make-json-reader (eq? eq? (hashtable-equivalence-function cache))))

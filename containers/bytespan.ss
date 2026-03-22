@@ -22,6 +22,7 @@
     bytespan-reserve-left! bytespan-reserve-right! bytespan-resize-left! bytespan-resize-right!
 
     bytespan-delete-left! bytespan-delete-right! bytespan-index
+    bytespan-is-unsigned-base10-integer? bytespan-is-signed-base10-integer?
 
     bytespan-display-left/fixnum! bytespan-display-left/integer!
     bytespan-display-right/fixnum! bytespan-display-right/integer!
@@ -441,6 +442,36 @@
         (and pos (fx- pos offset))))
     ((sp byte-or-pred)
       (bytespan-index sp 0 (bytespan-length sp) byte-or-pred))))
+
+
+;; return #t if byte interpreted as ASCII is a decimal digit 0..9
+(define (byte-is-decimal-digit? b)
+  (fx<=? 48 b 57))
+
+
+;; return #t if obj is a non-empty bytespan containing only decimal digits.
+(define bytespan-is-unsigned-base10-integer?
+  (case-lambda
+    ((obj start end)
+      (if (and (bytespan? obj) (fx<? start end))
+        (do ((i start (fx1+ i)))
+            ((or (fx>=? i end) (not (byte-is-decimal-digit? (bytespan-ref/u8 obj i))))
+              (fx>=? i end)))
+        #f))
+    ((obj)
+      (and (bytespan? obj) (bytespan-is-unsigned-base10-integer? obj 0 (bytespan-length obj))))))
+
+
+;; return #t if obj is a non-empty bytespan containing only decimal digits, possibly prefixed by "-"
+(define (bytespan-is-signed-base10-integer? obj)
+  (let ((n (bytespan-length obj)))
+    (cond
+      ((fxzero? n)
+        #f)
+      ((fx=? 45 (bytespan-ref/u8 obj 0)) ; #\-
+        (bytespan-is-unsigned-base10-integer? obj 1 n))
+      (else
+        (bytespan-is-unsigned-base10-integer? obj 0 n)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -14,6 +14,7 @@
   (import
     (scheme2k io auto)
     (scheme2k io base64)
+    (scheme2k io csv)
     (scheme2k io field)
     (scheme2k io json)
     (scheme2k io obj)

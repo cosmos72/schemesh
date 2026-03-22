@@ -1093,14 +1093,6 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
        (caddr args)))
 
 
-(define (try-string->number str)
-  (try
-    (let ((num (string->number str)))
-      (and (real? num) num))
-    (catch (ex)
-      #f)))
-
-
 (define (where-equal? obj str-value num-value)
   (cond
     ((string? obj) (string=? obj str-value))
@@ -1176,7 +1168,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
     (let* ((name      (first-string args))
            (str-op    (second-string args))
            (str-value (third-string args))
-           (num-value (and str-value (try-string->number str-value))))
+           (num-value (and str-value (string->number str-value))))
       (unless str-value
         (raise-errorf 'where "invalid comparison arguments: ~s" args))
       (let ((op (hashtable-ref parse-where/operators str-op #f)))
