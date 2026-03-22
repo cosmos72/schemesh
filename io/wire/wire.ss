@@ -86,12 +86,15 @@
 ;;       55 ... 88  => datum is a known symbol
 ;;;      89 ... 242 => datum is a user-registered record type
 ;;;     243 ... 253 => datum is a pre-registered record type
-;;;     254 => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
-;;;     255 => datum starts with extended tag
+;;;     254 => datum starts with extended tag
+;;;     255 => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
 
 
 (library (scheme2k io wire (1 0 0))
-  (export datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
+  (export make-wire-reader wire-reader wire-reader?
+          make-wire-writer wire-writer wire-writer?
+
+          datum->wire wire->datum datum->wire-length wire-get-from-bytevector wire-get-from-bytespan wire-put-to-bytespan
           wire-put-magic-to-bytespan wire-register-rtd  wire-register-rtd-reflect  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           ;; and that cannot be handled by functions (wire-register-rtd...)
@@ -101,24 +104,25 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) box box? bwp-object? bytevector bytevector->immutable-bytevector
-                       bytevector-ieee-double-ref bytevector-ieee-double-set!
-                       bytevector-s24-ref         bytevector-s24-set!
-                       bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ cflonum? current-time date-year date-month date-day date-hour date-minute
-                       date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
-                       fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
-                       include integer-length logbit? make-fxvector make-time meta-cond procedure-arity-mask
-                       reverse! time? time=? time-type time-second time-nanosecond unbox void)
+    (only (chezscheme)       box box? box-cas! bwp-object? bytevector bytevector->immutable-bytevector
+                             bytevector-ieee-double-ref bytevector-ieee-double-set!
+                             bytevector-s24-ref         bytevector-s24-set!
+                             bytevector-u24-ref         bytevector-u24-set!
+                             cfl= cfl+ cflonum? current-time date-year date-month date-day date-hour date-minute
+                             date-second date-nanosecond date-zone-offset enum-set? fl-make-rectangular
+                             fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
+                             include integer-length logbit? make-fxvector make-time meta-cond procedure-arity-mask
+                             record-writer reverse! time? time=? time-type time-second time-nanosecond unbox void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (scheme2k bootstrap)               assert* bwp-object fx<=?* raise-errorf)
-    (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-insert-right/bytevector!
-                                             bytespan-length bytespan-peek-beg bytespan-peek-data
+    (only (scheme2k bootstrap)               assert* bwp-object check-interrupts fx<=?* raise-assertf raise-errorf)
+    (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-clear! bytespan-delete-left!
+                                             bytespan-insert-right/bytevector! bytespan-length
+                                             bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                              bytespan-reserve-right! bytespan-resize-right! bytevector->bytespan*)
     (only (scheme2k containers bytevector)   bytevector-hash bytevector-sint-ref* bytevector-sint-set*! subbytevector=?)
     (only (scheme2k containers charspan)     charspan charspan-length charspan-ref charspan-set! make-charspan)
@@ -133,9 +137,13 @@
     (only (scheme2k containers span)         make-span span span-length span-ref span-set!)
     (only (scheme2k containers time)         duration)
     (only (scheme2k containers utf8b)        integer->char*)
+    (only (scheme2k posix fd)                fd-close fd-read-insert-right! fd-write-all)
     (only (scheme2k posix fs)                make-dir-entry dir-entry)
     (only (scheme2k posix rlimit)            rlimit rlimit-type)
-          (scheme2k posix status))
+          (scheme2k posix status)
+    (only (scheme2k io obj)                  reader reader-get reader-eof? reader-close reader-skip
+                                             writer writer-put writer-eof? writer-close)
+    (only (scheme2k io port)                 read-bytes-insert-right!))
 
 
 (include "io/wire/constants.ss")
@@ -146,6 +154,27 @@
 (include "io/wire/container.ss")
 (include "io/wire/misc.ss")
 (include "io/wire/status.ss")
+(include "io/wire/reader.ss")
+(include "io/wire/writer.ss")
+
+
+;; customize how "wire-reader" objects are printed
+(record-writer (record-type-descriptor wire-reader)
+  (lambda (rx port writer)
+    (put-string port "#<wire-reader")
+    (put-string port (if (reader-eof? rx) " eof " " ok "))
+    (writer (unbox (wire-reader-in-box rx)) port)
+    (put-string port ">")))
+
+
+;; customize how "wire-writer" objects are printed
+(record-writer (record-type-descriptor wire-writer)
+  (lambda (tx port writer)
+    (put-string port "#<wire-writer")
+    (put-string port (if (writer-eof? tx) " eof " " ok "))
+    (writer (unbox (wire-writer-out-box tx)) port)
+    (put-string port ">")))
+
 
 (begin
   (wire-register-rtd (record-rtd (duration 0 0))     tag-time         len/time       get/time         put/time)

@@ -67,12 +67,12 @@
   (include "io/port.ss")            ; requires io/stdio.ss
   (include "io/table/table.ss")     ; requires reflect/reflect.ss
   (include "io/wire/wire.ss")       ; requires io/posix/status.ss
+  (include "io/auto.ss")            ; requires io/json/json.ss io/wire/wire.ss
   (include "io/io.ss")
 
   (include "ipc/fifo.ss")
   (include "ipc/queue.ss")
-  (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
-  (include "ipc/auto.ss")           ; requires io/json/json.ss ipc/wire/wire.ss
+  (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss posix/socket.ss
   (include "ipc/ipc.ss")
 
   (include "os/process.ss")

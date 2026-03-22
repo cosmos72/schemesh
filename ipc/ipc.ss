@@ -8,7 +8,6 @@
 ;; define (scheme2k ipc) as a library that exports all its imported bindings
 (library-reexport (scheme2k ipc (1 0 0))
   (import
-    (scheme2k ipc auto)
     (scheme2k ipc fifo)
     (scheme2k ipc queue)
     (scheme2k ipc wire)))

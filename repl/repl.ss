@@ -47,15 +47,15 @@
                                           linectx-prompt-end-x linectx-save-history linectx-width
                                           lineedit-clear! lineedit-flush lineedit-read
                                           lineterm-write/u8)
+    (only (scheme2k io auto)         make-auto-reader)
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer make-json1-writer)
     (only (scheme2k io name0)        make-name0-reader)
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
-    (only (scheme2k ipc auto)        make-auto-reader)
+    (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
-    (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k os)              make-process-reader)
     (only (schemesh parser)          make-parsectx* parse-forms parser-name parsers to-parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)

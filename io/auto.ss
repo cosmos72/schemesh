@@ -9,18 +9,18 @@
 #!r6rs
 
 
-(library (scheme2k ipc auto (1 0 0))
+(library (scheme2k io auto (1 0 0))
   (export
     auto-reader auto-reader? make-auto-reader)
   (import
     (rnrs)
-    (only (chezscheme)                   fx1+ record-writer)
-    (only (scheme2k bootstrap)           assert*)
-    (only (scheme2k io json)             make-json-reader)
-    (only (scheme2k ipc wire)            make-wire-reader)
-    (only (scheme2k io obj)              empty-reader
-                                         nested-reader nested-reader-inner nested-reader-inner-set!
-                                         reader-eof? reader-get reader-skip reader-close))
+    (only (chezscheme)                 fx1+ record-writer)
+    (only (scheme2k bootstrap)         assert*)
+    (only (scheme2k io json)           make-json-reader)
+    (only (scheme2k io wire)           make-wire-reader)
+    (only (scheme2k io obj)            empty-reader
+                                       nested-reader nested-reader-inner nested-reader-inner-set!
+                                       reader-eof? reader-get reader-skip reader-close))
 
 
 ;; Reader that autodetects protocol upon the first call to (reader-get) or (reader-skip)
@@ -71,7 +71,6 @@
       (close-port in))))
 
 
-
 ;; Autodetect protocol if it's the first call to (reader-get) or (reader-skip),
 ;; otherwise just return inner reader
 (define (auto-reader-inner rx)
@@ -96,6 +95,7 @@
       (else
         (make-json-reader in close-in?)))))
 
+
 ;; customize how "auto-reader" objects are printed
 (record-writer (record-type-descriptor auto-reader)
   (lambda (rx port writer)
@@ -103,5 +103,6 @@
     (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (or (nested-reader-inner rx) (auto-reader-in rx)) port)
     (put-char port #\>)))
+
 
 ) ; close library
