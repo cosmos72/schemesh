@@ -16,6 +16,7 @@
     (rnrs)
     (only (chezscheme)                 fx1+ record-writer)
     (only (scheme2k bootstrap)         assert*)
+    (only (scheme2k io csv)            make-csv-reader)
     (only (scheme2k io json)           make-json-reader)
     (only (scheme2k io wire)           make-wire-reader)
     (only (scheme2k io obj)            empty-reader
@@ -82,18 +83,25 @@
           inner))))
 
 
+(define (peek-byte in)
+  (let ((b (lookahead-u8 in)))
+    (and (fixnum? b) b)))
+
+
 ;; Autodetect protocol and return an appropriate reader
 (define (auto-reader-make-inner rx)
   (let* ((close-in? (auto-reader-close-in? rx))
          (in        (auto-reader-in rx))
-         (u8        (and in (lookahead-u8 in))))
-    (cond
-      ((not (fixnum? u8))
+         (b         (and in (peek-byte in))))
+    (case b
+      ((#f)
         (empty-reader)) ; port is #f, or EOF reading from it
-      ((fx=? 7 u8)
+      ((7)
         (make-wire-reader in close-in?))
+      ((91 123) ; #\[ #\{
+        (make-json-reader in close-in?))
       (else
-        (make-json-reader in close-in?)))))
+        (make-csv-reader in close-in?)))))
 
 
 ;; customize how "auto-reader" objects are printed

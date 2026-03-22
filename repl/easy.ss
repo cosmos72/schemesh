@@ -211,6 +211,17 @@
 ;;; from-....
 
 
+;; easy wrapper for (make-csv-reader)
+(define from-csv
+  (case-lambda
+    ((in close-in?)
+      (make-csv-reader in close-in?))
+    ((in)
+      (make-csv-reader in #f))
+    (()
+      (make-csv-reader (sh-port #f 0 'binary) #f))))
+
+
 ;; easy wrapper for (make-json-reader)
 (define from-json
   (case-lambda
@@ -280,6 +291,7 @@
   (case-lambda
     ((in close-in? options)
       (cond
+        ((some-string-is? options "--from-csv")   (from-csv   in close-in?))
         ((some-string-is? options "--from-json")  (from-json  in close-in?))
         ((some-string-is? options "--from-name0") (from-name0 in close-in?))
         ((some-string-is? options "--from-wire")  (from-wire  in close-in?))
@@ -298,6 +310,7 @@
   (case-lambda
     ((options)
       (cond
+        ((some-string-is? options "--from-csv")   (from-csv))
         ((some-string-is? options "--from-json")  (from-json))
         ((some-string-is? options "--from-name0") (from-name0))
         ((some-string-is? options "--from-wire")  (from-wire))
@@ -743,7 +756,8 @@
     (unless (null? (cdr args))
       (raise-errorf 'from "too many arguments"))
     (let* ((arg (car args))
-           (from (cond ((string=? arg "json")   from-json)
+           (from (cond ((string=? arg "csv")    from-csv)
+                       ((string=? arg "json")   from-json)
                        ((string=? arg "name0")  from-name0)
                        ((string=? arg "wire")   from-wire)
                        (else                    from-stdin))))
