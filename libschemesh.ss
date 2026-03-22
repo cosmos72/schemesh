@@ -72,6 +72,7 @@
   (include "ipc/fifo.ss")
   (include "ipc/queue.ss")
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss
+  (include "ipc/auto.ss")           ; requires io/json/json.ss ipc/wire/wire.ss
   (include "ipc/ipc.ss")
 
   (include "os/process.ss")

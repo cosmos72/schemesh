@@ -5,6 +5,8 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
+#!r6rs
+
 ;;; high-level procedures for reading from and writing to ports.
 ;;;
 ;;; procedure names and effect are intentionally compatible with

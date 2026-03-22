@@ -43,7 +43,8 @@
     readers-writers-collect
 
     ;; obj/nested-reader.ss
-    nested-reader nested-reader? nested-reader-inner nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
+    nested-reader nested-reader? nested-reader-inner nested-reader-inner-set!
+    nested-reader-inner-get nested-reader-inner-eof? nested-reader-inner-close nested-reader-inner-skip
 
     ;; obj/range-reader.ss
     make-range-reader range-reader range-reader?

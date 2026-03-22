@@ -53,6 +53,7 @@
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
+    (only (scheme2k ipc auto)        make-auto-reader)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k ipc wire)        make-wire-reader  make-wire-writer)
     (only (scheme2k os)              make-process-reader)

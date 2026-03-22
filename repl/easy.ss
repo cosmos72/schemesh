@@ -262,10 +262,20 @@
       (make-wire-reader (sh-port #f 0 'binary) #f))))
 
 
+;; easy wrapper for (make-auto-reader)
+(define from-auto
+  (case-lambda
+    ((in close-in?)
+      (make-auto-reader in close-in?))
+    ((in)
+      (make-auto-reader in #f))
+    (()
+      (make-auto-reader (sh-port #f 0 'binary) #f))))
+
+
 ;; Dispatch to one of (from-...) functions depending on options
 ;;
 ;; If no options, create a reader that autodetects protocol upon the first call to (reader-get)
-;; FIXME: currently creates a json-reader
 (define from-port
   (case-lambda
     ((in close-in? options)
@@ -275,8 +285,8 @@
         ((some-string-is? options "--from-wire")  (from-wire  in close-in?))
         (else                                     (from-port  in close-in?))))
     ((in close-in?)
-      ;; FIXME: autodetect protocol upon the first call to (reader-get)
-      (from-json in close-in?))
+      ;; autodetect protocol upon the first call to (reader-get)
+      (from-auto in close-in?))
     ((in)
       (from-port in #f))))
 
@@ -284,7 +294,6 @@
 ;; Dispatch to one of (from-...) functions depending on options
 ;;
 ;; If no options, create a reader that autodetects protocol upon the first call to (reader-get)
-;; FIXME: currently creates a json-reader
 (define from-stdin
   (case-lambda
     ((options)
@@ -292,10 +301,10 @@
         ((some-string-is? options "--from-json")  (from-json))
         ((some-string-is? options "--from-name0") (from-name0))
         ((some-string-is? options "--from-wire")  (from-wire))
-        (else                                     (from-stdin))))
+        (else                                     (from-auto))))
     (()
-      (from-json)))) ;; FIXME: autodetect protocol upon the first call to (reader-get)
-
+      ;; autotedect protocol upon first call to (reader-get)
+      (from-auto))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; to-....

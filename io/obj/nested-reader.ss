@@ -14,7 +14,7 @@
 (define-record-type (nested-reader %make-nested-reader nested-reader?)
   (parent reader)
   (fields
-    inner)  ;; wrapped reader
+    (mutable inner))  ;; wrapped reader
   (protocol
     (lambda (args->new)
       (lambda (get-proc skip-proc close-proc inner)
@@ -25,21 +25,30 @@
 
 ;; can be called by subtypes to detect EOF in the inner reader
 (define (nested-reader-inner-eof? rx)
-  (reader-eof? (nested-reader-inner rx)))
+  (let ((inner (nested-reader-inner rx)))
+    (if inner (reader-eof? inner) #t)))
 
 
 ;; can be called by subtypes to close the inner reader
 (define (nested-reader-inner-close rx)
-  (reader-close (nested-reader-inner rx)))
+  (let ((inner (nested-reader-inner rx)))
+    (when inner
+      (reader-close inner))))
 
 
 ;; can be called by subtypes to get next element from the inner reader
 (define (nested-reader-inner-get rx)
-  (reader-get (nested-reader-inner rx)))
+  (let ((inner (nested-reader-inner rx)))
+    (if inner
+      (reader-get inner)
+      (values #f #f))))
 
 
 ;; can be called by subtypes to skip next element from the inner reader
 (define (nested-reader-inner-skip rx)
-  (reader-skip (nested-reader-inner rx)))
+  (let ((inner (nested-reader-inner rx)))
+    (if inner
+      (reader-skip inner)
+      #f)))
 
 
