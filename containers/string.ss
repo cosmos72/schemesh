@@ -438,8 +438,8 @@
       (if (char? char-or-predicate)
         (string-index-right/char str char-or-predicate start end)
         (string-index-right/pred str char-or-predicate start end)))
-    ((str predicate)
-      (string-index-right str predicate 0 (string-length str)))))
+    ((str char-or-predicate)
+      (string-index-right str char-or-predicate 0 (string-length str)))))
 
 
 ;; destructively replace each occurrence of old-char with new-char in string str.

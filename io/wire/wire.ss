@@ -86,8 +86,8 @@
 ;;       55 ... 88  => datum is a known symbol
 ;;;      89 ... 242 => datum is a user-registered record type
 ;;;     243 ... 253 => datum is a pre-registered record type
-;;;     254 => datum starts with extended tag
-;;;     255 => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
+;;;     254         => datum starts with extended tag
+;;;     255         => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
 
 
 (library (scheme2k io wire (1 0 0))

@@ -58,7 +58,7 @@
   (include "posix/posix.ss")
 
   (include "io/base64.ss")
-  (include "io/csv.ss")
+  (include "io/csv/csv.ss")
   (include "io/field.ss")           ; requires reflect/reflect.ss
   (include "io/name0.ss")           ; requires containers/utf8b.ss
   (include "io/redir.ss")

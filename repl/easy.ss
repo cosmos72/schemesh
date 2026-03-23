@@ -323,6 +323,17 @@
 ;;; to-....
 
 
+;; easy wrapper for (make-csv-writer)
+(define to-csv
+  (case-lambda
+    ((rx out close-out?)
+      (copy-all/close rx (make-csv-writer out close-out?)))
+    ((rx out)
+      (to-csv rx out #f))
+    ((rx)
+      (to-csv rx (sh-port #f 1 'binary)))))
+
+
 ;; easy wrapper for (make-json-writer)
 (define to-json
   (case-lambda
@@ -415,15 +426,15 @@
           (set! args (cons e args)))))))
 
 
-;; given a list of strings containing program name followed by mixed args and options,
+;; given a list of strings containing mixed args and options,
 ;; return two values:
 ;;   a list of all strings not starting with "--" or found after "--"
 ;;   a list of all strings starting with "--" and found before "--"
-(define (split-double-hyphens prog-and-args)
+(define (split-double-hyphens args-and-opts)
   (let ((args    '())
         (options '())
         (options? #t))
-    (do ((l (cdr prog-and-args) (cdr l))) ; skip program name
+    (do ((l args-and-opts (cdr l)))
         ((null? l)
          (values (reverse! args) (reverse! options)))
       (let ((e (car l)))
@@ -451,6 +462,7 @@
   (case-lambda
     ((rx options)
       (cond
+        ((some-string-is? options "--to-csv")   (to-csv    rx))
         ((some-string-is? options "--to-json")  (to-json   rx))
         ((some-string-is? options "--to-json1") (to-json1  rx))
         ((some-string-is? options "--to-table") (to-table  rx))
@@ -685,13 +697,14 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-dir job prog-and-args options)
-  (let-values (((paths options) (split-args-and-options prog-and-args)))
+  (let*-values (((paths options)    (split-args-and-options prog-and-args))
+                ((dir-opts to-opts) (split-double-hyphens options)))
     ;; if no paths specified, list current directory
     (let* ((paths (if (null? paths) (list (sh-cwd)) paths))
 
            ;; hide files starting with "." by default. option -a shows them
            (opts (fxior
-                   (if (some-string-contains? options "a")
+                   (if (some-string-contains? dir-opts "a")
                      (dir-reader-options)
                      (dir-reader-options dir-hide-dot-files))
                    (if (null? (cdr paths))
@@ -699,18 +712,18 @@
                      ;; two or more paths => add each path as prefix
                      (dir-reader-options dir-path-as-prefix))))
 
-           (list-dirs-not-their-contents? (some-string-contains? options "d"))
+           (list-dirs-not-their-contents? (some-string-contains? dir-opts "d"))
 
            (rx (make-file-stat-or-dir-readers paths opts list-dirs-not-their-contents?))
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (rx (cond
-                ((some-string-contains? options "v")
+                ((some-string-contains? dir-opts "v")
                   rx)
-                ((some-string-contains? options "l")
+                ((some-string-contains? dir-opts "l")
                   (select rx name type size link modified accessed mode user group))
                 (else
                   (select rx name type size link modified mode)))))
-      (to-stdout (sort-by rx name) options))))
+      (to-stdout (sort-by rx name) to-opts))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -939,7 +952,8 @@
     (unless (null? (cdr args))
       (raise-errorf 'to "too many arguments"))
     (let* ((arg (car args))
-           (to (cond ((string=? arg "json")   to-json)
+           (to (cond ((string=? arg "csv")    to-csv)
+                     ((string=? arg "json")   to-json)
                      ((string=? arg "json1")  to-json1)
                      ((string=? arg "table")  to-table)
                      ((string=? arg "wire")   to-wire)
@@ -1067,7 +1081,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-ulimit job prog-and-args options)
-  (let-values (((args options) (split-double-hyphens prog-and-args)))
+  (let-values (((args options) (split-double-hyphens (cdr prog-and-args)))) ; skip program name
     (let ((parsed (ulimit-parse-args args)))
       (if (status? parsed)
         parsed
@@ -1245,7 +1259,7 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-where job prog-and-args options)
-  (let-values (((args options) (split-double-hyphens prog-and-args)))
+  (let-values (((args options) (split-double-hyphens (cdr prog-and-args)))) ; skip program name
     (let* ((proc (parse-where args))
            (rx   (from-stdin options))
            (rx   (make-filter-reader rx proc)))

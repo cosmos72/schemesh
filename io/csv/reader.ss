@@ -7,29 +7,17 @@
 
 #!r6rs
 
+;; this file should be included only by file io/csv/csv.ss
+
+
 ;;; CSV reader
 ;;;
-(library (scheme2k io csv (1 0 0))
-  (export
-    ;; obj/reader.ss
-    make-csv-reader csv-reader csv-reader?)
-  (import
-    (rnrs)
-    (only (chezscheme)                   box box-cas! record-writer reverse! unbox void)
-    (only (scheme2k bootstrap)           assert* raise-errorf while)
-    (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-empty? bytespan-delete-left! bytespan-delete-right!
-                                         bytespan-insert-right/u8! bytespan-is-signed-base10-integer? bytespan-ref/u8 bytespan-ref-right/u8
-                                         bytespan->real)
-    (only (scheme2k containers utf8b)    utf8b-bytespan->string)
-    (only (scheme2k io obj)              reader reader-eof?))
-
-
 (define-record-type (csv-reader %make-csv-reader csv-reader?)
   (parent reader)
   (fields
     in-box              ; box containing either #f or binary input port
     close-in?           ; boolean, #t if closing the csv-reader must close in.
-    (mutable cols)      ; #f or list of column name
+    (mutable cols)      ; #f or list of symbols: the column names
     rbuf)               ; bytespan, read buffer
   (protocol
     (lambda (args->new)
@@ -104,8 +92,8 @@
   (let %loop ((b (peek-byte in)))
     (case b
       ((#f 10 13 44) ; EOF #\newline #\return #\,
-        ;; RFC 4180 states: Spaces are considered part of a field and should not be ignored.
-        ;; We ignore it and trim unquoted fields
+        ;; RFC 4180 says: Spaces are considered part of a field and should not be ignored.
+        ;; Trim unquoted fields anyway.
         (trim! rbuf)
         (to-item rbuf header?))
       ((34)
@@ -186,14 +174,3 @@
     ;; close fd or port only if wire-reader or wire-writer own them
     (when (and in (box-cas! in-box in #f) (csv-reader-close-in? rx))
       (close-port in))))
-
-
-;; customize how "csv-reader" objects are printed
-(record-writer (record-type-descriptor csv-reader)
-  (lambda (rx port writer)
-    (put-string port "#<csv-reader ")
-    (put-string port (if (reader-eof? rx) " eof " " ok "))
-    (writer (unbox (csv-reader-in-box rx)) port)
-    (put-char port #\>)))
-
-) ; close library

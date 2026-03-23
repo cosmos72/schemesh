@@ -49,6 +49,38 @@
       (make-auto-reader in #f))))
 
 
+(define (peek-byte in)
+  (let ((b (lookahead-u8 in)))
+    (and (fixnum? b) b)))
+
+
+;; Autodetect protocol and return an appropriate reader
+(define (auto-reader-make-inner rx)
+  (let* ((close-in? (auto-reader-close-in? rx))
+         (in        (auto-reader-in rx))
+         (b         (and in (peek-byte in))))
+    (case b
+      ((#f)
+        (empty-reader)) ; port is #f, or EOF reading from it
+      ((7)
+        (make-wire-reader in close-in?))
+      ((91 123) ; #\[ #\{
+        (make-json-reader in close-in?))
+      (else
+        (make-csv-reader in close-in?)))))
+
+
+;; Autodetect protocol if it's the first call to (reader-get) or (reader-skip),
+;; otherwise just return inner reader
+(define (auto-reader-inner rx)
+  (let ((inner (nested-reader-inner rx)))
+    (or inner
+        (let ((inner (auto-reader-make-inner rx)))
+          (auto-reader-in-set! rx #f)
+          (nested-reader-inner-set! rx inner)
+          inner))))
+
+
 ;; Autodetect protocol if it's the first call to (reader-get) or (reader-skip),
 ;; otherwise just call (reader-get) on the inner reader
 (define (auto-reader-get rx)
@@ -70,38 +102,6 @@
     (when in
       (auto-reader-in-set! rx #f)
       (close-port in))))
-
-
-;; Autodetect protocol if it's the first call to (reader-get) or (reader-skip),
-;; otherwise just return inner reader
-(define (auto-reader-inner rx)
-  (let ((inner (nested-reader-inner rx)))
-    (or inner
-        (let ((inner (auto-reader-make-inner rx)))
-          (auto-reader-in-set! rx #f)
-          (nested-reader-inner-set! rx inner)
-          inner))))
-
-
-(define (peek-byte in)
-  (let ((b (lookahead-u8 in)))
-    (and (fixnum? b) b)))
-
-
-;; Autodetect protocol and return an appropriate reader
-(define (auto-reader-make-inner rx)
-  (let* ((close-in? (auto-reader-close-in? rx))
-         (in        (auto-reader-in rx))
-         (b         (and in (peek-byte in))))
-    (case b
-      ((#f)
-        (empty-reader)) ; port is #f, or EOF reading from it
-      ((7)
-        (make-wire-reader in close-in?))
-      ((91 123) ; #\[ #\{
-        (make-json-reader in close-in?))
-      (else
-        (make-csv-reader in close-in?)))))
 
 
 ;; customize how "auto-reader" objects are printed
