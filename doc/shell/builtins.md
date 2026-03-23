@@ -376,6 +376,7 @@ Options:
 
 Arguments:
 * `auto` autodetect input format
+* `csv`  assume input format is CSV
 * `json` assume input format is JSON or NDJSON
 * `wire` assume input format is WIRE
 
@@ -561,6 +562,7 @@ Options:
 
 Arguments:
 * `auto` choose output format depending on standard output: terminal => ascii-art table, socket => WIRE, else => NDJSON
+* `csv` write data using CSV format
 * `json` write data using NDJSON format
 * `json1` write data using JSON format
 * `table` write data as ascii-art table
@@ -628,14 +630,15 @@ Return success, unless an invalid option is supplied or an error occurs.
 
 Example:
 ```shell
-ulimit -c -d -e -f --to-json
+ulimit -c -d -e -f --to-csv
 ```
 possible output:
 ```
-{"<type>":"rlimit","name":"coredump-size","soft":0,"hard":"unlimited"}
-{"<type>":"rlimit","name":"data-size","soft":"unlimited","hard":"unlimited"}
-{"<type>":"rlimit","name":"nice","soft":0,"hard":0}
-{"<type>":"rlimit","name":"file-size","soft":"unlimited","hard":"unlimited"}
+"<type>","name","soft","hard"
+"rlimit","coredump-size",0,"unlimited"
+"rlimit","data-size","unlimited","unlimited"
+"rlimit","nice",0,0
+"rlimit","file-size","unlimited","unlimited"
 ```
 
 #### where
