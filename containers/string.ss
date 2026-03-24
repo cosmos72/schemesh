@@ -518,31 +518,35 @@
 ;; return the leftmost position, starting from 0, containing different characters,
 ;; or n if the two ranges contain the same characters
 (define string-count=
-  (case-lambda
-    ((left left-start right right-start n)
-      (assert* 'string-count= (fx<=?* 0 left-start (string-length left)))
-      (assert* 'string-count= (fx<=?* 0 right-start (string-length right)))
-      (assert* 'string-count= (fx<=?* 0 n (fx- (string-length left) left-start)))
-      (assert* 'string-count= (fx<=?* 0 n (fx- (string-length right) right-start)))
-      (cond
-        ((fxzero? n)
-          n)
-        ((and (eq? left right) (fx=? left-start right-start))
-          n)
-        (else
-          (do ((i 0 (fx1+ i)))
-              ((or
-                 (fx>=? i n)
-                 (not (char=? (string-ref left (fx+ i left-start))
-                              (string-ref right (fx+ i right-start)))))
-                i)))))
-    ((left left-start right right-start)
-      (string-count= left left-start right right-start
-                     (fxmin (fx- (string-length left) left-start)
-                            (fx- (string-length right) right-start))))
-    ((left right)
-      (string-count= left 0 right 0
-                     (fxmin (string-length left) (string-length right))))))
+  (let ((c-string-count= (foreign-procedure "c_string_count_equal" (ptr fixnum ptr fixnum fixnum) fixnum)))
+    (case-lambda
+      ((left left-start right right-start n)
+        (assert* 'string-count= (fx<=?* 0 left-start (string-length left)))
+        (assert* 'string-count= (fx<=?* 0 right-start (string-length right)))
+        (assert* 'string-count= (fx<=?* 0 n (fx- (string-length left) left-start)))
+        (assert* 'string-count= (fx<=?* 0 n (fx- (string-length right) right-start)))
+        (cond
+          ((fxzero? n)
+            n)
+          ((and (eq? left right) (fx=? left-start right-start))
+            n)
+          ((fx<? n 4)
+            (do ((i 0 (fx1+ i)))
+                ((or
+                   (fx>=? i n)
+                   (not (char=? (string-ref left (fx+ i left-start))
+                                (string-ref right (fx+ i right-start)))))
+                  i)))
+          (else
+            (c-string-count= left left-start right right-start n))))
+
+      ((left left-start right right-start)
+        (string-count= left left-start right right-start
+                       (fxmin (fx- (string-length left) left-start)
+                              (fx- (string-length right) right-start))))
+      ((left right)
+        (string-count= left 0 right 0
+                       (fxmin (string-length left) (string-length right)))))))
 
 
 ;; return #t if range [left-start, left-start + n) of left string contains
@@ -608,17 +612,24 @@
 ;;   considers only matches that lie entirely in the range [str-start, str-end),
 ;;   and the returned index is either #f or a fixnum in such range.
 (define string-contains
-  (case-lambda
-    ((str key str-start str-end key-start key-end)
-      (assert* 'string-contains (fx<=?* 0 str-start str-end (string-length str)))
-      (assert* 'string-contains (fx<=?* 0 key-start key-end (string-length key)))
-      (let* ((key-len (fx- key-end key-start))
-             (last    (fx- str-end key-len)))
-        (do ((i str-start (fx1+ i)))
-            ((or (fx>? i last) (substring=? str i key key-start key-len))
-              (if (fx<=? i last) i #f)))))
-    ((str key)
-      (string-contains str key 0 (string-length str) 0 (string-length key)))))
+  (let ((c-string-contains (foreign-procedure "c_string_contains" (ptr ptr fixnum fixnum fixnum fixnum) ptr)))
+    (case-lambda
+      ((str key str-start str-end key-start key-end)
+        (assert* 'string-contains (fx<=?* 0 str-start str-end (string-length str)))
+        (assert* 'string-contains (fx<=?* 0 key-start key-end (string-length key)))
+        (cond
+          ((fx=? key-start key-end)
+            str-start)
+          ((fx<? (fx- str-end str-start) 4)
+            (let* ((key-len (fx- key-end key-start))
+                   (last    (fx- str-end key-len)))
+              (do ((i str-start (fx1+ i)))
+                  ((or (fx>? i last) (substring=? str i key key-start key-len))
+                    (and (fx<=? i last) i)))))
+          (else
+            (c-string-contains str key str-start str-end key-start key-end))))
+      ((str key)
+        (string-contains str key 0 (string-length str) 0 (string-length key))))))
 
 
 ;; return #t if string str starts with specified string prefix,

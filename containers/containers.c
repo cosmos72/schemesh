@@ -180,6 +180,66 @@ static ptr c_string_index_right_ch(ptr str, ptr ch, iptr start, iptr end) {
 }
 
 /**
+ * compare the range [lstart, lstart + n) of left string
+ * with the range [rstart, rstart + n) of right string.
+ * return the leftmost position, starting from 0, containing different characters,
+ * or n if the two ranges contain the same characters
+ */
+static iptr c_string_count_equal(ptr left, iptr lstart, ptr right, iptr rstart, iptr n) {
+  iptr llen, rlen;
+  if (Sstringp(left) && 0 <= lstart && lstart <= (llen = Sstring_length(left))) {
+    if (Sstringp(right) && 0 <= rstart && rstart <= (rlen = Sstring_length(right))) {
+      if (n <= llen - lstart && n <= rlen - rstart) {
+        if (left != right || lstart != rstart) {
+          iptr i;
+          for (i = 0; i < n; i++) {
+            if (Sstring_ref(left, lstart + i) != Sstring_ref(right, rstart + i)) {
+              return i;
+            }
+          }
+        }
+        return n;
+      }
+    }
+  }
+  return 0;
+}
+
+/**
+ * if string str contains specified string key, return index of the first occurrence,
+ * otherwise return #f.
+ *
+ * considers only matches that lie entirely in the range [sstart, send),
+ * and the returned index is either #f or a fixnum in such range.
+ */
+static ptr c_string_contains(ptr str, ptr key, iptr sstart, iptr send, iptr kstart, iptr kend) {
+  if (Sstringp(str) && 0 <= sstart && sstart <= send && send <= Sstring_length(str)) {
+    if (Sstringp(key) && 0 <= kstart && kstart <= kend && kend <= Sstring_length(key)) {
+      iptr slen = send - sstart;
+      iptr klen = kend - kstart;
+      if (klen == 0) {
+        return Sfixnum(sstart);
+      } else if (klen > slen) {
+        return Sfalse;
+      } else if (str == key && sstart == kstart) {
+        return Sfixnum(sstart);
+      } else {
+        iptr        i, n = slen - klen;
+        string_char k0 = Sstring_ref(key, kstart);
+        for (i = 0; i <= n; i++) {
+          if (Sstring_ref(str, sstart + i) == k0) {
+            if (c_string_count_equal(str, sstart + i, key, kstart, klen) == klen) {
+              return Sfixnum(sstart + i);
+            }
+          }
+        }
+      }
+    }
+  }
+  return Sfalse;
+}
+
+/**
  * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
  * which cannot be created with (integer->char).
  * They are used by UTF-8b encoding to represent bytes in the range 0x80 .. 0xFF
@@ -929,6 +989,8 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_string_index_ch", &c_string_index_ch);
   Sregister_symbol("c_string_index_right_ch", &c_string_index_right_ch);
+  Sregister_symbol("c_string_count_equal", &c_string_count_equal);
+  Sregister_symbol("c_string_contains", &c_string_contains);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
