@@ -84,7 +84,7 @@
 ;; return #f if EOF is reached without finding #\x0
 (define (%name0-reader-read-until-nul-or-eof rx port rbuf minpos)
   (let ((len (bytespan-length rbuf)))
-    (or (bytespan-index rbuf minpos len 0)
+    (or (bytespan-index rbuf 0 minpos len)
         (and port
              (%name0-reader-read-some rx port rbuf)
              (%name0-reader-read-until-nul-or-eof rx port rbuf len)))))

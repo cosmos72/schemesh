@@ -98,28 +98,29 @@
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such byte is found in range.
 (define bytevector-index
-  (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr fixnum fixnum int) ptr)))
+  (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr unsigned-8 fixnum fixnum) ptr)))
     (case-lambda
-      ((bvec start end byte-or-pred)
+      ((bvec byte-or-pred start end)
         (assert* 'bytevector-index (bytevector? bvec))
         (assert* 'bytevector-index (fx<=?* 0 start end (bytevector-length bvec)))
-        (if (fixnum? byte-or-pred)
-          (begin
+        (cond
+          ((fixnum? byte-or-pred)
             (assert* 'bytevector-index (fx<=? -128 byte-or-pred 255))
             (let ((u8 (fxand byte-or-pred 255)))
               (if (fx<? (fx- end start) 4)
                 (do ((i start (fx1+ i)))
                     ((or (fx>=? i end) (fx=? u8 (bytevector-u8-ref bvec i)))
                       (if (fx<? i end) i #f)))
-                (c-bytevector-index-u8 bvec start end u8))))
-          (begin
+                (c-bytevector-index-u8 bvec u8 start end))))
+          (else
+            (assert* 'bytevector-index (procedure? byte-or-pred))
             (assert* 'bytevector-index (logbit? 1 (procedure-arity-mask byte-or-pred)))
             (let ((pred byte-or-pred))
               (do ((i start (fx1+ i)))
                 ((or (fx>=? i end) (pred (bytevector-u8-ref bvec i)))
-                  (if (fx<? i end) i #f)))))))
+                  (and (fx<? i end) i)))))))
       ((bvec byte-or-pred)
-        (bytevector-index bvec 0 (bytevector-length bvec) byte-or-pred)))))
+        (bytevector-index bvec byte-or-pred 0 (bytevector-length bvec))))))
 
 
 ;; create and return a closure that iterates on elements of bytevector bv.

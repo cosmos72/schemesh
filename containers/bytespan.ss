@@ -435,13 +435,13 @@
 ;; Analogously to (bytevector-index), byte-or-pred can also be a fixnum in -128 ... 255.
 (define bytespan-index
   (case-lambda
-    ((sp start end byte-or-pred)
+    ((sp byte-or-pred start end)
       (assert* 'bytespan-index (fx<=?* 0 start end (bytespan-length sp)))
       (let* ((offset (bytespan-beg sp))
-             (pos    (bytevector-index (bytespan-vec sp) (fx+ offset start) (fx+ offset end) byte-or-pred)))
+             (pos    (bytevector-index (bytespan-vec sp) byte-or-pred (fx+ offset start) (fx+ offset end))))
         (and pos (fx- pos offset))))
     ((sp byte-or-pred)
-      (bytespan-index sp 0 (bytespan-length sp) byte-or-pred))))
+      (bytespan-index sp byte-or-pred 0 (bytespan-length sp)))))
 
 
 ;; return #t if byte interpreted as ASCII is a decimal digit 0..9

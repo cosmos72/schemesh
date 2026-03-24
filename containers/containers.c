@@ -108,7 +108,7 @@ static ptr c_bytevector_hash(ptr bvec) {
  * and return its position in the range [start, end)
  * return #f if no such byte was found.
  */
-static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
+static ptr c_bytevector_index_u8(ptr bvec, unsigned char value, iptr start, iptr end) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
     const octet* data = Sbytevector_data(bvec);
     const octet* match =
@@ -144,6 +144,23 @@ ptr scheme2k_Sbytevector(const char bytes[], size_t len) {
 /******************************************************************************/
 /***************************** string functions *******************************/
 /******************************************************************************/
+
+/**
+ * find first character equal to ch in string range,
+ * and return its position in the range [start, end)
+ * return #f if no such character was found.
+ */
+static ptr c_string_index_ch(ptr str, ptr ch, iptr start, iptr end) {
+  if (Sstringp(str) && Scharp(ch) && 0 <= start && start < end && end <= Sstring_length(str)) {
+    string_char c = Schar_value(ch);
+    for (; start < end; ++start) {
+      if (Sstring_ref(str, start) == c) {
+        return Sfixnum(start);
+      }
+    }
+  }
+  return Sfalse;
+}
 
 /**
  * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
@@ -893,6 +910,7 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
   Sregister_symbol("c_subbytevector_compare", &c_subbytevector_compare);
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
+  Sregister_symbol("c_string_index_ch", &c_string_index_ch);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);

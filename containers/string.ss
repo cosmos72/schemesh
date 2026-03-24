@@ -25,7 +25,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)               format fx1+ fx1- reverse! string-copy! string-truncate! void)
+    (only (chezscheme)               foreign-procedure format fx1+ fx1- logbit? procedure-arity-mask
+                                     reverse! string-copy! string-truncate! void)
     (only (scheme2k bootstrap)       assert* fx<=?* while)
     (only (scheme2k containers list) for-list list-copy*))
 
@@ -348,16 +349,19 @@
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
 (define string-index/char
-  (case-lambda
-    ((str ch start end)
-      (assert* 'string-index/char (string? str))
-      (assert* 'string-index/char (fx<=?* 0 start end (string-length str)))
-      (assert* 'string-index/char (char? ch))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (char=? ch (string-ref str i)))
-            (if (fx>=? i end) #f i))))
-    ((str ch)
-      (string-index/char str ch 0 (string-length str)))))
+  (let ((c-string-index-ch (foreign-procedure "c_string_index_ch" (ptr ptr fixnum fixnum) ptr)))
+    (case-lambda
+      ((str ch start end)
+        (assert* 'string-index/char (string? str))
+        (assert* 'string-index/char (char? ch))
+        (assert* 'string-index/char (fx<=?* 0 start end (string-length str)))
+        (if (fx<? (fx- end start) 4)
+          (do ((i start (fx1+ i)))
+              ((or (fx>=? i end) (char=? ch (string-ref str i)))
+                (if (fx>=? i end) #f i)))
+          (c-string-index-ch str ch start end)))
+      ((str ch)
+        (string-index/char str ch 0 (string-length str))))))
 
 
 ;; search string range [start, end) and return index of first character
@@ -370,10 +374,11 @@
     ((str predicate start end)
       (assert* 'string-index/pred (string? str))
       (assert* 'string-index/pred (procedure? predicate))
+      (assert* 'string-index/pred (logbit? 1 (procedure-arity-mask predicate)))
       (assert* 'string-index/pred (fx<=?* 0 start end (string-length str)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (string-ref str i)))
-            (if (fx>=? i end) #f i))))
+            (and (fx<? i end) i))))
     ((str predicate)
       (string-index/pred str predicate 0 (string-length str)))))
 
@@ -400,11 +405,11 @@
   (case-lambda
     ((str ch start end)
       (assert* 'string-index-right/char (string? str))
-      (assert* 'string-index-right/char (fx<=?* 0 start end (string-length str)))
       (assert* 'string-index-right/char (char? ch))
+      (assert* 'string-index-right/char (fx<=?* 0 start end (string-length str)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (char=? ch (string-ref str i)))
-            (if (fx<? i start) #f i))))
+            (and (fx>=? i start) i))))
     ((str ch)
       (string-index-right/char str ch 0 (string-length str)))))
 
@@ -419,10 +424,11 @@
     ((str predicate start end)
       (assert* 'string-index-right/pred (string? str))
       (assert* 'string-index-right/pred (procedure? predicate))
+      (assert* 'string-index-right/pred (logbit? 1 (procedure-arity-mask predicate)))
       (assert* 'string-index-right/pred (fx<=?* 0 start end (string-length str)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (string-ref str i)))
-            (if (fx<? i start) #f i))))
+            (and (fx>=? i start) i))))
     ((str predicate)
       (string-index-right/pred str predicate 0 (string-length str)))))
 

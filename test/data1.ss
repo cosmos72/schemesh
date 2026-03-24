@@ -11,29 +11,29 @@
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
   ;; ----------------------- bytespan -------------------------------------
-  (bytespan 1 2 3)                                 ,(bytespan 1 2 3)
-  (list->bytespan '(56 12 0 46))                   ,(bytespan 56 12 0 46)
-  (bytevector->bytespan #vu8(7 19 88 255))         ,(bytespan 7 19 88 255)
-  (bytespan->bytevector (bytespan 65 66 67))       #vu8(65 66 67)
-  (bytespan-length (bytespan 1 2 3))               3
-  (bytespan-capacity-right (bytespan 1 2 3))        3
-  (bytespan-empty? (bytespan))                     #t
-  (bytespan-empty? (bytespan 250))                 #f
-  (bytespan-ref-right/u8 (bytespan 251 252) 0)     252
-  (bytespan-ref/u8 (bytespan 252 253 254 255) 2)   254
+  (bytespan 1 2 3)                                  ,(bytespan 1 2 3)
+  (list->bytespan '(56 12 0 46))                    ,(bytespan 56 12 0 46)
+  (bytevector->bytespan #vu8(7 19 88 255))          ,(bytespan 7 19 88 255)
+  (bytespan->bytevector (bytespan 65 66 67))        #vu8(65 66 67)
+  (bytespan-length (bytespan 1 2 3))                3
+  (bytespan-capacity-right (bytespan 1 2 3))         3
+  (bytespan-empty? (bytespan))                      #t
+  (bytespan-empty? (bytespan 250))                  #f
+  (bytespan-ref-right/u8 (bytespan 251 252) 0)      252
+  (bytespan-ref/u8 (bytespan 252 253 254 255) 2)    254
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan v)))
      ;; set! does NOT propagate to the bytespan
-     (bytevector-u8-set! v 1 7) sp)                ,(bytespan 1 2 3)
+     (bytevector-u8-set! v 1 7) sp)                 ,(bytespan 1 2 3)
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan* v)))
     ;; set! propagates to the bytespan
-    (bytevector-u8-set! v 1 7)  sp)                ,(bytespan 1 7 3)
+    (bytevector-u8-set! v 1 7)  sp)                 ,(bytespan 1 7 3)
   (let ((sp (bytespan 4 5 6)))
     (bytespan-insert-right/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
   (let ((bsp (bytespan 9 10 11 12)))
     (bytespan-index bsp
-      (lambda (elem) (fx=? 11 elem))))             2
+      (lambda (elem) (fx=? 11 elem))))              2
   ;; ----------------------- vcellspan -------------------------------------
   (vcellspan #\1 #\2 #\3)                           ,(string->vcellspan "123")
   (list->vcellspan '(#\i #\j #\k #\l))              ,(string->vcellspan "ijkl")
@@ -94,8 +94,7 @@
   (let ((sp (string->charspan "asdfuiop")))
     (charspan-delete-right! sp 3) sp)              ,(string->charspan* "asdfu")
   (let ((sp (charspan #\@ #\a #\b #\c)))
-    (charspan-index sp
-      (lambda (elem) (eq? #\b elem))))             2
+    (charspan-index sp #\b))                       2
   (charspan->utf8b (string->charspan*
     "\x7c; \xdcce;\xdc98; \xdce0;\xdca4;\xdcb9; \xdcf0;\xdc90;\xdc8d;\xdc88;"))
                                                    ,(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)

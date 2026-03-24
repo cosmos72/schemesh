@@ -188,7 +188,7 @@
 (define (parse-url-protocol bv len)
   (values 0 (or (bytevector-index bv 58) 0)))
 
-(define (skip-prefix/u8 bv start end u8)
+(define (skip-prefix/u8 bv u8 start end)
   (if (and (fx<? start end)
            (fx=? u8 (bytevector-u8-ref bv start)))
     (fx1+ start) ; skip u8
@@ -200,10 +200,10 @@
     (let* ((start (skip-prefix/u8 bv start end 58)) ; skip ":"
            (start (skip-prefix/u8 bv start end 47)) ; skip "/"
            (start (skip-prefix/u8 bv start end 47)) ; skip "/"
-           (slash (bytevector-index bv start end 47))  ; #\/
-           (colon (bytevector-index bv start end 58))  ; #\:
-           (bra   (bytevector-index bv start end 91))  ; #\[
-           (ket   (bytevector-index bv start end 93))) ; #\]
+           (slash (bytevector-index bv 47 start end))  ; #\/
+           (colon (bytevector-index bv 58 start end))  ; #\:
+           (bra   (bytevector-index bv 91 start end))  ; #\[
+           (ket   (bytevector-index bv 93 start end))) ; #\]
       (if (and bra ket (fx=? start bra) (fx<? bra ket (or slash end)))
         (values (fx1+ bra) ket) ;; IPv6 address in brackets
         (values start (if (and slash colon) (fxmin slash colon) (or slash colon end)))))))
@@ -211,10 +211,10 @@
 (define (parse-url-port bv start end)
   (if (fx>=? start end)
     (values start end)
-    (let* ((start (skip-prefix/u8 bv start end 93)) ; skip "]"
-           (start (skip-prefix/u8 bv start end 58)) ; skip ":"
-           (slash (bytevector-index bv start end 47))  ; #\/
-           (quest (bytevector-index bv start end 63))) ; #\?
+    (let* ((start (skip-prefix/u8 bv 93 start end)) ; skip "]"
+           (start (skip-prefix/u8 bv 58 start end)) ; skip ":"
+           (slash (bytevector-index bv 47 start end))  ; #\/
+           (quest (bytevector-index bv 63 start end))) ; #\?
       (values start (if (and slash quest) (fxmin slash quest) (or slash quest end))))))
 
 

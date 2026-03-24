@@ -46,7 +46,7 @@
     ; (debugf "sh-autocomplete-scheme paren=~s stem=~s" paren stem)
     (if (eqv? #\" (paren-start-token paren))
        ; list contents of some directory
-       (let ((slash-pos (charspan-index-right/char stem #\/)))
+       (let ((slash-pos (charspan-index-right stem #\/)))
          (if slash-pos
            ; list contents of a directory
            (let ((dir    (%unescape-scheme-dquoted stem 0 (fx1+ slash-pos)))
@@ -87,7 +87,7 @@
                         (%expand-initial-tilde stem)
                         stem))
            (stem-len  (charspan-length stem))
-           (slash-pos (and stem? (not dollar?) (charspan-index-right/char stem #\/))))
+           (slash-pos (and stem? (not dollar?) (charspan-index-right stem #\/))))
 
       ;; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
@@ -107,7 +107,7 @@
 
 (define (%expand-initial-tilde csp)
   (let* ((len      (charspan-length csp))
-         (slash    (charspan-index/char csp 1 len #\/))
+         (slash    (charspan-index csp #\/ 1 len))
          ;; TODO: username may be the initial prefix of one or more existing usernames: autocomplete them
          (username (charspan->string csp 1 (if slash slash len)))
          (userhome (if (string-empty? username) (sh-userhome) (sh-userhome username))))
@@ -409,7 +409,7 @@
 ;; Return csp modified in-place, or a new charspan.
 (define (%escape csp char-special-pred escape-str append-str)
   (let* ((len (charspan-length csp))
-         (ret (if (charspan-index csp 0 len char-special-pred)
+         (ret (if (charspan-index csp char-special-pred 0 len)
                 (let ((ret (make-charspan 0)))
                   (charspan-reserve-right! ret (fx+ len 8))
                   (do ((i 0 (fx1+ i)))

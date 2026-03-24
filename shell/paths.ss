@@ -67,7 +67,7 @@
 ;; return #t if argument is a path i.e. a charspan that does not contain #\x0,
 ;; otherwise return #f
 (define (sh-path? obj)
-  (and (charspan? obj) (not (charspan-index/char obj #\x0))))
+  (and (charspan? obj) (not (charspan-index obj #\x0))))
 
 
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
@@ -108,7 +108,7 @@
   (let %loop ((pos start))
     (if (fx>=? pos end)
       #t
-      (let ((sep (or (charspan-index/char path pos end #\/)
+      (let ((sep (or (charspan-index path #\/ pos end)
                      end)))
         (if (proc path pos sep)
           (%loop (fx1+ sep))
@@ -118,7 +118,7 @@
 ;; given a path, return the length of its parent path.
 ;; returned length include the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
-  (let ((pos (charspan-index-right/char path #\/)))
+  (let ((pos (charspan-index-right path #\/)))
     (cond
       ((not pos)     0) ;; parent of relative path "foo" is the empty string
       ((fxzero? pos) 1) ;; keep "/" because it's the only character

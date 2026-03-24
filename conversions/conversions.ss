@@ -24,7 +24,7 @@
     (only (scheme2k containers bytespan)   bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
                                            bytespan-reserve-right! bytespan-insert-right/u8! make-bytespan)
     (only (scheme2k containers bytevector) bytevector<? bytevector-index)
-    (only (scheme2k containers charspan)   charspan? charspan-empty? charspan-index/char charspan->string)
+    (only (scheme2k containers charspan)   charspan? charspan-empty? charspan-index charspan->string)
     (only (scheme2k containers hashtable)  for-hash)
     (only (scheme2k containers list)       for-list)
     (only (scheme2k containers string)     string-index)
@@ -248,7 +248,7 @@
         (when (string-index x #\x0)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       ((charspan? x)
-        (when (charspan-index/char x #\x0)
+        (when (charspan-index x #\x0)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       (else
         (raise-assertf 'list->argv "~s is not bytevector, string or charspan" x)))

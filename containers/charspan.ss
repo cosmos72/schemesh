@@ -25,17 +25,17 @@
     charspan-insert-left/charspan!  charspan-insert-right/charspan!
     charspan-insert-left/string! charspan-insert-right/string!
     charspan-delete-left!         charspan-delete-right! charspan-iterate in-charspan
-    charspan-index charspan-index-right charspan-index/char charspan-index-right/char
+    charspan-index charspan-index-right
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
     string-replace-all) ; requires (charspan...)
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! substring-fill! void)
+    (only (chezscheme)                 fx1+ fx1- record-writer string-copy! string-truncate! substring-fill! void)
     (only (scheme2k bootstrap)         assert* assert-not* fx<=?*)
     (only (scheme2k containers list)   for-list)
-    (only (scheme2k containers string) string-index substring<? substring=? string-count=))
+    (only (scheme2k containers string) string-index string-index-right substring<? substring=? string-count=))
 
 
 (define-record-type (%charspan %make-charspan charspan?)
@@ -472,13 +472,13 @@
 ;; Return #f if no such element is found.
 (define charspan-index
   (case-lambda
-    ((sp start end predicate)
+    ((sp char-or-pred start end)
       (assert* 'charspan-index (fx<=?* 0 start end (charspan-length sp)))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (predicate (charspan-ref sp i)))
-            (if (fx>=? i end) #f i))))
-    ((sp predicate)
-      (charspan-index sp 0 (charspan-length sp) predicate))))
+      (let* ((offset (charspan-beg sp))
+             (pos    (string-index (charspan-str sp) char-or-pred (fx+ offset start) (fx+ offset end))))
+        (and pos (fx- pos offset))))
+    ((sp char-or-pred)
+      (charspan-index sp char-or-pred 0 (charspan-length sp)))))
 
 
 ;; iterate backward on charspan elements in the range [start, end)
@@ -486,36 +486,13 @@
 ;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define charspan-index-right
   (case-lambda
-    ((sp start end predicate)
+    ((sp char-or-pred start end)
       (assert* 'charspan-index-right (fx<=?* 0 start end (charspan-length sp)))
-      (do ((i (fx1- end) (fx1- i)))
-          ((or (fx<? i start) (predicate (charspan-ref sp i)))
-            (if (fx<? i start) #f i))))
-    ((sp predicate)
-      (charspan-index-right sp 0 (charspan-length sp) predicate))))
-
-
-;; iterate on charspan elements in range [start, end) and return
-;; the index of first charspan element equal to ch.
-;;
-;; Return #f if no such element is found.
-(define charspan-index/char
-  (case-lambda
-    ((sp start end ch)
-      (charspan-index sp start end (lambda (e) (char=? e ch))))
-    ((sp ch)
-      (charspan-index sp (lambda (e) (char=? e ch))))))
-
-
-;; iterate backward on charspan elements in the range [start, end)
-;; and return the index of first (i.e. the highest index) charspan element equal to ch.
-;; Returns #f if no such element is found.
-(define charspan-index-right/char
-  (case-lambda
-    ((sp start end ch)
-      (charspan-index-right sp start end (lambda (e) (char=? e ch))))
-    ((sp ch)
-      (charspan-index-right sp (lambda (e) (char=? e ch))))))
+      (let* ((offset (charspan-beg sp))
+             (pos    (string-index-right (charspan-str sp) char-or-pred (fx+ offset start) (fx+ offset end))))
+        (and pos (fx- pos offset))))
+    ((sp char-or-pred)
+      (charspan-index-right sp char-or-pred 0 (charspan-length sp)))))
 
 
 ;; create and return a copy of str, where all occurrences of old-str have been replaced by new-str.
