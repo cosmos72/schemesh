@@ -191,7 +191,7 @@
 ;; return #f if no cell satisfies (pred ch)
 ;;
 ;; note: if x > (vline-length line), it is truncated to (vline-length line)
-(define (vline-index line x pred)
+(define (vline-index-left line x pred)
   (do ((i (fx1- (fxmin x (vline-length line))) (fx1- i)))
       ((or (fx<? i 0) (pred (vline-ref line i)))
         (if (fx<? i 0) #f i))))
@@ -217,11 +217,14 @@
 ;;
 ;; note: if start < 0, it is truncated to 0
 ;; note: if end > (vline-length line), it is truncated to (vline-length line)
-(define (vline-index/char line start end ch)
-  (let ((end (fxmin end (vline-length line))))
+(define (vline-index line char-or-pred start end)
+  (let ((end (fxmin end (vline-length line)))
+        (pred (if (char? char-or-pred)
+                (lambda  (e) (char=? char-or-pred e))
+                char-or-pred)))
     (do ((i (fxmax start 0) (fx1+ i)))
-        ((or (fx>=? i end) (char=? ch (vline-ref/char line i)))
-          (if (fx>=? i end) #f i)))))
+        ((or (fx>=? i end) (pred (vline-ref/char line i)))
+          (and (fx<? i end) i)))))
 
 
 ;; search leftward starting from x - 1,

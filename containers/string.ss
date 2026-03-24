@@ -244,7 +244,7 @@
 (define (%string-split-after-nuls str ret)
   (let ((end (string-length str)))
     (let %loop ((start 0) (ret ret))
-      (let ((pos (string-index/char str #\x0 start end)))
+      (let ((pos (string-index str #\x0 start end)))
         (if pos
           (%loop
             (fx1+ pos)
@@ -345,107 +345,60 @@
       (char=? #\/ (string-ref str (fx1- len))))))
 
 
-;; search string range [start, end) and return index of first character equal to ch.
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such character is found in range.
-(define string-index/char
-  (let ((c-string-index-ch (foreign-procedure "c_string_index_ch" (ptr ptr fixnum fixnum) ptr)))
-    (case-lambda
-      ((str ch start end)
-        (assert* 'string-index/char (string? str))
-        (assert* 'string-index/char (char? ch))
-        (assert* 'string-index/char (fx<=?* 0 start end (string-length str)))
-        (if (fx<? (fx- end start) 4)
-          (do ((i start (fx1+ i)))
-              ((or (fx>=? i end) (char=? ch (string-ref str i)))
-                (if (fx>=? i end) #f i)))
-          (c-string-index-ch str ch start end)))
-      ((str ch)
-        (string-index/char str ch 0 (string-length str))))))
-
-
 ;; search string range [start, end) and return index of first character
-;; that causes (predicate ch) to return truish.
-;;
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such character is found in range.
-(define string-index/pred
-  (case-lambda
-    ((str predicate start end)
-      (assert* 'string-index/pred (string? str))
-      (assert* 'string-index/pred (procedure? predicate))
-      (assert* 'string-index/pred (logbit? 1 (procedure-arity-mask predicate)))
-      (assert* 'string-index/pred (fx<=?* 0 start end (string-length str)))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (predicate (string-ref str i)))
-            (and (fx<? i end) i))))
-    ((str predicate)
-      (string-index/pred str predicate 0 (string-length str)))))
-
-
-;; search string range [start, end) and return index of first character
-;; that matches char-or-predicate
+;; that matches char-or-pred
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
 (define string-index
-  (case-lambda
-    ((str char-or-predicate start end)
-      (if (char? char-or-predicate)
-        (string-index/char str char-or-predicate start end)
-        (string-index/pred str char-or-predicate start end)))
-    ((str char-or-predicate)
-      (string-index str char-or-predicate 0 (string-length str)))))
-
-
-;; search string range [start, end) and return index of last character equal to ch.
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such character is found in range.
-(define string-index-right/char
-  (case-lambda
-    ((str ch start end)
-      (assert* 'string-index-right/char (string? str))
-      (assert* 'string-index-right/char (char? ch))
-      (assert* 'string-index-right/char (fx<=?* 0 start end (string-length str)))
-      (do ((i (fx1- end) (fx1- i)))
-          ((or (fx<? i start) (char=? ch (string-ref str i)))
-            (and (fx>=? i start) i))))
-    ((str ch)
-      (string-index-right/char str ch 0 (string-length str)))))
+  (let ((c-string-index-ch (foreign-procedure "c_string_index_ch" (ptr ptr fixnum fixnum) ptr)))
+    (case-lambda
+      ((str char-or-pred start end)
+        (assert* 'string-index (string? str))
+        (assert* 'string-index (fx<=?* 0 start end (string-length str)))
+        (cond
+          ((char? char-or-pred)
+            (if (fx<? (fx- end start) 4)
+              (do ((i start (fx1+ i)))
+                  ((or (fx>=? i end) (char=? char-or-pred (string-ref str i)))
+                    (if (fx>=? i end) #f i)))
+              (c-string-index-ch str char-or-pred start end)))
+          (else
+            (assert* 'string-index (procedure? char-or-pred))
+            (assert* 'string-index (logbit? 1 (procedure-arity-mask char-or-pred)))
+            (do ((i start (fx1+ i)))
+              ((or (fx>=? i end) (char-or-pred (string-ref str i)))
+                (and (fx<? i end) i))))))
+      ((str char-or-pred)
+        (string-index str char-or-pred 0 (string-length str))))))
 
 
 ;; search string range [start, end) and return index of last character
-;; that causes (predicate ch) to return truish.
-;;
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such character is found in range.
-(define string-index-right/pred
-  (case-lambda
-    ((str predicate start end)
-      (assert* 'string-index-right/pred (string? str))
-      (assert* 'string-index-right/pred (procedure? predicate))
-      (assert* 'string-index-right/pred (logbit? 1 (procedure-arity-mask predicate)))
-      (assert* 'string-index-right/pred (fx<=?* 0 start end (string-length str)))
-      (do ((i (fx1- end) (fx1- i)))
-          ((or (fx<? i start) (predicate (string-ref str i)))
-            (and (fx>=? i start) i))))
-    ((str predicate)
-      (string-index-right/pred str predicate 0 (string-length str)))))
-
-
-;; search string range [start, end) and return index of last character
-;; that matches char-or-predicate
+;; that matches char-or-pred
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
 (define string-index-right
-  (case-lambda
-    ((str char-or-predicate start end)
-      (if (char? char-or-predicate)
-        (string-index-right/char str char-or-predicate start end)
-        (string-index-right/pred str char-or-predicate start end)))
-    ((str char-or-predicate)
-      (string-index-right str char-or-predicate 0 (string-length str)))))
+  (let ((c-string-index-right-ch (foreign-procedure "c_string_index_right_ch" (ptr ptr fixnum fixnum) ptr)))
+    (case-lambda
+      ((str char-or-pred start end)
+        (assert* 'string-index-right (string? str))
+        (assert* 'string-index-right (fx<=?* 0 start end (string-length str)))
+        (cond
+          ((char? char-or-pred)
+            (if (fx<? (fx- end start) 4)
+              (do ((i (fx1- end) (fx1- i)))
+                  ((or (fx<? i start) (char=? char-or-pred (string-ref str i)))
+                    (and (fx>=? i start) i)))
+              (c-string-index-right-ch str char-or-pred start end)))
+          (else
+            (assert* 'string-index-right (procedure? char-or-pred))
+            (assert* 'string-index-right (logbit? 1 (procedure-arity-mask char-or-pred)))
+            (do ((i (fx1- end) (fx1- i)))
+                ((or (fx<? i start) (char-or-pred (string-ref str i)))
+                  (and (fx>=? i start) i))))))
+      ((str char-or-pred)
+        (string-index-right str char-or-pred 0 (string-length str))))))
 
 
 ;; destructively replace each occurrence of old-char with new-char in string str.
@@ -520,7 +473,7 @@
       (assert* 'string-split (fx<=?* 0 start end (string-length str)))
       (let ((l '()))
         (while start
-          (let ((pos (string-index/char str delim start end)))
+          (let ((pos (string-index str delim start end)))
             (set! l (cons (substring str start (or pos end)) l))
             (set! start (if pos (fx1+ pos) #f))))
         (reverse! l)))
@@ -550,12 +503,12 @@
       (assert* 'string-trim-split-at-blanks (string? str))
       (assert* 'string-trim-split-at-blanks (fx<=?* 0 start end (string-length str)))
       (let ((l '())
-            (pos-not-blank (or (string-index/pred str char-is-not-blank? start end) end)))
+            (pos-not-blank (or (string-index str char-is-not-blank? start end) end)))
         (while (fx<? pos-not-blank end)
-          (let ((pos-blank (string-index/pred str char-is-blank? (fx1+ pos-not-blank) end)))
+          (let ((pos-blank (string-index str char-is-blank? (fx1+ pos-not-blank) end)))
             (set! l (cons (substring str pos-not-blank (or pos-blank end)) l))
             (if pos-blank
-              (set! pos-not-blank (or (string-index/pred str char-is-not-blank? (fx1+ pos-blank) end) end))
+              (set! pos-not-blank (or (string-index str char-is-not-blank? (fx1+ pos-blank) end) end))
               (set! pos-not-blank end))))
         (reverse! l)))))
 

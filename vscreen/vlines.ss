@@ -188,7 +188,7 @@
       (let* ((line (vlines-ref lines y))
              (len  (vline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (pos  (vline-index line xx pred)))
+             (pos  (vline-index-left line xx pred)))
         (if pos
           (begin ;; match found
             (set! ret (fx+ ret (fx- xx pos)))

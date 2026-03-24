@@ -31,10 +31,10 @@
     vcellspan-ref vcellspan-ref-right
     vcellspan-set! vcellspan-fill!  vcellspan-copy vcellspan-copy!
     vcellspan-reserve-left! vcellspan-reserve-right! vcellspan-resize-left! vcellspan-resize-right!
-    vcellspan-insert-left!         vcellspan-insert-right!
-    vcellspan-insert-left/vcellspan!  vcellspan-insert-right/vcellspan!
-    vcellspan-delete-left!         vcellspan-delete-right! vcellspan-index vcellspan-index/char
-    vcellspan-iterate in-vcellspan  vcellspan-write
+    vcellspan-insert-left!           vcellspan-insert-right!
+    vcellspan-insert-left/vcellspan! vcellspan-insert-right/vcellspan!
+    vcellspan-delete-left!           vcellspan-delete-right!   vcellspan-index
+    vcellspan-iterate in-vcellspan   vcellspan-write
 
     ;; vbuffer.ss
     in-vbuffer list->vbuffer string->vbuffer
@@ -52,7 +52,7 @@
     vline-length vline-ref vline-ref/char vline-at vline-at/char
     vline-equal/chars? vline-set! vline-clear!
     vline-delete! vline-insert-at! vline-insert-at/vcellspan! vline-insert-at/vbuffer!
-    vline-index vline-index-right vline-index/char vline-count vline-count-right
+    vline-index-left vline-index-right vline-index vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
     in-vline vline-iterate vline-display/bytespan vline-write
 
@@ -105,8 +105,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                      bytevector-truncate! format fx1+ fx1- fx1- fx/
-                                            include meta-cond record-writer string-copy! void)
+    (only (chezscheme)                      bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit?
+                                            meta-cond procedure-arity-mask record-writer string-copy! void)
     (only (scheme2k bootstrap)              assert* assert-not* catch fx<=?* raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)

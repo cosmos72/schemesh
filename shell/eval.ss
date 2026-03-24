@@ -31,7 +31,7 @@
 
 (define (default-parser-for-file-extension path)
   (if (or (string-suffix? path ".sh")
-          (not (filename-index-right/char path #\.)))
+          (not (filename-index-right path #\.)))
     'shell
     'scheme))
 
@@ -39,10 +39,10 @@
 ;; return position of last character equal to ch in the filename part of path,
 ;; i.e. after the last slash.
 ;; return #f if ch is not present the filename part of path.
-(define (filename-index-right/char path ch)
+(define (filename-index-right path char-or-pred)
   (let* ((len   (string-length path))
          (slash (string-index-right path #\/ 0 len)))
-    (string-index-right path ch (or slash 0) len)))
+    (string-index-right path char-or-pred (or slash 0) len)))
 
 
 ;; open specified file path, parse its multi-language source contents with (sh-read-port*)

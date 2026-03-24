@@ -205,7 +205,7 @@
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
         (vscreen-insert-at-xy/vcellspan! screen x y clipboard))
-      (when (vcellspan-index/char clipboard #\newline)
+      (when (vcellspan-index clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 

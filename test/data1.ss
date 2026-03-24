@@ -56,54 +56,52 @@
   (let ((sp (string->vcellspan "asdfuiop")))
     (vcellspan-delete-right! sp 3) sp)              ,(string->vcellspan "asdfu")
   (let ((sp (vcellspan #\@ #\a #\b #\c)))
-    (vcellspan-index sp
-      (lambda (elem)
-        (eq? #\b (vcell->char elem)))))             2
+    (vcellspan-index sp #\b))                       2
   ;; ----------------------- charspan -------------------------------------
-  (charspan #\1 #\2 #\3)                           ,(string->charspan* "123")
-  (list->charspan '(#\i #\j #\k #\l))              ,(string->charspan* "ijkl")
-  (string->charspan "pqrst")                       ,(string->charspan* "pqrst")
-  (string->charspan* "ouh[()&*U")                  ,(string->charspan* "ouh[()&*U")
-  (charspan->string (string->charspan "pqrst"))    "pqrst"
-  (charspan-length (charspan #\a #\b #\c))         3
+  (charspan #\1 #\2 #\3)                            ,(string->charspan* "123")
+  (list->charspan '(#\i #\j #\k #\l))               ,(string->charspan* "ijkl")
+  (string->charspan "pqrst")                        ,(string->charspan* "pqrst")
+  (string->charspan* "ouh[()&*U")                   ,(string->charspan* "ouh[()&*U")
+  (charspan->string (string->charspan "pqrst"))     "pqrst"
+  (charspan-length (charspan #\a #\b #\c))          3
   (charspan-capacity-right (charspan #\a #\b #\c))  3
-  (charspan-empty? (charspan))                     #t
-  (charspan-empty? (charspan #\~))                 #f
-  (charspan-ref-right (charspan #\{ #\\))               #\\
-  (charspan-ref (charspan #\x #\y #\z) 2)          #\z
+  (charspan-empty? (charspan))                      #t
+  (charspan-empty? (charspan #\~))                  #f
+  (charspan-ref-right (charspan #\{ #\\))           #\\
+  (charspan-ref (charspan #\x #\y #\z) 2)           #\z
   (charspan-count=
     (string->charspan* "abcdef") 2
-    (string->charspan* "1cde34") 1 4)              3
+    (string->charspan* "1cde34") 1 4)               3
   (charspan=?
     (string->charspan* "abcdef") 2
-    (string->charspan* "1cde34") 1 3)              #t
+    (string->charspan* "1cde34") 1 3)               #t
   (let* ((s "abc")
          (sp (string->charspan s)))
     ;; set! does NOT propagate to the charspan
-    (string-set! s 1 #\^)  sp)                     ,(string->charspan* "abc")
+    (string-set! s 1 #\^)  sp)                      ,(string->charspan* "abc")
   (let* ((s "abc")
          (sp (string->charspan* s)))
     ;; set! propagates to the charspan
-    (string-set! s 1 #\^) sp)                      ,(string->charspan* "a^c")
+    (string-set! s 1 #\^) sp)                       ,(string->charspan* "a^c")
   (let ((sp (charspan #\A #\B)))
-    (charspan-insert-left! sp #\{ #\~) sp)         ,(string->charspan* "{~AB")
+    (charspan-insert-left! sp #\{ #\~) sp)          ,(string->charspan* "{~AB")
   (let ((sp (charspan #\4 #\5 #\6)))
-    (charspan-insert-right! sp #\7 #\8) sp)        ,(string->charspan* "45678")
+    (charspan-insert-right! sp #\7 #\8) sp)         ,(string->charspan* "45678")
   (let ((sp (string->charspan "qwerty")))
-    (charspan-delete-left! sp 1) sp)               ,(string->charspan* "werty")
+    (charspan-delete-left! sp 1) sp)                ,(string->charspan* "werty")
   (let ((sp (string->charspan "asdfuiop")))
-    (charspan-delete-right! sp 3) sp)              ,(string->charspan* "asdfu")
+    (charspan-delete-right! sp 3) sp)               ,(string->charspan* "asdfu")
   (let ((sp (charspan #\@ #\a #\b #\c)))
-    (charspan-index sp #\b))                       2
+    (charspan-index sp #\b))                        2
   (charspan->utf8b (string->charspan*
     "\x7c; \xdcce;\xdc98; \xdce0;\xdca4;\xdcb9; \xdcf0;\xdc90;\xdc8d;\xdc88;"))
-                                                   ,(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)
+                                                    ,(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)
   (bytevector->bytespan (text->bytevector0
-    (string->charspan* "123\x0;")))                ,(bytespan 49 50 51 0)
+    (string->charspan* "123\x0;")))                 ,(bytespan 49 50 51 0)
   ;; ----------------------- gbuffer ---------------------------
-  (gbuffer 'a 2 3.7)                               ,(gbuffer a 2 3.7)
-  (vector->gbuffer* (vector 0 1 2))                ,(gbuffer 0 1 2)
-  (span->gbuffer* (span 0 1 2))                    ,(gbuffer 0 1 2)
+  (gbuffer 'a 2 3.7)                                ,(gbuffer a 2 3.7)
+  (vector->gbuffer* (vector 0 1 2))                 ,(gbuffer 0 1 2)
+  (span->gbuffer* (span 0 1 2))                     ,(gbuffer 0 1 2)
   (let ((gb (make-gbuffer 5 #f)))
     (gbuffer-iterate gb
       (lambda (i elem)
@@ -116,8 +114,8 @@
   (vline "echo \n")                                ,(vline "echo \n")
   (vline-nl? (vline "echo \n"))                    #t
   (vline-length (vline "echo \n"))                 6
-  (vline-index/char
-    (vline "qwerty=<>") 0 9 #\=)                   6
+  (vline-index
+    (vline "qwerty=<>") #\= 0 9)                   6
   (let ((line (vline "foo/bar"))
         (sp   (span))
         (pred (lambda (cl) (char=? #\b (vcell->char cl)))))

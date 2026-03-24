@@ -163,6 +163,23 @@ static ptr c_string_index_ch(ptr str, ptr ch, iptr start, iptr end) {
 }
 
 /**
+ * find last character equal to ch in string range,
+ * and return its position in the range [start, end)
+ * return #f if no such character was found.
+ */
+static ptr c_string_index_right_ch(ptr str, ptr ch, iptr start, iptr end) {
+  if (Sstringp(str) && Scharp(ch) && 0 <= start && start < end && end <= Sstring_length(str)) {
+    string_char c = Schar_value(ch);
+    for (--end; start < end; --end) {
+      if (Sstring_ref(str, end) == c) {
+        return Sfixnum(end);
+      }
+    }
+  }
+  return Sfalse;
+}
+
+/**
  * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
  * which cannot be created with (integer->char).
  * They are used by UTF-8b encoding to represent bytes in the range 0x80 .. 0xFF
@@ -911,6 +928,7 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_subbytevector_compare", &c_subbytevector_compare);
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_string_index_ch", &c_string_index_ch);
+  Sregister_symbol("c_string_index_right_ch", &c_string_index_right_ch);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);

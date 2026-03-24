@@ -305,25 +305,18 @@
 ;; Return #f if no such element is found.
 (define vcellspan-index
   (case-lambda
-    ((sp start end predicate)
+    ((sp char-or-pred start end)
       (assert* 'vcellspan-index (fx<=?* 0 start end (vcellspan-length sp)))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (predicate (vcellspan-ref sp i)))
-            (if (fx>=? i end) #f i))))
-    ((sp predicate)
-      (vcellspan-index sp 0 (vcellspan-length sp) predicate))))
-
-
-;; iterate on vcellspan elements in range [start, end) and return
-;; the index of first vcellspan element equal to character ch.
-;;
-;; Return #f if no such element is found.
-(define vcellspan-index/char
-  (case-lambda
-    ((sp start end ch)
-      (vcellspan-index sp start end (lambda (e) (char=? ch (vcell->char e)))))
-    ((sp ch)
-      (vcellspan-index sp (lambda (e) (char=? ch (vcell->char e)))))))
+      (let ((pred (if (char? char-or-pred)
+                    (lambda (e) (char=? char-or-pred (vcell->char e)))
+                    char-or-pred)))
+        (assert* 'vcellspan-index (procedure? pred))
+        (assert* 'vcellspan-index (logbit? 1 (procedure-arity-mask pred)))
+        (do ((i start (fx1+ i)))
+            ((or (fx>=? i end) (pred (vcellspan-ref sp i)))
+              (and (fx<? i end) i)))))
+    ((sp char-or-pred)
+      (vcellspan-index sp char-or-pred 0 (vcellspan-length sp)))))
 
 
 ;; create and return a closure that iterates on elements of vcellspan csp.
