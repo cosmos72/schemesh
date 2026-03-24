@@ -37,8 +37,7 @@
 
 
 (define (write/newline wbuf)
-  (bytespan-insert-right/u8! wbuf 13) ; #\return
-  (bytespan-insert-right/u8! wbuf 10)) ; #\newline
+  (bytespan-insert-right/u8! wbuf 13 10)) ; #\return #\newline
 
 
 (define (write/unquoted-string wbuf str)
@@ -47,14 +46,14 @@
 
 (define (write/quoted-string wbuf str)
   (bytespan-insert-right/u8! wbuf 34) ; #\"
-  ;; TODO: escape each #\" in string
-  (bytespan-insert-right/string! wbuf str)
+  ;; replicate each #\" in string
+  (let %loop ((start 0) (end (string-length str)))
+    (let ((pos (string-index str #\" start end)))
+      (bytespan-insert-right/string! wbuf str start (or pos end))
+      (when pos
+        (bytespan-insert-right/u8! wbuf 34 34) ; #\" #\"
+        (%loop (fx1+ pos) end))))
   (bytespan-insert-right/u8! wbuf 34)) ; #\"
-
-
-(define (write/string wbuf str)
-  ;; TODO: quote only if str contains #\" or characters <= #\space
-  (write/quoted-string wbuf str))
 
 
 ;; copy-pasted from io/json/writer.ss
@@ -110,11 +109,11 @@
     ((number? value)
       (write/number wbuf value))
     ((string? value)
-      (write/string wbuf value))
+      (write/quoted-string wbuf value))
     ((time? value)
       (write/time wbuf value))
     (else
-      (write/string wbuf (format #f "~s" value)))))
+      (write/quoted-string wbuf (format #f "~s" value)))))
 
 
 (define (write/flush tx wbuf)

@@ -14,7 +14,7 @@
           make-csv-writer csv-writer csv-writer?)
   (import
     (rnrs)
-    (only (chezscheme)                   box box-cas! format include record-writer reverse!
+    (only (chezscheme)                   box box-cas! format fx1+ include record-writer reverse!
                                          time? time-nanosecond time-second unbox void)
     (only (scheme2k bootstrap)           assert* raise-errorf while)
     (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-delete-left! bytespan-delete-right!
@@ -22,7 +22,7 @@
                                          bytespan-empty? bytespan-insert-right/u8! bytespan-length
                                          bytespan-peek-beg bytespan-peek-data
                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan->real)
-    (only (scheme2k containers string)   string-index-right)
+    (only (scheme2k containers string)   string-index string-index-right)
     (only (scheme2k containers vector)   for-vector)
     (only (scheme2k containers utf8b)    bytespan-insert-right/string! utf8b-bytespan->string)
     (only (scheme2k io obj)              reader reader-eof? writer writer-eof?)
