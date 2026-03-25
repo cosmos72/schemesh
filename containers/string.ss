@@ -14,9 +14,9 @@
     string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
     string-join string-list? string-list-split-after-nuls
-    string-map string-prefix? string-prefix/char? string-count=
+    string-map string-prefix? string-count=
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
-    string-split string-split-after-nuls string-suffix? string-suffix/char?
+    string-split string-split-after-nuls string-suffix?
     string-trim-split-at-blanks
     substring=? substring<? substring-move!
 
@@ -327,24 +327,6 @@
        (fx>=? i n))))
 
 
-;; return #t if string str is non-empty and starts with character ch,
-;; otherwise return #f.
-(define (string-prefix/char? str ch)
-  (let ((len (string-length str)))
-    (if (fxzero? len)
-      #f
-      (char=? #\/ (string-ref str 0)))))
-
-
-;; return #t if string str is non-empty and ends with character ch,
-;; otherwise return #f.
-(define (string-suffix/char? str ch)
-  (let ((len (string-length str)))
-    (if (fxzero? len)
-      #f
-      (char=? #\/ (string-ref str (fx1- len))))))
-
-
 ;; search string range [start, end) and return index of first character
 ;; that matches char-or-pred
 ;;
@@ -632,22 +614,30 @@
         (string-contains str key 0 (string-length str) 0 (string-length key))))))
 
 
-;; return #t if string str starts with specified string prefix,
+;; return #t if string str starts with specified prefix,
 ;; otherwise return #f.
-(define (string-prefix? str prefix)
-  (let ((str-len    (string-length str))
-        (prefix-len (string-length prefix)))
-    (and (fx>=? str-len prefix-len)
-         (substring=? str 0 prefix 0 prefix-len))))
+(define (string-prefix? str prefix-str-or-char)
+  (let ((len    (string-length str))
+        (prefix prefix-str-or-char))
+    (if (char? prefix)
+      (and (not (fxzero? len))
+           (char=? prefix (string-ref str 0)))
+      (let ((prefix-len (string-length prefix)))
+        (and (fx>=? len prefix-len)
+             (substring=? str 0 prefix 0 prefix-len))))))
 
 
-;; return #t if string str ends with specified string suffix.
+;; return #t if string str ends with specified suffix.
 ;; otherwise return #f.
-(define (string-suffix? str suffix)
-  (let ((str-len    (string-length str))
-        (suffix-len (string-length suffix)))
-    (and (fx>=? str-len suffix-len)
-         (substring=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
+(define (string-suffix? str suffix-str-or-char)
+  (let* ((len    (string-length str))
+         (suffix suffix-str-or-char))
+    (if (char? suffix)
+      (and (not (fxzero? len))
+           (char=? suffix (string-ref str (fx1- len))))
+      (let ((suffix-len (string-length suffix)))
+        (and (fx>=? len suffix-len)
+             (substring=? str (fx- len suffix-len) suffix 0 suffix-len))))))
 
 
 ;; if string str begins with string old-prefix, create and return a copy of str

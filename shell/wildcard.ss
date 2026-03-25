@@ -403,7 +403,7 @@
     ((fx>=? i sp-end) ; check that path exists
       (when (file-type path '(catch symlinks))
         ; if patterns do not end with #\/ then remove any final #\/ from path
-        (when (and (string-suffix/char? path #\/)
+        (when (and (string-suffix? path #\/)
                    (not (%patterns-end-with/char? sp #\/)))
           (string-truncate! path (fx1- (string-length path))))
         (span-insert-right! ret path))
@@ -442,15 +442,15 @@
     #f
     (let* ((p   (span-ref-right sp))
            (key (if (string? p) p (sh-pattern-ref-right/string p))))
-      (and (string? key) (string-suffix/char? key ch)))))
+      (and (string? key) (string-suffix? key ch)))))
 
 
 ;; concatenate two filesystem paths
 (define (%path-append path1 path2)
   (let* ((path1-len (string-length path1))
          (path2-len (string-length path2))
-         (path1-slash? (string-suffix/char? path1 #\/))
-         (path2-slash? (string-prefix/char? path2 #\/)))
+         (path1-slash? (string-suffix? path1 #\/))
+         (path2-slash? (string-prefix? path2 #\/)))
     (cond
       ((fxzero? path1-len)
         path2)
