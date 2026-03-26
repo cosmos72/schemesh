@@ -73,13 +73,13 @@ VERSION_STR=1.0.0
 ## by default, only compile and install additional programs that do *not* require
 ## external dependencies (libcurl, libsqlite3 ...)
 
-default: countdown dir schemesh schemesh_test schemesh_so
+default: countdown schemesh schemesh_test schemesh_so
 
 clean: clean_schemesh clean_scheme2k clean_utils
 	rm -f *~ *.o *.so
 
-install:     install_countdown   install_dir   install_schemesh
-uninstall: uninstall_countdown uninstall_dir uninstall_schemesh
+install:     install_countdown   install_schemesh
+uninstall: uninstall_countdown uninstall_schemesh
 
 installdirs:
 	$(MKDIR_P) '$(DESTDIR)$(bindir)'
