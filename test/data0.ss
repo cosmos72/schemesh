@@ -120,17 +120,17 @@
 
 
   ;; ----------------- containers string ------------------------------------
-  (string-replace-all "abcdbacdabcd" "ab" "0")     "0cdbacd0cd"
-  (string-split "" #\:)                            ("")
-  (string-split ":" #\:)                           ("" "")
-  (string-split "x:" #\:)                          ("x" "")
-  (string-split ":y" #\:)                          ("" "y")
-  (string-split "ab:cdef::g" #\: 1 10)             ("b" "cdef" "" "g")
-  (string-trim-split-at-blanks "")                 ()
-  (string-trim-split-at-blanks "\n\x0;ab c\x1f;")  ("ab" "c")
+  (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
+  (string-split "" #\:)                                 ("")
+  (string-split ":" #\:)                                ("" "")
+  (string-split "x:" #\:)                               ("x" "")
+  (string-split ":y" #\:)                               ("" "y")
+  (string-split "ab:cdef::g" #\: 1 10)                  ("b" "cdef" "" "g")
+  (string-trim-split-at-blanks "")                      ()
+  (string-trim-split-at-blanks "\n\x0;ab c\x1f;")       ("ab" "c")
   (list-remove-consecutive-duplicates!
     (list "foo" "foo" "foo" "bar" "bar" "" "bar")
-    string=?)                                      ("foo" "bar" "" "bar")
+    string=?)                                           ("foo" "bar" "" "bar")
   (do ((i #x-10000 (fx1+ i)))
       ((fx>=? i #x120000) #t)
     (if (or (fx<=? #x0000 i #xD7FF)
@@ -138,12 +138,13 @@
             (fx<=? #xE000 i #x10FFFF))
       (assert* 'test (fx=? i (char->integer (integer->char* i))))
       (unless (throws? (integer->char* i))
-        (error 'integer->char* "should throw" i)))) #t
-  (substring<? "abcdef" 1 5 "_abxyef" 2 4)       #t
+        (error 'integer->char* "should throw" i))))     #t
+  (substring<? "1234" 0 4 "__123" 2 4)                  #f
+  (substring<? "abcdef" 1 5 "_abxyef" 2 4)              #t
   ;; ----------------- containers sort ------------------------------------
   (let ((v (vector 9 8 7 6 5 4 3 2 1 0)))
     (subvector-sort! fx<? v 1 9)
-    v)                                              #(9 1 2 3 4 5 6 7 8 0)
+    v)                                                  #(9 1 2 3 4 5 6 7 8 0)
   ;; ----------------- bytevector utf8 ------------------------------------
   (values->list (bytevector-char-ref #vu8()))               (#t      0)   ; incomplete UTF-8
   (values->list (bytevector-char-ref #vu8(1)))              (#\x01   1)

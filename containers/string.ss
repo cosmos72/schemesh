@@ -540,31 +540,24 @@
 
 (define (substring<? left  left-start  left-end
                      right right-start right-end)
-   ; (debugf "-> substring<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
-   ;         left left-start left-end right right-start right-end)
-   (let ((done? #f)
-         (ret   #f))
-     (do ((i left-start  (fx1+ i))
-          (j right-start (fx1+ j)))
-         (done?)
-       ; (debugf ". substring<? i=~s, j=~s" i j)
-       (cond
-         ((fx>=? i left-end)
-           (set! done? #t))
-         ((fx>=? j right-end)
-           (set! ret   #t)
-           (set! done? #t))
-         (else
-           (let ((ch1 (string-ref left i))
-                 (ch2 (string-ref right j)))
-              (cond
-                ((char<? ch1 ch2)
-                  (set! ret   #t)
-                  (set! done? #t))
-                ((char>? ch1 ch2)
-                  (set! done? #t)))))))
-     ; (debugf "<- substring<? ret=~s" ret)
-     ret))
+   (assert* 'substring<? (fx<=?* 0 left-start  left-end  (string-length left)))
+   (assert* 'substring<? (fx<=?* 0 right-start right-end (string-length right)))
+   (let %substring<? ((i left-start) (j right-start))
+     (cond
+       ((fx=? i left-end)
+         (not (fx=? j right-end)))
+       ((fx=? j right-end)
+         #f)
+       (else
+         (let ((ch1 (string-ref left i))
+               (ch2 (string-ref right j)))
+            (cond
+              ((char<? ch1 ch2)
+                #t)
+              ((char>? ch1 ch2)
+                #f)
+              (else
+                (%substring<? (fx1+ i) (fx1+ j)))))))))
 
 
 ;; copy string range [src-start, src-end) to range [dst-start, ...)
