@@ -11,17 +11,18 @@
 (library (scheme2k lineedit lineedit (1 0 0))
   (export
     ;; linectx.ss
-    linectx-prompt-proc linectx-completion-proc
+    linectx-prompt0-proc linectx-prompt-proc linectx-completion-proc
 
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-height linectx-end-y
-    linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
-    linectx-vx     linectx-vy
-    linectx-term-x linectx-term-y linectx-term-xy-set!
-    linectx-stdin  linectx-stdin-set!   linectx-stdout        linectx-stdout-set!
-    linectx-prompt linectx-prompt-set!  linectx-prompt-end-x  linectx-prompt-end-y
-    linectx-prompt-length linectx-prompt-length-set!
-    linectx-prompt-ansi-text            linectx-prompt-ansi-text-set!
+    linectx-ix      linectx-iy     linectx-ixy  linectx-ixy-set!
+    linectx-vx      linectx-vy
+    linectx-term-x  linectx-term-y       linectx-term-xy-set!
+    linectx-stdin   linectx-stdin-set!   linectx-stdout        linectx-stdout-set!
+    linectx-prompt0 linectx-prompt0-set! linectx-prompt0-end-x linectx-prompt0-end-y
+    linectx-prompt  linectx-prompt-set!  linectx-prompt-end-x  linectx-prompt-end-y
+    linectx-prompt0-length linectx-prompt0-length-set! linectx-prompt0-ansi-text linectx-prompt0-ansi-text-set!
+    linectx-prompt-length  linectx-prompt-length-set!  linectx-prompt-ansi-text  linectx-prompt-ansi-text-set!
     linectx-parenmatcher linectx-paren linectx-paren-set!
     linectx-clipboard linectx-clipboard-clear!
     linectx-completions linectx-completion-stem

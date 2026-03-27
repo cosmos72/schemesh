@@ -15,7 +15,7 @@
     any->string argv->list list->argv string-hashtable->argv transcoder-utf8
 
     ;; unicode.ss
-    char-display-wide?)
+    char-display-width charspan-display-width string-display-width)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)             set-car!)

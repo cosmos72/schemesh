@@ -391,7 +391,7 @@
     (linectx-redraw-all lctx)))
 
 (define (lineedit-key-cmd lctx cmd-name . args)
-  (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
+  (lineterm-move-to lctx (linectx-prompt-end-x lctx) (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))
   (lineterm-write/string lctx cmd-name)
   (do ((args args (cdr args)))
       ((null? args))

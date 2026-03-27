@@ -9,7 +9,7 @@
 
 (library (schemesh shell utils (1 0 0))
   (export
-    c-username sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
+    c-username sh-autocomplete sh-expand-ps0 sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -21,6 +21,7 @@
     (only (scheme2k containers span)     span-clear!)
     (only (scheme2k containers string)   string-iterate)
     (only (scheme2k containers utf8b)    bytespan-insert-right/char! bytespan-insert-right/charspan! bytespan-insert-right/string!)
+          (scheme2k conversions unicode)
           (scheme2k lineedit lineedit)
     (only (scheme2k lineedit paren)      paren-name)
           (scheme2k lineedit parser)
@@ -129,31 +130,29 @@
          (yellow+      e-host) ":"
          (blue+        e-cwd)  ":"))))
 
+;; return the default string to expand as prompt if $SCHEMESH_PS1 is not set
 (define (sh-default-ps1) default-ps1)
 
-;; update linectx-prompt and linectx-prompt-length with new prompt
-;; obtained by parsing environment variable $SCHEMESH_PS1
-(define (sh-expand-ps1 lctx)
-  (let* ((src (sh-env-ref #t "SCHEMESH_PS1" default-ps1)) ; string
-         (prompt (linectx-prompt lctx))
-         (prompt-len 0)
+;; update prompt argument by parsing given string, and return its display width
+(define (sh-expand-env-as-prompt lctx str prompt)
+  (bytespan-clear! prompt)
+  (bytespan-reserve-right! prompt (string-length str))
+  (let* ((prompt-len 0)
          (hidden  0)
          (escape? #f)
          (%append-char (lambda (ch)
            (bytespan-insert-right/char! prompt ch)
            (when (fx<=? hidden 0)
-             (set! prompt-len (fx1+ prompt-len)))))
+             (set! prompt-len (fx+ prompt-len (char-display-width ch))))))
          (%append-string (lambda (str)
            (bytespan-insert-right/string! prompt str)
            (when (fx<=? hidden 0)
-             (set! prompt-len (fx+ prompt-len (string-length str))))))
+             (set! prompt-len (fx+ prompt-len (string-display-width str))))))
          (%append-charspan (lambda (csp)
            (bytespan-insert-right/charspan! prompt csp)
            (when (fx<=? hidden 0)
-             (set! prompt-len (fx+ prompt-len (charspan-length csp)))))))
-    (bytespan-clear! prompt)
-    (bytespan-reserve-right! prompt (string-length src))
-    (string-iterate src
+             (set! prompt-len (fx+ prompt-len (charspan-display-width csp)))))))
+    (string-iterate str
       (lambda (i ch)
         (if escape?
           (begin
@@ -175,7 +174,25 @@
           (case ch
             ((#\\)   (set! escape? #t))
             (else    (%append-char ch))))))
-    (linectx-prompt-length-set! lctx prompt-len)))
+    prompt-len))
+
+
+;; update linectx-prompt0 and linectx-prompt0-length with new prompt
+;; obtained by parsing environment variable $SCHEMESH_PS0
+(define (sh-expand-ps0 lctx)
+  (linectx-prompt0-length-set! lctx
+    (sh-expand-env-as-prompt lctx
+      (sh-env-ref #t "SCHEMESH_PS0" "") ; string
+      (linectx-prompt0 lctx))))
+
+
+;; update linectx-prompt and linectx-prompt-length with new prompt
+;; obtained by parsing environment variable $SCHEMESH_PS1
+(define (sh-expand-ps1 lctx)
+  (linectx-prompt-length-set! lctx
+    (sh-expand-env-as-prompt lctx
+      (sh-env-ref #t "SCHEMESH_PS1" default-ps1) ; string
+      (linectx-prompt lctx))))
 
 
 ;; if charspan path begins with user's home directory,
@@ -210,6 +227,9 @@
 
 
 (begin
+  (unless (linectx-prompt0-proc)
+    (linectx-prompt0-proc sh-expand-ps0))
+
   (unless (linectx-prompt-proc)
     (linectx-prompt-proc sh-expand-ps1))
 

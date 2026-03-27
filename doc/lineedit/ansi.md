@@ -1,18 +1,26 @@
 # prompt customization
 
-prompt can be customized using two alternative mechanisms:
+Two prompts can be customized: `prompt0` and `prompt`.
 
-1. by setting the environment variable `$SCHEMESH_PS1`, which is mostly compatible with bash PS1
+The first one i.e. `prompt0` is displayed immediately **above** user input,
+the second one i.e. `prompt` is displayed immediately **to the left** of user input.
+
+Both prompts must **not** contain newlines or other control codes that move the cursor,
+and they can be customized using two alternative mechanisms:
+
+1. by setting the environment variables `$SCHEMESH_PS0` or `$SCHEMESH_PS1`, which are mostly compatible with bash PS1
    as described in section "PROMPTING" of `man bash` and available online at
    https://www.man7.org/linux/man-pages//man1/bash.1.html#PROMPTING
 
 2. by registering a user-defined function that will be executed each time schemesh needs to draw the prompt.
    Such function must accept a single `lctx` argument and can update the prompt stored into `lctx` as it sees fit.
 
-Such a prompt-updating function can be registered into schemesh by calling
-`(linectx-prompt-proc MY-PROCEDURE)`
 
-The registered function can run arbitrary Scheme code, and can also launch external commands
+Such a prompt-updating functions can be registered into schemesh by calling
+- `(linectx-prompt0-proc MY-PROCEDURE)` to customize `prompt0`
+- `(linectx-prompt-proc MY-PROCEDURE)` to customize `prompt`
+
+Each registered function can run arbitrary Scheme code, and can also launch external commands
 (possibly slow, but supported) either with Chez Scheme function `(open-process-ports)`
 or with schemesh facilities for running jobs and capturing their output, as for example `(sh-run/string)`.
 
@@ -23,18 +31,24 @@ because they should **not** read from or write to the current terminal.
 
 The library `(scheme2k lineedit)`, which is also included in `(schemesh)`, provides the following functions for prompt customization:
 
-`(linectx-prompt-proc)` returns the current prompt updater
+`(linectx-prompt0-proc)` returns the current prompt0 updater.<br/>
+`(linectx-prompt-proc)` returns the current prompt updater.
 
+`(linectx-prompt0-proc proc)` registers function `proc` as the prompt0 updater:
+  `proc` will be invoked with a single argument `lctx` each time schemesh needs to draw the prompt0<br/>
 `(linectx-prompt-proc proc)` registers function `proc` as the prompt updater:
   `proc` will be invoked with a single argument `lctx` each time schemesh needs to draw the prompt
 
-`(linectx-prompt-ansi-text lctx)` extracts the current prompt from `lctx` object and converts it to a mutable `ansi-text` object
+`(linectx-prompt0-ansi-text lctx)` extracts the current prompt0 from `lctx` object and converts it to a mutable `ansi-text` object.<br/>
+`(linectx-prompt-ansi-text lctx)` extracts the current prompt from `lctx` object and converts it to a mutable `ansi-text` object.
 
-`(linectx-prompt-ansi-text-set! lctx a)` stores the `ansi-text` object `a` into `lctx` as the updated prompt
+`(linectx-prompt0-ansi-text-set! lctx a)` stores the `ansi-text` object `a` into `lctx` as the updated prompt0.<br/>
+`(linectx-prompt-ansi-text-set! lctx a)` stores the `ansi-text` object `a` into `lctx` as the updated prompt.
 
 ### scheme2k lineedit ansi
 
-The library `(scheme2k lineedit ansi)`, which is also included in `(scheme2k lineedit)` and in `(schemesh)`, provides several functions for inspecting and modifying `ansi-text` objects:
+The library `(scheme2k lineedit ansi)`, which is also included in `(scheme2k lineedit)` and in `(schemesh)`,
+provides several functions for inspecting and modifying `ansi-text` objects:
 
 `(ansi-text? a)` returns `#t` if `a` is an `ansi-text` object, otherwise returns `#f`
 
@@ -126,7 +140,17 @@ Example:
 (linectx-prompt-proc my-prompt)
 ```
 
+To restore the default prompt0 function, that reads and interprets the environment variable `$SCHEMESH_PS0`, execute
+```lisp
+(linectx-prompt0-proc sh-expand-ps0)
+```
+
 To restore the default prompt function, that reads and interprets the environment variable `$SCHEMESH_PS1`, execute
 ```lisp
 (linectx-prompt-proc sh-expand-ps1)
+```
+
+If the environment variable `$SCHEMESH_PS1` is not set, its default value can be retrieved calling
+```lisp
+(sh-default-ps1)
 ```

@@ -260,7 +260,7 @@
 
   ;; test (field) (field-names) (fields->plist) (in-fields)
   (field-names (make-vscreen))                         #(<type> left right dirty-start-y dirty-end-y dirty? width height
-                                                         prompt-end-x prompt-end-y cursor-ix cursor-iy)
+                                                         prompt0-end-x prompt0-end-y prompt-end-x prompt-end-y cursor-ix cursor-iy)
   (let ((v (make-vscreen)))
     (list (field v 'width) (field v 'height)))         (80 24)
 
@@ -302,10 +302,10 @@
   (let ((v (make-vscreen)))
     (list
       (field-names v) #|uncached|#
-      (field-names v (eq-hashtable)))) #|cached|#      (#(<type> left right dirty-start-y dirty-end-y dirty? width
-                                                          height prompt-end-x prompt-end-y cursor-ix cursor-iy)
-                                                        #(<type> left right dirty-start-y dirty-end-y dirty? width
-                                                          height prompt-end-x prompt-end-y cursor-ix cursor-iy))
+      (field-names v (eq-hashtable)))) #|cached|#      (#(<type> left right dirty-start-y dirty-end-y dirty? width height
+                                                          prompt0-end-x prompt0-end-y prompt-end-x prompt-end-y cursor-ix cursor-iy)
+                                                        #(<type> left right dirty-start-y dirty-end-y dirty? width height
+                                                          prompt0-end-x prompt0-end-y prompt-end-x prompt-end-y cursor-ix cursor-iy))
 
   ;; ------------------------ wire ----------------------------------------
   (datum->wire (void))                                 #vu8(0)

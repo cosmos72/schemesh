@@ -25,6 +25,7 @@
     (mutable flags)
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
+    (mutable prompt0)       ; bytespan, prompt0
     (mutable prompt)        ; bytespan, prompt
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
@@ -35,7 +36,7 @@
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
     history)                ; vhistory, history of entered commands
-  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define flag-eof? 1)
@@ -102,7 +103,7 @@
 (define (linectx-vx lctx)
   (vscreen-cursor-vx (linectx-vscreen lctx)))
 
-;; return vscreen cursor y visual position. It is equal to linectx-iy + linectx-prompt-end-y.
+;; return vscreen cursor y visual position. It is equal to linectx-iy + linectx-prompt0-end-y + linectx-prompt-end-y.
 (define (linectx-vy lctx)
   (vscreen-cursor-vy (linectx-vscreen lctx)))
 
@@ -119,6 +120,16 @@
 ;; return screen height
 (define (linectx-height lctx)
   (vscreen-height (linectx-vscreen lctx)))
+
+(define (linectx-prompt0-end-x lctx)
+  (vscreen-prompt0-end-x (linectx-vscreen lctx)))
+(define (linectx-prompt0-end-y lctx)
+  (vscreen-prompt0-end-y (linectx-vscreen lctx)))
+(define (linectx-prompt0-length lctx)
+  (vscreen-prompt0-length (linectx-vscreen lctx)))
+(define (linectx-prompt0-length-set! lctx prompt-len)
+  (vscreen-prompt0-length-set! (linectx-vscreen lctx) prompt-len))
+
 
 (define (linectx-prompt-end-x lctx)
   (vscreen-prompt-end-x (linectx-vscreen lctx)))
@@ -155,6 +166,7 @@
       0 0                         ; term-x term-y
       0 2 -1 flag-redraw?         ; stdin stdout read-timeout flags
       'shell enabled-parsers      ; parser-name parsers
+      (bytespan)                  ; prompt0
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
       (vcellspan)                 ; clipboard
@@ -167,13 +179,13 @@
 (define make-linectx
   (case-lambda
     (()
-       (make-linectx* #f #f #f))
-    ((prompt-func parenmatcher)
-       (make-linectx* parenmatcher #f #f))
-    ((prompt-func parenmatcher enabled-parsers)
-       (make-linectx* parenmatcher enabled-parsers #f))
-    ((prompt-func parenmatcher enabled-parsers history-path)
-       (make-linectx* parenmatcher enabled-parsers history-path))))
+      (make-linectx* #f #f #f))
+    ((parenmatcher)
+      (make-linectx* parenmatcher #f #f))
+    ((parenmatcher enabled-parsers)
+      (make-linectx* parenmatcher enabled-parsers #f))
+    ((parenmatcher enabled-parsers history-path)
+      (make-linectx* parenmatcher enabled-parsers history-path))))
 
 
 ;; Clear and recreate empty vscreen: it may have been saved to history,
@@ -348,6 +360,22 @@
 ;; parameter containing the current procedure that updates
 ;; linectx-prompt and linectx-prompt-length with new prompt
 ;;
+;; initially set to #f, will be set to sh-expand-ps0 by shell/utils.ss
+(define linectx-prompt0-proc
+  (sh-make-parameter
+    #f
+    (lambda (proc)
+      (when proc
+        (unless (procedure? proc)
+          (raise-errorf 'linectx-prompt0-proc "~s is not a procedure" proc))
+        (unless (logbit? 1 (procedure-arity-mask proc))
+          (raise-errorf 'linectx-prompt0-proc "~s is not a is not a procedure accepting 1 argument" proc)))
+      proc)))
+
+
+;; parameter containing the current procedure that updates
+;; linectx-prompt and linectx-prompt-length with new prompt
+;;
 ;; initially set to #f, will be set to sh-expand-ps1 by shell/utils.ss
 (define linectx-prompt-proc
   (sh-make-parameter
@@ -502,10 +530,22 @@
       (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
 
 
+;; view linectx prompt0 as mutable ansi-text
+(define (linectx-prompt0-ansi-text lctx)
+  (make-ansi-text (linectx-prompt0 lctx) ; reuse bytespan containing prompt0
+                  (vscreen-prompt0-length (linectx-vscreen lctx))))
+
+
 ;; view linectx prompt as mutable ansi-text
 (define (linectx-prompt-ansi-text lctx)
   (make-ansi-text (linectx-prompt lctx) ; reuse bytespan containing prompt
                   (vscreen-prompt-length (linectx-vscreen lctx))))
+
+
+;; store ansi-text as linectx-prompt0
+(define (linectx-prompt0-ansi-text-set! lctx a)
+  (linectx-prompt0-set! lctx (ansi-text-bytes a))
+  (vscreen-prompt0-length-set! (linectx-vscreen lctx) (ansi-text-visible-length a)))
 
 
 ;; store ansi-text as linectx-prompt

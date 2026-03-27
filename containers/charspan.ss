@@ -90,9 +90,13 @@
 ;; if possible, truncate charspan to its length and view it as a string.
 ;; otherwise convert it to string as (charspan->string) does.
 (define (charspan->string*! sp)
-  (if (or (charspan-empty? sp) (not (fxzero? (charspan-beg sp))))
-    (charspan->string sp)
-    (string-truncate! (charspan-str sp) (charspan-end sp))))
+  (cond
+    ((charspan-empty? sp)
+      "")
+    ((fxzero? (charspan-beg sp))
+      (string-truncate! (charspan-str sp) (charspan-end sp)))
+    (else
+      (charspan->string sp))))
 
 (define (charspan . charlist)
   (list->charspan charlist))

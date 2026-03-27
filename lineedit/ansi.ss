@@ -15,10 +15,11 @@
     black+ red+ green+ yellow+ blue+ magenta+ cyan+ white+)
   (import
     (rnrs)
-    (only (chezscheme)                      record-writer)
-    (only (scheme2k bootstrap)              assert*)
-    (only (scheme2k containers bytespan)    make-bytespan bytespan? bytespan-clear!)
-    (only (scheme2k containers utf8b)       utf8b-bytespan->string bytespan-insert-right/string!))
+    (only (chezscheme)                   record-writer)
+    (only (scheme2k bootstrap)           assert*)
+    (only (scheme2k containers bytespan) make-bytespan bytespan? bytespan-clear!)
+    (only (scheme2k containers utf8b)    utf8b-bytespan->string bytespan-insert-right/string!)
+    (only (scheme2k conversions unicode) string-display-width))
 
 
 (define-record-type (ansi-text %make-ansi-text ansi-text?)
@@ -50,14 +51,14 @@
       (ansi-text-visible-length-set! a (fx+ visible-length (ansi-text-visible-length a)))
       a)
     ((a str)
-      (string+ a str (string-length str)))))
+      (string+ a str (string-display-width str)))))
 
 
 (define (color a col-seq str)
   (string+ a "\x1b;[" 0)
   (string+ a col-seq 0)
   (string+ a "m" 0)
-  (string+ a str (string-length str))
+  (string+ a str)
   (string+ a "\x1b;[m" 0)
   a)
 

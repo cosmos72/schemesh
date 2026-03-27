@@ -22,6 +22,14 @@
       (when (pair? sz)
         (linectx-resize lctx (car sz) (cdr sz))))))
 
+;; unconditionally draw prompt0. does not update term-x, term-y
+(define (linectx-draw-prompt0 lctx)
+  ; (debugf "linectx-draw-prompt0: prompt0 = ~s" (linectx-prompt0 lctx))
+  (lineterm-write/bytespan lctx (linectx-prompt0 lctx))
+  (unless (fxzero? (linectx-prompt0-length lctx))
+    (lineterm-clear-to-eol lctx)
+    (lineterm-write/u8 lctx 10)))
+
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt lctx)
   ; (debugf "linectx-draw-prompt: prompt = ~s" (linectx-prompt lctx))
@@ -52,7 +60,7 @@
   (let* ((screen (linectx-vscreen lctx))
          (iy (fxmax 0 (fx1- (vscreen-length screen))))
          (ix (vscreen-length-at-y screen iy))
-         (vy (fx+ iy (vscreen-prompt-end-y screen)))
+         (vy (fx+ iy (fx+ (vscreen-prompt0-end-y screen) (vscreen-prompt-end-y screen))))
          (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
     ; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s" vx vy)
     (linectx-term-xy-set! lctx vx vy)))
@@ -74,17 +82,27 @@
 (define palette-bad     (vcolors (symbol->vrgb/4 'red  'high) #f))
 (define bv-prompt-error (string->utf8b "error expanding prompt $ "))
 
-;; update prompt
+;; update prompt0 and prompt
 (define (linectx-update-prompt lctx)
-  (let ((prompt (linectx-prompt lctx))
-        (proc   (or (linectx-prompt-proc) minimal-prompt-proc)))
-    (assert* 'linectx-update-prompt (bytespan? prompt))
-    (try (proc lctx)
+  (let ((proc0   (linectx-prompt0-proc))
+        (proc    (or (linectx-prompt-proc) minimal-prompt-proc)))
+    (try
+      (begin
+        (when proc0
+          (proc0 lctx))
+        (proc lctx))
       (catch (ex)
-        (bytespan-clear! prompt)
-        (let ((err-len (bytevector-length bv-prompt-error)))
-          (bytespan-insert-right/bytevector! prompt bv-prompt-error 0 err-len)
-          (linectx-prompt-length-set! lctx err-len))))))
+        (let ((prompt0 (linectx-prompt0 lctx)))
+          (when (bytespan? prompt0)
+            (bytespan-clear! prompt0)
+            (linectx-prompt0-length-set! lctx 0)))
+
+        (let ((prompt  (linectx-prompt lctx))
+              (err-len (bytevector-length bv-prompt-error)))
+          (when (bytespan? prompt)
+            (bytespan-clear! prompt)
+            (bytespan-insert-right/bytevector! prompt bv-prompt-error 0 err-len)
+            (linectx-prompt-length-set! lctx err-len)))))))
 
 
 ;; if needed, redraw prompt, lines, cursor and matching parentheses.
@@ -122,6 +140,7 @@
   (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
   (lineterm-move-to-bol lctx)
   (linectx-update-prompt lctx)
+  (linectx-draw-prompt0 lctx)
   (linectx-draw-prompt lctx)
   (linectx-draw-lines lctx)
   ;; set term-x and term-y to end of vlines
@@ -151,7 +170,7 @@
          (vx     (linectx-term-x lctx))
          (vy     (linectx-term-y lctx))
          (prompt-x (vscreen-prompt-end-x screen))
-         (prompt-y (vscreen-prompt-end-y screen))
+         (prompt-y (fx+ (vscreen-prompt0-end-y screen) (vscreen-prompt-end-y screen)))
          (width  (vscreen-width screen)))
     ;; lines with (fx<=? ymin i ymax) are fully dirty
     (vlines-iterate screen
@@ -319,7 +338,7 @@
     (if (and ch (char>=? ch #\space))
       (let ((wbuf (linectx-wbuf lctx))
             (vx   (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
-            (vy   (fx+ y (linectx-prompt-end-y lctx)))                    ;; also count prompt length!
+            (vy   (fx+ y (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))) ;; also count prompt length!
             (cl   (if opt-palette (vcell ch opt-palette) cl)))
         (lineterm-move-to lctx vx vy)
         (vcell-display/bytespan cl old-palette wbuf)

@@ -18,13 +18,15 @@
   (parent %vlines)
   (fields
     (mutable dirty? vscreen-dirty? %vscreen-dirty-set!) ;; boolean, #t if some line is dirty
-    (mutable width)        ;; fixnum, screen width
-    (mutable height)       ;; fixnum, screen height
-    (mutable prompt-end-x) ;; fixnum, x column where prompt ends
-    (mutable prompt-end-y) ;; fixnum, y row where prompt ends
-    (mutable cursor-ix)    ;; fixnum, cursor x position
-    (mutable cursor-iy))   ;; fixnum, cursor y position
-  (nongenerative vscreen-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (mutable width)         ;; fixnum, screen width
+    (mutable height)        ;; fixnum, screen height
+    (mutable prompt0-end-x) ;; fixnum, x column where prompt0 ends
+    (mutable prompt0-end-y) ;; fixnum, y row where prompt0 ends
+    (mutable prompt-end-x)  ;; fixnum, x column where prompt ends
+    (mutable prompt-end-y)  ;; fixnum, y row where prompt ends
+    (mutable cursor-ix)     ;; fixnum, cursor x position
+    (mutable cursor-iy))    ;; fixnum, cursor y position
+  (nongenerative vscreen-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define (assert-vscreen? who screen)
@@ -34,7 +36,7 @@
 
 ;; create a vscreen
 (define (make-vscreen)
-  (%make-vscreen (span) (span (vline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0))
+  (%make-vscreen (span) (span (vline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0 0 0))
 
 
 ;; create a vscreen referencing specified vlines or strings
@@ -46,7 +48,7 @@
         (if (string? line)
          (span-set! sp i (vline line))
          (assert-vline? 'vlines line))))
-    (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0 0)))
+    (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0 0 0 0)))
 
 
 ;; return number of vlines in vscreen
@@ -61,11 +63,35 @@
 ;; faster than (fx<=? (vscreen-cell-count lines) n)
 (define vscreen-cell-count<=? vlines-cell-count<=?)
 
+;; return prompt0 length in characters
+(define (vscreen-prompt0-length screen)
+  (let ((y (vscreen-prompt0-end-y screen)))
+    (if (fxzero? y)
+      0
+      (fx+ (vscreen-prompt0-end-x screen)
+           (fx* (fx1- y) (vscreen-width screen))))))
+
 ;; return prompt length in characters
 (define (vscreen-prompt-length screen)
   (fx+ (vscreen-prompt-end-x screen)
        (fx* (vscreen-prompt-end-y screen)
             (vscreen-width screen))))
+
+;; set prompt0 length in characters.
+;; also updates vscreen-prompt0-end-x and vscreen-prompt0-end-y
+(define (vscreen-prompt0-length-set! screen prompt0-length)
+  (if (fxzero? prompt0-length)
+    (begin
+      (vscreen-prompt0-end-x-set! screen 0)
+      (vscreen-prompt0-end-y-set! screen 0))
+    (let ((width (vscreen-width screen)))
+      (assert* 'vscreen-prompt0-length-set! (fx>? prompt0-length 0))
+      (assert* 'vscreen-prompt0-length-set! (fx>? width 0))
+      (let-values (((y x) (div-and-mod prompt0-length width)))
+        (assert* 'vscreen-prompt0-length-set! (fx<? -1 x width))
+        (vscreen-prompt0-end-x-set! screen x)
+        ;; increase y by one because we draw a newline after prompt0 - unless it's empty, see (fxzero? prompt0-length) above
+        (vscreen-prompt0-end-y-set! screen (fxmin (fx1+ y) (fx1- (vscreen-height screen))))))))
 
 ;; set prompt length in characters.
 ;; also updates vscreen-prompt-end-x and vscreen-prompt-end-y
@@ -77,7 +103,6 @@
       (assert* 'vscreen-prompt-length-set! (fx<? -1 x width))
       (vscreen-prompt-end-x-set! screen x)
       (vscreen-prompt-end-y-set! screen (fxmin y (fx1- (vscreen-height screen)))))))
-
 
 (define (vscreen-dirty-set! screen flag?)
   (unless flag?
@@ -160,10 +185,10 @@
          (vscreen-prompt-end-x screen)
          0)))
 
-;; return visual cursor y position. it is equal to vscreen-cursor-iy + vscreen-prompt-end-y
+;; return visual cursor y position. it is equal to vscreen-cursor-iy + vscreen-prompt0-end-y + vscreen-prompt-end-y
 (define (vscreen-cursor-vy screen)
   (fx+ (vscreen-cursor-iy screen)
-       (vscreen-prompt-end-y screen)))
+       (fx+ (vscreen-prompt0-end-y screen) (vscreen-prompt-end-y  screen))))
 
 ;; return two values: visual cursor x, y position
 (define (vscreen-cursor-vxy screen)
@@ -172,10 +197,10 @@
 
 ;; set visual cursor x and y position. equivalent to calling vscreen-cursor-ixy-set!,
 ;; with the following differences:
-;; * (vscreen-prompt-end-y screen) is subtracted from y
+;; * (fx+ (vscreen-prompt-end-y screen) (vscreen-prompt-end-y screen)) is subtracted from y
 ;; * if clamped y is 0, vscreen-prompt-end-x will be subtracted from x
 (define (vscreen-cursor-vxy-set! screen x y)
-  (let* ((iy (fx- y (vscreen-prompt-end-y screen)))
+  (let* ((iy (fx- y (fx+ (vscreen-prompt0-end-y screen) (vscreen-prompt-end-y screen))))
          (ix (fx- x (if (or (fx<=? iy 0) (fx<=? (vscreen-length screen) 1))
                      (vscreen-prompt-end-x screen)
                      0))))
@@ -224,10 +249,15 @@
         (vscreen-cursor-move/right! screen n)))))
 
 
-;; update prompt-end-x and prompt-end-y after screen resize
+;; update prompt-end0-x and prompt-end0-y, prompt-end-x and prompt-end-y after screen resize
 (define (vscreen-reflow-prompt screen old-width)
   (assert* 'vscreen-reflow-prompt (fx>? old-width 0))
-  (let ((len (fx+ (vscreen-prompt-end-x screen) (fx* old-width (vscreen-prompt-end-y screen)))))
+  ;; decrease y by one because we draw a newline after prompt0 - unless it's empty, see (vscreen-prompt0-length-set!) above
+  (let* ((y   (fxmax 0 (fx1- (vscreen-prompt0-end-y screen))))
+         (len (fx+ (vscreen-prompt0-end-x screen) (fx* old-width y))))
+    (vscreen-prompt0-length-set! screen len))
+  (let* ((y   (vscreen-prompt-end-y screen))
+         (len (fx+ (vscreen-prompt-end-x screen) (fx* old-width y))))
     (vscreen-prompt-length-set! screen len)))
 
 

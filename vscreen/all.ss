@@ -71,17 +71,18 @@
 
     ;; vscreen.ss
     make-vscreen  (rename (%vscreen vscreen))  vscreen?  assert-vscreen?
-    vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
-    vscreen-dirty?       vscreen-dirty-set!
-    vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
-    vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
-    vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
-    vscreen-length-at-y  vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
-    vscreen-cell-at-xy   vscreen-cell-before-xy  vscreen-cell-after-xy
-    vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
-    vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
+    vscreen-width         vscreen-height     vscreen-width-at-y  vscreen-resize!
+    vscreen-dirty?        vscreen-dirty-set!
+    vscreen-cursor-ix     vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
+    vscreen-cursor-vx     vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
+    vscreen-prompt0-end-x vscreen-prompt0-end-y vscreen-prompt0-length  vscreen-prompt0-length-set!
+    vscreen-prompt-end-x  vscreen-prompt-end-y  vscreen-prompt-length   vscreen-prompt-length-set!
+    vscreen-length-at-y   vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
+    vscreen-cell-at-xy    vscreen-cell-before-xy  vscreen-cell-after-xy
+    vscreen-char-at-xy    vscreen-char-before-xy  vscreen-char-after-xy
+    vscreen-next-xy       vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
-    vscreen-clear!       vscreen-empty?          vscreen-line-at-y
+    vscreen-clear!        vscreen-empty?          vscreen-line-at-y
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
     vscreen-delete-left/vline!  vscreen-delete-right/vline!

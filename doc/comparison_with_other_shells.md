@@ -4,7 +4,7 @@
 
 Schemesh is intended as an interactive shell and REPL:
 it supports line editing, autocompletion, searchable history, aliases, builtins,
-a customizable prompt, and automatic loading of `~/.config/schemesh/repl_init.ss`.
+customizable prompts, and automatic loading of `~/.config/schemesh/repl_init.ss`.
 
 Most importantly, it also has job control (CTRL+Z, `fg`, `bg` etc.)
 and recognizes and extends Unix shell syntax for starting, redirecting and composing jobs.
