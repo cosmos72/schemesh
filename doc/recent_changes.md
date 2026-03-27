@@ -11,7 +11,7 @@
 
 ### git main branch
 
-* add prompt0 and functions to customize it
+* add prompt0 and functions to customize it. It can also be used as right prompt.
 
 ### release v1.0.0, 2026-03-15
 

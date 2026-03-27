@@ -43,6 +43,16 @@
   (bytespan-insert-right/string! (linectx-wbuf ctx) str))
 
 
+;; write n spaces to wbuf
+(define lineterm-write/spaces
+  (let ((spaces (make-bytevector 256 32)))
+    (lambda (ctx n)
+      (let ((write-n (fxmin n 256)))
+        (when (fx>? write-n 0)
+          (bytespan-insert-right/bytevector! (linectx-wbuf ctx) spaces 0 write-n)
+          (lineterm-write/spaces ctx (fx- n write-n)))))))
+
+
 ;; Move tty cursor horizontally.
 ;; If dx > 0, send escape sequence "move cursor right by dx".
 ;; If dx < 0, send escape sequence "move cursor left by -dx".

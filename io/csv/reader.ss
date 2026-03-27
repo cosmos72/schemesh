@@ -134,7 +134,7 @@
           ((nl eof) (reverse! cols))
           ((comma)  (%csv-reader-columns (if comma? cols (cons 'name cols)) #f))
           (else     (%csv-reader-columns (cons (string->symbol token) cols) #t)))))))
-          
+
 
 ;; if column names are already parsed, return them.
 ;; otherwise parse them, store them in csv-reader-cols and and return them

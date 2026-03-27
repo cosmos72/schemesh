@@ -163,7 +163,7 @@
               ((#\e)     (%append-char     #\x1B))
               ((#\h #\H) (%append-string   (c-hostname)))
               ; ((#\n)   (%append-char     #\newline)) ; breaks computing prompt-end-x/y
-              ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y
+              ((#\r)     (%append-char     (if (fx=? 1 i) #\return ch)))
               ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
               ((#\@ #\A
                 #\T #\t) (%append-string   (sh-current-time ch)))
