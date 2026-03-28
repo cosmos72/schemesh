@@ -81,7 +81,13 @@ static ptr make_tty_name(int64_t tty_nr) {
     if (hi == 136) {
       buflen = snprintf(buf, sizeof(buf), "pts/%u", lo);
     } else if (hi == 4) {
-      buflen = snprintf(buf, sizeof(buf), "tty%u", lo);
+      if (lo < 64) {
+        buflen = snprintf(buf, sizeof(buf), "tty%u", lo);
+      } else {
+        buflen = snprintf(buf, sizeof(buf), "ttyS%u", lo - 64);
+      }
+    } else if (hi == 5 && lo == 1) {
+      memcpy(buf, "console", (buflen = 7) + 1);
     } else {
       return Svoid;
     }
