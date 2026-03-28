@@ -113,22 +113,23 @@
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let ((ch (parsectx-read-char ctx)))
+      (let ((ch (parsectx-peek-char ctx)))
         (cond
           ((eof-object? ch)
             (set! again? #f))
           ((char=? #\\ ch)
-            ; read next char, suppressing any special meaning it may have
+            (parsectx-read-char ctx)
+            ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-right! csp ch-i))))
           ((or (char<=? #\0 ch #\9)
                (char<=? #\A ch #\Z)
                (char<=? #\a ch #\z)
                (char=?  #\_ ch))
+            (parsectx-read-char ctx)
             (charspan-insert-right! csp ch))
           (else
-            (set! again? #f)
-            (parsectx-unread-char ctx ch)))))
+            (set! again? #f)))))
     (list 'shell-env (charspan->string csp))))
 
 
@@ -177,20 +178,21 @@
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let-values (((ch type) (read-shell-char ctx)))
+      (let-values (((ch type) (peek-shell-char ctx)))
         (case type
           ((eof)
             (set! again? #f))
           ((dquote dollar backquote)
-            (parsectx-unread-char ctx ch)
             (set! again? #f))
           ((backslash)
+            (parsectx-read-char ctx) ; consume backslash
             ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-right! csp ch-i))))
           (else
             ;; single quote, newline, semicolon, operators and parentheses
             ;; have no special meaning inside dquotes
+            (parsectx-read-char ctx) ; consume ch
             (charspan-insert-right! csp ch)))))
     (charspan->string csp)))
 
@@ -244,43 +246,42 @@
         (again? #t))
     ; (debugf "->  read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
     (while again?
-      (let-values (((ch type) (read-shell-char ctx)))
+      (let-values (((ch type) (peek-shell-char ctx)))
         ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s" ch type word)
         (cond
           ((eq? type 'backslash)
+            (parsectx-read-char ctx) ; consume backslash
             ;; read next char, suppressing any special meaning it may have
             (let ((ch2 (read-char-after-backslash ctx word)))
               (when ch2 (charspan-insert-right! word ch2))))
           ((and equal-is-operator? (eqv? ch #\=))
-            (if (charspan-empty? word)
-              (set! word '=)                 ; return '=
-              (parsectx-unread-char ctx ch)) ; return word before =
+            (when (charspan-empty? word)
+              (parsectx-read-char ctx) ; consume #\=
+              (set! word '=))          ; return '=
             (set! again? #f))
           ((and wildcards? (memv ch '(#\? #\*)))
-            (if (charspan-empty? word)
-              ; return wildcard symbol '? or '*
-              (set! word (if (char=? ch #\?) '? '*))
-              (parsectx-unread-char ctx ch)) ; return word before ? or *
+            (when (charspan-empty? word)
+              (parsectx-read-char ctx)                ; consume ch
+              (set! word (if (char=? ch #\?) '? '*))) ; return wildcard symbol '? or '*
             (set! again? #f))
           ((eqv? ch #\~)
-            (if (charspan-empty? word)
-              ; return wildcard symbol '~
-              (set! word '~)
-              (parsectx-unread-char ctx ch)) ; return word before ~
+            (when (charspan-empty? word)
+              (parsectx-read-char ctx) ; consume #\~
+              (set! word '~))          ; return wildcard symbol '~
             (set! again? #f))
           ((eq? type 'char)
+            (parsectx-read-char ctx) ; consume ch
             (charspan-insert-right! word ch))
           ((eq? type 'lbrack)
-            (if (charspan-empty? word)
-              ; return beginning of wildcard pattern '% or '%!
+            (when (charspan-empty? word)
+              (parsectx-read-char ctx) ; consume #\[
+              ;; return beginning of wildcard pattern '% or '%!
               (cond
                 ((eqv? #\! (parsectx-peek-char ctx))
                   (parsectx-read-char ctx)
                   (set! word '%!))
                 (else
-                  (set! word '%)))
-              ; return word before [
-              (parsectx-unread-char ctx ch))
+                  (set! word '%))))
             (set! again? #f))
           (else
             ; treat anything else as delimiter.
@@ -292,7 +293,6 @@
             ; That's intentionally different from posix shell,
             ; where characters { } inside an unquoted string have no special meaning,
             ; and where characters ( ) inside an unquoted string are a syntax error.
-            (parsectx-unread-char ctx ch)
             (set! again? #f)))))
     ; (debugf "<-  read-subword-noquote ret=~s" word)
     (cond

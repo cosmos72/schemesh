@@ -11,7 +11,7 @@
   (export
     ;; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
-    parsectx-skip-whitespace parsectx-unread-char parsectx-try-read-directive
+    parsectx-skip-whitespace parsectx-try-read-directive
     get-parser to-parser make-parser parser? parser-name
     parser-parse-forms parser-parse-paren
 

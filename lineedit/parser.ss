@@ -16,7 +16,7 @@
     parser-name parser-parse-forms parser-parse-paren
     get-parser-or-false get-parser to-parser
 
-    parsectx-peek-char parsectx-peek-char2 parsectx-read-char parsectx-unread-char
+    parsectx-peek-char parsectx-peek-char2 parsectx-read-char
     parsectx-skip-whitespace parsectx-skip-line parsectx-skip-until-char
     parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
     parsectx-is-simple-identifier-char?
@@ -105,12 +105,11 @@
     (mutable in-buf)  ; #f or string used as temporary buffer for (peek-char2)
     width             ; fixnum, screen width
     prompt-end-x      ; fixnum, column where prompt ends
-    (mutable next-ch) ; next character to consume, or #f to read from in
     pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
     prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
     pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
-  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;; create a new parsectx. Arguments are
@@ -148,7 +147,7 @@
     (for-hash ((name parser enabled-parsers))
       (assert* 'make-parsectx* (symbol? name))
       (assert* 'make-parsectx* (parser? parser))))
-  (%make-parsectx in #f width prompt-end-x #f (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
+  (%make-parsectx in #f width prompt-end-x (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -252,50 +251,30 @@
 ;; Peek next character from textual input port (parsectx-in pctx),
 ;; without consuming it
 (define (parsectx-peek-char pctx)
-  (assert* 'parsectx-peek-char (parsectx? pctx))
-  (or (parsectx-next-ch pctx)
-      (peek-char (parsectx-in pctx))))
+  (peek-char (parsectx-in pctx)))
 
 
 ;; Peek next-next character from textual input port (parsectx-in pctx),
 ;; without consuming it
 (define (parsectx-peek-char2 pctx)
-  (assert* 'parsectx-peek-char2 (parsectx? pctx))
-  (if (parsectx-next-ch pctx)
-    (peek-char (parsectx-in pctx))
-    (let* ((in   (parsectx-in pctx))
-           (half (fx/ (string-length (textual-port-input-buffer in)) 2))
-           (temp (parsectx-in-buf pctx))
-           (buf  (if (and (string? temp) (fx<=? 1 (string-length temp) half))
-                   temp
-                   (make-string half))))
-      (unless (eq? temp buf)
-        (parsectx-in-buf-set! pctx buf))
-      (peek-char2 in buf))))
+  (let* ((in   (parsectx-in pctx))
+         (half (fx/ (string-length (textual-port-input-buffer in)) 2))
+         (temp (parsectx-in-buf pctx))
+         (buf  (if (and (string? temp) (fx<=? 1 (string-length temp) half))
+                 temp
+                 (make-string half))))
+    (unless (eq? temp buf)
+      (parsectx-in-buf-set! pctx buf))
+    (peek-char2 in buf)))
 
 
 ;; Read a character from textual input port (parsectx-in pctx)
 ;;
 ;; also updates (parsectx-pos pctx)
 (define (parsectx-read-char pctx)
-  (assert* 'parsectx-read-char (parsectx? pctx))
-  (let* ((ch1 (parsectx-next-ch pctx))
-         (ch (if ch1
-                (begin
-                  (parsectx-next-ch-set! pctx #f)
-                  ch1)
-                (read-char (parsectx-in pctx)))))
+  (let ((ch (read-char (parsectx-in pctx))))
     (parsectx-increment-pos/char pctx ch)
     ch))
-
-
-;; Unread a character and store it into (parsectx-next-ch pctx).
-;;
-;; Raise condition if parsectx-next-ch is already set.
-(define (parsectx-unread-char pctx ch)
-  (assert* 'parsectx-unread-char (not (parsectx-next-ch pctx)))
-  (parsectx-next-ch-set! pctx ch)
-  (parsectx-decrement-pos pctx ch))
 
 
 ;; return #t if ch is a character and is <= ' '.

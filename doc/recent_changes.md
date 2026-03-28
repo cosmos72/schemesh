@@ -4,7 +4,6 @@
 
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory
-* remove function `(parsectx-unread-char)` and update functions that use it
 * add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
 
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
@@ -12,6 +11,7 @@
 ### git main branch
 
 * add prompt0 and functions to customize it. It can also be used as right prompt.
+* removed function `(parsectx-unread-char)`
 
 ### release v1.0.0, 2026-03-15
 

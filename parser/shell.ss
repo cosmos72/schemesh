@@ -117,11 +117,13 @@
 ;; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
 ;;
 (define (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
-  (let-values (((ch type) (read-shell-char ctx)))
+  (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof separator lparen rparen rbrack lbrace rbrace)
+        (parsectx-read-char ctx) ; consume ch
         (values ch type))
       ((op)
+        (parsectx-read-char ctx) ; consume ch
         (let ((ch2 (parsectx-peek-char ctx)))
           (case ch
             ((#\&) (cond ((eqv? ch2 #\&) (set! ch '&&))
@@ -143,19 +145,21 @@
             (values (op->symbol ctx ch) type))))
       ((dollar lbrack)
         (cond
-          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| #\) |# ; help vscode
+          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char2 ctx))) #| #\) |# ; help vscode
+            (parsectx-read-char ctx) ; consume ch
             (values (parsectx-read-char ctx) 'dollar+lparen))
-          ((and (eq? type 'dollar) (eqv? #\[ (parsectx-peek-char ctx))) #| #\] |# ; help vscode
+          ((and (eq? type 'dollar) (eqv? #\[ (parsectx-peek-char2 ctx))) #| #\] |# ; help vscode
+            (parsectx-read-char ctx) ; consume ch
             (values (parsectx-read-char ctx) 'dollar+lbrack))
           ((and (eq? type 'lbrack) lbracket-is-subshell?)
+            (parsectx-read-char ctx) ; consume ch
             (values ch type))
           (else
-            (parsectx-unread-char ctx ch)
             (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))))
       ((backquote)
+        (parsectx-read-char ctx) ; consume ch
         (values ch type))
       ((char squote dquote backslash)
-        (parsectx-unread-char ctx ch)
         (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
