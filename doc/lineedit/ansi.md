@@ -3,7 +3,7 @@
 Two prompts can be customized: `prompt0` and `prompt`.
 
 The first one i.e. `prompt0` is displayed immediately **above** user input, either left-aligned (default)
-or right-aligned to terminal width if it starts with character sequence "\r".
+or right-aligned to terminal width if it starts with ASCII 13 i.e. return character.
 
 The second one i.e. `prompt` is displayed immediately **to the left** of user input.
 
@@ -13,7 +13,9 @@ and they can be customized using two alternative mechanisms:
 1. by setting the environment variables `$SCHEMESH_PS0` or `$SCHEMESH_PS1`, which are mostly compatible with bash PS1
    as described in section "PROMPTING" of `man bash` and available online at
    https://www.man7.org/linux/man-pages//man1/bash.1.html#PROMPTING <br/>
-   Additionally, if `$SCHEMESH_PS0` starts with character sequence "\r" then `prompt0` will be displayed right-aligned to terminal width.
+   Additionally, if `$SCHEMESH_PS0` starts with sequence "\r" i.e. backslash r
+   then `prompt0` will start with ASCII 13 i.e. return character,
+   causing it to be displayed right-aligned to terminal width.
 
 2. by registering a user-defined function that will be executed each time schemesh needs to draw the prompt.
    Such function must accept a single `lctx` argument and can update the prompt stored into `lctx` as it sees fit.
