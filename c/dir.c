@@ -58,7 +58,7 @@ typedef enum {
   e_dir_flag_hidden      = 1 << 13, /* omit entries starting with "." */
   e_dir_flag_dir_as_file = 1 << 14, /* show directories themselvers, not their contents */
   e_dir_flag_dirprefix   = 1 << 15, /* print dir path before entry name */
-} e_dir_flag;
+} e_dir_flags;
 
 typedef enum {
   e_type_unknown = 0,
@@ -87,7 +87,7 @@ static void w_put_string(writer* w, string s) {
 
 #ifdef SCHEME2K_C_DIR_HAVE_TIMESPEC
 static void write_timespec(writer*                w,
-                           e_dir_flag             flags,
+                           e_dir_flags            flags,
                            const char*            label,
                            const size_t           label_len,
                            const struct timespec* t) {
@@ -103,8 +103,8 @@ static void write_timespec(writer*                w,
   }
 }
 #else
-static void
-write_time(writer* w, e_dir_flag flags, const char* label, const size_t label_len, const time_t t) {
+static void write_time(
+    writer* w, e_dir_flags flags, const char* label, const size_t label_len, const time_t t) {
   if (flags) {
     w_put_chars_len(w, label, label_len);
     w_put_literal(w, "{\"<type>\":\"time-utc\",\"value\":");
@@ -115,7 +115,7 @@ write_time(writer* w, e_dir_flag flags, const char* label, const size_t label_le
 #endif /* SCHEME2K_C_DIR_HAVE_TIMESPEC */
 
 static void write_int64(
-    writer* w, e_dir_flag flags, const char* label, const size_t label_len, const int64_t num) {
+    writer* w, e_dir_flags flags, const char* label, const size_t label_len, const int64_t num) {
   if (flags) {
     w_put_chars_len(w, label, label_len);
     w_put_int64(w, num);
@@ -123,14 +123,14 @@ static void write_int64(
 }
 
 static void write_uint64(
-    writer* w, e_dir_flag flags, const char* label, const size_t label_len, const uint64_t num) {
+    writer* w, e_dir_flags flags, const char* label, const size_t label_len, const uint64_t num) {
   if (flags) {
     w_put_chars_len(w, label, label_len);
     w_put_uint64(w, num);
   }
 }
 
-static void write_etype(writer* w, e_dir_flag flags, e_type type) {
+static void write_etype(writer* w, e_dir_flags flags, e_type type) {
   string s;
   if (!flags) {
     return;
@@ -165,7 +165,7 @@ static void write_etype(writer* w, e_dir_flag flags, e_type type) {
   w_put_string(w, s);
 }
 
-static void write_mode(writer* w, e_dir_flag flags, uint32_t mode) {
+static void write_mode(writer* w, e_dir_flags flags, uint32_t mode) {
   const char rwx[] = "rwxrwxrwxSST";
   unsigned   i;
   if (!flags) {
@@ -194,7 +194,7 @@ static void write_gr_groupname(writer* w, const char* groupname) {
   w_put_quoted_escaped_chars(w, groupname);
 }
 
-static void write_username(writer* w, e_dir_flag flags, uid_t uid) {
+static void write_username(writer* w, e_dir_flags flags, uid_t uid) {
   static struct passwd* pwd = NULL;
 
   if (!flags) {
@@ -209,7 +209,7 @@ static void write_username(writer* w, e_dir_flag flags, uid_t uid) {
   }
 }
 
-static void write_groupname(writer* w, e_dir_flag flags, gid_t gid) {
+static void write_groupname(writer* w, e_dir_flags flags, gid_t gid) {
   static struct group* grp = NULL;
 
   if (!flags) {
@@ -286,7 +286,7 @@ static e_type modeToEtype(mode_t mode) {
   }
 }
 
-static void write_symlink(writer* w, e_dir_flag flags, e_type type, int dir_fd, const char* path) {
+static void write_symlink(writer* w, e_dir_flags flags, e_type type, int dir_fd, const char* path) {
   if (flags && type == e_type_lnk) {
     char    buf[PATH_MAX];
     ssize_t len = readlinkat(dir_fd, path, buf, sizeof(buf));
@@ -297,7 +297,7 @@ static void write_symlink(writer* w, e_dir_flag flags, e_type type, int dir_fd, 
   }
 }
 
-static void write_file_stat(writer* w, e_dir_flag flags, const struct stat* st) {
+static void write_file_stat(writer* w, e_dir_flags flags, const struct stat* st) {
 
 #ifdef SCHEME2K_C_DIR_HAVE_TIMESPEC
   write_timespec(w, flags & e_dir_flag_modified, KEY("modified"), &(st->st_mtim));
@@ -319,7 +319,7 @@ static void write_file_stat(writer* w, e_dir_flag flags, const struct stat* st) 
 }
 
 static int
-write_dir_entry_header(writer* w, e_dir_flag flags, const char* filepath, const string dirpath) {
+write_dir_entry_header(writer* w, e_dir_flags flags, const char* filepath, const string dirpath) {
   w_put_literal(w, "{\"<type>\":\"dir-entry\",\"name\":");
 
   /* dirpath and entry->d_name can be arbitrary bytes, not only valid UTF-8 */
@@ -335,7 +335,7 @@ write_dir_entry_header(writer* w, e_dir_flag flags, const char* filepath, const 
   return 0;
 }
 
-static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir, const string dirpath) {
+static int write_dir_entry(writer* w, e_dir_flags flags, DIR* dir, const string dirpath) {
   struct stat    st;
   struct dirent* entry;
   int            dir_fd;
@@ -385,7 +385,7 @@ static int write_dir_entry(writer* w, e_dir_flag flags, DIR* dir, const string d
   return 1;
 }
 
-static int write_dir(writer* w, e_dir_flag flags, const string dirpath) {
+static int write_dir(writer* w, e_dir_flags flags, const string dirpath) {
   DIR* dir = opendir(dirpath.data);
   int  err;
   if (!dir) {
@@ -397,7 +397,7 @@ static int write_dir(writer* w, e_dir_flag flags, const string dirpath) {
   return err;
 }
 
-static int write_file(writer* w, e_dir_flag flags, struct stat* st, const string filepath) {
+static int write_file(writer* w, e_dir_flags flags, struct stat* st, const string filepath) {
   const char* path = filepath.data;
   e_type      type = modeToEtype(st->st_mode);
   write_dir_entry_header(w, flags, path, make_string(NULL, 0));
@@ -409,7 +409,7 @@ static int write_file(writer* w, e_dir_flag flags, struct stat* st, const string
   return 0;
 }
 
-static int write_file_or_dir(writer* w, e_dir_flag flags, const string path) {
+static int write_file_or_dir(writer* w, e_dir_flags flags, const string path) {
   struct stat st;
   if (fstatat(AT_FDCWD, path.data, &st, AT_SYMLINK_NOFOLLOW) < 0) {
     return -errno;
@@ -434,29 +434,29 @@ static void usage(char* argv0) {
           argv0);
 }
 
-static e_dir_flag parse_dir_flag(int argc, char* argv[]) {
-  char*      arg;
-  int        i;
-  e_dir_flag flag = e_dir_flag_default;
+static e_dir_flags parse_dir_flags(int argc, char* argv[]) {
+  char*       arg;
+  int         i;
+  e_dir_flags flags = e_dir_flag_default;
   for (i = 1; i < argc; ++i) {
     if (!(arg = argv[i]) || !strcmp(arg, "--")) {
       break;
     } else if (arg[0] != '-') {
       continue;
     } else if (!strcmp(arg, "-a")) {
-      flag |= e_dir_flag_hidden;
+      flags |= e_dir_flag_hidden;
     } else if (!strcmp(arg, "-d")) {
-      flag |= e_dir_flag_dir_as_file;
+      flags |= e_dir_flag_dir_as_file;
     } else if (!strcmp(arg, "-l")) {
-      flag |= e_dir_flag_long;
+      flags |= e_dir_flag_long;
     } else if (!strcmp(arg, "-v")) {
-      flag |= e_dir_flag_verbose;
+      flags |= e_dir_flag_verbose;
     } else {
       usage(argv[0]);
       exit(strcmp(arg, "--help") ? 1 : 0);
     }
   }
-  return flag;
+  return flags;
 }
 
 static int count_args(int argc, char* argv[]) {
@@ -479,11 +479,11 @@ static int count_args(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-  writer     w = {stdout, 0, {0}};
-  char*      arg;
-  e_dir_flag flags = parse_dir_flag(argc, argv);
-  int        err = 0, n = count_args(argc, argv);
-  int        options, i;
+  writer      w = {stdout, 0, {0}};
+  char*       arg;
+  e_dir_flags flags = parse_dir_flags(argc, argv);
+  int         err = 0, n = count_args(argc, argv);
+  int         options, i;
 
   if (n == 0) {
     err = write_file_or_dir(&w, flags, make_string(".", 1));

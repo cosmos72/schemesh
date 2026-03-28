@@ -43,7 +43,7 @@
     (lambda ()
       (let ((obj (c-process-open)))
         (unless (and (integer? obj) (exact? obj) (> obj 0))
-          (raise-c-errno 'make-process-reader 'opendir obj "/proc"))
+          (raise-c-errno 'make-process-reader 'c_process_open obj))
         (%make-process-reader obj)))))
 
 

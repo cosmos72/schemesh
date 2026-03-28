@@ -180,10 +180,10 @@ uninstall_schemesh_static:
 # additional programs. Some require external libraries (libcurl, libsqlite3 ...)
 ################################################################################
 
-utils:                     countdown           dir           http           parse_sqlite
-clean_utils:         clean_countdown     clean_dir     clean_http     clean_parse_sqlite
-install_utils:     install_countdown   install_dir   install_http   install_parse_sqlite
-uninstall_utils: uninstall_countdown uninstall_dir uninstall_http uninstall_parse_sqlite
+utils:                     countdown           dir           http           parse_sqlite           proc
+clean_utils:         clean_countdown     clean_dir     clean_http     clean_parse_sqlite     clean_proc
+install_utils:     install_countdown   install_dir   install_http   install_parse_sqlite   install_proc
+uninstall_utils: uninstall_countdown uninstall_dir uninstall_http uninstall_parse_sqlite uninstall_proc
 
 
 ################################################################################
@@ -256,6 +256,24 @@ install_parse_sqlite: parse_sqlite installdirs
 
 uninstall_parse_sqlite:
 	rm -f '$(DESTDIR)$(bindir)/parse_sqlite'
+
+
+################################################################################
+# C program: proc
+# minimal 'ps' reimplementation, with JSON output
+################################################################################
+
+proc: c/proc.c c/proc_common.h c/proc_freebsd.h c/proc_linux.h c/proc_macos.h c/proc_unsupported.h c/writer.h
+	$(CC) -o $@ $< $(CFLAGS) $(LIBS_UTIL) $(LDFLAGS)
+
+clean_proc:
+	rm -f proc
+
+install_proc: proc installdirs
+	$(INSTALL_PROGRAM) proc '$(DESTDIR)$(bindir)'
+
+uninstall_proc:
+	rm -f '$(DESTDIR)$(bindir)/proc'
 
 
 ################################################################################
