@@ -5,6 +5,11 @@ Shell jobs are implemented by library `(schemesh shell job)` which is also inclu
 Shell syntax to create and redirect shell jobs is the same as POSIX shells,
 and differences are documented in the main [README.md](../../README.md).
 
+Shell syntax to set environment variables is described in [builtins.md](builtins.md):
+the relevant builtins are: [global](builtins.md#global) [parent](builtins.md#parent)
+[set](builtins.md#set) [unset](builtins.md#unset)
+[export](builtins.md#export) [unexport](builtins.md#unexport)
+
 Scheme functions to **create** shell jobs are not documented yet.
 
 Scheme functions to manage the **environment variables** of existing shell jobs are documented below.
