@@ -6,9 +6,8 @@ Shell syntax to create and redirect shell jobs is the same as POSIX shells,
 and differences are documented in the main [README.md](../../README.md).
 
 Shell syntax to set environment variables is described in [builtins.md](builtins.md):
-the relevant builtins are: [global](builtins.md#global) [parent](builtins.md#parent)
-[set](builtins.md#set) [unset](builtins.md#unset)
-[export](builtins.md#export) [unexport](builtins.md#unexport)
+the relevant builtins are [export](builtins.md#export) [global](builtins.md#global) [parent](builtins.md#parent)
+[set](builtins.md#set) [unexport](builtins.md#unexport) [unset](builtins.md#unset)
 
 Scheme functions to **create** shell jobs are not documented yet.
 
