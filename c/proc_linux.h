@@ -10,10 +10,11 @@
 #ifndef SCHEME2K_C_PROC_IMPL_H
 #define SCHEME2K_C_PROC_IMPL_H
 
-#if 0 /* UNFINISHED */
+#if 1 /* UNFINISHED */
 
 #include <dirent.h>    /* opendir()        */
 #include <errno.h>     /* errno            */
+#include <fcntl.h>     /* openat()         */
 #include <string.h>    /* strerror()       */
 #include <sys/stat.h>  /* fstat()          */
 #include <sys/types.h> /* opendir()        */
@@ -30,12 +31,20 @@ typedef struct {
   size_t         size;
 } charspan;
 
+#define make_chars_literal(str) make_chars((const unsigned char*)(str), sizeof(str) - 1)
+
 static chars make_chars(const unsigned char data[], size_t size) {
   chars cs = {data, size};
   return cs;
 }
 
-#define make_chars_literal(str) make_chars(str, sizeof(str) - 1)
+static chars chars_skip1(chars cs) {
+  if (cs.size) {
+    cs.data++;
+    cs.size--;
+  }
+  return cs;
+}
 
 static charspan make_charspan(unsigned char data[], size_t size) {
   charspan cs = {data, size};
@@ -79,6 +88,51 @@ static uint64_t get_os_tick_per_s(void) {
   return n;
 }
 
+static size_t get_os_pagesize(void) {
+  static size_t os_pagesize = 0; /* OS page size, in bytes */
+
+  size_t n = os_pagesize;
+  if (n == 0) {
+#ifdef _SC_PAGESIZE
+    long val = sysconf(_SC_PAGESIZE);
+    if (val > 0) {
+      n = (size_t)val;
+    } else
+#endif
+
+    /*else */ {
+#ifdef __FreeBSD__
+      n = getpagesize();
+#elif defined(PAGESIZE) && PAGESIZE > 0
+      n = PAGESIZE;
+#else
+      n = 4096; /* guess */
+#endif
+    }
+    os_pagesize = n; /* cache for future calls */
+  }
+  return n;
+}
+
+static int64_t max_int64(int64_t left, int64_t right) {
+  return left > right ? left : right;
+}
+
+static int64_t min_int64(int64_t left, int64_t right) {
+  return left < right ? left : right;
+}
+
+static struct timespec timespec_add(struct timespec left, struct timespec right) {
+  struct timespec ret;
+
+  int carry = (ret.tv_nsec = left.tv_nsec + right.tv_nsec) >= 1000000000;
+  if (carry) {
+    ret.tv_nsec -= 1000000000;
+  }
+  ret.tv_sec = left.tv_sec + right.tv_sec + carry;
+  return ret;
+}
+
 static struct timespec timespec_sub(struct timespec left, struct timespec right) {
   struct timespec ret;
 
@@ -102,6 +156,16 @@ static struct timespec timespec_avg(struct timespec left, struct timespec right)
   }
   ret.tv_nsec = ns;
   ret.tv_sec  = lo_s + delta_s / 2 + carry;
+  return ret;
+}
+
+static struct timespec ticks_to_timespec(uint64_t ticks, uint64_t tick_per_s) {
+  struct timespec ret;
+  uint64_t        remainder = ticks % tick_per_s;
+
+  ret.tv_sec = ticks / tick_per_s;
+  /* requires tick_per_s < MAX_UINT64 / 1'000'000'000 */
+  ret.tv_nsec = (remainder * 1000000000 + tick_per_s / 2) / tick_per_s;
   return ret;
 }
 
@@ -146,7 +210,7 @@ static chars read_file_at(int dir_fd, const char path[], charspan dst, int64_t* 
   size_t  end;
   int     fd = openat(dir_fd, path, O_RDONLY);
   if (fd < 0) {
-    return NULL;
+    return make_chars(NULL, 0);
   }
   fd_stat_uid_gid(fd, uid, gid);
   n = read(fd, dst.data, dst.size);
@@ -162,6 +226,49 @@ static chars skip_ws(chars src) {
   return make_chars(src.data + i, src.size - i);
 }
 
+static chars parse_uint64_noskip_ws(chars src, uint64_t* ret) {
+  uint64_t      n = 0;
+  unsigned char ch;
+
+  if (src.size == 0 || (ch = src.data[0]) < '0' || ch > '9') {
+    return make_chars(NULL, 0);
+  }
+  do {
+    src = chars_skip1(src);
+    n   = n * 10 + (unsigned)(ch - '0');
+  } while (src.size > 0 && (ch = src.data[0]) >= '0' && ch <= '9');
+
+  if (ret) {
+    *ret = n;
+  }
+  return src;
+}
+
+static chars parse_int64_noskip_ws(chars src, int64_t* ret) {
+  uint64_t n;
+  char     negative;
+
+  if (src.size > 0 && src.data[0] == '-') {
+    src      = chars_skip1(src);
+    negative = 1;
+  } else {
+    negative = 0;
+  }
+  src = parse_uint64_noskip_ws(src, &n);
+  if (ret) {
+    *ret = negative ? -(int64_t)n : (int64_t)n;
+  }
+  return src;
+}
+
+static chars parse_uint64(chars src, uint64_t* ret) {
+  return parse_uint64_noskip_ws(skip_ws(src), ret);
+}
+
+static chars parse_int64(chars src, int64_t* ret) {
+  return parse_int64_noskip_ws(skip_ws(src), ret);
+}
+
 /**
  * skip whitespace, set cmd to point to command name in parentheses (...).
  * Command name may contain any character, including spaces and ')'
@@ -175,8 +282,7 @@ static chars parse_command(chars src, chars* cmd) {
   src = skip_ws(src);
   /* skip initial '(' */
   if (src.size != 0 && src.data[0] == '(') {
-    ++src.data;
-    --src.size;
+    src = chars_skip1(src);
   }
   end         = src.data + src.size;
   skip_rparen = 0;
@@ -194,10 +300,31 @@ static chars parse_command(chars src, chars* cmd) {
   return make_chars(end + skip_rparen, src.size - (end + skip_rparen - src.data));
 }
 
+/**
+ * skip whitespace, get next char and store it in *state
+ * if char could not be read, store '\0' in *state.
+ */
+static chars parse_char(chars src, char* state) {
+  src = skip_ws(src);
+  if (src.size > 0) {
+    if (state) {
+      *state = src.data[0];
+    }
+    src = chars_skip1(src);
+  } else if (state) {
+    *state = '\0';
+  }
+  return src;
+}
+
+static void put_chars(writer* w, chars cs) {
+  w_put_chars_len(w, (const char*)cs.data, cs.size);
+}
+
 static void put_command(writer* w, e_proc_flags flags, chars cmd) {
   if (flags) {
     w_put_literal(w, ",\"name\":");
-    w_put_quoted_escaped_chars_len(w, cmd.data, cmd.size);
+    w_put_quoted_escaped_chars_len(w, (const char*)cmd.data, cmd.size);
   }
 }
 
@@ -225,27 +352,72 @@ static void put_tty_name(writer* w, e_proc_flags flags, int64_t tty_nr) {
       w_put_literal(w, "null");
     }
     if (buflen > 0) {
-      w_put_quoted_escaped_chars(buf, (size_t)buflen);
+      w_put_quoted_escaped_chars_len(w, buf, (size_t)buflen);
     }
   } else {
     w_put_literal(w, "\"\"");
   }
 }
 
+static void put_state(writer* w, e_proc_flags flags, char state) {
+  if (!flags || state == '\0') {
+    return;
+  }
+  w_put_literal(w, ",\"state\":\"");
+  w_put_char(w, state);
+  w_put_char(w, '"');
+}
+
+static void put_int64(writer* w, e_proc_flags flags, int64_t num, chars prefix) {
+  if (!flags) {
+    return;
+  }
+  put_chars(w, prefix);
+  w_put_int64(w, num);
+}
+
+static void put_uint64(writer* w, e_proc_flags flags, uint64_t num, chars prefix) {
+  if (!flags) {
+    return;
+  }
+  put_chars(w, prefix);
+  w_put_uint64(w, num);
+}
+
+static void put_timespec(writer* w, e_proc_flags flags, struct timespec ts, chars prefix) {
+  if (!flags) {
+    return;
+  }
+  put_chars(w, prefix);
+  w_put_int64(w, ts.tv_sec);
+  w_put_char(w, '.');
+
+  {
+    char  buf[24];
+    char* start = buf + 12;
+    int   len   = snprintf(start, sizeof(buf) - 8, "%" PRIu32, (uint32_t)ts.tv_nsec);
+    for (; len < 9; len++) {
+      *--start = '0'; /* prefix zeros to reach 9 digits */
+    }
+    /* remove redundant trailing zeroes */
+    for (; len > 1 && start[len - 1] == '0'; --len) {
+    }
+    w_put_chars_len(w, start, len);
+  }
+}
+
 /**
  * read one process from /proc and print it as NDJSON
  */
-static void print_process_get(
-    DIR* dir, const struct dirent* entry, writer* w, e_proc_flags flags, uid_t my_uid) {
-  char           buf[4096];
-  chars          src, command;
-  struct dirent* entry;
-  uint64_t       mem_virt, mem_rss, tick_per_s, start_time_ticks;
-  uint64_t       user_time_ticks, sys_time_ticks, iowait_time_ticks;
-  int64_t        uid, gid, pid, ppid, pgid, sid, tty_nr, min_fault, maj_fault, priority, threads;
-  unsigned       i;
-  char           state;
-  uint8_t        ok;
+static void
+print_process(DIR* dir, const struct dirent* entry, writer* w, e_proc_flags flags, uid_t my_uid) {
+  char     buf[4096];
+  chars    src, command;
+  uint64_t mem_virt, mem_rss, min_fault, maj_fault, tick_per_s, start_time_ticks;
+  uint64_t user_time_ticks, sys_time_ticks, iowait_time_ticks;
+  int64_t  uid = -1, gid, pid, ppid, pgid, sid, tty_nr, priority, threads;
+  char     state;
+  uint8_t  ok;
 
   {
     int buf_written = snprintf(buf, sizeof(buf), "%s/stat", entry->d_name);
@@ -256,28 +428,37 @@ static void print_process_get(
                  .size > 0;
   }
 
+  if ((flags & e_proc_flag_other_users) == 0 && uid != my_uid) {
+    return;
+  }
+
   if (ok) {
     src = parse_int64(src, &pid);
     src = parse_command(src, &command);
-    src = parse_state(src, &state);
+    src = parse_char(src, &state);
     src = parse_int64(src, &ppid);
     src = parse_int64(src, &pgid);
     src = parse_int64(src, &sid);
     src = parse_int64(src, &tty_nr);
-    src = parse_int64(src, NULL);  /* tty_pgrp */
-    src = parse_uint64(src, NULL); /* flags    */
-    src = parse_uint64(src, &min_fault);
-    src = parse_int64(src, NULL); /*child_min_fault*/
-    src = parse_uint64(src, &maj_fault);
-    src = parse_uint64(src, NULL); /*child_maj_fault*/
-    src = parse_uint64(src, &user_time_ticks);
-    src = parse_uint64(src, &sys_time_ticks);
-    src = parse_int64(src, NULL); /*child_user_time*/
-    src = parse_int64(src, NULL); /*child_sys_time*/
-    src = parse_int64(src, &priority);
-    src = parse_int64(src, NULL); /*nice*/
-    src = parse_int64(src, &threads);
-    src = parse_int64(src, NULL); /*obsolete*/
+
+    if ((flags & e_proc_flag_without_tty) == 0 && tty_nr <= 0) {
+      return;
+    }
+
+    src = parse_int64(src, NULL);              /* tty_pgrp        */
+    src = parse_uint64(src, NULL);             /* flags           */
+    src = parse_uint64(src, &min_fault);       /*                 */
+    src = parse_int64(src, NULL);              /* child_min_fault */
+    src = parse_uint64(src, &maj_fault);       /*                 */
+    src = parse_uint64(src, NULL);             /* child_maj_fault */
+    src = parse_uint64(src, &user_time_ticks); /*                 */
+    src = parse_uint64(src, &sys_time_ticks);  /*                 */
+    src = parse_int64(src, NULL);              /* child_user_time */
+    src = parse_int64(src, NULL);              /* child_sys_time  */
+    src = parse_int64(src, &priority);         /*                 */
+    src = parse_int64(src, NULL);              /* nice            */
+    src = parse_int64(src, &threads);          /*                 */
+    src = parse_int64(src, NULL);              /* obsolete        */
     src = parse_uint64(src, &start_time_ticks);
     src = parse_uint64(src, &mem_virt);
     src = parse_uint64(src, &mem_rss);
@@ -290,20 +471,22 @@ static void print_process_get(
   }
 
   /* skip fields 25...41 */
-  for (i = 25; i < 42 && (src = parse_uint64(src, NULL)).size != 0; i++) {
+  {
+    unsigned i;
+    for (i = 25; i < 42 && (src = parse_uint64(src, NULL)).size != 0; i++) {
+    }
+    if (i == 42 && src.size != 0) {
+      src = parse_uint64(src, &iowait_time_ticks);
+    } else {
+      iowait_time_ticks = 0;
+    }
   }
-  if (i == 42 && src.size != 0) {
-    src = parse_uint64(src, &iowait_time_ticks);
-  } else {
-    iowait_time_ticks = 0;
-  }
-
   w_put_literal(w, "{\"<type>\":\"process-entry\"");
 
   put_int64(w, flags & e_proc_flag_pid, pid, make_chars_literal(",\"pid\":"));
   put_command(w, flags & e_proc_flag_name, command);
-  put_state(w, flags & e_proc_flag_state, state);
   put_tty_name(w, flags & e_proc_flag_tty, tty_nr);
+  put_state(w, flags & e_proc_flag_state, state);
 
   put_int64(w, flags & e_proc_flag_ppid, ppid, make_chars_literal(",\"ppid\":"));
   put_int64(w, flags & e_proc_flag_pgid, pgid, make_chars_literal(",\"pgid\":"));
@@ -372,8 +555,8 @@ static void print_processes(writer* w, e_proc_flags flags) {
   }
   uid = getuid();
   while ((entry = process_get_next_entry(dir)) != NULL) {
-    print_process(dir, entry, &w, flags, uid);
-    w_flush(&w);
+    print_process(dir, entry, w, flags, uid);
+    w_flush(w);
   }
   closedir(dir);
 }
