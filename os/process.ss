@@ -166,7 +166,7 @@
       (u8->symbol
         (bytevector-u8-ref bvec (fx* 20 8))) ; state,   symbol
       (if-uid->username rx uid)         ; user name,    string or (void)
-      (if-uid->username rx gid)         ; group name,   string or (void)
+      (if-gid->groupname rx gid)        ; group name,   string or (void)
       uid                               ; uid,          uint64
       gid                               ; gid,          uint64
       (bvec-ref/s64 bvec (fx* 3 8))     ; ppid,         int64
