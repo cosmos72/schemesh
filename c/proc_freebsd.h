@@ -89,7 +89,8 @@ static void print_process(const struct kinfo_proc* kp, writer* w, e_proc_flags f
   }
   w_put_literal(w, "{\"<type>\":\"process-entry\"");
   put_int64(w, flags & e_proc_flag_pid, kp->ki_pid, CHARS(",\"pid\":"));
-  put_command(w, flags & e_proc_flag_name, make_chars(kp->ki_comm, (size_t)-1));
+  put_command(
+      w, flags & e_proc_flag_name, make_chars((const unsigned char*)kp->ki_comm, (size_t)-1));
   put_ttyname(w, flags & e_proc_flag_tty, kp->ki_tdev);
   put_state(w, flags & e_proc_flag_state, get_state(kp->ki_stat));
 
