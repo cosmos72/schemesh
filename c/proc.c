@@ -15,8 +15,9 @@
 
 #include <stdlib.h> /* exit() */
 
-#include "proc_common.h"
 #include "writer.h"
+
+#include "proc_common.h"
 
 #if defined(__linux__)
 #include "proc_linux.h"

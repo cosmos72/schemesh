@@ -14,7 +14,6 @@
 #include <stdio.h>   /* printf() */
 #include <stdlib.h>  /* devname(), free() */
 #include <string.h>  /* strcmp() */
-#include <unistd.h>  /* getuid() */
 
 #include <sys/stat.h> /* S_IFCH */
 #include <sys/time.h>
@@ -42,7 +41,11 @@ static char get_state(int state) {
   }
 }
 
-static void print_ttyname(writer* w, dev_t tty) {
+static void put_ttyname(writer* w, e_proc_flags flags, dev_t tty) {
+  if (!flags) {
+    return;
+  }
+  w_put_literal(w, ",\"tty\":");
   if (tty != NODEV) {
     const char* ttyname = devname(tty, S_IFCHR);
     if (ttyname && strcmp(ttyname, "??")) {
@@ -55,13 +58,29 @@ static void print_ttyname(writer* w, dev_t tty) {
   }
 }
 
-static void w_put_timeval(writer* w, const struct timeval* tv) {
+static void put_timeval_any(writer* w, const struct timeval* tv, chars prefix, chars prefix2) {
+  w_put_chars(w, prefix);
+  w_put_chars(w, prefix2);
   w_put_int64(w, tv->tv_sec);
-  w_put_literal(w, ".");
+  w_put_char(w, '.');
   w_put_fractional_digits(w, (uint32_t)tv->tv_usec, 6);
+  w_put_char(w, '}');
+}
+
+static void put_timeval_utc(writer* w, e_proc_flags flags, const struct timeval* tv, chars prefix) {
+  if (flags) {
+    put_timeval_any(w, tv, prefix, CHARS("{\"<type>\":\"time-utc\",\"value\":"));
+  }
+}
+
+static void put_timeval(writer* w, e_proc_flags flags, const struct timeval* tv, chars prefix) {
+  if (flags) {
+    put_timeval_any(w, tv, prefix, CHARS("{\"<type>\":\"time-duration\",\"value\":"));
+  }
 }
 
 static void print_process(const struct kinfo_proc* kp, writer* w, e_proc_flags flags, uid_t uid) {
+  uint64_t mem_rss;
   if ((flags & e_proc_flag_other_users) == 0 && kp->ki_uid != uid) {
     return;
   }
@@ -69,91 +88,33 @@ static void print_process(const struct kinfo_proc* kp, writer* w, e_proc_flags f
     return;
   }
   w_put_literal(w, "{\"<type>\":\"process-entry\"");
-  if (flags & e_proc_flag_pid) {
-    w_put_literal(w, ",\"pid\":");
-    w_put_int64(w, kp->ki_pid);
-  }
-  if (flags & e_proc_flag_name) {
-    w_put_literal(w, ",\"name\":");
-    w_put_quoted_escaped_chars(w, kp->ki_comm);
-  }
-  if (flags & e_proc_flag_tty) {
-    w_put_literal(w, ",\"tty\":");
-    print_ttyname(w, kp->ki_tdev);
-  }
-  if (flags & e_proc_flag_state) {
-    char c = get_state(kp->ki_stat);
-    w_put_literal(w, ",\"state\":");
-    w_put_quoted_escaped_chars_len(w, &c, 1);
-  }
-  if (flags & e_proc_flag_user) {
-    /** TODO: implement */
-  }
-  if (flags & e_proc_flag_group) {
-    /** TODO: implement */
-  }
-  if (flags & e_proc_flag_uid) {
-    w_put_literal(w, ",\"uid\":");
-    w_put_int64(w, kp->ki_uid);
-  }
-  if (flags & e_proc_flag_gid) {
-    w_put_literal(w, ",\"gid\":");
-    w_put_int64(w, kp->ki_groups[0]);
-  }
-  if (flags & e_proc_flag_ppid) {
-    w_put_literal(w, ",\"ppid\":");
-    w_put_int64(w, kp->ki_ppid);
-  }
-  if (flags & e_proc_flag_pgid) {
-    w_put_literal(w, ",\"pgid\":");
-    w_put_int64(w, kp->ki_pgid);
-  }
-  if (flags & e_proc_flag_sid) {
-    w_put_literal(w, ",\"sid\":");
-    w_put_int64(w, kp->ki_sid);
-  }
-  if (flags & e_proc_flag_mem_rss) {
-    w_put_literal(w, ",\"mem-rss\":");
-    w_put_uint64(w, (uint64_t)kp->ki_rssize * getpagesize());
-  }
-  if (flags & e_proc_flag_mem_virt) {
-    w_put_literal(w, ",\"mem-virt\":");
-    w_put_uint64(w, kp->ki_size);
-  }
-  if (flags & e_proc_flag_start_time) {
-    w_put_literal(w, ",\"start-time\":{\"<type>\":\"time-utc\",\"value\":");
-    w_put_timeval(w, &kp->ki_start);
-    w_put_literal(w, "}");
-  }
-  if (flags & e_proc_flag_user_time) {
-    w_put_literal(w, ",\"user-time\":{\"<type>\":\"time-duration\",\"value\":");
-    w_put_timeval(w, &kp->ki_rusage.ru_utime);
-    w_put_literal(w, "}");
-  }
-  if (flags & e_proc_flag_sys_time) {
-    w_put_literal(w, ",\"sys-time\":{\"<type>\":\"time-duration\",\"value\":");
-    w_put_timeval(w, &kp->ki_rusage.ru_stime);
-    w_put_literal(w, "}");
-  }
+  put_int64(w, flags & e_proc_flag_pid, kp->ki_pid, CHARS(",\"pid\":"));
+  put_command(w, flags & e_proc_flag_name, make_chars(kp->ki_comm, (size_t)-1));
+  put_ttyname(w, flags & e_proc_flag_tty, kp->ki_tdev);
+  put_state(w, flags & e_proc_flag_state, get_state(kp->ki_stat));
+
+  put_username(w, flags & e_proc_flag_user, kp->ki_uid);
+  put_groupname(w, flags & e_proc_flag_group, kp->ki_groups[0]);
+  put_int64(w, flags & e_proc_flag_uid, kp->ki_uid, CHARS(",\"uid\":"));
+  put_int64(w, flags & e_proc_flag_gid, kp->ki_groups[0], CHARS(",\"gid\":"));
+
+  put_int64(w, flags & e_proc_flag_ppid, kp->ki_ppid, CHARS(",\"ppid\":"));
+  put_int64(w, flags & e_proc_flag_pgid, kp->ki_pgid, CHARS(",\"pgid\":"));
+  put_int64(w, flags & e_proc_flag_sid, kp->ki_sid, CHARS(",\"sid\":"));
+  mem_rss = (uint64_t)kp->ki_rssize * get_os_pagesize();
+  put_uint64(w, flags & e_proc_flag_mem_rss, mem_rss, CHARS(",\"mem-rss\":"));
+  put_uint64(w, flags & e_proc_flag_mem_virt, kp->ki_size, CHARS(",\"mem-virt\":"));
+
+  put_timeval_utc(w, flags & e_proc_flag_start_time, &kp->ki_start, CHARS(",\"start-time\":"));
+  put_timeval(w, flags & e_proc_flag_user_time, &kp->ki_rusage.ru_utime, CHARS(",\"user-time\":"));
+  put_timeval(w, flags & e_proc_flag_sys_time, &kp->ki_rusage.ru_stime, CHARS(",\"sys-time\":"));
   if (flags & e_proc_flag_iowait_time) {
     w_put_literal(w, ",\"iowait-time\":null");
   }
-  if (flags & e_proc_flag_priority) {
-    w_put_literal(w, ",\"priority\":");
-    w_put_int64(w, 20 - (int)kp->ki_nice);
-  }
-  if (flags & e_proc_flag_threads) {
-    w_put_literal(w, ",\"threads\":");
-    w_put_int64(w, kp->ki_numthreads);
-  }
-  if (flags & e_proc_flag_min_fault) {
-    w_put_literal(w, ",\"min-fault\":");
-    w_put_int64(w, kp->ki_rusage.ru_minflt);
-  }
-  if (flags & e_proc_flag_maj_fault) {
-    w_put_literal(w, ",\"maj-fault\":");
-    w_put_int64(w, kp->ki_rusage.ru_majflt);
-  }
+  put_int64(w, flags & e_proc_flag_priority, 20 - (int)kp->ki_nice, CHARS(",\"priority\":"));
+  put_int64(w, flags & e_proc_flag_threads, kp->ki_numthreads, CHARS(",\"threads\":"));
+  put_int64(w, flags & e_proc_flag_min_fault, kp->ki_rusage.ru_minflt, CHARS(",\"min-fault\":"));
+  put_int64(w, flags & e_proc_flag_maj_fault, kp->ki_rusage.ru_minflt, CHARS(",\"maj-fault\":"));
   w_put_literal(w, "}\n");
   w_flush(w);
 }
