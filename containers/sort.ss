@@ -7,6 +7,14 @@
 
 #!r6rs
 
+(eval-when (compile)
+  (meta begin
+    (define optimize-level-saved (optimize-level))
+    (define debug-level-saved    (debug-level))
+    (optimize-level 3)
+    (debug-level 0)))
+
+
 (library (scheme2k containers sort (1 0 0))
   (export
     span-sort! span-sort-by! subvector-sort! subvector-sort-by!) ; R6RS already defines (vector-sort!)
@@ -16,9 +24,6 @@
                        mutable-vector? optimize-level pariah procedure-arity-mask void)
     (only (scheme2k bootstrap) assert* fx<=?*)
     (scheme2k containers span))
-
-
-(eval-when (compile) (optimize-level 3) (debug-level 0))
 
 
 (define (%vector-swap! v x0 x1)
@@ -294,3 +299,9 @@
 
 
 ) ; close library
+
+
+(eval-when (compile)
+  (meta begin
+    (optimize-level optimize-level-saved)
+    (debug-level    debug-level-saved)))
