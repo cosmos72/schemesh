@@ -845,9 +845,9 @@
                       ((some-string-contains? args "v")
                         #f)
                       ((some-string-contains? args "u")
-                        '(user pid user-time mem-rss tty state start-time name))
+                        '(pid name tty state user mem-rss mem-virtual start-time user-time))
                       (else
-                        '(pid tty start-time name))))
+                        '(pid name tty state user-time))))
            (rx   (proc))
            (rx   (if user
                    (make-filter-reader rx (lambda (elem cache)
