@@ -15,6 +15,7 @@
           (scheme2k containers date)
           (scheme2k containers cf32span)
           (scheme2k containers charspan)
+          (scheme2k containers circular-buffer)
           (scheme2k containers f32span)
           (scheme2k containers flvector)
           (scheme2k containers fxspan)

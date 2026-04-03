@@ -16,6 +16,7 @@
 
   (include "containers/bitmap.ss")
   (include "containers/bytevector.ss")
+  (include "containers/circular-buffer.ss")
   (include "containers/flvector.ss")
   (include "containers/fxvector.ss")
   (include "containers/in.ss")
@@ -61,6 +62,7 @@
   (include "io/csv/csv.ss")
   (include "io/field.ss")           ; requires reflect/reflect.ss
   (include "io/name0.ss")           ; requires containers/utf8b.ss
+  (include "io/last.ss")            ; requires containers/circular-buffer.ss
   (include "io/redir.ss")
   (include "io/sort.ss")
   (include "io/stdio.ss")
