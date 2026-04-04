@@ -12,7 +12,7 @@
           repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first get put
+          all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first last get put
           proc select skip skip-first sort-by tty-colors where where@ with-sh-closable sh-start/reader1
 
           from-stdin from-csv from-json from-name0 from-list from-queue from-vector from-wire from-port
@@ -52,6 +52,7 @@
     (only (scheme2k io field)        make-field-reader)
     (only (scheme2k io json)         make-json-reader  make-json-writer make-json1-writer)
     (only (scheme2k io name0)        make-name0-reader)
+    (only (scheme2k io last)         make-last-reader)
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
@@ -516,6 +517,7 @@ Type ? or help for this help.
     (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "from"       builtin-from)
     (hashtable-set! t "jobs"       builtin-jobs)
+    (hashtable-set! t "last"       builtin-last)
     (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
     (hashtable-set! t "select"     builtin-select)
@@ -564,6 +566,14 @@ Type ? or help for this help.
     display jobs and their status.
     Options:
       --to-FORMAT   display answers in given FORMAT\n"))
+
+    (hashtable-set! t "last"  (string->utf8 " [OPTIONS] [N]
+    parse data from stdin, autodetecting input format,
+    and copy the last N elements to stdout, autodetecting output format.
+    By default, N is 1.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT
+      --to-FORMAT   write elements to stdout in given FORMAT\n"))
 
     (hashtable-set! t "parse" (string->utf8 " [OPTIONS] FILE
     open a file and parse data from it, autodetecting input format.

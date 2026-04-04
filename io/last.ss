@@ -12,23 +12,26 @@
     make-last-reader last-reader last-reader?)
   (import
     (rnrs)
-    (only (scheme2k bootstrap)                  assert*)
+    (only (scheme2k bootstrap)                  assert* while)
     (only (scheme2k io obj)                     nested-reader nested-reader-inner-close nested-reader-inner-get reader?)
     (only (scheme2k containers circular-buffer) make-circular-buffer circular-buffer-delete-left!
-                                                circular-buffer-empty? circular-buffer-insert-right!))
+                                                circular-buffer-empty? circular-buffer-full? circular-buffer-insert-right!))
 
 
 ;; Reader that wraps another "inner" reader
-;; and passes the last n elements, then closes the inner reader.
+;; and returns only the last n elements of inner reader, then closes the inner reader.
 (define-record-type (last-reader %make-last-reader last-reader?)
   (parent nested-reader)
   (fields
-    circular-buffer)  ; circular buffer containing up to n last elements
+    circular-buffer)  ; #f or circular buffer containing up to n last elements
   (protocol
     (lambda (args->new)
       (lambda (inner n close-inner?)
-         ((args->new %last-reader-get #f (and close-inner? nested-reader-inner-close) inner)
-            (make-circular-buffer n)))))
+         ((args->new (if (fxzero? n) %last-reader-get0 %last-reader-get)
+                     #f (and close-inner? nested-reader-inner-close) inner)
+          (if (fxzero? n)
+              #f
+              (make-circular-buffer n))))))
   (nongenerative %last-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
@@ -52,9 +55,8 @@
   (case-lambda
     ((inner n close-inner?)
       (assert* 'make-last-reader (reader? inner))
-      (assert* 'make-last-reader (integer? n))
-      (assert* 'make-last-reader (exact? n))
-      (assert* 'make-last-reader (>= n 0))
+      (assert* 'make-last-reader (fixnum? n))
+      (assert* 'make-last-reader (fx>=? n 0))
       (%make-last-reader inner n close-inner?))
     ((inner n)
       (make-last-reader inner n #f))
@@ -68,11 +70,19 @@
     (let ((cbuf (last-reader-circular-buffer rx)))
       (cond
         (ok?
+          (when (circular-buffer-full? cbuf)
+            (circular-buffer-delete-left! cbuf))
           (circular-buffer-insert-right! cbuf obj)
-           (%last-reader-get rx))
+          (%last-reader-get rx))
         ((circular-buffer-empty? cbuf)
           (values #f #f))
         (else
-          (circular-buffer-delete-left! cbuf))))))
+          (values
+            (circular-buffer-delete-left! cbuf)
+            #t))))))
+
+
+(define (%last-reader-get0 rx)
+  (values #f #f))
 
 ) ; close library

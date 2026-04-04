@@ -55,7 +55,7 @@
 
 ;; (flvector-copy! src src-start dst dst-start n)
 ;;
-;; Added in scheme2k 0.9.3
+;; Added in 0.9.3
 (meta-cond
   ;; flvector-copy! is defined only in Chez Scheme >= 10.2.0
   ((let ((exports (library-exports '(chezscheme))))
@@ -129,7 +129,7 @@
 ;;
 ;; Return unspecified value.
 ;;
-;; Added in scheme2k 0.9.3
+;; Added in 0.9.3
 (define-syntax for-flvector
   (lambda (stx)
     (syntax-case stx ()

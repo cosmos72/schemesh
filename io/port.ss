@@ -382,7 +382,7 @@
 ;; return number of bytes actually read, which can be 0 only on end-of-file,
 ;; or raise exception on I/O error.
 ;;
-;; Added in scheme2k 0.9.3
+;; Added in 0.9.3
 (define (read-bytes-insert-right! in bsp)
   (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
   (check-interrupts)

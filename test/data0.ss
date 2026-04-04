@@ -16,7 +16,7 @@
   (fxmod #o27 #b1001)                              5
   (list #xff #36rZZ)                               (255 1295)
 
-  ;; ----------------- bootstrap ------------------------------------------
+  ;; ----------------- bootstrap -----------------------------------------------
   (let ((x 0))
     (repeat 5 (set! x (fx1+ x)))
     x)                                             5
@@ -46,7 +46,7 @@
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
 
-  ;; ----------------- containers bytevector ------------------------------------
+  ;; ----------------- containers bytevector -----------------------------------
   (subvector '#(aa bb cc dd) 1 3)                  #(bb cc)
   (subbytevector #vu8(44 55 66 77) 2 3)            #vu8(66)
   (bytevector-compare #vu8(44 55) #vu8(44 55))     0
@@ -119,7 +119,7 @@
         (assert* 'test-bytevector-sint-h (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n))))))    #t
 
 
-  ;; ----------------- containers string ------------------------------------
+  ;; ----------------- containers string ---------------------------------------
   (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
   (string-split "" #\:)                                 ("")
   (string-split ":" #\:)                                ("" "")
@@ -141,11 +141,26 @@
         (error 'integer->char* "should throw" i))))     #t
   (substring<? "1234" 0 4 "__123" 2 4)                  #f
   (substring<? "abcdef" 1 5 "_abxyef" 2 4)              #t
-  ;; ----------------- containers sort ------------------------------------
+
+  ;; ----------------- containers circular-buffer ------------------------------
+  (let ((c (make-circular-buffer 3)))
+    (circular-buffer-insert-right! c 1)
+    (circular-buffer-insert-right! c 2)
+    (let ((one (circular-buffer-delete-left! c)))
+      (circular-buffer-insert-right! c 3)
+      (circular-buffer-insert-right! c 4)
+      (let* ((full? (circular-buffer-full? c))
+             (two   (circular-buffer-delete-left! c)))
+        (circular-buffer-insert-right! c 5)
+        (list one full? two c))))                       ,(1 #t 2 (vector->circular-buffer* (vector 3 4 5) 0 3))
+
+
+  ;; ----------------- containers sort -----------------------------------------
   (let ((v (vector 9 8 7 6 5 4 3 2 1 0)))
     (subvector-sort! fx<? v 1 9)
     v)                                                  #(9 1 2 3 4 5 6 7 8 0)
-  ;; ----------------- bytevector utf8 ------------------------------------
+
+  ;; ----------------- bytevector utf8 -----------------------------------------
   (values->list (bytevector-char-ref #vu8()))               (#t      0)   ; incomplete UTF-8
   (values->list (bytevector-char-ref #vu8(1)))              (#\x01   1)
   (values->list (bytevector-char-ref #vu8(33)))             (#\!     1)

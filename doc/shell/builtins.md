@@ -300,7 +300,7 @@ Return job exit status, or failure if job was not found.
 
 #### answers
 Syntax: `answers [--to-FORMAT]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Display as structured data the values returned by recent expressions or commands executed at repl.<br/>
 Options:
@@ -326,7 +326,7 @@ possible output:
 
 #### dir
 Syntax: `dir [OPTIONS] [PATH ...]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Display specified files and directories as structured data, or current directory by default.<br/>
 Options:
@@ -355,7 +355,7 @@ possible output:
 
 #### first
 Syntax: `first [OPTIONS] [COUNT]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 then write only the first `COUNT` elements to standard output, or 1 element by default.<br/>
@@ -367,7 +367,7 @@ Return success, or failure if `FORMAT` is not supported.
 
 #### from
 Syntax: `from [OPTIONS] FORMAT`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input using specified `FORMAT`,
 then write each element to standard output.<br/>
@@ -384,7 +384,7 @@ Return success, or failure if `FORMAT` is not supported.
 
 #### jobs
 Syntax: `jobs [OPTIONS]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Display jobs and their status as structured data.<br/>
 Options:
@@ -405,9 +405,21 @@ possible output:
 └──┴────┴────┴───────────┴─────────┘
 ```
 
+#### last
+Syntax: `last [OPTIONS] [COUNT]`
+<br/>Added in 1.0.1
+
+Read structured data from standard input,
+then write only the last `COUNT` elements to standard output, or 1 element by default.<br/>
+Options:
+* `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
+* `--to-FORMAT` write structured data using specified `FORMAT` instead of autodetecting it
+
+Return success, or failure if `FORMAT` is not supported.
+
 #### parse
 Syntax: `parse [OPTIONS] FILE`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read specified file, parse structured data from it, then write each element to standard output.<br/>
 Options:
@@ -418,7 +430,7 @@ Return success, or failure if `FILE` cannot be read or if `FORMAT` is not suppor
 
 #### proc
 Syntax: `proc [OPTIONS] [auvx]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Display active processes as structured data.<br/>
 Options:
@@ -447,7 +459,7 @@ possible output:
 
 #### select
 Syntax: `select [OPTIONS] FIELD_NAME ...`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 then write only the specified fields of each element to standard output, keeping the order of specified fields.<br/>
@@ -473,7 +485,7 @@ possible output:
 
 #### skip
 Syntax: `skip [OPTIONS] [COUNT]`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 skip the first `COUNT` elements (or 1 element by default),
@@ -500,7 +512,7 @@ possible output:
 
 #### sort-by
 Syntax: `sort-by [OPTIONS] FIELD_NAME ...`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 then sort all elements by specified fields,
@@ -529,7 +541,7 @@ possible output:
 
 #### threads
 Syntax: `threads [OPTIONS]`
-<br/>Changed in: v1.0.0
+<br/>Changed in 1.0.0
 
 Display known threads and their status as structured data.<br/>
 Options:
@@ -553,7 +565,7 @@ possible output:
 
 #### to
 Syntax: `to [OPTIONS] FORMAT`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 and write each element to standard output using specified `FORMAT`.<br/>
@@ -596,7 +608,7 @@ possible output:
 
 #### ulimit
 Syntax: `ulimit [OPTION ...]`
-<br/>Changed in: v1.0.0
+<br/>Changed in 1.0.0
 
 Display shell resource limits as structured data, possibly after modifying them.<br/>
 Options:
@@ -643,7 +655,7 @@ possible output:
 
 #### where
 Syntax: `where [OPTIONS] EXPRESSION`
-<br/>Added in: v1.0.0
+<br/>Added in 1.0.0
 
 Read structured data from standard input,
 and write to standard output only the elements satisfying specified expression.<br/>

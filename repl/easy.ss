@@ -610,6 +610,25 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; last
+
+
+;; create a last-reader that will generate only the last n elements of inner reader,
+;; then it will be exhausted.
+;;
+;; usage: (last reader [n])
+;;
+;; n must be a fixnum >= 0 and defaults to 1.
+;;
+(define last
+  (case-lambda
+    ((reader n)
+      (make-last-reader reader n 'close-inner))
+    ((reader)
+      (make-last-reader reader 1 'close-inner))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; skip-first
 
 
@@ -806,6 +825,32 @@
                               'cmdline (sh-job->string job)))))
     (let-values (((args options) (split-args-and-options prog-and-args)))
       (to-stdout (span-reader sp) options))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: last
+
+
+;; the "last" builtin:
+;; parse elements from standard input autodetecting input format, or with specified --from-FORMAT,
+;; and write the last N elements
+;; to standard output autodetecting output format, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-last job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((n (cond
+                ((null? args)
+                  1)
+                ((null? (cdr args))
+                  (let ((n (string->number (car args))))
+                    (assert* 'last (fixnum? n))
+                    n))
+                (else
+                 (raise-errorf 'last "too many arguments"))))
+            (rx (from-stdin options))
+            (rx (make-last-reader rx n)))
+      (to-stdout rx options))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

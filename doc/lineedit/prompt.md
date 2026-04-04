@@ -2,6 +2,10 @@
 
 Two prompts can be customized: `prompt0` and `prompt`.
 
+Compatibility:
+- `prompt` was added in 0.9.3
+- `prompt0` was added in 1.0.1
+
 The first one i.e. `prompt0` is displayed immediately **above** user input, either left-aligned (default)
 or right-aligned to terminal width if it starts with ASCII 13 i.e. return character.
 

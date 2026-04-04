@@ -55,7 +55,7 @@
 ;;  either an exact or inexact real, indicating the number of seconds
 ;;  or a time object with type 'time-duration, which is returned verbatim
 ;;
-;; Added in scheme2k 0.9.3
+;; Added in 0.9.3
 (define make-duration
   (case-lambda
     ((seconds nanoseconds)

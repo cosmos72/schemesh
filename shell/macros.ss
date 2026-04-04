@@ -344,7 +344,7 @@
 ;;
 ;; If no glob is specified, behave as (forever body ...)
 ;;
-;; Added in schemesh 0.9.3
+;; Added in 0.9.3
 (define-syntax for-glob
   (syntax-rules ()
     ((_ ((var glob) ...) body ...)
@@ -357,7 +357,7 @@
 
 ;; (in-glob ...) is a shortcut for (in-list (shell-glob* ...))
 ;;
-;; Added in schemesh 0.9.3
+;; Added in 0.9.3
 (define-syntax in-glob
   (syntax-rules ()
     ((_ . args)

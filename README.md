@@ -752,7 +752,7 @@ The documentation currently include:
 
 * Shell builtins, see [doc/shell/builtins.md](doc/shell/builtins.md)
 
-* Prompt customization, see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
+* Prompt customization, see [doc/lineedit/prompt.md](doc/lineedit/prompt.md)
 
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
 

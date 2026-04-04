@@ -22,7 +22,7 @@
 ;; returns a non-empty list of strings, containing matching filesystem paths.
 ;; if w does not match any filesystem path, return an empty list.
 ;;
-;; Added in schemesh 0.9.3
+;; Added in 0.9.3
 (define (wildcard job-or-id . w)
   (wildcard* job-or-id w '()))
 
@@ -40,7 +40,7 @@
 ;; if w does not match any filesystem path, return a list containing a single string:
 ;;   w converted back to string with shell wildcard syntax.
 ;;
-;; Added in schemesh 0.9.3
+;; Added in 0.9.3
 (define (wildcard1+ job-or-id . w)
   (wildcard* job-or-id w '(if-no-match? string-list)))
 
@@ -58,7 +58,7 @@
 ;; raises an exception if w matches multiple filesystem entries.
 ;; if w does not match any filesystem path, return w converted back to string with shell wildcard syntax.
 ;;
-;; Added in schemesh 0.9.3
+;; Added in 0.9.3
 (define (wildcard1 job-or-id . w)
   (let ((ret (wildcard* job-or-id w '(if-no-match? string))))
     (cond

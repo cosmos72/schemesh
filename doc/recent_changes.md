@@ -76,7 +76,7 @@
 * subsume functions `(sh-binary-port)` and `(sh-textual-port)` into the new function `(sh-port)`
   for accessing redirections of Scheme jobs
 * export more `linectx` functions
-* improve documentation, add files [lineedit/ansi.md](lineedit/ansi.md) [lineedit/key.md](lineedit/key.md) [lineedit/linectx.md](lineedit/linectx.md) [shell/env.md](shell/env.md) [shell/redirect.md](shell/redirect.md)
+* improve documentation, add files [lineedit/prompt.md](lineedit/prompt.md) [lineedit/key.md](lineedit/key.md) [lineedit/linectx.md](lineedit/linectx.md) [shell/env.md](shell/env.md) [shell/redirect.md](shell/redirect.md)
 
 ### release v0.9.1, 2025-05-09
 
