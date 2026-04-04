@@ -644,6 +644,32 @@ On Windows 10 or later, install [Windows Subsystem for Linux (WSL)](https://lear
 then, at Linux shell prompt, follow the Linux instructions above matching the distribution that you installed:
 by default, WSL installs [Ubuntu Linux](#ubuntu-linux)
 
+#### Android
+The preferred Android command-line environment for running schemesh is [Termux](https://termux.dev/) <br/>
+From termux shell, you first need to install Chez Scheme from sources - see
+[Install Chez Scheme on Termux](doc/schemesh_on_termux.md#install-chez-scheme-on-termux) -
+then execute the following:
+```shell
+apt install build-essential git liblz4 ncurses zlib
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+git checkout -f v1.0.0
+make -j prefix="$PREFIX/local"
+
+# try schemesh without installing it
+./schemesh --library-dir .
+
+# install schemesh
+make install prefix="$PREFIX/local"
+```
+In case the environment variable `$PREFIX` is not set, run `export PREFIX=/data/data/com.termux/files/usr`
+
+An alternative Android command-line environment is [UserLand](https://userland.tech/) <br/>
+It can install and run several Linux distributions without modifications,
+but the `proot` it internally uses breaks job control: attempts to suspend commands are silently ignored.<br/>
+To install schemesh inside UserLand, launch it, choose a Linux distribution, then follow the instructions above
+for the selected Linux distribution.
+
 #### FreeBSD
 ```shell
 pkg install chez-scheme gcc git gmake  # must be executed as root
