@@ -19,9 +19,12 @@ CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR
 
 # required libraries
 OS:=$(strip $(shell uname -o))
+
+LIBS_TERMINFO:=-ltinfo
 ifeq ($(OS), Android)
-  LIBS_UTIL=
+  LIBS_UTIL:=
 else ifeq ($(OS), Darwin)
+  LIBS_TERMINFO:=-lncurses
   LIBS_UTIL:=-liconv
 else ifeq ($(OS), FreeBSD)
   LIBS_UTIL:=-lutil
@@ -30,7 +33,7 @@ else # GNU/Linux
   LIBS_EXTRA_STATIC:=-lxxhash
 endif
 
-LIBS_COMMON:=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -ltinfo $(LIBS_UTIL)
+LIBS_COMMON:=$(CHEZ_SCHEME_KERNEL) -lz -llz4 $(LIBS_TERMINFO) $(LIBS_UTIL)
 LIBS_OS:=-ldl -lm -lpthread
 LIBS:=$(LIBS_COMMON) $(LIBS_OS)
 
