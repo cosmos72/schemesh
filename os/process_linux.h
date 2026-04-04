@@ -7,9 +7,10 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#include <dirent.h>    /* opendir() */
-#include <inttypes.h>  /*           */
-#include <sys/types.h> /* opendir() */
+#include <dirent.h>        /* opendir()        */
+#include <inttypes.h>      /*                  */
+#include <sys/sysmacros.h> /* major(), minor() */
+#include <sys/types.h>     /* opendir()        */
 
 #include "process_util_linux.h"
 
@@ -74,26 +75,229 @@ static size_t parse_linux_command(const unsigned char** src,
 
 static ptr make_tty_name(int64_t tty_nr) {
   if (tty_nr > 0) {
-    char     buf[16];
-    uint64_t hi     = (uint64_t)tty_nr >> 8;
-    unsigned lo     = tty_nr & 0xFF;
-    int      buflen = 0;
-    if (hi == 136) {
-      buflen = snprintf(buf, sizeof(buf), "pts/%u", lo);
-    } else if (hi == 4) {
-      if (lo < 64) {
-        buflen = snprintf(buf, sizeof(buf), "tty%u", lo);
-      } else {
-        buflen = snprintf(buf, sizeof(buf), "ttyS%u", lo - 64);
-      }
-    } else if (hi == 5 && lo == 1) {
-      memcpy(buf, "console", (buflen = 7) + 1);
-    } else {
-      return Svoid;
+    char        buf[32];
+    const char* prefix = NULL;
+    unsigned    hi     = major(tty_nr);
+    unsigned    lo     = minor(tty_nr);
+    int         buflen = 0;
+    switch (hi) {
+      /**
+       * char devices extracted from
+       * https://www.kernel.org/doc/Documentation/admin-guide/devices.txt
+       */
+      case 4:
+        if (lo < 64) {
+          prefix = "tty";
+        } else {
+          lo -= 64;
+          prefix = "ttyS";
+        }
+        break;
+      case 5:
+        if (lo == 1) {
+          memcpy(buf, "console", (buflen = 7) + 1);
+        }
+        break;
+      case 22: /* Digiboard serial card */
+        prefix = "ttyD";
+        break;
+      case 24: /* Stallion serial card */
+        prefix = "ttyE";
+        break;
+      case 32: /* Specialix serial card */
+        prefix = "ttyX";
+        break;
+      case 34: /* Z8530 HDLC serial card */
+        prefix = "scc";
+        break;
+      case 43: /* isdn4linux virtual modem */
+        prefix = "ttyI";
+        break;
+      case 46: /* Comtrol Rocketport serial card */
+        prefix = "ttyR";
+        break;
+      case 48: /* SDL RISCom serial card */
+        prefix = "ttyL";
+        break;
+      case 52: /* Spellcaster DataComm/BRI ISDN card */
+        prefix = "dcbri";
+        break;
+      case 54: /* Electrocardiognosis Holter serial card */
+        prefix = "holter";
+        break;
+      case 57: /* Hayes ESP serial card */
+        prefix = "ttyP";
+        break;
+      case 71: /* Computone IntelliPort II serial card */
+        prefix = "ttyF";
+        break;
+      case 75: /* Specialix IO8+ serial card */
+        prefix = "ttyW";
+        break;
+      case 78: /* PAM Software's multimodem boards */
+        prefix = "ttyM";
+        break;
+      case 88: /* COMX synchronous serial card */
+        prefix = "comx";
+        break;
+      case 100: /* Telephony for Linux */
+        prefix = "phone";
+        break;
+      case 105: /* Comtrol VS-1000 serial controller */
+        prefix = "ttyV";
+        break;
+      case 112: /* ISI serial card -  same names as major 78 */
+        prefix = "ttyM";
+        break;
+      case 155: /* TI link cable devices */
+        if (lo >= 16) {
+          lo -= 16;
+          prefix = "tiusb";
+        } else if (lo >= 8) {
+          lo -= 8;
+          prefix = "tiser";
+        }
+        break;
+      case 136: /** Unix98 /dev/pts */
+      case 137: /** Unix98 /dev/pts */
+      case 138: /** Unix98 /dev/pts */
+      case 139: /** Unix98 /dev/pts */
+      case 140: /** Unix98 /dev/pts */
+      case 141: /** Unix98 /dev/pts */
+      case 142: /** Unix98 /dev/pts */
+      case 143: /** Unix98 /dev/pts */
+        prefix = "pts/";
+        lo += (hi - 136) << 8; /* recent Linux versions only use hi == 136 */
+        break;
+      case 148: /* Technology Concepts serial card */
+        prefix = "ttyT";
+        break;
+      case 154: /* Specialix RIO serial card */
+        prefix = "ttySR";
+        break;
+      case 156: /* Specialix RIO serial card */
+        prefix = "ttySR";
+        lo += 256;
+        break;
+      case 158: /* Dialogic GammaLink fax driver */
+        prefix = "gfax";
+        break;
+      case 161: /* IrCOMM devices */
+        if (lo < 16) {
+          prefix = "ircomm";
+        }
+        break;
+      case 164: /* Chase Research AT/PCI-Fast serial card */
+        prefix = "ttyCH";
+        break;
+      case 166: /* ACM USB modems */
+        prefix = "ttyACM";
+        break;
+      case 172: /* Moxa Intellio serial card */
+        prefix = "ttyMX";
+        break;
+      case 174: /* SmartIO serial card */
+        prefix = "ttySI";
+        break;
+      case 188: /* USB serial converters */
+        prefix = "ttyUSB";
+        break;
+      case 204: /* Low-density serial ports */
+        if (lo < 4) {
+          prefix = "ttyLU"; /* LinkUp Systems L72xx UART */
+        } else if (lo == 4) {
+          prefix = "ttyFB"; /* Intel Footbridge (ARM) */
+        } else if (lo < 8) {
+          lo -= 4;
+          prefix = "ttySA"; /* StrongARM builtin serial port */
+        } else if (lo < 12) {
+          lo -= 8;
+          prefix = "ttySC"; /* SCI serial port (SuperH) */
+        } else if (lo < 16) {
+          lo -= 12;
+          prefix = "ttyFW"; /* Firmware console */
+        } else if (lo < 32) {
+          lo -= 16;
+          prefix = "ttyAM"; /* ARM "AMBA" serial port */
+        } else if (lo < 40) {
+          lo -= 32;
+          prefix = "ttyDB"; /* DataBooster serial port */
+        } else if (lo == 40) {
+          lo     = 0;
+          prefix = "ttySG"; /* SGI Altix console port */
+        } else if (lo < 44) {
+          lo -= 40;
+          prefix = "ttySMX"; /* Motorola i.MX port */
+        } else if (lo < 46) {
+          lo -= 44;
+          prefix = "ttyMM"; /* Marvell MPSC port (obsolete unused) */
+        } else if (lo < 52) {
+          lo -= 46;
+          prefix = "ttyCPM"; /* PPC CPM (SCC or SMC) port */
+        } else if (lo < 148) {
+          if (lo == 82 || lo == 83) {
+            lo -= 82;
+            prefix = "ttyVR"; /* NEC VR4100 series */
+          }
+        } else if (lo < 154) {
+          lo -= 148;
+          prefix = "ttyPSC"; /* PPC PSC port */
+        } else if (lo < 170) {
+          lo -= 154;
+          prefix = "ttyAT0"; /* ATMEL serial port */
+        } else if (lo < 186) {
+          lo -= 170;
+          prefix = "ttyNX"; /* Hilscher netX serial port */
+        } else if (lo == 186) {
+          lo     = 0;
+          prefix = "ttyJ"; /* JTAG1 DCC protocol based serial port emulation */
+        } else if (lo < 191) {
+          lo -= 187;
+          prefix = "ttyUL"; /* Xilinx uartlite port */
+        } else if (lo == 191) {
+          lo     = 0;
+          prefix = "xvc"; /* Xen virtual console port */
+        } else if (lo < 196) {
+          lo -= 192;
+          prefix = "ttyPZ"; /* pmac_zilog port */
+        } else if (lo < 205) {
+          lo -= 196;
+          prefix = "ttyTX"; /* TX39/49 serial port */
+        } else if (lo < 209) {
+          lo -= 205;
+          prefix = "ttySC"; /* SC26xx serial port */
+        } else if (lo < 213) {
+          lo -= 209;
+          prefix = "ttyMAX"; /* MAX3100 serial port */
+        }
+        break;
+      case 208: /* User space serial ports */
+        prefix = "ttyU";
+        break;
+      case 224: /* A2232 serial card */
+        prefix = "ttyY";
+        break;
+      case 227: /* IBM 3270 terminal Unix tty access */
+        prefix = "3270/tty";
+        break;
+      case 228: /* IBM 3270 terminal block-mode access */
+        prefix = "3270/tub";
+        break;
+      case 229: /* WSL virtual console, IBM iSeries/pSeries virtual console */
+        prefix = "hvc";
+        break;
+      case 256: /* Equinox SST multi-port serial boards */
+        prefix = "ttyEQ";
+        break;
+      default:
+        break;
+    }
+    if (prefix) {
+      buflen = snprintf(buf, sizeof(buf), "%s%u", prefix, lo);
     }
     /* Sstring_of_length() works as expected only for ASCII chars */
     /*   i.e. 0 < buf[i] < 128 for every i                        */
-    return Sstring_of_length(buf, buflen);
+    return buflen ? Sstring_of_length(buf, buflen) : Svoid;
   }
   return Sfalse;
 }
