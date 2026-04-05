@@ -29,14 +29,16 @@
     (unless (or (bytespan-empty? prompt0) (fxzero? (linectx-prompt0-length lctx)))
       (cond
         ((fx=? 13 (bytespan-ref/u8 prompt0 0))
+          ;; left-align prompt0
+          (lineterm-write/bytespan lctx prompt0 1 (bytespan-length prompt0)) ; skip initial #\return
+          (lineterm-clear-to-eol lctx)
+          (lineterm-write/u8 lctx 10))
+        (else
           ;; pad with spaces to right-align prompt0
           (lineterm-write/spaces lctx (fx- (linectx-width lctx) (linectx-prompt0-end-x lctx)))
-          (lineterm-write/bytespan lctx prompt0 1 (bytespan-length prompt0)) ; skip initial #\return
-          (lineterm-write/bytevector lctx #vu8(13 10)))
-        (else
           (lineterm-write/bytespan lctx prompt0)
-          (lineterm-clear-to-eol lctx)
-          (lineterm-write/u8 lctx 10))))))
+          (lineterm-write/bytevector lctx #vu8(13 10)))))))
+
 
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt lctx)
