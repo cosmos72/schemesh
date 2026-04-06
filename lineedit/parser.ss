@@ -9,8 +9,8 @@
 
 (library (scheme2k lineedit parser (1 0 0))
   (export
-    make-parsectx make-parsectx* parsectx? string->parsectx
-    parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
+    make-parsectx make-parsectx* parsectx? string->parsectx    make-parsectx-annotation
+    parsectx-in parsectx-pos-x parsectx-pos-y parsectx-current-pos parsectx-previous-pos parsectx-length parsectx-enabled-parsers
 
     make-parser parser?
     parser-name parser-parse-forms parser-parse-paren
@@ -26,8 +26,9 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)          format fx1+ fx1- fx/ make-continuation-condition make-format-condition
-                                record-writer textual-port-input-buffer unread-char void)
+    (only (chezscheme)          format fx1+ fx1- fx/ make-annotation make-continuation-condition make-format-condition
+                                make-source-file-descriptor make-source-object port-name record-writer
+                                textual-port-input-buffer unread-char void)
     (only (scheme2k bootstrap)            assert* until while)
     (only (scheme2k containers hashtable) for-hash)
     (scheme2k containers span)
@@ -101,12 +102,14 @@
 ;;     see (parsers) in parser/parser.ss
 (define-record-type (parsectx %make-parsectx parsectx?)
   (fields
-    in                ; textual input port to read from
-    (mutable in-buf)  ; #f or string used as temporary buffer for (peek-char2)
-    width             ; fixnum, screen width
-    prompt-end-x      ; fixnum, column where prompt ends
-    pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
-    prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
+    in               ; textual input port to read from
+    (mutable in-buf) ; #f or string used as temporary buffer for (peek-char2)
+    width            ; fixnum, screen width
+    prompt-end-x     ; fixnum, column where prompt ends
+    pos              ; pair (x . y) containing two fixnums: current x and y position in the input port
+    prev-pos         ; pair (x . y) containing two fixnums: previous x and y position in the input port
+    (mutable length) ; fixnum, number of consumed characters
+    sfd              ; source file descriptor
     enabled-parsers) ; #f or an hashtable symbol -> parser
   (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
@@ -146,7 +149,9 @@
     (for-hash ((name parser enabled-parsers))
       (assert* 'make-parsectx* (symbol? name))
       (assert* 'make-parsectx* (parser? parser))))
-  (%make-parsectx in #f width prompt-end-x (cons x y) (cons -1 -1) enabled-parsers))
+  (%make-parsectx in #f width prompt-end-x (cons x y) (cons -1 -1) 0
+                  (make-source-file-descriptor (format #f "~a" (port-name in)) (open-bytevector-input-port #vu8()))
+                  enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -157,6 +162,16 @@
   (case-lambda
     ((str)                 (make-parsectx (open-string-input-port str)))
     ((str enabled-parsers) (make-parsectx (open-string-input-port str) enabled-parsers))))
+
+
+;; return parsectx current position x: a fixnum >= 0
+(define (parsectx-pos-x pctx)
+  (car (parsectx-pos pctx)))
+
+
+;; return parsectx current position y: a fixnum >= 0
+(define (parsectx-pos-y pctx)
+  (cdr (parsectx-pos pctx)))
 
 
 ;; return two values: parsectx current position x and y
@@ -178,6 +193,11 @@
     (values (car pair) (cdr pair))))
 
 
+;; create and return a source annotation object wrapping specified obj
+(define (make-parsectx-annotation pctx annotated-obj obj x y beg)
+  (make-annotation annotated-obj (make-source-object (parsectx-sfd pctx) beg (parsectx-length pctx) (fx1+ x) (fx1+ y)) obj))
+
+
 (define (parsectx-width-at-y pctx y)
   (let ((width (parsectx-width pctx)))
     (if (fxzero? y)
@@ -187,6 +207,7 @@
 ;; update parsectx position (x . y) after reading ch from textual input port
 (define (parsectx-increment-pos/char pctx ch)
   (when (char? ch) ; do not advance after reading #!eof
+    (parsectx-length-set! pctx (fx1+ (parsectx-length pctx)))
     (let* ((pos (parsectx-pos pctx))
            (x   (car pos))
            (y   (cdr pos)))
@@ -204,6 +225,7 @@
 ;; from textual input port
 (define (parsectx-increment-pos/n pctx n)
   (when (fx>? n 0)
+    (parsectx-length-set! pctx (fx+ n (parsectx-length pctx)))
     (let* ((pos     (parsectx-pos pctx))
            (x       (car pos))
            (y       (cdr pos))

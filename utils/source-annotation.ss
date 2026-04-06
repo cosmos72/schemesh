@@ -1,6 +1,6 @@
 ;; usage: (source-file-descriptor* path length crc)
 (define source-file-descriptor* (record-constructor (record-rtd (source-file-descriptor "" 0))))
-      
+
 ;; (define sfd (source-file-descriptor* "/dev/tty" 0 0))
 (define sfd (make-source-file-descriptor "/dev/tty" (open-bytevector-input-port #vu8())))
 

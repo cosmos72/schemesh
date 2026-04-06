@@ -57,7 +57,7 @@
 ;;
 ;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp ctx flavor)
-  (let-values (((value type) (lex-lisp ctx flavor)))
+  (let-values (((value type annot) (lex-lisp ctx flavor)))
     (parse-lisp-impl ctx value type flavor)))
 
 
@@ -159,7 +159,7 @@
            (set! reverse? #f))))
     ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
     (while again?
-      (let-values (((value type) (lex-lisp ctx flavor)))
+      (let-values (((value type annot) (lex-lisp ctx flavor)))
         ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
@@ -189,7 +189,7 @@
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'
-            (let-values (((value type) (lex-lisp ctx flavor)))
+            (let-values (((value type annot) (lex-lisp ctx flavor)))
               (assert-list-end-type type)))
           (else
             ;; parse a single form and append it

@@ -16,9 +16,17 @@
     'parse-scheme-forms))
 
 
+;; return three values:
+;;   token value
+;;   token type
+;;   token source, as an annotation object
+(define (values/3 value type ctx x y beg)
+  (values value type (make-parsectx-annotation ctx value value x y beg)))
+
+
 ;; Read a single r6rs or Chez Scheme token from parsectx
 ;;
-;; Return two values: token value and its type.
+;; Return three values: token value, its type and its source annotation
 ;;
 ;; Compared to Chez Scheme (read-token), recognizes the following extensions:
 ;;   #!parser_name  as (values parser_object 'parser)
@@ -33,14 +41,16 @@
 ;; For simplicity, internally calls Chez Scheme (read-token) in several cases,
 ;; but could be reimplemented in pure R6RS.
 ;;
-;; returns two values:
+;; returns three values:
 ;;   token value
 ;;   token type
-;;
-;; TODO: also return third value token position, as a vector (start-pos end-pos line column)
+;;   token source, as an annotation object
 (define (lex-lisp ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
-  (let ((ch (parsectx-peek-char ctx)))
+  (let ((ch  (parsectx-peek-char ctx))
+        (x   (parsectx-pos-x ctx))
+        (y   (parsectx-pos-y ctx))
+        (beg (parsectx-length ctx)))
     (case ch
       ((#\")
         (lex-string ctx flavor))
@@ -48,23 +58,23 @@
         (lex-sharp ctx flavor))
       ((#\$)
         (parsectx-read-char ctx)
-        (values 'shell-expr 'quote))
+        (values/3 'shell-expr 'quote ctx x y beg))
       ((#\')
         (parsectx-read-char ctx)
-        (values 'quote 'quote))
+        (values/3 'quote 'quote ctx x y beg))
       ((#\()               #| ) |#  ; help vscode
         (parsectx-read-char ctx)
-        (values #f 'lparen))
+        (values/3 #f 'lparen ctx x y beg))
       ((#\))               #| ( |#  ; help vscode
         (parsectx-read-char ctx)
-        (values #f 'rparen))
+        (values/3 #f 'rparen ctx x y beg))
       ((#\,)
         (parsectx-read-char ctx)
         (if (eqv? #\@ (parsectx-peek-char ctx))
           (begin
             (parsectx-read-char ctx)
-            (values 'unquote-splicing 'quote))
-          (values 'unquote 'quote)))
+            (values/3 'unquote-splicing 'quote ctx x y beg))
+          (values/3 'unquote 'quote ctx x y beg)))
       ((#\;)
         ;; handle line comments ourselves, because they may be followed
         ;; by a token not supported by (lex-lisp-chezscheme)
@@ -72,30 +82,31 @@
         (lex-lisp ctx flavor))
       ((#\[)
         (parsectx-read-char ctx)
-        (values #f 'lbrack))
+        (values/3 #f 'lbrack ctx x y beg))
       ((#\])
         (parsectx-read-char ctx)
-        (values #f 'rbrack))
+        (values/3 #f 'rbrack ctx x y beg))
       ((#\`)
         (parsectx-read-char ctx)
-        (values 'quasiquote 'quote))
+        (values/3 'quasiquote 'quote ctx x y beg))
       ((#\{)
         (parsectx-read-char ctx)
-        (values #f 'lbrace))
+        (values/3 #f 'lbrace ctx x y beg))
       ((#\})
         (parsectx-read-char ctx)
-        (values #f 'rbrace))
+        (values/3 #f 'rbrace ctx x y beg))
       (else
         (if (eof-object? ch)
-          (values ch 'eof)
+          (values/3 ch 'eof ctx x y beg)
           (lex-lisp-chezscheme ctx flavor))))))
 
 
 ;; minimal wrapper around Chez Scheme (read-token)
 ;;
-;; returns two values:
+;; returns three values:
 ;;   token value
 ;;   token type
+;;   token source, as an annotation object
 (define (lex-lisp-chezscheme ctx flavor)
   (try
     (let* ((in   (parsectx-in ctx))
@@ -106,7 +117,7 @@
           (when (and (fixnum? pos1) (fx>? pos1 pos0))
             ;; (debugf "lex-lisp-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
             (parsectx-increment-pos/n ctx (fx- pos1 pos0))))
-        (values value type)))
+        (values value type #f)))
 
     (catch (ex)
       (let ((l (condition-irritants ex)))
@@ -126,12 +137,16 @@
 ;; also supports string literals "..." containing hexadecimal escape sequences \x...;
 ;;   representing valid UTF-8b codepoints
 ;;
-;; returns two values:
+;; returns three values:
 ;;   token value: the unescaped string
 ;;   token type: 'atomic
+;;   token source, as an annotation object
 (define (lex-string ctx flavor)
-  (assert* 'lex-string (eqv? #\" (parsectx-read-char ctx)))
-  (let ((csp (charspan)))
+  (let ((csp (charspan))
+        (x   (parsectx-pos-x ctx))
+        (y   (parsectx-pos-y ctx))
+        (beg (parsectx-length ctx)))
+    (assert* 'lex-string (eqv? #\" (parsectx-read-char ctx)))
     (let %again ()
       (let ((ch (lex-string-chars ctx flavor)))
         (when (char? ch)
@@ -139,7 +154,8 @@
         (when ch
           (%again))))
     (%assert-next-char-is-separator ctx flavor "string")
-    (values (charspan->string*! csp) 'atomic)))
+    (let ((str (charspan->string*! csp)))
+      (values/3 str 'atomic ctx x y beg))))
 
 
 ;; read some characters inside a lisp string literal,
@@ -275,9 +291,10 @@
 
 ;; read a lisp token starting with "#"
 ;;
-;; returns two values:
+;; returns three values:
 ;;   token value
 ;;   token type
+;;   token source, as an annotation object
 (define (lex-sharp ctx flavor)
   (assert* 'lex-sharp (eqv? #\# (parsectx-peek-char ctx)))
   (let ((ch (parsectx-peek-char2 ctx)))
@@ -302,11 +319,11 @@
                   (syntax-errorf ctx (caller-for flavor)
                     "directive #!~a is not allowed in #!r6rs syntax, requires #!scheme syntax" value))
                 (if (eq? 'bwp value)
-                  (values (bwp-object) 'atomic)
-                  (values (eof-object) 'eof)))
+                  (values (bwp-object) 'atomic #f)
+                  (values (eof-object) 'eof #f)))
               (else
                 ;; cannot switch to other parser here: just return it and let caller switch
-                (values (get-parser ctx value (caller-for flavor)) 'parser)))
+                (values (get-parser ctx value (caller-for flavor)) 'parser #f)))
 
             ;; (parsectx-read-directive) skipped a whole line.
             ;; read again by calling (lex-lisp)
@@ -314,41 +331,41 @@
       ((#\&)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values #f 'box))
+        (values #f 'box #f))
       ((#\')
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values 'syntax 'quote))
+        (values 'syntax 'quote #f))
       ((#\()                   #|  )  |# ; help vscode
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values #f 'vparen))
+        (values #f 'vparen #f))
       ((#\,)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
         (if (eqv? #\@ (parsectx-peek-char ctx))
           (begin
             (parsectx-read-char ctx)
-            (values 'unsyntax-splicing 'quote))
-          (values 'unsyntax 'quote)))
+            (values 'unsyntax-splicing 'quote #f))
+          (values 'unsyntax 'quote #f)))
       ((#\;)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values 'datum-comment 'quote))
+        (values 'datum-comment 'quote #f))
       ((#\@)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values #f 'fasl))
+        (values #f 'fasl #f))
       ((#\[)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values #f 'record-brack))
+        (values #f 'record-brack #f))
       ((#\\)
         (lex-character ctx flavor))
       ((#\`)
         (parsectx-read-char ctx)
         (parsectx-read-char ctx)
-        (values 'quasisyntax 'quote))
+        (values 'quasisyntax 'quote #f))
       ((#\|)
         ;; handle block comments #| ... |# ourselves, because they may be followed
         ;; by a token not supported by (lex-lisp-chezscheme)
@@ -422,9 +439,10 @@
 ;; read a lisp character literal starting with #\
 ;; also supports character literals #\x... representing valid UTF-8b codepoints
 ;;
-;; returns two values:
+;; returns three values:
 ;;   token value: the character value
 ;;   token type: 'atomic
+;;   token source: an annotation object
 (define (lex-character ctx flavor)
   (assert* 'lex-character (eqv? #\# (parsectx-read-char ctx)))
   (assert* 'lex-character (eqv? #\\ (parsectx-read-char ctx)))
@@ -434,7 +452,7 @@
                   (%char-name->char ctx flavor name))
                 (parsectx-read-char ctx)))) ; consume and return peeked char
     (%assert-next-char-is-separator ctx flavor "character")
-    (values ret 'atomic)))
+    (values ret 'atomic #f)))
 
 
 ;; standard character names
