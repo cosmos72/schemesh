@@ -69,7 +69,8 @@
 (define (parse-lisp-impl ctx value type flavor)
   (case type
     ;; cannot switch to other parser here: just return it and let caller switch
-    ((atomic parser) value)
+    ((atomic parser)
+      value)
     ((eof)
       (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
     ((box)
@@ -403,7 +404,6 @@
 
 (define (parse-lisp-paren-inner ctx flavor token)
   (let ((paren (make-paren flavor token)))
-    ; (parsectx-previous-pos ctx 2) may not be set
     (let-values (((x y) (parsectx-previous-pos ctx 1)))
       (paren-start-xy-set! paren
         (if (and (eqv? token #\#) (fx>? x 0)) (fx1- x) x)

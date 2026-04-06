@@ -36,6 +36,8 @@
 ;; returns two values:
 ;;   token value
 ;;   token type
+;;
+;; TODO: also return third value token position, as a vector (start-pos end-pos line column)
 (define (lex-lisp ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
   (let ((ch (parsectx-peek-char ctx)))

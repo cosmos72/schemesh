@@ -107,9 +107,8 @@
     prompt-end-x      ; fixnum, column where prompt ends
     pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
     prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
-    pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
-  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;; create a new parsectx. Arguments are
@@ -147,7 +146,7 @@
     (for-hash ((name parser enabled-parsers))
       (assert* 'make-parsectx* (symbol? name))
       (assert* 'make-parsectx* (parser? parser))))
-  (%make-parsectx in #f width prompt-end-x (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
+  (%make-parsectx in #f width prompt-end-x (cons x y) (cons -1 -1) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -170,13 +169,12 @@
 ;; i.e. delta character to the left of current position,
 ;; which may wrap around to previous lines.
 ;;
-;; Implementation limit: delta must be 0, 1 or 2
+;; Implementation limit: delta must be 0 or 1
 (define (parsectx-previous-pos pctx delta)
   (let ((pair (case delta
                 ((0) (parsectx-pos pctx))
                 ((1) (parsectx-prev-pos pctx))
-                ((2) (parsectx-pprev-pos pctx))
-                (else (assert* 'parsectx-previous-pos (fx<=? 0 delta 2))))))
+                (else (assert* 'parsectx-previous-pos (fx<=? 0 delta 1))))))
     (values (car pair) (cdr pair))))
 
 
