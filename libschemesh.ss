@@ -89,6 +89,7 @@
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
 
+  (include "parser/ast.ss")
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")
   (include "parser/scheme.ss")

@@ -9,7 +9,7 @@
 
 (library (scheme2k containers list (1 0 0))
   (export
-    any count every for-alist for-list for-plist in-alist in-list in-plist on-list
+    any count every for-alist for-list for-plist map* in-alist in-list in-plist on-list
 
     list-copy* list-index list-quoteq! list-reverse*! list-reverse->vector list-remove-consecutive-duplicates!
 
@@ -307,35 +307,6 @@
         (%recurse (cdr tail))))))
 
 
-;; create and return a closure that iterates on elements of list l.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values tail #t) i.e. the list containing next element and all subsequent ones, and #t,
-;; or (values #<unspecified> #f) if end of list is reached.
-(define (on-list l)
-  (lambda ()
-    (if (null? l)
-      (values #f #f)
-      (let ((tail l))
-        (set! l (cdr l))
-        (values tail #t)))))
-
-
-;; create and return a closure that iterates on elements of association list alist.
-;;
-;; the returned closure accepts no arguments, and each call to it returns three values:
-;; either (values key val #t) i.e. the next key and value in alist and #t,
-;; or (values #<unspecified> #<unspecified> #f) if end of alist is reached.
-(define (in-alist alist)
-  (lambda ()
-    (if (null? alist)
-      (values #f #f #f)
-      (let ((key (caar alist))
-            (val (cdar alist)))
-        (set! alist (cdr alist))
-        (values key val #t)))))
-
-
 ;; Iterate in parallel on elements of given alists, and evaluate body ... on each element.
 ;; Stop iterating when the shortest list is exhausted, and return unspecified value.
 ;;
@@ -355,6 +326,57 @@
                     (with-while-until
                       body ...
                       (%for-alist (cdr tail) ...)))))))))))
+
+
+;; extension of (map) that also accepts improper lists
+;; and in such case returns a new improper list
+(define (map* proc l)
+  (let ((head (cons #f '())))
+    (let %map ((l l) (tail head))
+      (if (null? l)
+        (cdr head)
+        (let ((new-tail (list (proc (car l))))
+              (rest (cdr l)))
+          (set-cdr! tail new-tail)
+          (cond
+            ((pair? rest)
+              (%map rest new-tail))
+            ((null? rest)
+              (cdr head))
+            (else ; improper list
+              (set-cdr! new-tail (proc rest))
+              (cdr head))))))))
+
+
+;; create and return a closure that iterates on elements of association list alist.
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in alist and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of alist is reached.
+(define (in-alist alist)
+  (lambda ()
+    (if (null? alist)
+      (values #f #f #f)
+      (let ((key (caar alist))
+            (val (cdar alist)))
+        (set! alist (cdr alist))
+        (values key val #t)))))
+
+
+;; create and return a closure that iterates on elements of list l.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values tail #t) i.e. the list containing next element and all subsequent ones, and #t,
+;; or (values #<unspecified> #f) if end of list is reached.
+(define (on-list l)
+  (lambda ()
+    (if (null? l)
+      (values #f #f)
+      (let ((tail l))
+        (set! l (cdr l))
+        (values tail #t)))))
+
+
 
 
 ;; return #t if plist is a property list, otherwise return #f

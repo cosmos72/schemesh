@@ -26,14 +26,14 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)          format fx1+ fx1- fx/ make-annotation make-continuation-condition make-format-condition
-                                make-source-file-descriptor make-source-object port-name record-writer
-                                textual-port-input-buffer unread-char void)
+    (only (chezscheme)                    format fx1+ fx1- fx/ make-annotation make-continuation-condition make-format-condition
+                                          make-source-file-descriptor make-source-object port-name record-writer
+                                          textual-port-input-buffer unread-char void)
     (only (scheme2k bootstrap)            assert* until while)
     (only (scheme2k containers hashtable) for-hash)
-    (scheme2k containers span)
-    (scheme2k containers charspan)
-    (only (scheme2k io)         peek-char2))
+          (scheme2k containers span)
+          (scheme2k containers charspan)
+    (only (scheme2k io)                   peek-char2))
 
 
 ;; parser is an object containing two procedures:
@@ -146,6 +146,7 @@
   (assert* 'make-parsectx* (fx>=? x 0))
   (assert* 'make-parsectx* (fx>=? y 0))
   (when enabled-parsers
+    (assert* 'make-parsectx* (hashtable? enabled-parsers))
     (for-hash ((name parser enabled-parsers))
       (assert* 'make-parsectx* (symbol? name))
       (assert* 'make-parsectx* (parser? parser))))

@@ -16,7 +16,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)                 void)
+    (only (chezscheme)                 annotation? annotation-stripped void)
     (only (scheme2k bootstrap) assert* raise-errorf until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
@@ -55,25 +55,28 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     default: #t
+;;   annotations     - if 'plain return plain source forms, otherwise return annotated source forms.
 (define sh-read-file
   (case-lambda
     ((path)
-       (sh-read-file* path (default-parser-for-file-extension path) #t))
+       (sh-read-file* path (default-parser-for-file-extension path) #t 'plain))
     ((path initial-parser)
-       (sh-read-file* path initial-parser #t))
+       (sh-read-file* path initial-parser #t 'plain))
     ((path initial-parser enabled-parsers)
-       (sh-read-file* path initial-parser enabled-parsers))))
+       (sh-read-file* path initial-parser enabled-parsers 'plain))
+    ((path initial-parser enabled-parsers annotations)
+       (sh-read-file* path initial-parser enabled-parsers annotations))))
 
 
 ;; same as (sh-read-file), with the difference that all arguments are mandatory
-(define (sh-read-file* path initial-parser enabled-parsers)
+(define (sh-read-file* path initial-parser enabled-parsers annotations)
   (assert* 'sh-read-file (symbol? initial-parser))
   (let ((port #f))
     (dynamic-wind
       (lambda () ; before body
         (set! port (file->port path 'read)))
       (lambda () ; body
-        (sh-read-port* port initial-parser enabled-parsers))
+        (sh-read-port* port initial-parser enabled-parsers annotations))
       (lambda () ; after body
         (when port (close-port port) (set! port #f))))))
 
@@ -86,11 +89,9 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-read-fd* fd initial-parser enabled-parsers)
-  (sh-read-port*
-    (fd->port fd 'read 'utf8b)
-    initial-parser
-    enabled-parsers))
+;;   annotations     - if 'plain return plain source forms, otherwise return annotated source forms.
+(define (sh-read-fd* fd initial-parser enabled-parsers annotations)
+  (sh-read-port* (fd->port fd 'read 'utf8b) initial-parser enabled-parsers annotations))
 
 
 ;; read and parse multi-language source contents from specified textual input port,
@@ -101,19 +102,26 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-read-port* in initial-parser enabled-parsers)
+(define (sh-read-port* in initial-parser enabled-parsers annotations)
   (sh-read-parsectx*
     (make-parsectx in (enabled-parsers->hashtable enabled-parsers))
-    initial-parser))
+    initial-parser
+    annotations))
 
 
 ;; parse multi-language source contents of specified parsectx, and return parsed form.
 ;; arguments:
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
-(define (sh-read-parsectx* pctx initial-parser)
+(define (sh-read-parsectx* pctx initial-parser annotations)
   (let-values (((forms updated-parser) (parse-forms pctx initial-parser)))
-    (wrap-forms! forms)))
+    (wrap-forms-sh-run! (maybe-unwrap forms annotations))))
+
+
+(define (maybe-unwrap value annotations)
+  (if (and (eq? 'plain annotations) (annotation? value))
+    (annotation-stripped value)
+    value))
 
 
 ;; parse multi-language source contained in specified string, and return parsed form.
@@ -123,8 +131,8 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. #t
-(define (sh-read-string* str initial-parser enabled-parsers)
-  (sh-read-port* (open-string-input-port str) initial-parser enabled-parsers))
+(define (sh-read-string* str initial-parser enabled-parsers annotations)
+  (sh-read-port* (open-string-input-port str) initial-parser enabled-parsers annotations))
 
 
 ;; if enabled-parsers is #t, return (parsers)
@@ -153,7 +161,7 @@
 ;; iterate on each form contained in forms list,
 ;;   and wrap each form (shell ...) or (shell-subshell) inside (sh-run ...)
 ;; return a single form, prefixing forms with (begin ...) if needed.
-(define (wrap-forms! forms)
+(define (wrap-forms-sh-run! forms)
   (do ((tail forms (cdr tail)))
       ((null? tail))
     (let ((form (car tail)))
@@ -196,7 +204,7 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-eval-file* path initial-parser enabled-parsers)
-  (sh-eval (sh-read-file* path initial-parser enabled-parsers)))
+  (sh-eval (sh-read-file* path initial-parser enabled-parsers 'annotated)))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
@@ -208,7 +216,7 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-eval-fd* fd initial-parser enabled-parsers)
-  (sh-eval (sh-read-fd* fd initial-parser enabled-parsers)))
+  (sh-eval (sh-read-fd* fd initial-parser enabled-parsers 'annotations)))
 
 
 ;; read and parse multi-language source contents of specified textual input port,
@@ -221,7 +229,7 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-eval-port* in initial-parser enabled-parsers)
-  (sh-eval (sh-read-port* in initial-parser enabled-parsers)))
+  (sh-eval (sh-read-port* in initial-parser enabled-parsers 'annotations)))
 
 
 ;; read and parse multi-language source contents of specified parsectx,
@@ -231,7 +239,7 @@
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 (define (sh-eval-parsectx* pctx initial-parser)
-  (sh-eval (sh-read-parsectx* pctx initial-parser)))
+  (sh-eval (sh-read-parsectx* pctx initial-parser 'annotations)))
 
 
 ;; read and parse multi-language source contained in specified string,
@@ -244,7 +252,7 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-eval-string* str initial-parser enabled-parsers)
-  (sh-eval (sh-read-string* str initial-parser enabled-parsers)))
+  (sh-eval (sh-read-string* str initial-parser enabled-parsers 'annotations)))
 
 
 ;; extension of (dynamic-wind):

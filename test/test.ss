@@ -21,13 +21,14 @@
     (rnrs base)
     (rnrs exceptions)
     (only (rnrs mutable-strings)  string-set!)
-    (only (chezscheme)            console-output-port display-condition format fx1+ fx1- fx/)
-    (schemesh))
+    (only (chezscheme)            annotation? annotation-stripped console-output-port
+                                  display-condition format fx1+ fx1- fx/)
+          (schemesh))
 
 
 (define (run-tests file-path)
   (status-display-color? #f)
-  (let* ((tests  (sh-read-file file-path))
+  (let* ((tests  (ast-unwrap (sh-read-file file-path)))
          (vec-n  (vector-length tests))
          (test-n (fx1+ (fx/ vec-n 2))) ; also count (run-tests-utf8b)
          (fail-n 0))
@@ -73,7 +74,7 @@
 
 
 (define (test-ok? comparison form exp-result)
-  (let* ((result                (sh-eval form))
+  (let* ((result                (ast-unwrap (sh-eval form)))
          (comparable-result     (test->comparable comparison result))
          (comparable-exp-result (test->comparable comparison exp-result))
          (same? (comparable-equal? comparison comparable-result comparable-exp-result)))

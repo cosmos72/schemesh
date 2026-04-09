@@ -16,17 +16,18 @@
   (import
     (rnrs)
     (only (chezscheme)                    append! box bytevector char-name format-condition? fx1+ fx1- fxvector fxvector-set!
-                                          gensym include make-fxvector read-token reverse! top-level-value void)
-    (only (scheme2k bootstrap)            assert* bwp-object catch try until while)
+                                          gensym include last-pair make-fxvector read-token reverse! top-level-value void)
+    (only (scheme2k bootstrap)            assert* bwp-object catch debugf try until while)
     (scheme2k containers flvector)
     (only (scheme2k containers charspan)  charspan charspan-empty? charspan-insert-left!
                                           charspan-insert-left/string! charspan-insert-right! charspan->string*!)
     (only (scheme2k containers hashtable) hashtable)
-    (only (scheme2k containers list)      for-list list-reverse*!)
+    (only (scheme2k containers list)      for-list list-reverse*! map*)
     (only (scheme2k containers string)    string-index string-iterate)
     (only (scheme2k containers utf8b)     integer->char*)
-    (scheme2k lineedit paren)
-    (scheme2k lineedit parser))
+          (scheme2k lineedit paren)
+          (scheme2k lineedit parser)
+          (schemesh parser ast))
 
 
 (include "parser/lisp-token.ss")
@@ -57,7 +58,7 @@
 ;;
 ;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp ctx flavor)
-  (let-values (((value type annot) (lex-lisp ctx flavor)))
+  (let-values (((value type) (lex-lisp ctx flavor)))
     (parse-lisp-impl ctx value type flavor)))
 
 
@@ -69,8 +70,10 @@
 (define (parse-lisp-impl ctx value type flavor)
   (case type
     ;; cannot switch to other parser here: just return it and let caller switch
-    ((atomic parser)
+    ((atomic)
       value)
+    ((parser)
+      (ast-unwrap value))
     ((eof)
       (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
     ((box)
@@ -78,19 +81,19 @@
         (syntax-errorf ctx (caller-for flavor)
           "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax"
           (lex-type->string type)))
-      (list 'box  (parse-lisp ctx flavor)))
+      (ast-wrap-list2 ctx value (parse-lisp ctx flavor)))
     ;; if type = 'quote, value can be one of:
     ;;    'quote  'quasiquote  'unquote  'unquote-splicing
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
     ;;    'datum-comment 'shell-expr
     ((quote)
       (let ((next (parse-lisp ctx flavor)))
-        (if (eq? 'datum-comment value)
+        (if (eq? 'datum-comment (ast-unwrap value))
           ; skip the whole lisp form read above,
           ; then call (parse-lisp again) and return its value
           (parse-lisp ctx flavor)
           ; quote the whole lisp form read above and return it
-          (list value next))))
+          (ast-wrap-list2 ctx value next))))
     ((lparen lbrack)
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
@@ -121,7 +124,7 @@
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return two values:
-;; 1. list of parsed forms
+;; 1. annotation containing list of parsed forms
 ;; 2. updated parser to use, or #f if parser was not changed
 ;;
 ;; At top-level (i.e. begin-type is 'eof) usually returns (form1 form2 ...)
@@ -157,10 +160,10 @@
                (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
            ; (debugf "... parse-lisp-forms < %merge! ret=~s" ret)
            (set! reverse? #f))))
-    ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
+    ;; (debugf "->  parse-lisp-forms end-type=~s" end-type)
     (while again?
-      (let-values (((value type annot) (lex-lisp ctx flavor)))
-        ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
+      (let-values (((value type) (lex-lisp ctx flavor)))
+        ;; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -189,61 +192,62 @@
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'
-            (let-values (((value type annot) (lex-lisp ctx flavor)))
+            (let-values (((value type) (lex-lisp ctx flavor)))
               (assert-list-end-type type)))
           (else
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))
               (set! ret (cons value-i ret)))))))
-    ; (debugf "<-  parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
-    (values
-      (if reverse? (reverse! ret) ret)
-      parser)))
+    (let ((ret (ast-wrap-list ctx (if reverse? (reverse! ret) ret))))
+      ;; (debugf "<-  parse-lisp-forms ret=~s" ret)
+      (values ret parser))))
 
 
 ;; Read Scheme forms from textual input port 'in' until a token ) or ] or } matching vec-type
 ;; is found.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return a vector, fxvector or bytevector containing parsed forms.
+;; Return an annotated vector, fxvector or bytevector containing parsed forms.
 ;; Raise syntax-errorf if mismatched end token is found, as for example ] instead of )
 (define (parse-vector ctx vec-type len flavor)
-  (let-values (((values _) (parse-lisp-forms ctx vec-type flavor)))
+  (let-values (((vals _) (parse-lisp-forms ctx vec-type flavor)))
     (case vec-type
-      ((vflnparen) (create-flvector   len values))
-      ((vfxnparen) (create-fxvector   len values))
-      ((vnparen)   (create-vector     len values))
-      ((vu8nparen) (create-bytevector len values))
-      ((vflparen)  (apply flvector   values))
-      ((vfxparen)  (apply fxvector   values))
-      ((vparen)    (apply vector     values))
-      ((vu8paren)  (apply bytevector values))
+      ((vflnparen) (create-flvector-len   ctx len vals))
+      ((vfxnparen) (create-fxvector-len   ctx len vals))
+      ((vnparen)   (create-vector-len     ctx len vals))
+      ((vu8nparen) (create-bytevector-len ctx len vals))
+      ((vflparen)  (create-vector  ctx   flvector vals))
+      ((vfxparen)  (create-vector  ctx   fxvector vals))
+      ((vparen)    (create-vector  ctx     vector vals))
+      ((vu8paren)  (create-vector  ctx bytevector vals))
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
+(define (create-vector ctx maker vals)
+  (ast-wrap-vector ctx (apply maker (ast-unwrap vals)) vals))
+
 ;; flvectors require Chez Scheme >= 10.0.0, otherwise they are emulated with plain vectors
-(define (create-flvector len values)
-  (%create-vector len values 0.0 make-flvector flvector-set!))
+(define (create-flvector-len ctx len vals)
+  (%create-vector-len ctx len vals 0.0 make-flvector flvector-set!))
 
-(define (create-fxvector len values)
-  (%create-vector len values 0 make-fxvector fxvector-set!))
+(define (create-fxvector-len ctx len vals)
+  (%create-vector-len ctx len vals 0 make-fxvector fxvector-set!))
 
-(define (create-vector len values)
-  (%create-vector len values 0 make-vector vector-set!))
+(define (create-vector-len ctx len vals)
+  (%create-vector-len ctx len vals 0 make-vector vector-set!))
 
-(define (create-bytevector len values)
-  (%create-vector len values 0 make-bytevector bytevector-u8-set!))
+(define (create-bytevector-len ctx len vals)
+  (%create-vector-len ctx len vals 0 make-bytevector bytevector-u8-set!))
 
-(define (%create-vector len values default-value vector-maker vector-setter!)
-  (let ((vec (vector-maker len))
-        (elem (if (null? values) default-value (car values))))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i len) vec)
-      (vector-setter! vec i elem)
-      (unless (null? values)
-        ;; if we run out of values, fill remainder with last element in values
-        (set! values (cdr values))
-        (unless (null? values)
-          (set! elem (car values)))))))
+(define (%create-vector-len ctx len vals default-value vector-maker vector-setter!)
+  (let* ((len  (ast-unwrap len))
+         (objs (ast-unwrap vals))
+         (elem (if (null? vals) default-value (car (last-pair objs))))
+         (vec (vector-maker len elem)))
+    (do ((i 0 (fx1+ i))
+         (objs objs (cdr objs)))
+        ((or (null? objs) (fx>=? i len))
+         (ast-wrap-vector ctx vec vals))
+      (vector-setter! vec i (car objs)))))
 
 
 ;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it as a char.
