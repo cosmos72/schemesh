@@ -18,7 +18,7 @@
 
 ;; Read a single r6rs or Chez Scheme token from parsectx
 ;;
-;; Return three values: token value, its type and its source annotation
+;; Return two values: possibly annotated token value, and its type
 ;;
 ;; Compared to Chez Scheme (read-token), recognizes the following extensions:
 ;;   #!parser_name  as (values parser_object 'parser)
@@ -33,8 +33,8 @@
 ;; For simplicity, internally calls Chez Scheme (read-token) in several cases,
 ;; but could be reimplemented in pure R6RS.
 ;;
-;; returns three values:
-;;   token value, as an annotation object
+;; returns two values:
+;;   token value, possibly as an annotation object
 ;;   token type
 (define (lex-lisp ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)

@@ -20,7 +20,7 @@
 
 ;; Read a single Chez Scheme token from textual input port 'in.
 ;;
-;; Return three values: token value, its type and its source annotation
+;; Return two values: possibly annotated token value, and its type
 (define (lex-scheme ctx)
   (lex-lisp ctx 'scheme))
 
