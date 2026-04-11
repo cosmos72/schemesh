@@ -99,11 +99,10 @@
 ;;   token type
 (define (lex-lisp-chezscheme ctx flavor x y beg)
   (try
-    (let* ((in   (parsectx-in ctx))
-           (pos0 (and (port-has-port-position? in) (port-position in))))
-      (let-values (((type value start end) (read-token in)))
+    (let ((pos0 (parsectx-length ctx)))
+      (let-values (((type value start end) (read-token (parsectx-in ctx))))
         ;; start, end are usually #f
-        (let ((pos1 (and (fixnum? pos0) (port-position in))))
+        (let ((pos1 (and (fixnum? pos0) (parsectx-length ctx))))
           (when (and (fixnum? pos1) (fx>? pos1 pos0))
             ;; (debugf "lex-lisp-chezscheme type=~s value=~s pos0=~s pos1=~s" type value pos0 pos1)
             (parsectx-increment-pos/n ctx (fx- pos1 pos0))))

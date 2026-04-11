@@ -202,6 +202,7 @@
                   parenmatcher
                   (lambda () (make-parsectx* (open-vlines-input-port screen)
                                              parsers
+                                             'plain
                                              (vscreen-width screen)
                                              (vscreen-prompt-end-x screen)
                                              0
@@ -234,6 +235,7 @@
               parenmatcher
               (lambda () (make-parsectx* (open-vlines-input-port screen)
                                          parsers
+                                         'plain
                                          (vscreen-width screen)
                                          (vscreen-prompt-end-x screen)
                                          0
@@ -267,6 +269,7 @@
           parenmatcher
           (lambda () (make-parsectx* (open-vlines-input-port screen)
                                      parsers
+                                     'plain
                                      (vscreen-width screen)
                                      (vscreen-prompt-end-x screen)
                                      0

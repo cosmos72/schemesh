@@ -9,9 +9,6 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-
-) #!eof
-
   ;; -------------------------- tty --------------------------------------------
   ;; (tty-size) returs a cons (width . height), or c_errno() < 0 on error
   (let ((sz (tty-size)))
@@ -56,7 +53,7 @@
   (file-type "." '(catch))                              dir
   (file-type "parser/parser.ss" '(catch))               file
   (directory-sort!
-    (directory-list "parser" '(types)))                 (("." . dir) (".." . dir) ("lisp-token.ss" . file)
+    (directory-list "parser" '(types)))                 (("." . dir) (".." . dir) ("ast.ss" . file) ("lisp-token.ss" . file)
                                                          ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                                          ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
@@ -551,24 +548,23 @@ B=2})                                                  ,@"#<void>"
     (display (+ 1 2)) {hjk}" 'scheme #t 'plain)        (begin (display (+ 1 2)) (sh-run (shell "hjk")))
   (sh-read-string* "#!/some/other/path\n\
     (display (* 3 4)); bnm"  'shell #t 'plain)         (begin (display (* 3 4)) (sh-run (shell "bnm")))
-  (sh-read-file "test/test_file.ss")
-       (begin (define (fib n)
-         (let %fib ((i n))
-           (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
-          (sh-run (shell "FOO" = "bar" \x3B;
-                         )))
-  (sh-read-file "test/test_file.sh")
-       (begin
-         (sh-run (shell
-           "BAR" = "" \x3B;
-           "foo" "a b" "c" \x7C;
-           "bar" (shell-env "BAR") &&
-           (shell "echo"
-             (shell-backquote "baz" "--quiet")
-               < "/dev/null" 2 >& "1" \x7C;\x7C;
-             "fail" "--verbose")  \x3B;
-             ))
-         (set! a 42))
+
+  (sh-read-file "test/test_file.ss")                   (begin (define (fib n)
+                                                         (let %fib ((i n))
+                                                           (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
+                                                          (sh-run (shell "FOO" = "bar" \x3B;
+                                                                         )))
+  (sh-read-file "test/test_file.sh")                   (begin
+                                                         (sh-run (shell
+                                                           "BAR" = "" \x3B;
+                                                           "foo" "a b" "c" \x7C;
+                                                           "bar" (shell-env "BAR") &&
+                                                           (shell "echo"
+                                                             (shell-backquote "baz" "--quiet")
+                                                               < "/dev/null" 2 >& "1" \x7C;\x7C;
+                                                             "fail" "--verbose")  \x3B;
+                                                             ))
+                                                         (set! a 42))
 
   ;; ---------------------------- repl easy ------------------------------------
 

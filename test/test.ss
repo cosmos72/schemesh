@@ -28,7 +28,7 @@
 
 (define (run-tests file-path)
   (status-display-color? #f)
-  (let* ((tests  (ast-unwrap (sh-read-file file-path)))
+  (let* ((tests  (ast-unwrap1 (sh-read-file file-path 'scheme #t 'annotations)))
          (vec-n  (vector-length tests))
          (test-n (fx1+ (fx/ vec-n 2))) ; also count (run-tests-utf8b)
          (fail-n 0))
@@ -74,7 +74,7 @@
 
 
 (define (test-ok? comparison form exp-result)
-  (let* ((result                (ast-unwrap (sh-eval form)))
+  (let* ((result                (sh-eval form))
          (comparable-result     (test->comparable comparison result))
          (comparable-exp-result (test->comparable comparison exp-result))
          (same? (comparable-equal? comparison comparable-result comparable-exp-result)))

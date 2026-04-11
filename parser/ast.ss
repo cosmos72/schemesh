@@ -17,7 +17,7 @@
                                       source-object-bfp source-object-column source-object-line)
     (only (scheme2k bootstrap)        assert*)
     (only (scheme2k containers list)  map*)
-    (only (scheme2k lineedit parser)  make-parsectx-annotation))
+    (only (scheme2k lineedit parser)  parsectx-annotations? make-parsectx-annotation))
 
 
 (define (ast-unwrap value)
@@ -64,40 +64,47 @@
 
 ;; create and return an annotation wrapping (list value1 value2)
 (define (ast-wrap-list2 ctx value1 value2)
-  (let ((src (ast-source value1)))
-    (make-parsectx-annotation
-      ctx
-      (list value1 value2)
-      (list (ast-unwrap value1) (ast-unwrap value2))
-      (or (source-object-column src) 1)
-      (or (source-object-line   src) 1)
-      (or (source-object-bfp    src) 0))))
+  (let ((l (list value1 value2)))
+    (if (parsectx-annotations? ctx)
+      (let ((src (ast-source value1)))
+        (make-parsectx-annotation
+          ctx
+          (list value1 value2)
+          (list (ast-unwrap value1) (ast-unwrap value2))
+          (if src (source-object-column src) 1)
+          (if src (source-object-line   src) 1)
+          (if src (source-object-bfp    src) 0)))
+      l)))
 
 
 ;; create and return an annotation wrapping list l
 (define (ast-wrap-list ctx l)
-  (let* ((l1  (ast-unwrap1 l))
-         (src (and (ast-pair? l1) (ast-source (ast-car l1)))))
-    (make-parsectx-annotation
-      ctx
-      l
-      (map* ast-unwrap l)
-      (if src (source-object-column src) 1)
-      (if src (source-object-line   src) 1)
-      (if src (source-object-bfp    src) 0))))
+  (if (parsectx-annotations? ctx)
+    (let* ((l1  (ast-unwrap1 l))
+           (src (and (ast-pair? l1) (ast-source (ast-car l1)))))
+      (make-parsectx-annotation
+        ctx
+        l
+        (map* ast-unwrap l)
+        (if src (source-object-column src) 1)
+        (if src (source-object-line   src) 1)
+        (if src (source-object-bfp    src) 0)))
+    l))
 
 
 ;; create and return an annotation wrapping vector v
 (define (ast-wrap-vector ctx v vals)
-  (let* ((vals1 (ast-unwrap1 vals))
-         (src   (and (ast-pair? vals1) (ast-source (ast-car vals1)))))
-    (make-parsectx-annotation
-      ctx
-      v
-      v
-      (if src (source-object-column src) 1)
-      (if src (source-object-line   src) 1)
-      (if src (source-object-bfp    src) 0))))
+  (if (parsectx-annotations? ctx)
+    (let* ((vals1 (ast-unwrap1 vals))
+           (src   (and (ast-pair? vals1) (ast-source (ast-car vals1)))))
+      (make-parsectx-annotation
+        ctx
+        v
+        v
+        (if src (source-object-column src) 1)
+        (if src (source-object-line   src) 1)
+        (if src (source-object-bfp    src) 0)))
+    v))
 
 
 ) ; close library

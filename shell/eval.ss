@@ -55,7 +55,8 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     default: #t
-;;   annotations     - if 'plain return plain source forms, otherwise return annotated source forms.
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms. Default: 'plain
 (define sh-read-file
   (case-lambda
     ((path)
@@ -89,7 +90,8 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-;;   annotations     - if 'plain return plain source forms, otherwise return annotated source forms.
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms.
 (define (sh-read-fd* fd initial-parser enabled-parsers annotations)
   (sh-read-port* (fd->port fd 'read 'utf8b) initial-parser enabled-parsers annotations))
 
@@ -102,26 +104,22 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms.
 (define (sh-read-port* in initial-parser enabled-parsers annotations)
   (sh-read-parsectx*
-    (make-parsectx in (enabled-parsers->hashtable enabled-parsers))
-    initial-parser
-    annotations))
+    (make-parsectx in (enabled-parsers->hashtable enabled-parsers) annotations)
+    initial-parser))
 
 
 ;; parse multi-language source contents of specified parsectx, and return parsed form.
 ;; arguments:
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
+;;                     and whether to annotate parsed forms or not
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
-(define (sh-read-parsectx* pctx initial-parser annotations)
+(define (sh-read-parsectx* pctx initial-parser)
   (let-values (((forms updated-parser) (parse-forms pctx initial-parser)))
-    (wrap-forms-sh-run! (maybe-unwrap forms annotations))))
-
-
-(define (maybe-unwrap value annotations)
-  (if (and (eq? 'plain annotations) (annotation? value))
-    (annotation-stripped value)
-    value))
+    (wrap-forms-sh-run! forms)))
 
 
 ;; parse multi-language source contained in specified string, and return parsed form.
@@ -131,6 +129,8 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. #t
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms.
 (define (sh-read-string* str initial-parser enabled-parsers annotations)
   (sh-read-port* (open-string-input-port str) initial-parser enabled-parsers annotations))
 
@@ -161,16 +161,21 @@
 ;; iterate on each form contained in forms list,
 ;;   and wrap each form (shell ...) or (shell-subshell) inside (sh-run ...)
 ;; return a single form, prefixing forms with (begin ...) if needed.
+;;
+;; arguments:
+;;   forms        - the forms to examine and wrap
 (define (wrap-forms-sh-run! forms)
-  (do ((tail forms (cdr tail)))
-      ((null? tail))
-    (let ((form (car tail)))
-      (when (and (pair? form) (memq (car form) '(shell shell-subshell)))
-        (set-car! tail (list 'sh-run form)))))
-  (cond
-    ((null? forms)       '(void))
-    ((null? (cdr forms)) (car forms))
-    (else                (cons 'begin forms))))
+  (let ((forms (ast-unwrap1 forms)))
+    ;; (debugf "wrap-forms-sh-run forms ~s" forms)
+    (do ((tail forms (cdr tail)))
+        ((null? tail))
+      (let ((form (car tail)))
+        (when (and (ast-pair? form) (memq (car (ast-unwrap form)) '(shell shell-subshell)))
+          (set-car! tail (list 'sh-run form)))))
+    (cond
+      ((null? forms)       '(void))
+      ((null? (cdr forms)) (car forms))
+      (else                (cons 'begin forms)))))
 
 
 ;; open specified file path, read and parse its multi-language source contents with (sh-read-port*),
@@ -184,14 +189,18 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     default: #t
+;;   annotations     - if 'annotations annotate source forms while parsing them,
+;;                     otherwise don't annotate them. default: 'annotations
 (define sh-eval-file
   (case-lambda
     ((path)
-       (sh-eval-file* path (default-parser-for-file-extension path) (parsers)))
+       (sh-eval-file* path (default-parser-for-file-extension path) (parsers) 'annotations))
     ((path initial-parser)
-       (sh-eval-file* path initial-parser (parsers)))
+       (sh-eval-file* path initial-parser (parsers) 'annotations))
     ((path initial-parser enabled-parsers)
-       (sh-eval-file* path initial-parser enabled-parsers))))
+       (sh-eval-file* path initial-parser enabled-parsers 'annotations))
+    ((path initial-parser enabled-parsers annotations)
+       (sh-eval-file* path initial-parser enabled-parsers annotations))))
 
 
 ;; open specified file path, read and parse its multi-language source contents with (sh-read-port*)
@@ -203,8 +212,10 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-eval-file* path initial-parser enabled-parsers)
-  (sh-eval (sh-read-file* path initial-parser enabled-parsers 'annotated)))
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms
+(define (sh-eval-file* path initial-parser enabled-parsers annotations)
+  (sh-eval (sh-read-file* path initial-parser enabled-parsers annotations)))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
@@ -215,8 +226,8 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-eval-fd* fd initial-parser enabled-parsers)
-  (sh-eval (sh-read-fd* fd initial-parser enabled-parsers 'annotations)))
+(define (sh-eval-fd* fd initial-parser enabled-parsers annotations)
+  (sh-eval (sh-read-fd* fd initial-parser enabled-parsers annotations)))
 
 
 ;; read and parse multi-language source contents of specified textual input port,
@@ -228,8 +239,10 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-eval-port* in initial-parser enabled-parsers)
-  (sh-eval (sh-read-port* in initial-parser enabled-parsers 'annotations)))
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms
+(define (sh-eval-port* in initial-parser enabled-parsers annotations)
+  (sh-eval (sh-read-port* in initial-parser enabled-parsers annotations)))
 
 
 ;; read and parse multi-language source contents of specified parsectx,
@@ -239,7 +252,7 @@
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 (define (sh-eval-parsectx* pctx initial-parser)
-  (sh-eval (sh-read-parsectx* pctx initial-parser 'annotations)))
+  (sh-eval (sh-read-parsectx* pctx initial-parser)))
 
 
 ;; read and parse multi-language source contained in specified string,
@@ -251,8 +264,10 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-(define (sh-eval-string* str initial-parser enabled-parsers)
-  (sh-eval (sh-read-string* str initial-parser enabled-parsers 'annotations)))
+;;   annotations     - if 'annotations return annotated source forms,
+;;                     otherwise return plain source forms
+(define (sh-eval-string* str initial-parser enabled-parsers annotations)
+  (sh-eval (sh-read-string* str initial-parser enabled-parsers annotations)))
 
 
 ;; extension of (dynamic-wind):

@@ -16,9 +16,10 @@
     (only (chezscheme) append! fx1+ fx1- include inspect reverse! void)
     (only (scheme2k bootstrap) assert* debugf until warnf while)
     (only (scheme2k containers string) string-is-unsigned-base10-integer?)
-    (scheme2k containers charspan)
-    (scheme2k lineedit paren)
-    (scheme2k lineedit parser))
+          (scheme2k containers charspan)
+          (scheme2k lineedit paren)
+          (scheme2k lineedit parser)
+          (schemesh parser ast))
 
 
 (include "parser/shell-token.ss")
@@ -272,10 +273,11 @@
             (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
               (unless (eq? parse-shell-forms other-parse-forms)
                 (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
-                  (set! parser (or updated-parser value))
-                  (set! ret (%merge ret other-forms))
-                  (set! done?  #t)
-                  (set! prefix #f)))))
+                  (let ((other-forms (ast-unwrap other-forms)))
+                    (set! parser (or updated-parser value))
+                    (set! ret (%merge ret other-forms))
+                    (set! done?  #t)
+                    (set! prefix #f))))))
           ((separator)
             ; value can be '& #\; or #\newline
             (unless (and (eqv? #\newline value) (should-ignore-newlines? ret))
@@ -313,24 +315,25 @@
             (set! lbracket-is-subshell? #f)
             ; switch to Scheme parser for a single form.
             (let-values (((lisp-forms _) (parse-scheme-forms ctx type)))
-              (if (and (null? ret) (eq? 'lparen type) (eq? 'eof end-type))
-                ; lparen is the first token at shell top level:
-                ; allow entering Scheme form
-                (let ((return-lisp-form? (%after-lisp-forms-at-top-level ctx)))
-                  (if return-lisp-form?
-                    (let-values (((next-forms updated-parser) (parse-shell-forms ctx begin-type)))
-                      (when updated-parser
-                        (set! parser updated-parser))
-                      (set! ret (cons lisp-forms next-forms))
-                      (set! done? #t)
-                      (set! prefix #f))
-                    (set! ret (cons lisp-forms ret))))
-                ; either lparen was in the middle of shell syntax, or dollar+lparen found:
-                ; just insert parsed Scheme form into current shell command
-                (set! ret (cons (if (eq? 'dollar+lparen type)
-                                  (list 'shell-expr lisp-forms)
-                                  lisp-forms)
-                                ret)))))
+              (let ((lisp-forms (ast-unwrap lisp-forms)))
+                (if (and (null? ret) (eq? 'lparen type) (eq? 'eof end-type))
+                  ; lparen is the first token at shell top level:
+                  ; allow entering Scheme form
+                  (let ((return-lisp-form? (%after-lisp-forms-at-top-level ctx)))
+                    (if return-lisp-form?
+                      (let-values (((next-forms updated-parser) (parse-shell-forms ctx begin-type)))
+                        (when updated-parser
+                          (set! parser updated-parser))
+                        (set! ret (cons lisp-forms next-forms))
+                        (set! done? #t)
+                        (set! prefix #f))
+                      (set! ret (cons lisp-forms ret))))
+                  ; either lparen was in the middle of shell syntax, or dollar+lparen found:
+                  ; just insert parsed Scheme form into current shell command
+                  (set! ret (cons (if (eq? 'dollar+lparen type)
+                                    (list 'shell-expr lisp-forms)
+                                    lisp-forms)
+                                  ret))))))
           ((lbrace lbrack dollar+lbrack)
             (set! can-change-parser?    #f)
             (set! equal-is-operator?    #f)
