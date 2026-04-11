@@ -59,7 +59,7 @@
     (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k os)              make-process-reader)
-    (only (schemesh parser)          make-parsectx* parse-forms parser-name parsers to-parser)
+    (only (schemesh parser)          ast-unwrap make-parsectx* parse-forms parser-name parsers to-parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
     (only (scheme2k posix io)        fd->port file->port)
@@ -178,7 +178,7 @@
   (parse-forms pctx initial-parser))
 
 
-;; Eval with (sh-eval) a single form containing parsed expressions or shell commands,
+;; Eval with (sh-eval) a single form (possibly annotated) containing parsed expressions or shell commands,
 ;; and return value or exit status of executed form.
 ;; May return multiple values.
 ;;
@@ -191,9 +191,10 @@
 (define (repl-eval form)
   ; (debugf "repl-eval: ~s" form)
   (try
-    (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-expr)))
-      (sh-run/i (sh-eval form))
-      (sh-eval form)) ; may return multiple values
+    (let ((uform (ast-unwrap form)))
+      (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
+        (sh-run/i (sh-eval form))
+        (sh-eval form))) ; may return multiple values
     (catch (ex)
       (repl-exception-handler ex))))
 
@@ -257,6 +258,7 @@
         (let-values (((forms updated-parser)
                         (repl-parse (make-parsectx* in
                                          (linectx-parsers lctx)
+                                         'annotations
                                          (linectx-width lctx)
                                          (linectx-prompt-end-x lctx)
                                          0 0)
