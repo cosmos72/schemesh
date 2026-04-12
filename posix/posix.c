@@ -27,7 +27,7 @@
 #include <errno.h> /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h> /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>
-#include <limits.h> /* INT_MAX, INT_MIN, PIPE_BUF */
+#include <limits.h> /* INT_MAX, INT_MIN, PATH_MAX, PIPE_BUF */
 #include <netdb.h>
 #include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
@@ -90,6 +90,10 @@
 #define SCHEME2K_POSIX_POSIX_C /* tell who we are to posix/signal.h  */
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
+
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 typedef struct {
   int        val;
