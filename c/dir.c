@@ -27,6 +27,7 @@
 #include "writer.h"
 
 #ifdef __APPLE__
+#include <sys/syslimits.h> /* PATH_MAX */
 #undef SCHEME2K_C_DIR_HAVE_TIMESPEC
 #else
 #define SCHEME2K_C_DIR_HAVE_TIMESPEC
