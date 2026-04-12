@@ -749,12 +749,12 @@ If `make -j` fails, do not panic :) Some issues are relatively minor and can be 
    In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DIR="/usr/local/lib/csv10.0.0/ta6le"`
 
 2. on Ubuntu, you may get the error message
-   `lto1: fatal error: bytecode stream in file ‘/usr/lib/csv.../ta6le/kernel.o’ generated with LTO version NNN instead of the expected MMM`
+   ```lto1: fatal error: bytecode stream in file ‘/usr/lib/csv.../ta6le/kernel.o’ generated with LTO version NNN instead of the expected MMM```
 
    This can be worked around by running `make -j CC="gcc -fno-lto"`
 
 3. on macOS, you may get the error message
-   `error initializing POSIX subsystem: dup2(0, tty_fd) failed with error Bad file descriptor`
+   ```error initializing POSIX subsystem: dup2(0, tty_fd) failed with error Bad file descriptor```
 
    It is caused by macOS accepting very high-numbered file descriptors in `ulimit -n NNN`,
    as for example `ulimit -n 32768` but not actually supporting them.
@@ -762,7 +762,7 @@ If `make -j` fails, do not panic :) Some issues are relatively minor and can be 
    Workaround: run `ulimit -n 256` then `make [YOUR_ARGS]`
 
 4. on macOS + Nix, launching `schemesh` may fail with an error message similar to
-   `schemesh: Exception: incompatible fasl-object version 0.0.0-pre-release.20 found in result/lib/schemesh/libschemesh_X.Y.X.so`
+   ```schemesh: Exception: incompatible fasl-object version 0.0.0-pre-release.20 found in result/lib/schemesh/libschemesh_X.Y.X.so```
 
    It is likely caused by an issue in Nix rules for building Chez Scheme - see [issue #34](https://github.com/cosmos72/schemesh/issues/34#issuecomment-4231026013) for more details.
 
