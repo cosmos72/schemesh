@@ -17,7 +17,7 @@
 #include <errno.h>     /* EINVAL, errno */
 #include <fcntl.h>     /* AT_SYMLINK_NOFOLLOW */
 #include <grp.h>       /* getgrgid_r()  */
-#include <limits.h>    /* PATH_MAX on *BSD */
+#include <limits.h>    /* PATH_MAX on *BSD and macOS */
 #include <pwd.h>       /* getpwuid_r()  */
 #include <stdlib.h>    /* exit()        */
 #include <sys/stat.h>  /* fstatat()     */
@@ -285,6 +285,10 @@ static e_type modeToEtype(mode_t mode) {
       return e_type_unknown;
   }
 }
+
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 
 static void write_symlink(writer* w, e_dir_flags flags, e_type type, int dir_fd, const char* path) {
   if (flags && type == e_type_lnk) {
