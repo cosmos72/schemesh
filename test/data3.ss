@@ -544,9 +544,9 @@ B=2})                                                  ,@"#<void>"
      $(get-string-all)}))                              ,(ok "a\nb\nc\n")
 
   ;; ------------------------- sh-read ------------------------------------
-  (sh-read-string* "#!/some/path some-arg\n\
+  (sh-read-string "#!/some/path some-arg\n\
     (display (+ 1 2)) {hjk}" 'scheme #t 'plain)        (begin (display (+ 1 2)) (sh-run (shell "hjk")))
-  (sh-read-string* "#!/some/other/path\n\
+  (sh-read-string "#!/some/other/path\n\
     (display (* 3 4)); bnm"  'shell #t 'plain)         (begin (display (* 3 4)) (sh-run (shell "bnm")))
 
   (sh-read-file "test/test_file.ss")                   (begin (define (fib n)

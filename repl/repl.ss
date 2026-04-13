@@ -24,7 +24,7 @@
           repl-exception-handler repl-break-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
-          sh-eval-parsectx/print* sh-eval-string/print*)
+          sh-eval-parsectx/print* sh-eval-string/print)
   (import
     (except (rnrs)                        current-input-port current-output-port current-error-port)
     (only (rnrs mutable-pairs)            set-car!)
@@ -72,7 +72,7 @@
     (only (schemesh shell)
             c-username repl-args repl-args-linectx repl-history repl-restart repl-restart?
             sh-builtins sh-builtins-help sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
-            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
             sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
@@ -105,32 +105,36 @@
       (call-with-values (lambda () (sh-eval-file path initial-parser enabled-parsers)) repl-print))))
 
 
-;; variant of (sh-eval-file*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
 (define (sh-eval-file/print* path initial-parser enabled-parsers)
   (call-with-values
-    (lambda () (sh-eval-file* path initial-parser enabled-parsers))
+    (lambda () (sh-eval-file path initial-parser enabled-parsers))
     repl-print))
 
 
-;; variant of (sh-eval-port*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-port) that pretty-print the result(s) instead of returning them
 (define (sh-eval-port/print* path initial-parser enabled-parsers)
   (call-with-values
-    (lambda () (sh-eval-port* path initial-parser enabled-parsers))
+    (lambda () (sh-eval-port path initial-parser enabled-parsers))
     repl-print))
 
 
-;; variant of (sh-eval-parsectx*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-parsectx) that pretty-print the result(s) instead of returning them
 (define (sh-eval-parsectx/print* pctx initial-parser)
   (call-with-values
-    (lambda () (sh-eval-parsectx* pctx initial-parser))
+    (lambda () (sh-eval-parsectx pctx initial-parser))
     repl-print))
 
 
-;; variant of (sh-eval-string*) that pretty-print the result(s) instead of returning them
-(define (sh-eval-string/print* pctx initial-parser enabled-parsers)
-  (call-with-values
-    (lambda () (sh-eval-string* pctx initial-parser enabled-parsers))
-    repl-print))
+;; variant of (sh-eval-string) that pretty-print the result(s) instead of returning them
+(define sh-eval-string/print
+  (case-lambda
+    ((str initial-parser enabled-parsers)
+      (call-with-values
+        (lambda () (sh-eval-string str initial-parser enabled-parsers))
+        repl-print))
+    ((str initial-parser)
+      (sh-eval-string/print str initial-parser #t))))
 
 
 ;; React to uncaught exceptions
