@@ -207,9 +207,9 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
-;;                     default: #t
+;;                     Default: #t
 ;;   annotations     - if 'annotations annotate source forms while parsing them,
-;;                     otherwise don't annotate them. default: 'annotations
+;;                     otherwise don't annotate them. Default: 'annotations
 (define sh-eval-file
   (case-lambda
     ((path initial-parser enabled-parsers annotations)
@@ -231,8 +231,9 @@
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
+;;                     Default: #t
 ;;   annotations     - if 'annotations return annotated source forms,
-;;                     otherwise return plain source forms
+;;                     otherwise return plain source forms. Default: 'annotations
 (define sh-eval-fd
   (case-lambda
     ((fd initial-parser enabled-parsers annotations)
@@ -246,14 +247,16 @@
 ;; read and parse multi-language source contents of specified textual input port,
 ;; and eval the parsed source form.
 ;;
-;; arguments:
+;; mandatory arguments:
 ;;   in              - the textual input port to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
+;; optional arguments:
 ;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
+;;                     Default: #t
 ;;   annotations     - if 'annotations return annotated source forms,
-;;                     otherwise return plain source forms
+;;                     otherwise return plain source forms. Default: 'annotations
 (define sh-eval-port
   (case-lambda
     ((in initial-parser enabled-parsers annotations)
