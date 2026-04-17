@@ -574,7 +574,9 @@
         (job-fds-to-remap-set! job remaps)
         (do ((i 0 (fx+ i 4)))
             ((fx>? i (fx- n 4)))
-          (job-remap-fd! job job-dir i))))))
+          (job-remap-fd! job job-dir i))
+        ;;#44 (debugf "job-remap-fds! job=~s remap-fds=~s" job remaps)
+        ))))
 
 
 ;; redirect a file descriptor. returns < 0 on error
@@ -591,7 +593,7 @@
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
          (remap-fd             (s-fd-allocate)))
-    ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
+    ;; (debugf "job-remap-fd! job=~s fd=~s dir=~s remap-fd=~s to=~s" job fd direction-ch remap-fd to-fd-or-bytevector0)
     (let* ((fd-int (s-fd->int remap-fd))
            (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
@@ -648,15 +650,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; return the remapped file descriptor for specified job's fd, or #f if no remapping was found
+;; does NOT search for remappings in job ancestors
+(define (job-remap-find-fd/norecurse job fd)
+  (let* ((remap-fds (and job (job-fds-to-remap job)))
+         (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
+    (and remap-fd (s-fd->int remap-fd))))
+
+
 ;; return three values:
 ;;   the ancestor job, its target file descriptor for specified fd, and its remapped file descriptor for specified fd.
 ;;   or #f fd if no remapping was found
+;; also searches for remappings in job ancestors
 (define (job-remap-find-fd* job fd)
   (let %again ((job job) (job-with-redirect #f) (target-fd fd) (last-remap-fd fd))
-    (let* ((remap-fds (and job (job-fds-to-remap job)))
-           (remap-fd  (and remap-fds (hashtable-ref remap-fds last-remap-fd #f))))
+    (let ((remap-fd (job-remap-find-fd/norecurse job last-remap-fd)))
       (if remap-fd
-        (%again (job-parent job) job last-remap-fd (s-fd->int remap-fd))
+        (%again (job-parent job) job last-remap-fd remap-fd)
         (let ((parent (and job (job-parent job))))
           (if parent
             (%again parent job-with-redirect target-fd last-remap-fd)
@@ -664,10 +674,13 @@
 
 
 ;; return the remapped file descriptor for specified job's fd,
-;; or fd itself if no remapping was found
+;;   or fd itself if no remapping was found.
+;; also searches for remappings in job ancestors
 (define (job-remap-find-fd job fd)
   (let-values (((unused1 unused2 ret-fd) (job-remap-find-fd* job fd)))
     ret-fd))
+
+
 
 
 ;; return (job-ports job), creating it if needed

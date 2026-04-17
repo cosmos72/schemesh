@@ -361,13 +361,11 @@
 ;;   and the returned status can only be one of (void) (ok ...) (failed ...) (killed ...) or (exception ...)
 (define (builtin-start builtin c args options)
   (assert* 'builtin-start (not (job-step-proc c)))
-  (if (job-fds-to-remap c)
-    ;; fd remapping already performed, proceed
-    (%builtin-start-already-redirected builtin c args options)
-    ;; perform fd remapping, then start the builtin
-    (begin
-      (job-remap-fds! c)
-        (%builtin-start-already-redirected builtin c args options))))
+  (unless (job-fds-to-remap c)
+    ;; perform fd remapping before starting the builtin
+    (job-remap-fds! c))
+  ;; fd remapping performed, proceed
+  (%builtin-start-already-redirected builtin c args options))
 
 
 ;; filled at the end of job.ss
