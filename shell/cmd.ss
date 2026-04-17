@@ -246,7 +246,7 @@
     (do ((parent job (job-parent parent)))
         ((not parent))
       (set! n (job-fill-c-redirect-vector/norecurse parent child-dir v n)))
-    ; (debugf "job-make-c-redirect-vector job=~s redirect-vector=~s" job v)
+    ; (debugf "job-make-c-redirect-vector job=~s redirects=~s fds-to-remap=~s c-redirect-vector=~s" job (job-redirects job) (job-fds-to-remap job) v)
     v))
 
 
@@ -279,21 +279,32 @@
          (redirects     (job-redirects job))
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
-         ;; fd may need to be redirected to a different file descriptor due to fd remapping
-         (remapped-fd   (job-remap-find-fd job fd))
-         (to            (if (fx=? fd remapped-fd)
-                          ; no remapping found, extract redirection.
-                          (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)
-                          ; remapping found, use it
-                          remapped-fd)))
-
-    ; (debugf "job-fill-c-redirect-vector job=~s redirect fd=~s -> fd=~s, remapped-fd = ~s" job fd to remapped-fd)
+         (remap-fd      (job-remap-find-fd/norecurse job fd))
+                        ;; if fd is remapped in THIS job, it takes precedence over any redirection
+         (to            (or remap-fd (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)))
+         (remap-to      (if (or (not (fixnum? to)) (redirects-contain-from-fd? redirects pos to))
+                          ;; if there's a previous redirection for "to" in THIS job redirections, use it
+                          to
+                          ;; search for remappings for to, including inherited ones.
+                          ;; no need to search for inherited redirections, because parents are multijobs
+                          ;; and their redirections are translated into remappings.
+                          (job-remap-find-fd job to))))
+    ;; (debugf "job-fill-c-redirect-vector job=~s redirects=~s fd=~s -> fd=~s, remapped-fd = ~s" job redirects fd to remapped-fd)
     (vector-set! v pos fd)
     (vector-set! v (fx1+  pos) direction-ch)
     ;; to-fd must be placed at pos + 2
-    (vector-set! v (fx+ 2 pos) (if (fixnum? to) to #f))
+    (vector-set! v (fx+ 2 pos) (if (fixnum? remap-to) remap-to #f))
     ;; to-bytevector0 must be placed at pos + 3
-    (vector-set! v (fx+ 3 pos) (if (fixnum? to) #f to))))
+    (vector-set! v (fx+ 3 pos) (if (fixnum? remap-to) #f remap-to))
+    ;;#44 (debugf "job-fill-c-redirect-vector job=~s redirects=~s remaps=~s fd=~s remap-fd=~s to=~s remap-to=~s pos=~s v=~s" job redirects (job-fds-to-remap job) fd remap-fd to remap-to pos v)
+    ))
+
+
+;; return #t if job's redirects span contains specified fd at some index < pos
+(define (redirects-contain-from-fd? redirects pos fd)
+  (do ((index 0 (fx+ index 4)))
+      ((or (fx>=? index pos) (fx=? fd (span-ref redirects index)))
+        (fx<? index pos))))
 
 
 ;; return parent-dir if different from child-dir, otherwise return #f

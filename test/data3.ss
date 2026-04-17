@@ -448,6 +448,11 @@
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
+  ; test issue #44: sh-pipe doesn't always work with external commands
+  (sh-run/string
+    {env echo (begin "aaa\nbbb\n") | wc -l})           "3\n"
+  (sh-run/string
+    {echo (begin "aaa\nbbb\n") | wc -l})               "3\n"
 
   (let* ((job   {grep xyz})
          (ports (sh-start/ports job))

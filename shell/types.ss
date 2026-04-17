@@ -21,16 +21,20 @@
     (mutable last-status job-last-status %job-last-status-set!)
     ;; #f or exception that caused the job to terminate
     (mutable exception)
-    ;; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
-    ;; to open and redirect between fork() and exec()
-    (mutable redirects)
+    (mutable redirects) ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+                        ; contains redirections requested by user for THIS job
+
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
                                ; inserted by temporary redirections
+
     (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (s-fd) to actually use
+                           ; prepared by scanning (job-redirects) for THIS job when starting it,
+                           ; because we cannot redirect low-numbered fds in main process: they are often in use.
+
     (mutable ports)        ; #f or hashtable fd -> binary input/output port,
-                           ; and (fxnot fd) -> textual input/output port.
+                           ;     and (fxnot fd) -> textual input/output port.
     start-proc      ; #f or procedure to run in main process.
-                    ; receives as argument job followed by options.
+                    ; receives as arguments job and options.
     (mutable step-proc) ; #f or procedure.
                     ; For multijobs, will be called when a child job changes status.
                     ; For cmds, will be called in fork()ed child process and
