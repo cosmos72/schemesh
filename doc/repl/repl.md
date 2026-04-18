@@ -20,8 +20,8 @@ Other functions are not (yet) documented.
 Syntax: `(repl-after-eval proc)`
 <br/>Added in 1.0.1
 
-`proc` must be a function accepting a single argument.
-It will be called after every `(repl-eval)` and receives one argument: the list of values produced by `(repl-eval)`
+`proc` must be a function accepting a single argument.<br/>
+It will be called after every `(repl-eval)` and receives one argument: the list of values produced by `(repl-eval)`.<br/>
 It must **not** modify the received list, and should not throw exceptions.
 
 Default value: `nop`
@@ -31,8 +31,8 @@ Default value: `nop`
 Syntax: `(repl-before-eval proc)`
 <br/>Added in 1.0.1
 
-`proc` must be a function accepting a single argument.
-It will be called before every `(repl-eval)` and receives one argument: the list of (**possibly** annotated) source forms to be evaluated.
+`proc` must be a function accepting a single argument.<br/>
+It will be called before every `(repl-eval)` and receives one argument: the list of (**possibly** annotated) source forms to be evaluated.<br/>
 It must **not** modify the received list, and should not throw exceptions.
 
 See [Chez Scheme user guide: Section 11.11](https://cisco.github.io/ChezScheme/csug/syntax.html#./syntax:h11)
@@ -47,8 +47,8 @@ Default value: `nop`
 Syntax: `(repl-before-parse proc)`
 <br/>Added in 1.0.1
 
-`proc` must be a function accepting a single argument.
-It will be called before every `(repl-parse)` and receives one argument: the user-typed string to be parsed and evaluated.
+`proc` must be a function accepting a single argument.<br/>
+It will be called before every `(repl-parse)` and receives one argument: the user-typed string to be parsed and evaluated.<br/>
 It must **not** modify the received string, and should not throw exceptions.
 
 Default value: `nop`
