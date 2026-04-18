@@ -19,8 +19,9 @@
             to-stdout  to-csv   to-json   to-json1   to-list   to-queue   to-vector   to-wire   to-table
 
           ;; repl/repl.ss
-          repl repl* repl-eval repl-eval-print-list repl-initial-parser
-          repl-lineedit repl-parse repl-print
+          repl repl* repl-after-eval repl-before-eval repl-before-parse
+          repl-eval repl-eval-print-list repl-initial-parser
+          repl-lineedit repl-parse repl-print repl-print-list
           repl-exception-handler repl-break-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
@@ -32,9 +33,9 @@
                                           console-input-port console-output-port console-error-port
                                           current-input-port current-output-port current-error-port
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
-                                          make-parameter optimize-level parameterize pretty-print
+                                          logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            assert* catch define-macro first-value-or-void nop raise-errorf while try)
+    (only (scheme2k bootstrap)            assert* catch define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
@@ -77,7 +78,7 @@
             sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
             with-sh-resource xdg-cache-home/ xdg-config-home/)
-    (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!))
+    (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
 
 
 ;; write contents of bytespan wbuf to file descriptor fd,
@@ -137,6 +138,52 @@
 (define (repl-exception-handler obj)
   (sh-exception-handler obj (reset-handler)))
 
+
+;; Parameter containing a user-defined procedure called before each (repl-parse)
+;; and receiving a single argument: the string to be parsed and evaluated.
+;;
+;; The user-defined procedure must NOT modify the received string.
+;;
+;; Initial value: #<procedure nop>
+(define repl-before-parse
+  (make-parameter
+    nop
+    (lambda (proc)
+      (assert* 'repl-before-parse (procedure? proc))
+      (assert* 'repl-before-parse (logbit? 1 (procedure-arity-mask proc)))
+      proc)))
+
+
+;; Parameter containing a user-defined procedure called before each (repl-eval)
+;; and receiving a single argument: the (possibly annotated) form to be evaluated.
+;;
+;; The user-defined procedure must NOT modify the received form.
+;;
+;; Initial value: #<procedure nop>
+(define repl-before-eval
+  (make-parameter
+    nop
+    (lambda (proc)
+      (assert* 'repl-before-eval (procedure? proc))
+      (assert* 'repl-before-eval (logbit? 1 (procedure-arity-mask proc)))
+      proc)))
+
+
+;; Parameter containing a user-defined procedure called after each (repl-eval)
+;; and receiving a single argument: the list of values produced by (repl-eval)
+;;
+;; The user-defined procedure must NOT modify the received list.
+;;
+;; Initial value: #<procedure nop>
+(define repl-after-eval
+  (make-parameter
+    nop
+    (lambda (proc)
+      (assert* 'repl-after-eval (procedure? proc))
+      (assert* 'repl-after-eval (logbit? 1 (procedure-arity-mask proc)))
+      proc)))
+
+
 ;; Parameter containing the default initial parser name used by (repl)
 (define repl-initial-parser
   (make-parameter
@@ -147,19 +194,19 @@
 
 
 ;; Read user input.
-;; If user pressed ENTER, return textual input port containing entered text.
+;; If user pressed ENTER, return string containing entered text.
 ;;
 ;; Returns:
 ;; #f if got end-of-file
 ;; #t if waiting for more keypresses
-;; a textual input port if user pressed ENTER.
+;; a string if user pressed ENTER.
 (define (repl-lineedit lctx)
   (sh-consume-signals lctx)
   (let ((ret (lineedit-read lctx -1)))
     (sh-consume-signals lctx)
     (if (boolean? ret)
       ret
-      (open-vlines-input-port ret))))
+      (vlines->string ret))))
 
 
 ;; Parse user input.
@@ -179,11 +226,10 @@
 
 
 ;; Eval with (sh-eval) a single form containing parsed expressions or shell commands,
-;; and return value or exit status of executed form.
-;; May return multiple values.
+;; and return a list: the values or exit status of executed form.
 ;;
 ;; Note: if a form in list is (shell ...), which would create a job but NOT run it,
-;;       eval instead (sh-run/i (shell ...)) that also interruptibly runs the job.
+;;       evals instead (sh-run/i (shell ...)) that also interruptibly runs the job.
 ;;
 ;; This has two effects:
 ;; 1. when using shell parser, top-level commands will be executed immediately.
@@ -191,9 +237,12 @@
 (define (repl-eval form)
   ; (debugf "repl-eval: ~s" form)
   (try
-    (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-expr)))
-      (sh-run/i (sh-eval form))
-      (sh-eval form)) ; may return multiple values
+    ((repl-before-eval) form)
+    (let ((vals (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-expr)))
+                  (list (sh-run/i (sh-eval form)))
+                  (values->list (sh-eval form)))))
+      ((repl-after-eval) vals)
+      vals)
     (catch (ex)
       (repl-exception-handler ex))))
 
@@ -224,8 +273,8 @@
       tty-setraw!)))
 
 
-;; Print values or exit statuses.
-(define (repl-print . vals)
+;; Print values or exit statuses. vals must be a proper list.
+(define (repl-print-list vals)
   (sh-consume-signals (repl-args-linectx))
   (flush-output-port (console-error-port))
   (do ((p (console-output-port))
@@ -241,6 +290,11 @@
         (pretty-print value p)))))
 
 
+;; Print values or exit statuses.
+(define (repl-print . vals)
+  (repl-print-list vals))
+
+
 ;; Parse and execute user input.
 ;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-print-list)
 ;;
@@ -248,14 +302,15 @@
 (define (repl-once initial-parser eval-print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   ;; (debugf "repl-once ready")
-  (let ((in (repl-lineedit lctx)))
-    ;; (debugf "repl-once read ~s" in)
-    (case in
+  (let ((obj (repl-lineedit lctx)))
+    ;; (debugf "repl-once read ~s" x)
+    (case obj
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
+        ((repl-before-parse) obj)
         (let-values (((forms updated-parser)
-                        (repl-parse (make-parsectx* in
+                        (repl-parse (make-parsectx* (open-string-input-port obj)
                                          (linectx-parsers lctx)
                                          (linectx-width lctx)
                                          (linectx-prompt-end-x lctx)
@@ -267,13 +322,11 @@
 
 
 ;; helper for repl-loop and repl-once:
-;; wrap a print-func in a closure that evals forms then calls print-func on results
+;; wrap a print-func in a closure that evals forms, then calls print-func on results
 (define (make-eval-print-func print-func)
   (if print-func
     (lambda (form)
-      (call-with-values
-        (lambda () (repl-eval form))
-        print-func))
+      (print-func (repl-eval form)))
     repl-eval))
 
 
@@ -400,7 +453,7 @@
       (vhistory-path-set! (linectx-history lctx) history-path))
     (list
       (if initial-parser? initial-parser #f)
-      (if print? print repl-print)
+      (if print? print repl-print-list)
       (if lctx?
         lctx
         (sh-make-linectx
@@ -416,7 +469,7 @@
 ;; 'init    init-file-path  - string,    defaults to (xdg-config-dir/ "schemesh/repl_init.sh")
 ;; 'parser  initial-parser  - symbol,    defaults to 'shell
 ;; 'parsers enabled-parsers - hashtable, defaults to (parsers)
-;; 'print   print-func      - procedure, defaults to repl-print
+;; 'print   print-func      - procedure, defaults to repl-print-list
 ;; 'quit    quit-file-path  - string,    defaults to (xdg-config-dir/ "schemesh/repl_quit.sh")
 ;; 'linectx lctx            - linectx,   defaults to (sh-make-linectx* enabled-parsers history-path)
 ;;
