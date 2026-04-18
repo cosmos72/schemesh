@@ -32,13 +32,13 @@ Syntax: `(repl-before-eval proc)`
 <br/>Added in 1.0.1
 
 `proc` must be a function accepting a single argument.<br/>
-It will be called before every `(repl-eval)` and receives one argument: the list of (**possibly** annotated) source forms to be evaluated.<br/>
-It must **not** modify the received list, and should not throw exceptions.
+It will be called before every `(repl-eval)` and receives one argument: the (**possibly** annotated) list of source forms to be evaluated.<br/>
+It must **not** modify the received object, and should not throw exceptions.
 
 See [Chez Scheme user guide: Section 11.11](https://cisco.github.io/ChezScheme/csug/syntax.html#./syntax:h11)
-for handling annotations and extracting S-expr from them.
+for handling annotations and extracting vanilla source forms from them.
 
-Short summary: for each element `e` in the list, use something like `(if (annotation? e) (annotation-stripped e) e)`
+Short summary: for extracting the list of source forms, use something like `(if (annotation? arg) (annotation-stripped arg) arg)`
 
 Default value: `nop`
 
