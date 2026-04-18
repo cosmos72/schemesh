@@ -616,36 +616,34 @@ B=2})                                                  ,@"#<void>"
   ;; ------------------------- repl ---------------------------------------
   ;; {"(expand-omit-library-invocations #t)             ; avoid, requires Chez Scheme >= 10.0.0
 
-  (first-value (repl-parse (string->parsectx
-    "(+ 2 3) (values 7 (cons 'a 'b))"
-    (parsers)) 'scheme))                                ((+ 2 3) (values 7 (cons 'a 'b)))
-  (first-value (repl-parse (string->parsectx
-    "ls -l | wc -b && echo ok || echo error &"
-    (parsers)) 'shell))                                 ((shell "ls" "-l" \x7C;
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(+ 2 3) (values 7 (cons 'a 'b))")))        ((+ 2 3) (values 7 (cons 'a 'b)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell
+    "ls -l | wc -b && echo ok || echo error &")))       ((shell "ls" "-l" \x7C;
                                                                 "wc" "-b" && "echo" "ok" \x7C;\x7C;
                                                                 "echo" "error" &))
-  (first-value (repl-parse (string->parsectx
-    "(values '{})" (parsers))
-    'scheme))                                           ((values '(shell)))
-  (first-value (repl-parse (string->parsectx
-     "{ls; #!scheme 1 2 3}"                             ; ugly result, and not very useful
-     (parsers)) 'scheme))                               ((shell "ls" \x3B;
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(values '{})")))                           ((values '(shell)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+     'scheme "{ls; #!scheme 1 2 3}")))                  ; ugly result, and not very useful
+                                                        ((shell "ls" \x3B;
                                                                 1 2 3))
-  (first-value (repl-parse (string->parsectx
-     "(values '{ls; #!scheme 1 2 3})"                   ; ugly result, and not very useful
-     (parsers)) 'scheme))                               ((values '(shell "ls" \x3B;
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(values '{ls; #!scheme 1 2 3})")))         ; ugly result, and not very useful
+                                                        ((values '(shell "ls" \x3B;
                                                                          1 2 3)))
-  (first-value (repl-parse (string->parsectx
-    "(1 2 3)" (parsers)) 'scheme))                      ((1 2 3))
-  (first-value (repl-parse(string->parsectx
-    "#!scheme 1 2 3" (parsers)) 'shell))                (1 2 3)
-  (first-value (repl-parse(string->parsectx
-     "1 2 3" (parsers)) 'shell))                        ((shell "1" "2" "3"))
-  (first-value (repl-parse(string->parsectx             ; must return the same as parsing "(1 2 3)"
-     "{#!scheme 1 2 3}" (parsers)) 'scheme))            ((1 2 3))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(1 2 3)")))                                ((1 2 3))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "#!scheme 1 2 3")))                          (1 2 3)
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "1 2 3")))                                   ((shell "1" "2" "3"))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx) ; must return the same as parsing "(1 2 3)"
+    'scheme "{#!scheme 1 2 3}")))                       ((1 2 3))
   ;; ideally would return the same as previous test,
   ;; but deciding to omit the (shell ...) wrapper is tricky
-  (first-value (repl-parse (string->parsectx
-     "{#!scheme 1 2 3}" (parsers)) 'shell))             ((shell (1 2 3)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "{#!scheme 1 2 3}")))                        ((shell (1 2 3)))
 
 )

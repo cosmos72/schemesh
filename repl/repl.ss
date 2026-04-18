@@ -19,9 +19,8 @@
             to-stdout  to-csv   to-json   to-json1   to-list   to-queue   to-vector   to-wire   to-table
 
           ;; repl/repl.ss
-          repl repl* repl-after-eval repl-before-eval repl-before-parse
-          repl-eval repl-eval-print-list repl-initial-parser
-          repl-lineedit repl-parse repl-print repl-print-list
+          repl repl* repl-current-eval repl-current-parse repl-initial-parser
+          repl-eval repl-lineedit repl-parse repl-print repl-print-list
           repl-exception-handler repl-break-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
@@ -71,9 +70,9 @@
           (scheme2k posix tty)
     (only (scheme2k reflect)         equiv? field)
     (only (schemesh shell)
-            c-username repl-args repl-args-linectx repl-history repl-restart repl-restart?
-            sh-builtins sh-builtins-help sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
-            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
+            c-username repl-args repl-args-linectx repl-history repl-restart repl-restart? sh-builtins sh-builtins-help
+            sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
+            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
             sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
@@ -143,51 +142,6 @@
   (sh-exception-handler obj (reset-handler)))
 
 
-;; Parameter containing a user-defined procedure called before each (repl-parse)
-;; and receiving a single argument: the string to be parsed and evaluated.
-;;
-;; The user-defined procedure must NOT modify the received string.
-;;
-;; Initial value: #<procedure nop>
-(define repl-before-parse
-  (make-parameter
-    nop
-    (lambda (proc)
-      (assert* 'repl-before-parse (procedure? proc))
-      (assert* 'repl-before-parse (logbit? 1 (procedure-arity-mask proc)))
-      proc)))
-
-
-;; Parameter containing a user-defined procedure called before each (repl-eval)
-;; and receiving a single argument: the (possibly annotated) form to be evaluated.
-;;
-;; The user-defined procedure must NOT modify the received form.
-;;
-;; Initial value: #<procedure nop>
-(define repl-before-eval
-  (make-parameter
-    nop
-    (lambda (proc)
-      (assert* 'repl-before-eval (procedure? proc))
-      (assert* 'repl-before-eval (logbit? 1 (procedure-arity-mask proc)))
-      proc)))
-
-
-;; Parameter containing a user-defined procedure called after each (repl-eval)
-;; and receiving a single argument: the list of values produced by (repl-eval)
-;;
-;; The user-defined procedure must NOT modify the received list.
-;;
-;; Initial value: #<procedure nop>
-(define repl-after-eval
-  (make-parameter
-    nop
-    (lambda (proc)
-      (assert* 'repl-after-eval (procedure? proc))
-      (assert* 'repl-after-eval (logbit? 1 (procedure-arity-mask proc)))
-      proc)))
-
-
 ;; Parameter containing the default initial parser name used by (repl)
 (define repl-initial-parser
   (make-parameter
@@ -215,21 +169,27 @@
 
 ;; Parse user input.
 ;; Arguments:
-;;   pctx - a parsectx containing textual input port to parse, its position
-;;          and a hashtable of enabled parsers (can be #f)
+;;   lctx           - the current linectx
 ;;   initial-parser - initial parser to use: a symbol or parser
+;;   str            - the user-typed string to parse
 ;;
-;; Automatically switches to other parsers if a directive #!... is found in a (possibly
-;; nested) list being parsed.
+;; Automatically switches to other parsers
+;; if a directive #!... is found in a (possibly nested) list being parsed.
 ;;
 ;; Return two values:
-;;   list of forms containing Scheme code to evaluate,
+;;   possibly annotated list of forms containing Scheme code to evaluate,
 ;;   and updated parser to use.
-(define (repl-parse pctx initial-parser)
-  (parse-forms pctx initial-parser))
+(define (repl-parse lctx initial-parser str)
+  (let ((pctx (make-parsectx* (open-string-input-port str)
+                              (linectx-parsers lctx)
+                              'annotations
+                              (linectx-width lctx)
+                              (linectx-prompt-end-x lctx)
+                              0 0)))
+    (parse-forms pctx initial-parser)))
 
 
-;; Eval with (sh-eval) a single form (possibly annotated) containing parsed expressions or shell commands,
+;; Eval with (sh-eval form env) a single form (possibly annotated) containing parsed expressions or shell commands,
 ;; and return a list: the values or exit status of executed form.
 ;;
 ;; Note: if a form in list is (shell ...), which would create a job but NOT run it,
@@ -238,21 +198,57 @@
 ;; This has two effects:
 ;; 1. when using shell parser, top-level commands will be executed immediately.
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
-(define (repl-eval form)
+(define (repl-eval form env)
   ; (debugf "repl-eval: ~s" form)
   (try
-    ((repl-before-eval) form)
-    (let* ((uform (ast-unwrap form))
-           (vals (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
-                  (list (sh-run/i (sh-eval form)))
-                  (values->list (sh-eval form)))))
-      ((repl-after-eval) vals)
-      vals)
+    (let ((uform (ast-unwrap form)))
+      (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
+        (list (sh-run/i (sh-eval form env)))
+        (values->list (sh-eval form env))))
     (catch (ex)
       (repl-exception-handler ex))))
 
 
-;; Execute with (repl-eval form) each form in list of forms containing parsed expressions
+;; Parameter containing the procedure for parsing user input.
+;;
+;; The procedure must accept three arguments:
+;;   lctx           - the current linectx
+;;   initial-parser - initial parser to use: a symbol or parser
+;;   str            - the user-typed string to parse
+;;
+;; And must return two values:
+;;   possibly annotated list of forms containing Scheme code to evaluate,
+;;   and updated parser to use.
+;;
+;; Default value: #<procedure repl-parse>
+(define repl-current-parse
+  (make-parameter
+    repl-parse
+    (lambda (proc)
+      (assert* 'repl-current-parse (procedure? proc))
+      (assert* 'repl-current-parse (logbit? 3 (procedure-arity-mask proc)))
+      proc)))
+
+
+;; Parameter containing the procedure for evaluating parsed user forms.
+;; The procedure must accept two arguments:
+;;   form - possibly annotated form containing Scheme source code to evaluate
+;;   env  - environment where to evaluate the form
+;;
+;; And must return one value:
+;;   the list of values returned by compiling and executing the form
+;;
+;; Default value: #<procedure repl-eval>
+(define repl-current-eval
+  (make-parameter
+    repl-eval
+    (lambda (proc)
+      (assert* 'repl-current-eval (procedure? proc))
+      (assert* 'repl-current-eval (logbit? 2 (procedure-arity-mask proc)))
+      proc)))
+
+
+;; Execute with (repl-current-eval form env) each form in list of forms containing parsed expressions
 ;; or shell commands, and print each returned value(s) or exit status.
 ;;
 ;; Implementation note:
@@ -265,7 +261,7 @@
 ;;
 ;;   For these reasons, the loop (for-each ...)
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-print-list forms eval-print-func)
+(define (repl-eval-print-list forms print-func)
   ; (debugf "evaluating list: ~s" forms)
   (unless (null? forms)
     (dynamic-wind
@@ -273,7 +269,7 @@
       (lambda ()
         (do ((tail forms (cdr tail)))
             ((null? tail))
-          (eval-print-func (car tail)))
+          (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
         (sh-stdio-flush))
       tty-setraw!)))
 
@@ -301,10 +297,10 @@
 
 
 ;; Parse and execute user input.
-;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-print-list)
+;; Calls in sequence (repl-lineedit) ((repl-current-parse)) (repl-eval-print-list)
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once initial-parser eval-print-func lctx)
+(define (repl-once initial-parser print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   ;; (debugf "repl-once ready")
   (let ((obj (repl-lineedit lctx)))
@@ -313,27 +309,11 @@
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
-        ((repl-before-parse) obj)
         (let-values (((forms updated-parser)
-                        (repl-parse (make-parsectx* (open-string-input-port obj)
-                                         (linectx-parsers lctx)
-                                         'annotations
-                                         (linectx-width lctx)
-                                         (linectx-prompt-end-x lctx)
-                                         0 0)
-                                    initial-parser)))
+                        ((repl-current-parse) lctx initial-parser obj)))
           (unless (eq? (void) forms)
-            (repl-eval-print-list forms eval-print-func))
+            (repl-eval-print-list forms print-func))
           updated-parser)))))
-
-
-;; helper for repl-loop and repl-once:
-;; wrap a print-func in a closure that evals forms, then calls print-func on results
-(define (make-eval-print-func print-func)
-  (if print-func
-    (lambda (form)
-      (print-func (repl-eval form)))
-    repl-eval))
 
 
 ;; main loop of (repl) and (repl*)
@@ -343,8 +323,7 @@
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((my-repl-args (list parser print-func lctx #f #f))
-        (reload-count (sh-schemesh-reload-count))
-        (eval-print-func (make-eval-print-func print-func)))
+        (reload-count (sh-schemesh-reload-count)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
@@ -361,7 +340,7 @@
             (call/cc (lambda (k) (set! k-reset k)))
             ; when the (reset-handler) we installed is called, resume from here
             (while parser
-              (set! parser (repl-once parser eval-print-func lctx))
+              (set! parser (repl-once parser print-func lctx))
               (cond
                 (parser
                   (set-car! my-repl-args parser)
