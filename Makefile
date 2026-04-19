@@ -133,25 +133,6 @@ test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 schemesh: main.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-# not compiled by default. Requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
-#
-# embeds Chez Scheme boot files petite.boot scheme.boot
-# embeds libschemesh_VERSION.so
-# links against system-wide static libraries where feasible
-main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'  -DSCHEMESH_STATIC
-
-asm_embed.o: asm_embed.S $(SCHEMESH_SO)
-	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
-
-ifeq ($(OS), FreeBSD)
-  schemesh_static: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS)
-else # Android, GNU/Linux
-  schemesh_static: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
-endif
-
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
@@ -160,20 +141,55 @@ schemesh_so: $(SCHEMESH_SO)
 $(SCHEMESH_SO): schemesh_test
 	./schemesh_test
 
-
 clean_schemesh:
-	rm -f schemesh schemesh_static schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
+	rm -f schemesh schemesh_embed schemesh_static schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
 
 install_schemesh: schemesh schemesh_so installdirs
 	$(INSTALL_PROGRAM) schemesh '$(DESTDIR)$(bindir)'
 	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
-# schemesh_static is not compiled nor installed by default
+uninstall_schemesh:
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+
+
+################################################################################
+### alternative schemesh executables: schemesh_embed schemesh_static
+### NOT compiled nor installed by default
+################################################################################
+
+# requires asm_embed.o
+main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'  -DSCHEMESH_STATIC
+
+# requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
+# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
+asm_embed.o: asm_embed.S $(SCHEMESH_SO)
+	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
+
+# alternative schemesh executables: schemesh_embed
+# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
+schemesh_embed: main_embed.o asm_embed.o $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+
+# alternative schemesh executables: schemesh_static
+# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
+# also links against system-wide static libraries where feasible
+ifeq ($(OS), FreeBSD)
+  schemesh_static: main_embed.o asm_embed.o $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS)
+else # Android, GNU/Linux
+  schemesh_static: main_embed.o asm_embed.o $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
+endif
+
+install_schemesh_embed: schemesh_embed installdirs
+	$(INSTALL_PROGRAM) schemesh_embed '$(DESTDIR)$(bindir)'
+
 install_schemesh_static: schemesh_static installdirs
 	$(INSTALL_PROGRAM) schemesh_static '$(DESTDIR)$(bindir)'
 
-uninstall_schemesh:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+uninstall_schemesh_embed:
+	rm -f '$(DESTDIR)$(bindir)/schemesh_embed
 
 uninstall_schemesh_static:
 	rm -f '$(DESTDIR)$(bindir)/schemesh_static
@@ -192,6 +208,7 @@ uninstall_utils: uninstall_countdown uninstall_dir uninstall_http uninstall_pars
 ################################################################################
 # C program: countdown
 # minimal 'sleep' reimplementation, suspends counting when stopped
+# it IS compiled and installed by default
 ################################################################################
 
 countdown: c/countdown.c
@@ -210,6 +227,7 @@ uninstall_countdown:
 ################################################################################
 # C program: dir
 # minimal 'ls' reimplementation, with JSON output
+# NOT compiled nor installed by default
 ################################################################################
 
 dir: c/dir.c c/writer.h
@@ -228,6 +246,7 @@ uninstall_dir:
 ################################################################################
 # optional C program: http
 # wraps libcurl
+# NOT compiled nor installed by default
 ################################################################################
 
 http: c/http.c
@@ -246,6 +265,7 @@ uninstall_http:
 ################################################################################
 # optional C program: parse_sqlite
 # wraps libsqlite3
+# NOT compiled nor installed by default
 ################################################################################
 
 parse_sqlite: c/parse_sqlite.c c/writer.h
@@ -264,6 +284,7 @@ uninstall_parse_sqlite:
 ################################################################################
 # C program: proc
 # minimal 'ps' reimplementation, with JSON output
+# NOT compiled nor installed by default
 ################################################################################
 
 proc: c/proc.c c/proc_common.h c/proc_freebsd.h c/proc_linux.h c/proc_macos.h c/proc_unsupported.h c/writer.h
@@ -280,7 +301,8 @@ uninstall_proc:
 
 
 ################################################################################
-# additional libraries. not compiled by default
+# additional libraries.
+# NOT compiled nor installed by default
 ################################################################################
 
 scheme2k:                     scheme2k_c_so           scheme2k_so
@@ -295,6 +317,7 @@ install_scheme2k_dirs:
 ################################################################################
 # additional Scheme library: libscheme2k_VERSION.so
 # contains the LGPL-licensed subset of schemesh
+# NOT compiled nor installed by default
 ################################################################################
 
 SCHEME2K_SO=libscheme2k_$(VERSION_STR).so
@@ -317,6 +340,7 @@ uninstall_scheme2k_so:
 ################################################################################
 # additional C shared library: libscheme2k_c_VERSION.so
 # contains LGPL-licensed C functions needed by libscheme2k_VERSION.so
+# NOT compiled nor installed by default
 ################################################################################
 
 SCHEME2K_C_SO=libscheme2k_c_$(VERSION_STR).so
