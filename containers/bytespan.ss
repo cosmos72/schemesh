@@ -40,7 +40,7 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- meta-cond record-writer void)
-    (only (scheme2k bootstrap) assert* assert-not* fx<=?* trace-define)
+    (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
 

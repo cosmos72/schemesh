@@ -15,6 +15,10 @@
     get-parser to-parser make-parser parser? parser-name
     parser-parse-forms parser-parse-paren
 
+    ;; ast.ss
+    ast-car ast-cdr ast-null? ast-pair? ast-unwrap ast-unwrap1
+    ast-wrap/2 ast-wrap-list2 ast-wrap-list ast-wrap-vector
+
     ;; lisp.ss
     lex-lisp parse-lisp-forms parse-lisp-paren
 
@@ -37,13 +41,14 @@
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
     (only (scheme2k bootstrap) assert*)
-    (scheme2k lineedit paren)
+          (scheme2k lineedit paren)
     (only (scheme2k lineedit parenmatcher) make-custom-parenmatcher)
-    (scheme2k lineedit parser)
-    (schemesh parser lisp)
-    (schemesh parser r6rs)
-    (schemesh parser scheme)
-    (schemesh parser shell))
+          (scheme2k lineedit parser)
+          (schemesh parser ast)
+          (schemesh parser lisp)
+          (schemesh parser r6rs)
+          (schemesh parser scheme)
+          (schemesh parser shell))
 
 
 ;; Return mutable hashtable containing all known parsers.

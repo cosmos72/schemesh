@@ -24,7 +24,7 @@
           repl-exception-handler repl-break-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
-          sh-eval-parsectx/print* sh-eval-string/print*)
+          sh-eval-parsectx/print* sh-eval-string/print)
   (import
     (except (rnrs)                        current-input-port current-output-port current-error-port)
     (only (rnrs mutable-pairs)            set-car!)
@@ -59,7 +59,7 @@
     (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k os)              make-process-reader)
-    (only (schemesh parser)          make-parsectx* parse-forms parser-name parsers to-parser)
+    (only (schemesh parser)          ast-unwrap make-parsectx* parse-forms parser-name parsers to-parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
     (only (scheme2k posix io)        fd->port file->port)
@@ -72,7 +72,7 @@
     (only (schemesh shell)
             c-username repl-args repl-args-linectx repl-history repl-restart repl-restart? sh-builtins sh-builtins-help
             sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
-            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+            sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
             sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
@@ -105,32 +105,36 @@
       (call-with-values (lambda () (sh-eval-file path initial-parser enabled-parsers)) repl-print))))
 
 
-;; variant of (sh-eval-file*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
 (define (sh-eval-file/print* path initial-parser enabled-parsers)
   (call-with-values
-    (lambda () (sh-eval-file* path initial-parser enabled-parsers))
+    (lambda () (sh-eval-file path initial-parser enabled-parsers))
     repl-print))
 
 
-;; variant of (sh-eval-port*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-port) that pretty-print the result(s) instead of returning them
 (define (sh-eval-port/print* path initial-parser enabled-parsers)
   (call-with-values
-    (lambda () (sh-eval-port* path initial-parser enabled-parsers))
+    (lambda () (sh-eval-port path initial-parser enabled-parsers))
     repl-print))
 
 
-;; variant of (sh-eval-parsectx*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-parsectx) that pretty-print the result(s) instead of returning them
 (define (sh-eval-parsectx/print* pctx initial-parser)
   (call-with-values
-    (lambda () (sh-eval-parsectx* pctx initial-parser))
+    (lambda () (sh-eval-parsectx pctx initial-parser))
     repl-print))
 
 
-;; variant of (sh-eval-string*) that pretty-print the result(s) instead of returning them
-(define (sh-eval-string/print* pctx initial-parser enabled-parsers)
-  (call-with-values
-    (lambda () (sh-eval-string* pctx initial-parser enabled-parsers))
-    repl-print))
+;; variant of (sh-eval-string) that pretty-print the result(s) instead of returning them
+(define sh-eval-string/print
+  (case-lambda
+    ((str initial-parser enabled-parsers)
+      (call-with-values
+        (lambda () (sh-eval-string str initial-parser enabled-parsers))
+        repl-print))
+    ((str initial-parser)
+      (sh-eval-string/print str initial-parser #t))))
 
 
 ;; React to uncaught exceptions
@@ -178,13 +182,14 @@
 (define (repl-parse lctx initial-parser str)
   (let ((pctx (make-parsectx* (open-string-input-port str)
                               (linectx-parsers lctx)
+                              'annotations
                               (linectx-width lctx)
                               (linectx-prompt-end-x lctx)
                               0 0)))
     (parse-forms pctx initial-parser)))
 
 
-;; Eval with (sh-eval form env) a single form containing parsed expressions or shell commands,
+;; Eval with (sh-eval form env) a single form (possibly annotated) containing parsed expressions or shell commands,
 ;; and return a list: the values or exit status of executed form.
 ;;
 ;; Note: if a form in list is (shell ...), which would create a job but NOT run it,
@@ -196,12 +201,12 @@
 (define (repl-eval form env)
   ; (debugf "repl-eval: ~s" form)
   (try
-    (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-expr)))
-      (list (sh-run/i (sh-eval form env)))
-      (values->list (sh-eval form env)))
+    (let ((uform (ast-unwrap form)))
+      (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
+        (list (sh-run/i (sh-eval form env)))
+        (values->list (sh-eval form env))))
     (catch (ex)
       (repl-exception-handler ex))))
-
 
 
 ;; Parameter containing the procedure for parsing user input.

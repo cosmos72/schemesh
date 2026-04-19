@@ -21,13 +21,14 @@
     (rnrs base)
     (rnrs exceptions)
     (only (rnrs mutable-strings)  string-set!)
-    (only (chezscheme)            console-output-port display-condition format fx1+ fx1- fx/)
-    (schemesh))
+    (only (chezscheme)            annotation? annotation-stripped console-output-port
+                                  display-condition format fx1+ fx1- fx/)
+          (schemesh))
 
 
 (define (run-tests file-path)
   (status-display-color? #f)
-  (let* ((tests  (sh-read-file file-path))
+  (let* ((tests  (ast-unwrap1 (sh-read-file file-path 'scheme #t 'annotations)))
          (vec-n  (vector-length tests))
          (test-n (fx1+ (fx/ vec-n 2))) ; also count (run-tests-utf8b)
          (fail-n 0))

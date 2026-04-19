@@ -10,7 +10,6 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-
   (+ 1 2 3)                                        6
   (* 4 5 6)                                        120
   (fxmod #o27 #b1001)                              5

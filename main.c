@@ -197,7 +197,7 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
 }
 
 static void eval_string_type(const char filename[], const size_t len, const char* type) {
-  scheme2k_call3("sh-eval-string/print*",
+  scheme2k_call3("sh-eval-string/print",
                  scheme2k_Sstring_utf8b(filename, len),
                  Sstring_to_symbol(type),
                  Strue);

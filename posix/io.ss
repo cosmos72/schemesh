@@ -28,7 +28,7 @@
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size
 
                         void)
-    (only (scheme2k bootstrap)              assert* debugf fx<=?* raise-errorf trace-define)
+    (only (scheme2k bootstrap)              assert* debugf fx<=?* raise-errorf)
     (scheme2k containers bytespan)
     (only (scheme2k containers list)        plist? plist-ref)
     (only (scheme2k containers string)      substring-move!)

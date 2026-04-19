@@ -20,7 +20,7 @@
       ;; parameters.ss
       sh-current-environment sh-current-eval sh-globals sh-pid-table
       sh-schemesh-reload-count repl-restart repl-restart?
-      sh-eval sh-eval-string sh-eval->bytevector)
+      sh-eval)
   (import
     (rnrs)
     (only (scheme2k bootstrap)        sh-make-parameter sh-make-thread-parameter raise-errorf)
@@ -59,16 +59,5 @@
   (case-lambda
     ((form)     ((sh-current-eval) form (sh-current-environment)))
     ((form env) ((sh-current-eval) form env))))
-
-
-;; parse and evaluate a string with (sh-eval).
-(define (sh-eval-string str)
-  (sh-eval (read (open-string-input-port str))))
-
-
-;; parse and evaluate a string with (sh-eval),
-;; then convert result to bytevector.
-(define (sh-eval->bytevector str)
-  (any->bytevector (sh-eval-string str)))
 
 ) ; close library

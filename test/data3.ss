@@ -53,7 +53,7 @@
   (file-type "." '(catch))                              dir
   (file-type "parser/parser.ss" '(catch))               file
   (directory-sort!
-    (directory-list "parser" '(types)))                 (("." . dir) (".." . dir) ("lisp-token.ss" . file)
+    (directory-list "parser" '(types)))                 (("." . dir) (".." . dir) ("ast.ss" . file) ("lisp-token.ss" . file)
                                                          ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                                          ("scheme.ss" . file) ("shell-token.ss" . file) ("shell.ss" . file))
 
@@ -549,28 +549,27 @@ B=2})                                                  ,@"#<void>"
      $(get-string-all)}))                              ,(ok "a\nb\nc\n")
 
   ;; ------------------------- sh-read ------------------------------------
-  (sh-read-string* "#!/some/path some-arg\n\
-    (display (+ 1 2)) {hjk}" 'scheme #t)               (begin (display (+ 1 2)) (sh-run (shell "hjk")))
-  (sh-read-string* "#!/some/other/path\n\
-    (display (* 3 4)); bnm"  'shell #t)                (begin (display (* 3 4)) (sh-run (shell "bnm")))
-  (sh-read-file "test/test_file.ss")
-       (begin (define (fib n)
-         (let %fib ((i n))
-           (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
-          (sh-run (shell "FOO" = "bar" \x3B;
-                         )))
-  (sh-read-file "test/test_file.sh")
-       (begin
-         (sh-run (shell
-           "BAR" = "" \x3B;
-           "foo" "a b" "c" \x7C;
-           "bar" (shell-env "BAR") &&
-           (shell "echo"
-             (shell-backquote "baz" "--quiet")
-               < "/dev/null" 2 >& "1" \x7C;\x7C;
-             "fail" "--verbose")  \x3B;
-             ))
-         (set! a 42))
+  (sh-read-string "#!/some/path some-arg\n\
+    (display (+ 1 2)) {hjk}" 'scheme #t 'plain)        (begin (display (+ 1 2)) (sh-run (shell "hjk")))
+  (sh-read-string "#!/some/other/path\n\
+    (display (* 3 4)); bnm"  'shell #t 'plain)         (begin (display (* 3 4)) (sh-run (shell "bnm")))
+
+  (sh-read-file "test/test_file.ss")                   (begin (define (fib n)
+                                                         (let %fib ((i n))
+                                                           (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
+                                                          (sh-run (shell "FOO" = "bar" \x3B;
+                                                                         )))
+  (sh-read-file "test/test_file.sh")                   (begin
+                                                         (sh-run (shell
+                                                           "BAR" = "" \x3B;
+                                                           "foo" "a b" "c" \x7C;
+                                                           "bar" (shell-env "BAR") &&
+                                                           (shell "echo"
+                                                             (shell-backquote "baz" "--quiet")
+                                                               < "/dev/null" 2 >& "1" \x7C;\x7C;
+                                                             "fail" "--verbose")  \x3B;
+                                                             ))
+                                                         (set! a 42))
 
   ;; ---------------------------- repl easy ------------------------------------
 
@@ -617,33 +616,34 @@ B=2})                                                  ,@"#<void>"
   ;; ------------------------- repl ---------------------------------------
   ;; {"(expand-omit-library-invocations #t)             ; avoid, requires Chez Scheme >= 10.0.0
 
-  (first-value (repl-parse (sh-make-linectx) 'scheme
-    "(+ 2 3) (values 7 (cons 'a 'b))"))                 ((+ 2 3) (values 7 (cons 'a 'b)))
-  (first-value (repl-parse (sh-make-linectx) 'shell
-    "ls -l | wc -b && echo ok || echo error &"))        ((shell "ls" "-l" \x7C;
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(+ 2 3) (values 7 (cons 'a 'b))")))        ((+ 2 3) (values 7 (cons 'a 'b)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell
+    "ls -l | wc -b && echo ok || echo error &")))       ((shell "ls" "-l" \x7C;
                                                                 "wc" "-b" && "echo" "ok" \x7C;\x7C;
                                                                 "echo" "error" &))
-  (first-value (repl-parse (sh-make-linectx) 'scheme
-    "(values '{})"))                                    ((values '(shell)))
-  (first-value (repl-parse (sh-make-linectx) 'scheme
-     "{ls; #!scheme 1 2 3}"))                           ; ugly result, and not very useful
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(values '{})")))                           ((values '(shell)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+     'scheme "{ls; #!scheme 1 2 3}")))                  ; ugly result, and not very useful
                                                         ((shell "ls" \x3B;
                                                                 1 2 3))
-  (first-value (repl-parse (sh-make-linectx) 'scheme
-     "(values '{ls; #!scheme 1 2 3})"))                 ; ugly result, and not very useful
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(values '{ls; #!scheme 1 2 3})")))         ; ugly result, and not very useful
                                                         ((values '(shell "ls" \x3B;
                                                                          1 2 3)))
-  (first-value (repl-parse (sh-make-linectx) 'scheme
-    "(1 2 3)"))                                         ((1 2 3))
-  (first-value (repl-parse (sh-make-linectx) 'shell
-    "#!scheme 1 2 3"))                                  (1 2 3)
-  (first-value (repl-parse (sh-make-linectx) 'shell
-     "1 2 3"))                                          ((shell "1" "2" "3"))
-  (first-value (repl-parse (sh-make-linectx) 'scheme    ; must return the same as parsing "(1 2 3)"
-     "{#!scheme 1 2 3}"))                               ((1 2 3))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'scheme "(1 2 3)")))                                ((1 2 3))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "#!scheme 1 2 3")))                          (1 2 3)
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "1 2 3")))                                   ((shell "1" "2" "3"))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx) ; must return the same as parsing "(1 2 3)"
+    'scheme "{#!scheme 1 2 3}")))                       ((1 2 3))
   ;; ideally would return the same as previous test,
   ;; but deciding to omit the (shell ...) wrapper is tricky
-  (first-value (repl-parse (sh-make-linectx) 'shell
-     "{#!scheme 1 2 3}"))                               ((shell (1 2 3)))
+  (ast-unwrap (first-value (repl-parse (sh-make-linectx)
+    'shell "{#!scheme 1 2 3}")))                        ((shell (1 2 3)))
 
 )
