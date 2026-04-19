@@ -120,6 +120,7 @@
     (hashtable-set! bt "export"     builtin-export)
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
+    (hashtable-set! bt "kill"       builtin-kill)
     (hashtable-set! bt "parent"     builtin-parent)
     (hashtable-set! bt "pwd"        builtin-pwd)
     (hashtable-set! bt "set"        builtin-set)
@@ -131,8 +132,8 @@
     (hashtable-set! bt "wait"       builtin-wait)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false"
-                      "history" "pwd" "set" "status" "true" "unalias" "unset")))
+    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "history"
+                      "kill" "pwd" "set" "status" "true" "unalias" "unset")))
       (let ((builtin (hashtable-ref bt name #f)))
         (when builtin
           (hashtable-set! ft builtin #t)))))
@@ -218,6 +219,20 @@
     that show or alter the current directory or the environment variables of their parent job.
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
+
+    (hashtable-set! t "kill"     (string->utf8 " [OPTIONS] jobspec-or-pid-or-pgid [...]
+    send a signal to one or more jobs, processes or process groups.
+    Options:
+      -s signal-name     send signal specified by name instead of SIGINT
+      -n signal-number   send signal specified by number instead of SIGINT
+
+    Arguments: each jobspec-or-pid must be one of:
+      %job-id            send signal to job-id
+      pid                send signal to process with given pid
+      -pgid              send signal to all processes in process group pgid.
+
+    return success, or raise condition if an invalid option is specified,
+    or if a job-id, pid or pgid is specified but not found.\n"))
 
     (hashtable-set! t "parent"     (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with its parent temporarily set to its grandparent.

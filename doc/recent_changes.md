@@ -11,6 +11,7 @@
 ### git main branch
 
 * fix a bug in `(sh-pipe)` sometimes not correctly redirecting external commands - see issue #44.
+* add shell builtin `kill`
 * add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with #\return.
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
 * delete function `(parsectx-unread-char)`

@@ -27,6 +27,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`help`](#help) display help about a builtin, or display all builtins by default
 * [`history`](#history) display history
 * [`jobs`](#jobs) display jobs and their status as structured data
+* [`kill`](#kill) send a signal to one or more job, process or process group
 * [`parent`](#parent) execute a builtin, making it affect granparent job's environment variables or current directory
 * [`parse`](#parse) read a file, parse structured data from it, and write such data to stdout
 * [`proc`](#proc) display active processes as structured data
@@ -200,6 +201,22 @@ Syntax: `history [ARGS ...]`
 Display history to standard output. Ignores all arguments.
 
 Return success.
+
+#### kill
+Syntax: `kill [OPTIONS] job-id-or-pid-or-pgid [...]`
+
+Send a signal to one or more jobs, processes or process groups.<br/>
+Options:
+* `-s signal-name`     send signal specified by name instead of `SIGINT`
+* `-n signal-number`   send signal specified by number instead of `SIGINT`
+
+Arguments: each jobspec-or-pid must be one of:
+* `%job-id`            send signal to `job-id`
+* `pid`                send signal to process with given `pid`
+* `-pgid`              send signal to all processes in process group `pgid`
+
+Return success, or raise condition if an invalid option is specified,
+or if a job-id, pid or pgid is specified but not found..
 
 #### parent
 Syntax: `parent [BUILTIN_NAME [ARGS ...]]`

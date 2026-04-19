@@ -272,11 +272,10 @@
 (define string-is-unsigned-base10-integer?
   (case-lambda
     ((obj start end)
-      (if (and (string? obj) (fx<? start end))
-        (do ((i start (fx1+ i)))
-            ((or (fx>=? i end) (not (char-is-decimal-digit? (string-ref obj i))))
-              (fx>=? i end)))
-        #f))
+      (and (string? obj) (fx<? start end)
+           (do ((i start (fx1+ i)))
+               ((or (fx>=? i end) (not (char-is-decimal-digit? (string-ref obj i))))
+                 (fx>=? i end)))))
     ((obj)
       (and (string? obj) (string-is-unsigned-base10-integer? obj 0 (string-length obj))))))
 

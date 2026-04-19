@@ -832,5 +832,4 @@ Most other scheme functions are not (yet) documented.
 ## TO DO
 
 * autocomplete partial usernames after ~
-* maybe add missing shell builtins "kill"
 * implement function `(string->sh-patterns)`

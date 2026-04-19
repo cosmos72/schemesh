@@ -232,19 +232,19 @@
       (job-id-update! job)))) ; sets job-id if started, otherwise unsets it. also returns job status
 
 
-;; Kill a job-or-id.
+;; Send a signal to a job-or-id.
 ;;
 ;; If job is running, return its updated status. Note: may not return, i.e. non-locally jump to job's continuation.
 ;; If job is not found or not started, raise exception.
 (define sh-kill
   (case-lambda
-    ((job-or-id)
-      (sh-kill job-or-id 'sigint))
     ((job-or-id signal-name-or-condition-object)
       (let ((job (sh-job job-or-id)))
         (if (job-kill job signal-name-or-condition-object)
           (job-last-status job)
-          (raise-errorf 'sh-kill "job not started: ~s" job))))))
+          (raise-errorf 'sh-kill "job not started: ~s" job))))
+    ((job-or-id)
+      (sh-kill job-or-id 'sigint))))
 
 
 ;; Recursively kill a job and all its children.
