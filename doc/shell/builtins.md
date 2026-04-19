@@ -96,7 +96,11 @@ Return exit status of executed builtin, or failure if no such builtin was found.
 #### cd
 Syntax: `cd [DIR]`
 
-Change the current directory of parent job.
+Change the current directory of parent job.<br/>
+
+Each job has its own current directory: initially it is inherited from parent job, but can be changed independently.<br/>
+The simple `cd [DIR]` changes the current directory of the parent (i.e. enclosing) job by default.<br/>
+To change the current directory of the whole shell, use `global cd [DIR]`
 
 * without arguments, `cd` sets the current directory of parent job
   to the value of its `HOME` environment variable.
@@ -111,6 +115,10 @@ can easily have unintended effects, such as removing the wrong files or director
 Syntax: `cd-`
 
 Change the current directory of parent job, setting it to previous current directory.
+
+Each job has its own current directory: initially it is inherited from parent job, but can be changed independently.<br/>
+The simple `cd-` changes the current directory of the parent (i.e. enclosing) job by default.<br/>
+To change the current directory of the whole shell, use `global cd-`
 
 Return success if the directory is successfully changed, otherwise raise an exception.
 
@@ -159,6 +167,8 @@ Does not return.
 Syntax: `export [VAR ...]`
 
 Display or export environment variables.
+Each job has its own environment variables: initially they are inherited from parent job, but can be changed independently.<br/>
+To export environment variables of the whole shell, use `global export [VAR ...]`
 
 * without arguments, `export` displays all exported variables of parent job.
 * with one or more arguments, `export VAR ...` marks specified environment variables
@@ -204,6 +214,7 @@ Return success.
 
 #### kill
 Syntax: `kill [OPTIONS] job-id-or-pid-or-pgid [...]`
+<br/>Added in 1.0.1
 
 Send a signal to one or more jobs, processes or process groups.<br/>
 Options:
@@ -229,15 +240,20 @@ Return exit status of executed builtin, or failure if no such builtin was found.
 #### pwd
 Syntax: `pwd [JOB_ID]`
 
-Display the current directory of specified job, or current directory by default.
+Display the current directory of specified job, or current directory of parent job by default.
+
+Each job has its own current directory: initially it is inherited from parent job, but can be changed independently.<br/>
+The simple `pwd` displays the current directory of the parent (i.e. enclosing) job by default.
+To display the current directory of the whole shell, use `global pwd`
 
 Return success, unless a job is specified but not found.
-
 
 #### set
 Syntax: `set [VAR [VALUE]]`
 
-Display or set environment variables.
+Display or set environment variables.<br/>
+Each job has its own environment variables: initially they are inherited from parent job, but can be changed independently.<br/>
+To access the environment variables of the whole shell, use `global set [VAR [VALUE]]`
 
 * without arguments, `set` displays all exported and private environment variables of parent job
 * with one argument, `set VAR` displays specified environment variable of parent job
@@ -290,7 +306,9 @@ Return success.
 #### unexport
 Syntax: `unexport [VAR ...]`
 
-Mark specified environment variables as private i.e. *not* exported in parent job.
+Mark specified environment variables as private i.e. *not* exported in parent job.<br/>
+Each job has its own environment variables: initially they are inherited from parent job, but can be changed independently.<br/>
+To unexport environment variables from the whole shell, use `global unexport [VAR ...]`
 
 Return success.
 
@@ -298,6 +316,8 @@ Return success.
 Syntax: `unset [VAR ...]`
 
 Remove specified environment variables from parent job.
+Each job has its own environment variables: initially they are inherited from parent job, but can be changed independently.<br/>
+To remove environment variables from the whole shell, use `global unset [VAR ...]`
 
 Return success.
 

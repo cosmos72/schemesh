@@ -166,6 +166,12 @@
     (hashtable-set! t "cd"      (string->utf8 " [dir]
     change the current directory of parent job.
 
+    Each job has its own current directory:
+    initially it is inherited from parent job, but can be changed independently.
+
+    The simple `cd [DIR]` changes the current directory of the parent (i.e. enclosing) job by default.
+    To change the current directory of the whole shell, use `global cd [DIR]`
+
     without arguments, 'cd' sets the current directory of parent job
                        to the value of its HOME environment variable.
     with one argument, 'cd DIR' sets the current directory of parent job to DIR.
@@ -174,6 +180,12 @@
 
     (hashtable-set! t "cd-"      (string->utf8 "
     change the current directory of parent job, setting it to previous working directory.
+
+    Each job has its own current directory:
+    initially it is inherited from parent job, but can be changed independently.
+
+    The simple `cd-` changes the current directory of the parent (i.e. enclosing) job by default.
+    To change the current directory of the whole shell, use `global cd-`
 
     return success if the directory is successfully changed, otherwise raises an exception.\n"))
 
@@ -199,6 +211,10 @@
 
     (hashtable-set! t "export" (string->utf8 " [var ...]
     show or export environment variables
+
+    Each job has its own environment variables:
+    initially they are inherited from parent job, but can be changed independently.
+    To export environment variables of the whole shell, use `global export [VAR ...]`
 
     without arguments,          'export' writes all exported environment variables
                                  of parent job to standard output.
@@ -247,10 +263,20 @@
     write the current directory of specified job to standard output.
     if job is not specified, defaults to parent job.
 
-    return success if job-id was found or not specified, otherwise return failure.\n"))
+    Each job has its own current directory:
+    initially it is inherited from parent job, but can be changed independently.
+
+    The simple `pwd` displays the current directory of the parent (i.e. enclosing) job by default.
+    To display the current directory of the whole shell, use `global pwd`
+
+    return success, unless job-id was specified but not found.\n"))
 
     (hashtable-set! t "set"        (string->utf8 " [var [value]]'
     show or set environment variables of parent job.
+
+    Each job has its own environment variables:
+    initially they are inherited from parent job, but can be changed independently.
+    To set an environment variable for the whole shell, use `global set [VAR [VALUE]]`
 
     without arguments,  'set' writes all exported and private environment variables
                                  of parent job to standard output.
@@ -281,10 +307,18 @@
     (hashtable-set! t "unexport"   (string->utf8 " [var ...]
     mark each VAR ... environment variable as private in parent job.
 
+    Each job has its own environment variables:
+    initially they are inherited from parent job, but can be changed independently.
+    To unexport environment variables from the whole shell, use `global unexport [VAR ...]`
+
     return success.\n"))
 
     (hashtable-set! t "unset"      (string->utf8 " [var ...]
     remove each VAR ... environment variable from parent job.
+
+    Each job has its own environment variables:
+    initially they are inherited from parent job, but can be changed independently.
+    To unset environment variables for the whole shell, use `global unset [VAR ...]`
 
     return success.\n"))
 
