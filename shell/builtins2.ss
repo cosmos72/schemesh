@@ -214,8 +214,10 @@
           (if (char=? #\% (string-ref arg 0))
             (let ((job-id (string->number (substring arg 1 (string-length arg)))))
               (sh-kill job-id signal-name))
-            (let ((pid (string->number arg)))
-              (pid-kill pid signal-name))))))))
+            (let* ((pid (string->number arg))
+                   (err (pid-kill pid signal-name)))
+              (unless (fxzero? err)
+                (raise-c-errno 'kill 'kill err pid)))))))))
 
 
 ;; parse and arguments of shell builtin "kill" and return two values:
