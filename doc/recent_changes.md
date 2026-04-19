@@ -10,8 +10,11 @@
 
 ### git main branch
 
-* add prompt0 and functions to customize it. It can also be used as right prompt.
-* removed function `(parsectx-unread-char)`
+* fix a bug in `(sh-pipe)` sometimes not correctly redirecting external commands - see issue #44.
+* add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with #\return.
+* add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
+* delete function `(parsectx-unread-char)`
+* start annotating forms returned by `parsectx`
 
 ### release v1.0.0, 2026-03-15
 
