@@ -205,7 +205,7 @@ static void eval_string_type(const char filename[], const size_t len, const char
 
 static void load_file_type(const char filename[], const size_t len, const char* type) {
   scheme2k_call3(
-      "sh-eval-file/print*", scheme2k_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
+      "sh-eval-file/print", scheme2k_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
 }
 
 static void load_file_type_compiled(const char filename[], const size_t len) {

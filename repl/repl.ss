@@ -23,8 +23,7 @@
           repl-eval repl-lineedit repl-parse repl-print repl-print-list
           repl-exception-handler repl-break-handler
 
-          sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
-          sh-eval-parsectx/print* sh-eval-string/print)
+          sh-eval-file/print sh-eval-port/print sh-eval-parsectx/print sh-eval-string/print)
   (import
     (except (rnrs)                        current-input-port current-output-port current-error-port)
     (only (rnrs mutable-pairs)            set-car!)
@@ -105,22 +104,19 @@
       (call-with-values (lambda () (sh-eval-file path initial-parser enabled-parsers)) repl-print))))
 
 
-;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
-(define (sh-eval-file/print* path initial-parser enabled-parsers)
-  (call-with-values
-    (lambda () (sh-eval-file path initial-parser enabled-parsers))
-    repl-print))
-
-
 ;; variant of (sh-eval-port) that pretty-print the result(s) instead of returning them
-(define (sh-eval-port/print* path initial-parser enabled-parsers)
-  (call-with-values
-    (lambda () (sh-eval-port path initial-parser enabled-parsers))
-    repl-print))
+(define sh-eval-port/print
+  (case-lambda
+    ((port)
+      (call-with-values (lambda () (sh-eval-port port))                                repl-print))
+    ((port initial-parser)
+      (call-with-values (lambda () (sh-eval-port port initial-parser))                 repl-print))
+    ((port initial-parser enabled-parsers)
+      (call-with-values (lambda () (sh-eval-port port initial-parser enabled-parsers)) repl-print))))
 
 
 ;; variant of (sh-eval-parsectx) that pretty-print the result(s) instead of returning them
-(define (sh-eval-parsectx/print* pctx initial-parser)
+(define (sh-eval-parsectx/print pctx initial-parser)
   (call-with-values
     (lambda () (sh-eval-parsectx pctx initial-parser))
     repl-print))
@@ -180,13 +176,13 @@
 ;;   possibly annotated list of forms containing Scheme code to evaluate,
 ;;   and updated parser to use.
 (define (repl-parse lctx initial-parser str)
-  (let ((pctx (make-parsectx* (open-string-input-port str)
-                              (linectx-parsers lctx)
-                              'annotations
-                              (linectx-width lctx)
-                              (linectx-prompt-end-x lctx)
-                              0 0)))
-    (parse-forms pctx initial-parser)))
+  (parse-forms (make-parsectx* (open-string-input-port str)
+                               (linectx-parsers lctx)
+                               'annotations
+                               (linectx-width lctx)
+                               (linectx-prompt-end-x lctx)
+                               0 0)
+               initial-parser))
 
 
 ;; Eval with (sh-eval form env) a single form (possibly annotated) containing parsed expressions or shell commands,
@@ -200,13 +196,10 @@
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form env)
   ; (debugf "repl-eval: ~s" form)
-  (try
-    (let ((uform (ast-unwrap form)))
-      (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
-        (list (sh-run/i (sh-eval form env)))
-        (values->list (sh-eval form env))))
-    (catch (ex)
-      (repl-exception-handler ex))))
+  (let ((uform (ast-unwrap form)))
+    (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
+      (list (sh-run/i (sh-eval form env)))
+      (values->list (sh-eval form env)))))
 
 
 ;; Parameter containing the procedure for parsing user input.
@@ -248,31 +241,6 @@
       proc)))
 
 
-;; Execute with (repl-current-eval form env) each form in list of forms containing parsed expressions
-;; or shell commands, and print each returned value(s) or exit status.
-;;
-;; Implementation note:
-;;   some procedures we may eval, as (break) (debug) (inspect) ...
-;;   expect the tty to be in canonical mode, not in raw mode.
-;;
-;;   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
-;;   which causes Chez Scheme to suspend long/infinite evaluations
-;;   and call (break) - a feature we want to preserve.
-;;
-;;   For these reasons, the loop (for-each ...)
-;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-print-list forms print-func)
-  ; (debugf "evaluating list: ~s" forms)
-  (unless (null? forms)
-    (dynamic-wind
-      tty-restore!
-      (lambda ()
-        (do ((tail forms (cdr tail)))
-            ((null? tail))
-          (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
-        (sh-stdio-flush))
-      tty-setraw!)))
-
 
 ;; Print values or exit statuses. vals must be a proper list.
 (define (repl-print-list vals)
@@ -297,9 +265,21 @@
 
 
 ;; Parse and execute user input.
-;; Calls in sequence (repl-lineedit) ((repl-current-parse)) (repl-eval-print-list)
+;; Calls in sequence (repl-lineedit) ((repl-current-parse)) to obtain a list of forms,
+;; then calls ((repl-current-eval)) on each form.
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
+;;
+;; Implementation note:
+;;   some forms we may eval, as (break) (debug) (inspect) ...
+;;   expect the tty to be in canonical mode, not in raw mode.
+;;
+;;   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
+;;   which causes Chez Scheme to suspend long/infinite evaluations
+;;   and call (break) - a feature we want to preserve.
+;;
+;;   For these reasons, the loop evaluating each form
+;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
 (define (repl-once initial-parser print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   ;; (debugf "repl-once ready")
@@ -311,9 +291,17 @@
       (else
         (let-values (((forms updated-parser)
                         ((repl-current-parse) lctx initial-parser obj)))
-          (unless (eq? (void) forms)
-            (repl-eval-print-list forms print-func))
+          (when (pair? forms)
+            (dynamic-wind
+              tty-restore!
+              (lambda ()
+                (do ((tail forms (cdr tail)))
+                    ((null? tail))
+                  (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
+                (sh-stdio-flush))
+              tty-setraw!))
           updated-parser)))))
+
 
 
 ;; main loop of (repl) and (repl*)
@@ -338,14 +326,14 @@
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
-            ; when the (reset-handler) we installed is called, resume from here
+            ;; when the (reset-handler) we installed is called, resume from here
             (while parser
               (set! parser (repl-once parser print-func lctx))
               (cond
                 (parser
                   (set-car! my-repl-args parser)
                   (if (repl-restart?)
-                    (set! parser #f) ; parser if #f, loop will exit
+                    (set! parser #f) ; causes loop to exit
                     (let ((new-reload-count (sh-schemesh-reload-count)))
                       (unless (= reload-count new-reload-count)
                         (set! reload-count new-reload-count)
@@ -368,8 +356,8 @@
           (put-string port ": ")
           (display-condition ex port)
           (newline port)
-          (flush-output-port port))
-        #f))))
+          (flush-output-port port)
+          #f)))))
 
 
 ;; top-level interactive repl with all arguments mandatory
