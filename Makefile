@@ -162,18 +162,20 @@ main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'  -DSCHEMESH_STATIC
 
 # requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
-# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
+#   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 asm_embed.o: asm_embed.S $(SCHEMESH_SO)
 	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 # alternative schemesh executables: schemesh_embed
-# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
+#   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
+#   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 schemesh_embed: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
 # alternative schemesh executables: schemesh_static
-# embeds Chez Scheme boot files petite.boot scheme.boot, and also libschemesh_VERSION.so
-# also links against system-wide static libraries where feasible
+#   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
+#   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
+#   also links against system-wide static libraries where feasible
 ifeq ($(OS), FreeBSD)
   schemesh_static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS)
