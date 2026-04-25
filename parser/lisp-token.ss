@@ -23,7 +23,7 @@
 ;; Compared to Chez Scheme (read-token), recognizes the following extensions:
 ;;   #!parser_name  as (values parser_object 'parser)
 ;;   #!...          treated as line comment
-;;   $              as (values 'shell-expr 'quote)
+;;   $              as (values 'shell-expr 'quote) if followed by #\(
 ;;   {              as (values #f 'lbrace)
 ;;   }              as (values #f 'rbrace)
 ;;   character literals #\x... representing valid UTF-8b codepoints
@@ -48,8 +48,12 @@
       ((#\#)
         (lex-sharp ctx flavor))
       ((#\$)
-        (parsectx-read-char ctx)
-        (ast-wrap/2 'shell-expr 'quote ctx x y beg))
+        (cond
+          ((eqv? #\( (parsectx-peek-char2 ctx))   #| ) |#  ; help vscode
+            (parsectx-read-char ctx)
+            (ast-wrap/2 'shell-expr 'quote ctx x y beg))
+          (else
+            (lex-lisp-chezscheme ctx flavor x y beg))))
       ((#\')
         (parsectx-read-char ctx)
         (ast-wrap/2 'quote 'quote ctx x y beg))

@@ -479,11 +479,11 @@
   (caddr (expand '{echo A=B}))                         (sh-cmd "echo" "A=B")
   '{echo [ab]* ? [!z]}                                 (shell "echo" (shell-wildcard % "ab" *) (shell-wildcard ?) (shell-wildcard %! "z"))
   '{echo $[foo&&bar]}                                  (shell "echo" (shell-backquote "foo" && "bar"))
-  (caddr (expand '{echo $[foo&&bar]}))                 ,(sh-cmd* "echo" (lambda () (sh-run/string-rtrim-newlines
+  (caddr (expand '{echo $[foo&&bar]}))                ,(sh-cmd* "echo" (lambda () (sh-run/string-rtrim-newlines
                                                            (sh-and (sh-cmd "foo") (sh-cmd "bar")))))
-  (caddr (expand '{{ls} > log.txt &}))                 ,@(sh-list* (sh-cmd "ls") 1 '> "log.txt" '&)
+  (caddr (expand '{{ls} > log.txt &}))               ,@(sh-list* (sh-cmd "ls") 1 '> "log.txt" '&)
   (caddr (expand
-    '{echo abc > DEL_ME && cat DEL_ME && rm DEL_ME}))  ,(sh-and (sh-cmd* "echo" "abc" 1 '> "DEL_ME")
+    '{echo abc > DEL_ME && cat DEL_ME && rm DEL_ME})) ,(sh-and (sh-cmd* "echo" "abc" 1 '> "DEL_ME")
                                                                 (sh-cmd "cat" "DEL_ME")
                                                                 (sh-cmd "rm"  "DEL_ME"))
   (caddr (expand
@@ -498,6 +498,8 @@
   (caddr (expand '(shell-expr a (b) c)))               (sh-expr (lambda () a (b) c) "(begin a (b) c)")
   (caddr (expand '$(foo x y z)))                       (sh-expr (lambda () (foo x y z)) "(foo x y z)")
   $(+ a b c)                                          ,(sh-expr (lambda () (+ a b c)))
+  '$primitive                                          $primitive
+  '$(primitive)                                        (shell-expr (primitive))
 
   ;; test issue #20
   (caddr (expand
@@ -505,7 +507,7 @@
 
   ;; ------------------------- shell syntax -------------------------------
 
-  {${VAR}/foo/bar arg}                                 ,@"(sh-cmd* #<procedure> \"arg\")"
+  {${VAR}/foo/bar arg}                               ,@"(sh-cmd* #<procedure> \"arg\")"
 
 
 )
