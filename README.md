@@ -79,7 +79,7 @@ Syntax switching can be nested arbitrarily deep, i.e. you can write
 with as many nesting levels as you want.
 
 If you want to use both shell and Lisp (precisely, Scheme) syntax in the same file,
-see [Mixing shell and Scheme syntax](doc/shell/mixed_syntax.md) - there are a limitations worth knowing.
+see [Mixing shell and Scheme syntax](doc/shell/mixed_syntax.md) - there are a few limitations worth knowing.
 
 ### Job control
 
