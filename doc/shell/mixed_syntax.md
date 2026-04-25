@@ -42,13 +42,21 @@ This special case is added for convenience, and is only guaranteed to work insid
 
 ### Files
 
+In files, the special case described for [REPL](#REPL) above is **not** guaranteed to work:
+if it does, it's accidental and may be removed in future releases.
+This means:
+* in scheme syntax, each top-level item must parse to an expression
+* in shell syntax, each top-level item must parse to a job
+
+For details about valid shell syntax, see [doc/shell/syntax.md](syntax.md).
+
 Schemesh can execute files in several ways:
 1. by running `schemesh FILE`
 2. by running `schemesh --cmd-file FILE`
 3. by running `schemesh --eval-file FILE`
 4. by creating a file that starts with a line `#!/usr/bin/env schemesh` then marking it executable with `chmod +x FILE`
    and finally executing it with `./FILE`
-5. inside schemesh using shell syntax, by executing `. FILE` or `source FILE`  
+5. inside schemesh using shell syntax, by executing `. FILE` or `source FILE`
 6. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE")`
 7. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'scheme)`
 8. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'shell)`
@@ -60,14 +68,6 @@ In all other cases, the initial syntax is deduced from FILE name:
 * all other files assumed to start in Scheme syntax
 
 As usual, the current syntax can be changed from inside the file itself with `#!scheme` `#!shell` `{...}` `(...)`
-
-In files, the special case described for [REPL](#REPL) that also allows Scheme expressions in shell syntax
-is **not** guaranteed to work: if it does, it's accidental and may be removed in future releases.
-This means:
-* in scheme syntax, each top-level item must parse to an expression
-* in shell syntax, each top-level item must parse to a job
-
-For details about valid shell syntax, see [doc/shell/syntax.md](syntax.md).
 
 ### Mixed syntax: shell inside Scheme
 
@@ -91,11 +91,11 @@ Also, a directive `#!shell` can appear at top-level: it allows switching to shel
 Finally, a directive `#!shell` can appear **inside** a Scheme expression.
 This is usually unnecessary, as the syntax `{...}` is both shorter and more readable:
 * `(#!shell foo bar)` is equivalent to `{foo bar}` and evaluates to a job object
-   
+
    Example: `(#!shell alias m less)` is equivalent to `{alias m less}`
 
    Note: if you are at top-level, the job is also executed.
-   
+
 * `(foo #!shell bar)` is equivalent to `(foo {bar})`
 
    Example: `(sh-run #!shell echo $LANG)` is equivalent to `(sh-run {echo $LANG})`
@@ -104,10 +104,12 @@ This is usually unnecessary, as the syntax `{...}` is both shorter and more read
 
 ### Mixed syntax: Scheme inside shell
 
-From shell syntax, inserting a Scheme expression is powerful although slightly less regular.
+From shell syntax, inserting a Scheme expression is powerful although slightly less regular,
+because shell syntax can only represent strings and jobs.
+
 There are several places where a Scheme expression `(...)` can be inserted:
 
-* after a directive `#!scheme` appearing at top-level
+* after a directive `#!scheme` appearing at top-level.
   This is the most common usage, as it allows alternating shell syntax and Scheme expressions.
   It is commonly used in initialization file `~/.config/schemesh/repl_init.ss`
 
@@ -122,20 +124,20 @@ There are several places where a Scheme expression `(...)` can be inserted:
   (define (hypot x y) (sqrt (+ (* x x) (* y y))))
   ```
 
-* as a whole job.
-  In this case, the Scheme expression must evaluate to a job object.  
+* where a job is expected.
+  In this case, the Scheme expression must evaluate to a job object.
 
   Examples:
   ```
   echo foo ; (sh-cmd "echo" "bar")
-  echo more; $(begin (display "foo") (display "bar\n"))
+  echo more && $(begin (display "foo") (display "bar\n"))
   ```
 
   The last example uses Scheme job syntax `$(...)` - see [Scheme jobs](../../README.md#scheme-jobs)
-  
+
   Note: in shell syntax, a newline is equivalent to `;` in most cases,
-  thus a Scheme expression appearing on its own line must evaluate to a job object (unless you are at REPL).  
-  
+  thus a Scheme expression appearing on its own line must evaluate to a job object (unless you are at REPL).
+
   Example:
   ```
   #!shell
@@ -144,20 +146,35 @@ There are several places where a Scheme expression `(...)` can be inserted:
   ```
 
 * as an argument for a shell command.
-
-  Example:
-  ```
-  ls (string-append "/usr/" "local")
-  ```
   In this case, the Scheme expression must evaluate to one of:
   1. a string
   2. a list of strings
   3. a closure accepting zero or one arguments, that returns a string
   4. a closure accepting zero or one arguments, that returns a list of strings
-  
+
   The expression will be evaluated only once, when the job object is created.
-  
+
   Any returned closure will be executed **each time** the job is started,
   and if the closure accepts one argument, it will receive the job itself.
 
-* the last case is currently not documented: a directive `#!scheme` appearing not at top-level.
+  Examples:
+  ```s
+  ls (string-append "/usr/" "local")
+  echo (list "foo" "bar")
+  cd (lambda () (get-string-some))
+  echo (lambda (job) (map number->string (map factorial (list 10 20 30 40)))) > out.txt
+  ```
+
+* after a directive `#!scheme` appearing not at top-level.
+  This is usually unnecessary, as the syntax `(...)` is both shorter and more readable:
+
+  * `{#!scheme foo bar}` is equivalent to `(foo bar)`:
+    it can appear either instead of a job, or instead of a command argument.
+
+    If it appears where a job is expected, it must evaluate to a job.<br/>
+    If it appears where a command argument is expected, it must evaluate to one of:
+    a string, a list of strings, a closure returning a string or a list of strings.
+
+  * `{foo #!scheme bar}` is **not** allowed
+
+  * `#!scheme foo bar` without parentheses is more tricky - not documented yet.
