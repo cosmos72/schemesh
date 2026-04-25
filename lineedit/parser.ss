@@ -385,11 +385,11 @@
 ;; If port's next two characters are "#!" and are followed by a simple-identifier character,
 ;; i.e. one of [0-9A-Za-z_] then read a simple-identifier and return it converted to a symbol.
 ;;
-;; Otherwise if port's next two characters are "#!" or "#!" but are not followed by
+;; Otherwise if port's next two characters are "#!" but are not followed by
 ;; a simple-identifier character, then ignore and consume a whole line
 ;; i.e. all characters up to the first "\n" and including it, and return #f
 ;;
-;; Otherwise do nothing and return #f i.e. do not consume any character or part of it.
+;; Otherwise do nothing and return #f i.e. do not consume any character.
 (define (parsectx-try-read-directive ctx)
   (if (and (eqv? #\# (parsectx-peek-char ctx))
            (eqv? #\! (parsectx-peek-char2 ctx)))
