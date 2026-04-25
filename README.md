@@ -78,6 +78,9 @@ Syntax switching can be nested arbitrarily deep, i.e. you can write
 ```
 with as many nesting levels as you want.
 
+If you want to use both shell and Lisp (precisely, Scheme) syntax in the same file,
+see [Mixing shell and Scheme syntax](doc/shell/mixed_syntax.md) - there are a limitations worth knowing.
+
 ### Job control
 
 Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
@@ -793,6 +796,9 @@ The documentation currently include:
 
 * Shell builtins, see [doc/shell/builtins.md](doc/shell/builtins.md)
 
+* Mixing shell and Scheme syntax, see [doc/shell/mixed_syntax.md](doc/shell/mixed_syntax.md)
+  there are a few limitations worth knowing
+
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
 
 * Prompt customization, see [doc/lineedit/prompt.md](doc/lineedit/prompt.md)
@@ -808,7 +814,7 @@ The documentation currently include:
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
 
-Most other scheme functions are not (yet) documented.
+Most other Scheme functions are not (yet) documented.
 
 ## FREQUENTLY ASKED QUESTIONS
 
