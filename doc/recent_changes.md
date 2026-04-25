@@ -15,6 +15,7 @@
 * add shell builtin `kill`
 * add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with #\return.
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
+* add function `(sh-compile-file)` and merge functions `(sh-include)` `(sh-include*)` into new function `(sh-include-file)`
 * delete function `(parsectx-unread-char)`
 * start annotating forms returned by `parsectx`
 

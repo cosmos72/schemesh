@@ -9,7 +9,7 @@
 
 (library (schemesh shell macros (1 0 0))
   (export
-    for-glob in-glob sh-include sh-include*
+    for-glob in-glob sh-include-file
     shell shell-backquote shell-env shell-expr shell-glob shell-glob* shell-list shell-string shell-string* shell-subshell shell-wildcard
     with-fd with-port with-sh-resource with-parameterized-resource)
   (import
@@ -17,6 +17,7 @@
     (only (chezscheme)                 datum format fx1- meta parameterize reverse! void)
           (scheme2k bootstrap)
     (only (scheme2k containers list)   for-list in-list)
+    (only (scheme2k containers string) string-index-right string-suffix?)
     (only (scheme2k posix fd)          fd-close)
     (only (scheme2k posix pattern)     wildcard?)
           (schemesh shell job)
@@ -39,34 +40,43 @@
     ((_ arg)       (lambda (job) (sh-env-ref job arg)))))
 
 
-;; macro: read specified file path, parse it with (sh-read-file)
-;; and execute its contents at macroexpansion time.
+(meta begin
+  (define (filename-index-right path char-or-pred)
+    (let* ((len   (string-length path))
+           (slash (string-index-right path #\/ 0 len)))
+      (string-index-right path char-or-pred (or slash 0) len)))
+
+  (define (default-parser-for-file-extension path)
+    (if (or (string-suffix? path ".sh")
+            (not (filename-index-right path #\.)))
+      'shell
+      'scheme)))
+
+
+;; macro: expands to the content of specified file path.
+;;
+;; at macroexpansion time, reads specified file path containing multi-language source with (sh-read-file)
+;; and expand to the parsed source forms.
 ;;
 ;; optional arguments:
-;;   initial-parser - one of the symbols: scheme shell r6rs
+;;   initial-parser  - one of the quoted symbols: 'scheme 'shell 'r6rs.
+;;                     default: autodetect from file name's extension.
 ;;   enables-parsers - a list containing one or more symbols among: scheme shell r6rs
-(define-syntax sh-include
+;;                     or #t that means all known parsers i.e. (parsers)
+;;                     default: #t
+;;   annotations     - a quoted symbol: if 'annotations then return annotated source forms,
+;;                     otherwise return plain source forms. Default: 'annotations
+(define-syntax sh-include-file
   (lambda (x)
-    (syntax-case x ()
+    (syntax-case x (quote)
+      ((k path (quote initial-parser) enabled-parsers (quote annotations))
+         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers) (datum annotations))))
+      ((k path (quote initial-parser) enabled-parsers)
+         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers) 'annotations)))
+      ((k path (quote initial-parser))
+         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) #t 'annotations)))
       ((k path)
-         (datum->syntax #'k (sh-read-file (datum path))))
-
-      ((k path initial-parser)
-         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser))))
-
-      ((k path initial-parser enabled-parsers)
-         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
-
-
-;; macro: read specified file path, parse it with (sh-read-file)
-;; and execute its contents at macroexpansion time.
-;;
-;; same as (sh-include*), with the difference that all arguments are mandatory
-(define-syntax sh-include*
-  (lambda (x)
-    (syntax-case x ()
-      ((k path initial-parser enabled-parsers)
-        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
+         (datum->syntax #'k (sh-read-file (datum path) (default-parser-for-file-extension (datum path)) #t 'annotations))))))
 
 
 ;; macro: create a (sh-expr) that evaluates specified Scheme expressions

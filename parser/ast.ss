@@ -15,7 +15,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme)                annotation? annotation-expression annotation-source annotation-stripped
                                       source-object-bfp source-object-column source-object-line)
-    (only (scheme2k bootstrap)        assert*)
+    (only (scheme2k bootstrap)        assert* trace-define)
     (only (scheme2k containers list)  map*)
     (only (scheme2k lineedit parser)  parsectx-annotations? make-parsectx-annotation))
 
@@ -79,7 +79,7 @@
 
 ;; create and return an annotation wrapping list l
 (define (ast-wrap-list ctx l)
-  (if (parsectx-annotations? ctx)
+  (if (and (or (pair? l) (null? l)) (parsectx-annotations? ctx))
     (let* ((l1  (ast-unwrap1 l))
            (src (and (ast-pair? l1) (ast-source (ast-car l1)))))
       (make-parsectx-annotation

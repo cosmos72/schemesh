@@ -9,6 +9,7 @@
 
 (library (schemesh shell eval (1 0 0))
   (export
+    sh-compile-file
     sh-eval-file sh-eval-fd sh-eval-port sh-eval-parsectx sh-eval-string
     sh-read-file sh-read-fd sh-read-port sh-read-parsectx sh-read-string
 
@@ -16,7 +17,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)                 annotation? annotation-stripped void)
+    (only (chezscheme)                 annotation? annotation-stripped compile-to-port void)
     (only (scheme2k bootstrap) assert* raise-errorf until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
@@ -45,6 +46,12 @@
     (string-index-right path char-or-pred (or slash 0) len)))
 
 
+;; new-extension should start with "."
+(define (path-replace-extension path new-extension)
+  (let ((dot (filename-index-right path #\.)))
+    (string-append (if dot (substring path 0 dot) path) new-extension)))
+
+
 ;; open specified file path, parse its multi-language source contents with (sh-read-port)
 ;; and return the parsed source form.
 ;;
@@ -61,6 +68,7 @@
   (case-lambda
     ((path initial-parser enabled-parsers annotations)
       (assert* 'sh-read-file (symbol? initial-parser))
+      (assert* 'sh-read-file (symbol? annotations))
       (let ((port #f))
         (dynamic-wind
           (lambda () ; before body
@@ -75,6 +83,56 @@
        (sh-read-file path initial-parser #t 'plain))
     ((path)
        (sh-read-file path (default-parser-for-file-extension path) #t 'plain))))
+
+
+;; read multi-language source contents from specified input-path with (sh-read-file),
+;; compile parsed source forms and write the compiled output to output-path.
+;;
+;; optional arguments:
+;;   output-path     - if not specified, input-file with its extension replaced by ".so"
+;;                     (if input-file already ends with ".so", then input-file + another ".so")
+;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs.
+;;                     default: autodetect from input-path's extension.
+;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;                     or a hashtable hashtable symbol -> parser
+;;                     or #t that means all known parsers i.e. (parsers)
+;;                     default: #t
+;;   annotations     - if 'annotations compile annotated source forms,
+;;                     otherwise compile plain source forms. Default: 'annotations
+(define sh-compile-file
+  (case-lambda
+    ((input-path output-path initial-parser enabled-parsers annotations)
+      ;; (file->port) also supports non-UTF8 paths
+      (let ((output-port #t))
+        (dynamic-wind
+          void
+          (lambda ()
+            (when output-port
+              (let ((objs (list (sh-read-file input-path initial-parser enabled-parsers annotations))))
+                (set! output-port (file->port output-path 'write '(create truncate) 'binary (buffer-mode block)))
+                (compile-to-port objs output-port))))
+          (lambda ()
+            (when output-port
+              (when (port? output-port)
+                (close-port output-port))
+              (set! output-port #f))))))
+    ((input-path output-path initial-parser enabled-parsers)
+      (sh-compile-file input-path output-path initial-parser enabled-parsers 'annotations))
+    ((input-path output-path initial-parser)
+      (sh-compile-file input-path output-path initial-parser #t 'annotations))
+    ((input-path output-path)
+      (sh-compile-file input-path output-path (default-parser-for-file-extension input-path) #t 'annotations))
+    ((input-path)
+      (sh-compile-file input-path
+                       (default-output-path-for-input-path input-path)
+                       (default-parser-for-file-extension input-path)
+                       #t 'annotations))))
+
+
+(define (default-output-path-for-input-path input-path)
+  (if (string-suffix? input-path ".so")
+    (string-append input-path ".so")
+    (path-replace-extension input-path ".so")))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
