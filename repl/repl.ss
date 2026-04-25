@@ -58,7 +58,7 @@
     (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k os)              make-process-reader)
-    (only (schemesh parser)          ast-unwrap make-parsectx* parse-forms parser-name parsers to-parser)
+    (only (schemesh parser)          ast-unwrap ast-unwrap1 make-parsectx* parse-forms parser-name parsers to-parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
     (only (scheme2k posix io)        fd->port file->port)
@@ -284,22 +284,23 @@
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   ;; (debugf "repl-once ready")
   (let ((obj (repl-lineedit lctx)))
-    ;; (debugf "repl-once read ~s" x)
     (case obj
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
         (let-values (((forms updated-parser)
                         ((repl-current-parse) lctx initial-parser obj)))
-          (when (pair? forms)
-            (dynamic-wind
-              tty-restore!
-              (lambda ()
-                (do ((tail forms (cdr tail)))
-                    ((null? tail))
-                  (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
-                (sh-stdio-flush))
-              tty-setraw!))
+          ;; (debugf "repl-once parsed ~s" forms)
+          (let ((forms (ast-unwrap1 forms)))
+            (when (pair? forms)
+              (dynamic-wind
+                tty-restore!
+                (lambda ()
+                  (do ((tail forms (cdr tail)))
+                      ((null? tail))
+                    (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
+                  (sh-stdio-flush))
+                tty-setraw!)))
           updated-parser)))))
 
 
