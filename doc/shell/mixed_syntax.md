@@ -53,12 +53,8 @@ Schemesh can execute files in several ways:
 7. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'scheme)`
 8. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'shell)`
 
-In 2. and 8. FILE is assumed to start in shell syntax.
-Obviously, the current syntax can be changed from inside the file itself with `#!scheme` `#!shell` `{...}` `(...)`.
-
-In 3. and 7. FILE is assumed to start in Scheme syntax.
-Again, the current syntax can be changed from inside the file itself as described above.
-
+In 2. and 8. FILE is assumed to start in shell syntax.<br/>
+In 3. and 7. FILE is assumed to start in Scheme syntax.<br/>
 In all other cases, the initial syntax is deduced from FILE name:
 * file names ending with `.sh`, or without dots in the name, are assumed to start in shell syntax
 * all other files assumed to start in Scheme syntax
