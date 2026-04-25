@@ -62,6 +62,7 @@ Again, the current syntax can be changed from inside the file itself as describe
 In all other cases, the initial syntax is deduced from FILE name:
 * file names ending with `.sh`, or without dots in the name, are assumed to start in shell syntax
 * all other files assumed to start in Scheme syntax
+
 As usual, the current syntax can be changed from inside the file itself with `#!scheme` `#!shell` `{...}` `(...)`
 
 In files, the special case described for [REPL](#REPL) that also allows Scheme expressions in shell syntax
@@ -74,8 +75,9 @@ For details about valid shell syntax, see [doc/shell/syntax.md](syntax.md).
 
 ### Mixed syntax: shell inside Scheme
 
-From Scheme syntax, shell syntax `{...}` can be inserted in any place where a Scheme *expression* is expected (which is almost everywhere),
+From Scheme syntax, shell syntax `{...}` can be inserted in any place where a Scheme **expression** is expected (which is almost everywhere),
 and the shell syntax will evaluate to a job object.
+
 Examples:
 ```
 (define job {ls -l /home})
@@ -96,7 +98,7 @@ This is usually unnecessary, as the syntax `{...}` is both shorter and more read
    
    Example: `(#!shell alias m less)` is equivalent to `{alias m less}`
 
-   Note: if you are at REPL top-level, the job is also executed.
+   Note: if you are at top-level, the job is also executed.
    
 * `(foo #!shell bar)` is equivalent to `(foo {bar})`
 
@@ -128,8 +130,10 @@ There are several places where a Scheme expression `(...)` can be inserted:
   In this case, the Scheme expression must evaluate to a job object.  
 
   Examples:
-  ```echo foo ; (sh-cmd "echo" "bar")```
-  ```echo more; $(begin (display "foo") (display "bar\n"))```
+  ```
+  echo foo ; (sh-cmd "echo" "bar")
+  echo more; $(begin (display "foo") (display "bar\n"))
+  ```
 
   The last example uses Scheme job syntax `$(...)` - see [Scheme jobs](../../README.md#scheme-jobs)
   
@@ -143,7 +147,12 @@ There are several places where a Scheme expression `(...)` can be inserted:
   (sh-cmd "echo" "done")
   ```
 
-* as an argument for a shell command. Example: `ls (string-append "/usr/" "local")`
+* as an argument for a shell command.
+
+  Example:
+  ```
+  ls (string-append "/usr/" "local")
+  ```
   In this case, the Scheme expression must evaluate to one of:
   1. a string
   2. a list of strings
