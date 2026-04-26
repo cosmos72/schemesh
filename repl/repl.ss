@@ -33,7 +33,7 @@
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                           logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            assert* catch define-macro first-value-or-void nop raise-errorf values->list while try)
+    (only (scheme2k bootstrap)            ==> assert* catch define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
