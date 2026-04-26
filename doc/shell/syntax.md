@@ -41,7 +41,7 @@ Ordered from highest priority to lowest priority, shell syntax is:
    File redirection is disabled both inside double quotes `"..."` and inside single quotes `'...'`
    and can also be disabled for a single `<` or `>` by preceding it with backslash `\`
 
-4. file descriptor redirections:  `[FD1]<& FD2` and  `[FD1]>& [FD2]`  where FD2 is an unsigned integer, or -1 which causes FD1 to be closed.
+4. file descriptor redirections:  `[FD1]<& FD2` and  `[FD1]>& [FD2]`  where `FD2` is an unsigned integer, or -1 which causes `FD1` to be closed.
    Again, if `FD1` is specified, spaces must **not** be present after it, otherwise it `FD1` would be parsed as an argument.
    Note that command arguments and redirections **can** be interleaved after the command name in **arbitrary** order.
    Bash syntax `>& FILE` that redirects both stdout and stderr is **not** supported, one has to write `> FILE 2>&1`
