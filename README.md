@@ -803,7 +803,7 @@ The documentation currently include:
 
 * Prompt customization, see [doc/lineedit/prompt.md](doc/lineedit/prompt.md)
 
-* Line editing internals, see [doc/lineedit/linectx.md](doc/lineedit/linectx.md)
+* Line editing internals, see [doc/lineedit/lineedit.md](doc/lineedit/lineedit.md)
 
 * Repl customization, see [doc/repl/repl.md](doc/repl/repl.md)
 

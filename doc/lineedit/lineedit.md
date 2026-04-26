@@ -1,7 +1,7 @@
 # lineedit
 
 The effect of key presses at REPL is controlled the library `(scheme2k lineedit)` which is also included in `(schemesh)`.
-Users can change these effects, and define new ones, as described in [key.md](key.md).
+Users can change these effects, and define new ones, as described in [doc/lineedit/key.md](key.md).
 
 The main type defined by library `(scheme2k lineedit)` is `linectx`,
 and almost all functions in the library take a `linectx` object as first argument.
