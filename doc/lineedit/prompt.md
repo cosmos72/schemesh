@@ -3,8 +3,8 @@
 Two prompts can be customized: `prompt0` and `prompt`.
 
 Compatibility:
-- `prompt` was added in 0.9.3
 - `prompt0` was added in 1.0.1
+- `prompt` was added in 0.9.3
 
 The first one i.e. `prompt0` is displayed immediately **above** user input,
 either right-aligned to terminal width (default)
