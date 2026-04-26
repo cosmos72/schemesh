@@ -211,18 +211,18 @@
       (do ((tail args (cdr tail)))
           ((null? tail))
         (let ((arg (car tail)))
-          (if (char=? #\% (string-ref arg 0))
+          (if (and (string? arg) (char=? #\% (string-ref arg 0)))
             (let ((job-id (string->number (substring arg 1 (string-length arg)))))
               (sh-kill job-id signal-name))
-            (let* ((pid (string->number arg))
+            (let* ((pid arg)
                    (err (pid-kill pid signal-name)))
               (unless (fxzero? err)
                 (raise-c-errno 'kill 'kill err pid)))))))))
 
 
 ;; parse and arguments of shell builtin "kill" and return two values:
-;;   list of pid -pid or %job-id
-;;   last signal name found in options "-s signal-name" "-n signal-number" "-signal-name", or 'sigint by default
+;;   list of pid -pgid and "%job-id"
+;;   last signal name found in options "-s signal-name" "-n signal-number" "-signal-name" "-signal-number", or 'sigint by default
 (define (parse-kill-args args ret default-signal-name)
   (if (null? args)
     (values (reverse! ret) default-signal-name)
@@ -232,25 +232,28 @@
       (cond
         ((fxzero? len)
           (raise-kill-arg arg))
-        ((string-is-signed-base10-integer? arg)
-          ;; found pid or -pid
-          (parse-kill-args tail (cons arg ret) default-signal-name))
+        ((string-is-unsigned-base10-integer? arg)
+          ;; found pid
+          (parse-kill-args tail (cons (string->number arg) ret) default-signal-name))
         ((and (char=? #\% (string-ref arg 0)) (string-is-unsigned-base10-integer? arg 1 len))
           ;; found %job-id
           (parse-kill-args tail (cons arg ret) default-signal-name))
         ((char=? #\- (string-ref arg 0))
           ;; found an option. check whether it takes an argument
           (cond
+            ((string=? "-g" arg)
+              (when (null? tail)
+                (raise-errorf 'kill "missing pgid after option: ~s" arg))
+              (let ((str (car tail)))
+                (unless (string-is-unsigned-base10-integer? str)
+                  (raise-errorf 'kill "invalid pgid after option: ~s ~s" arg str))
+                (parse-kill-args (cdr tail) (cons (- (string->number str)) ret) default-signal-name)))
             ((string=? "-s" arg)
               (when (null? tail)
-                (raise-errorf 'kill "missing signal-name after option: ~s" arg))
-              (parse-kill-args (cdr tail) ret (string->signal-name (car tail))))
-            ((string=? "-n" arg)
-              (when (null? tail)
-                (raise-errorf 'kill "missing signal-number after option: ~s" arg))
-              (parse-kill-args (cdr tail) ret (string->signal-number->signal-name (car tail))))
+                (raise-errorf 'kill "missing signal after option: ~s" arg))
+              (parse-kill-args (cdr tail) ret (string->signal (car tail))))
             (else
-              (parse-kill-args tail ret (string->signal-name (substring arg 1 len))))))
+              (parse-kill-args tail ret (string->signal (substring arg 1 len))))))
         (else
           (raise-kill-arg arg))))))
 
@@ -259,19 +262,25 @@
   (raise-errorf 'kill "invalid argument, must be a %job-id or pid or an option: ~s" arg))
 
 
+(define (string->signal str)
+  (if (string-is-unsigned-base10-integer? str)
+    (string->signal-number->signal-name str)
+    (string->signal-name str)))
+
+
 (define (string->signal-name str)
-  (let ((signal-name (string->symbol str)))
+  (let* ((str (string-downcase str))
+         (str (if (string-prefix? str "sig") str (string-append "sig" str)))
+         (signal-name (string->symbol str)))
     (unless (signal-name->number signal-name)
       (raise-errorf 'kill "invalid signal name: ~s" str))
     signal-name))
 
 
 (define (string->signal-number->signal-name str)
-  (unless (string-is-unsigned-base10-integer? str)
-    (raise-errorf 'kill "invalid signal number after option: ~s ~s" "-n" str))
   (let ((signal-name (signal-number->name (string->number str))))
     (unless signal-name
-      (raise-errorf 'kill "invalid signal number after option: ~s ~s" "-n" str))
+      (raise-errorf 'kill "invalid signal number: ~s" str))
     signal-name))
 
 

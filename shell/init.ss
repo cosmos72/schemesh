@@ -232,16 +232,19 @@
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
 
-    (hashtable-set! t "kill"     (string->utf8 " [OPTIONS] jobspec-or-pid-or-pgid [...]
+    (hashtable-set! t "kill"     (string->utf8 " [OPTIONS] jobspec-or-pid [...]
     send a signal to one or more jobs, processes or process groups.
     Options:
+      -signal-name       send signal specified by name instead of SIGINT
+      -signal-number     send signal specified by number instead of SIGINT
       -s signal-name     send signal specified by name instead of SIGINT
-      -n signal-number   send signal specified by number instead of SIGINT
+      -s signal-number   send signal specified by number instead of SIGINT
+
+      -g pgid            send signal to all processes in process group pgid
 
     Arguments: each jobspec-or-pid must be one of:
       %job-id            send signal to job-id
       pid                send signal to process with given pid
-      -pgid              send signal to all processes in process group pgid.
 
     return success, or raise condition if an invalid option is specified,
     or if a job-id, pid or pgid is specified but not found.\n"))

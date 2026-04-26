@@ -212,21 +212,23 @@ Display history to standard output. Ignores all arguments.
 Return success.
 
 #### kill
-Syntax: `kill [OPTIONS] job-id-or-pid-or-pgid [...]`
+Syntax: `kill [OPTIONS] job-id-or-pid [...]`
 <br/>Added in 1.0.1
 
 Send a signal to one or more jobs, processes or process groups.<br/>
 Options:
+* `-g pgid`            send signal to all processes in process group `pgid`
+* `-signal-name`       send signal specified by name instead of `SIGINT`
+* `-signal-number`     send signal specified by number instead of `SIGINT`
 * `-s signal-name`     send signal specified by name instead of `SIGINT`
-* `-n signal-number`   send signal specified by number instead of `SIGINT`
+* `-s signal-number`   send signal specified by number instead of `SIGINT`
 
 Arguments: each jobspec-or-pid must be one of:
 * `%job-id`            send signal to `job-id`
 * `pid`                send signal to process with given `pid`
-* `-pgid`              send signal to all processes in process group `pgid`
 
 Return success, or raise condition if an invalid option is specified,
-or if a job-id, pid or pgid is specified but not found..
+or if a job-id, pid or pgid is specified but not found.
 
 #### parent
 Syntax: `parent [BUILTIN_NAME [ARGS ...]]`
