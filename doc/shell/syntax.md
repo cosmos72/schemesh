@@ -12,7 +12,10 @@ Ordered from highest priority to lowest priority, shell syntax is:
    These three syntaxes can be optionally followed by redirections, see 3. and 4.
    See below for what `shell_commands` can contain.
 
-1. command with arguments: that's fundamental, `cmd_name /some/dir --some-options --other-options` executes the command, if found in `$PATH`
+1. command with arguments: that's fundamental, `cmd_name --some-options some-arguments --other-options` executes the command, if found in `$PATH`
+
+   If `cmd_name` contains one or more slashes, as for example `path/to/some/cmd_name` it will be only searched in specified directory,
+   without consulting `$PATH`
 
    The command, and also each argument, can contain zero or more single quotes `"..."` and single quotes `'...'`
    that are useful to disable some of the steps below. Example: `ls  path" with "spaces  path'<>with"lots$of&special[chars]*\'`
