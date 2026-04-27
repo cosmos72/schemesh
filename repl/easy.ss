@@ -1087,21 +1087,20 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
           (%ulimit-parse-args next parsed)))))) ;; argument parsed successfully, iterate
 
 
-;; search (subspan parsed 0 pos) for the LAST occurrence
-;; of either symbol 'hard 'soft and return such symbol.
-;;
-;; if neither symbol 'hard 'soft is present, return 'soft
-(define (ulimit/hard-soft parsed pos)
+;; search (subspan parsed 0 pos) for the LAST occurrence of symbols 'hard 'soft
+;; and return #t if 'hard appears after any 'soft, otherwise return #f
+(define (ulimit/hard? parsed pos)
   (if (fx<=? pos 0)
     #f
     (let ((arg (span-ref parsed (fx1- pos))))
       (if (memq arg '(hard soft))
-        arg
-        (ulimit/hard-soft parsed (fx1- pos))))))
+        (eq? arg 'hard)
+        (ulimit/hard? parsed (fx1- pos))))))
 
 
 ;; implementation of "ulimit" builtin
-(define (ulimit/apply parsed hard-soft start end options)
+(define (ulimit/apply parsed hard? start end options)
+  ;; (debugf "> ulimit/apply parsed ~s, hard? ~s, start ~s, end ~s, options ~s" parsed hard? start end options)
   (let* ((show-all? (span-index parsed start end (lambda (elem) (eq? elem 'all))))
          (toshow    (if show-all? #f (make-span 0))))
     (let %ulimit/apply ((pos start))
@@ -1113,9 +1112,10 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
             (%ulimit/apply pos+1) ;; skip 'all 'hard 'soft
             (let* ((new-value  (and (fx<? pos+1 end) (span-ref parsed pos+1)))
                    (set-value? (or (eq? 'unlimited new-value) (integer? new-value))))
+              ;; (debugf ". ulimit/apply arg ~s, new-value ~s, set-value? ~s" arg new-value set-value?)
               (when set-value?
-                (rlimit-set! arg (and (eq? 'soft hard-soft) new-value)
-                                 (and (eq? 'hard hard-soft) new-value)))
+                (rlimit-set! arg (and (not hard?) new-value)
+                                 (and hard?       new-value)))
               (unless show-all?
                 (span-insert-right! toshow (rlimit-ref arg)))
               (%ulimit/apply
@@ -1130,9 +1130,9 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
     (let ((parsed (ulimit-parse-args args)))
       (if (status? parsed)
         parsed
-        (let* ((len       (span-length parsed))
-               (hard-soft (ulimit/hard-soft parsed len)))
-          (ulimit/apply parsed hard-soft 0 len options))))))
+        (let* ((len   (span-length parsed))
+               (hard? (ulimit/hard? parsed len)))
+          (ulimit/apply parsed hard? 0 len options))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
