@@ -71,6 +71,8 @@
         3>>logfile 4>otherfile 5>&/dev/null}           (shell "foo" 0 < "/dev/zero" 1 <> "/dev/urandom" 2 <& "-"
                                                                     3 >> "logfile"  4 > "otherfile" 5 >& "/dev/null")
   '{ls "-l" '.'}                                       (shell "ls" "-l" ".")
+  ;; test issue #46: backslash in shell double quotes
+  '{echo "a\n\(b)\$c\`d\"\\e\f"}                       (shell "echo" "a\\n\\(b)$c`d\"\\e\\f")
   '{ls "'so'me'"'file'path}                            (shell "ls" (shell-wildcard "'so'me'" "file" "path"))
   '{ls `cmd1 && cmd2 || cmd3 -arg3`}                   (shell "ls" (shell-backquote "cmd1" && "cmd2" \x7C;\x7C;
                                                                                     "cmd3" "-arg3"))

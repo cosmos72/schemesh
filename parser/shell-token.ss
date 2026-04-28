@@ -180,21 +180,23 @@
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
         (case type
-          ((eof)
-            (set! again? #f))
-          ((dquote dollar backquote)
+          ((eof dquote dollar backquote)
             (set! again? #f))
           ((backslash)
             (parsectx-read-char ctx) ; consume backslash
             ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
-              (when ch-i (charspan-insert-right! csp ch-i))))
+              (when ch-i
+                (unless (memv ch-i '(#\" #\$ #\\ #\`))
+                  ;; fix issue #46: if ch-i is not special, preserve backslash before it
+                  (charspan-insert-right! csp #\\))
+                (charspan-insert-right! csp ch-i))))
           (else
             ;; single quote, newline, semicolon, operators and parentheses
             ;; have no special meaning inside dquotes
             (parsectx-read-char ctx) ; consume ch
             (charspan-insert-right! csp ch)))))
-    (charspan->string csp)))
+    (charspan->string*! csp)))
 
 
 ;; Read a single word not inside single or double quotes,
