@@ -236,7 +236,7 @@ Such approach has three main issues:
 
 * traditional shell syntax and semantics for jobs, redirections and pipelines is already terse and clean:
   let's reinvent the wheel only where really necessary.
-  On the other hand, shell syntax and semantics for general purpose programming varies from non-existent to awful.
+  On the other hand, the syntax and semantics for general purpose programming in  traditional shells varies from non-existent to awful.
 
 * the characters `.` `'` `` ` `` and `|` have special meaning in (Chez) scheme,
   and cannot be changed to their shell meaning in a scheme macro.
