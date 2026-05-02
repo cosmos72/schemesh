@@ -140,10 +140,16 @@ The issue with such solution is that launching and controlling jobs and pipeline
 is non-trivial and extremely verbose.<br/>
 Also, most general-purpose programming languages are not interactive.
 
-Schemesh purpose is to fill this gap, i.e. it aims at being **both** a shell and an interactive general-purpose programming environment,
-where the two aspects blend seamlessly: launching and controlling jobs and pipelines is simple and robust,
-both from shell syntax and from Scheme syntax - see [README: Job control](../../README.md#job-control)
+Modern shells such as elvish/fish/nushell/... are usually better than traditional shells for general-purpose programming,
+as they usually provide some structured programming facilities.
+With the exception of [XONSH](https://xon.sh/) though, they all implement their own ad-hoc languages:
+elvish is scriptable in elvish language, fish is scriptable in fish language, nushell is scriptable in nushell language, etc.
+None of them is scriptable in a standardized language with a pre-existing user community.
 
+Schemesh purpose is to fill this gap, i.e. it aims at being **both** a shell and an interactive,
+standardized general-purpose programming language, where the two aspects blend seamlessly:
+launching and controlling jobs and pipelines is simple and robust, both from shell syntax
+and from Scheme syntax - see [README: Job control](../../README.md#job-control)
 
 ## Why a shell scriptable in Chez Scheme?
 
@@ -236,11 +242,10 @@ Such approach has three main issues:
 
 * traditional shell syntax and semantics for jobs, redirections and pipelines is already terse and clean:
   let's reinvent the wheel only where really necessary.
-  On the other hand, the syntax and semantics for general purpose programming in  traditional shells varies from non-existent to awful.
+  On the other hand, the syntax and semantics for general purpose programming in traditional shells varies from non-existent to awful.
 
 * the characters `.` `'` `` ` `` and `|` have special meaning in (Chez) scheme,
   and cannot be changed to their shell meaning in a scheme macro.
-
 
 Interestingly, schemesh shell syntax **is** homoiconic in a non-trivial (and useful) way:
 one can `(quote)` and `(expand)` it, and it evaluates to Scheme objects. Examples:
