@@ -1,8 +1,13 @@
 # Frequently asked questions
 
 * [How does schemesh differ from other Lisp-based shells?](#how-does-schemesh-differ-from-other-lisp-based-shells)
-* [How to mix shell and Scheme syntax in a script?](../shell/mixed-syntax.md#files)
+
+* [How does schemesh differ from other non-Lisp shells?](#how-does-schemesh-differ-from-other-non-lisp-shells)
+
+* [How to mix shell and Scheme syntax in a script?](../shell/mixed_syntax.md#files)
+
 * [Why another shell?](#why-another-shell)
+
 * [Why a shell scriptable in Chez Scheme?](#why-a-shell-scriptable-in-chez-scheme)
 
 
@@ -89,6 +94,21 @@ The main limitations are:
    while in another Emacs buffer it shows an error message "Missing filename" from `less`
 
 
-# Comparison between schemesh and other non-Lisp-based shells
+## How does schemesh differ from other non-Lisp shells?
+
+To be written
+
+
+## How to mix shell and Scheme syntax in a script?
+
+See [Mixing shell and Scheme syntax: FILES](../shell/mixed_syntax.md#files)
+
+
+## Why another shell?
+
+To be written
+
+
+## Why a shell scriptable in Chez Scheme?
 
 To be written

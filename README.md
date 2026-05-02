@@ -831,11 +831,12 @@ Most other Scheme functions are not (yet) documented.
 
   Eshell runs *inside* Emacs, so it's difficult to use as a login shell.
 
-  For more details, see [FAQ: comparison with other shells](doc/faq/faq.md#comparison-with-other-lisp-based-shells)
+  For more details, see
+  [FAQ: How does schemesh differ from other Lisp-based shells?](doc/faq/faq.md#how-does-schemesh-differ-from-other-lisp-based-shells)
 
 * [How to set environment variables?](doc/faq/faq.md#how-to-set-environment-variables)
 
-* [How to mix shell and Scheme syntax in a script?](doc/shell/mixed-syntax.md#files)
+* [How to mix shell and Scheme syntax in a script?](doc/shell/mixed_syntax.md#files)
 
 * [Why another shell?](doc/faq/faq.md#why-another-shell)
 
