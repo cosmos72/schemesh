@@ -834,6 +834,8 @@ Most other Scheme functions are not (yet) documented.
   For more details, see
   [FAQ: How does schemesh differ from other Lisp-based shells?](doc/faq/faq.md#how-does-schemesh-differ-from-other-lisp-based-shells)
 
+* [How does schemesh differ from other non-Lisp shells?](doc/faq/faq.md#how-does-schemesh-differ-from-other-non-lisp-shells)
+
 * [How to set environment variables?](doc/faq/faq.md#how-to-set-environment-variables)
 
 * [How to mix shell and Scheme syntax in a script?](doc/shell/mixed_syntax.md#files)
@@ -842,6 +844,7 @@ Most other Scheme functions are not (yet) documented.
 
 * [Why a shell scriptable in Chez Scheme?](doc/faq/faq.md#why-a-shell-scriptable-in-chez-scheme)
 
+* [Why not a Lisp-like syntax for shell jobs?](doc/faq/faq.md#what-not-a-lisp-like-syntax-for-shell-jobs)
 
 ## TO DO
 

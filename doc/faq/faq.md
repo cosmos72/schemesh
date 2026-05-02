@@ -12,6 +12,8 @@
 
 * [Why a shell scriptable in Chez Scheme?](#why-a-shell-scriptable-in-chez-scheme)
 
+* [Why not a Lisp-like syntax for shell jobs?](#what-not-a-lisp-like-syntax-for-shell-jobs)
+
 
 ## How does schemesh differ from other Lisp-based shells?
 
@@ -209,3 +211,63 @@ with sophisticated C FFI and only 22-25 MB RAM usage in its default configuratio
 As a bonus, it can also be embedded into a user-created C executable.
 
 In the end, the author decided for Chez Scheme.
+
+
+## Why not a Lisp-like syntax for shell jobs?
+
+This comes up periodically, mostly from Lisp programmers - especially the ones that know about [Scsh](#scsh).
+
+An equivalent question is "What about a homoiconic shell syntax?"
+
+The author considered a homoiconic i.e. Lisp-like syntax for creating and running shell jobs:
+that's what scsh does, and it was one of their first attempts.
+
+If implemented, it would look similar to:
+```
+(| (gzip -d) (tar tvf -) (wc -l))
+```
+i.e. shell commands would resemble Scheme forms, with some macro-like syntax for joining them (pipelines, and, or, ...).
+
+Such approach has three main issues:
+
+* the author wants schemesh to be a shell, and to accept as much as possible the traditional shell syntax.
+  This greatly helps migration, as one does not have to learn a new language for simple use cases:
+  the bash/zsh/... user base is much larger than the Lisp/Scheme user base.
+
+* traditional shell syntax and semantics for jobs, redirections and pipelines is already terse and clean:
+  let's reinvent the wheel only where really necessary.
+  On the other hand, shell syntax and semantics for general purpose programming varies from non-existent to awful.
+
+* the characters `.` `'` `` ` `` and `|` have special meaning in (Chez) scheme,
+  and cannot be changed to their shell meaning in a scheme macro.
+
+
+Interestingly, schemesh shell syntax **is** homoiconic in a non-trivial (and useful) way:
+one can `(quote)` and `(expand)` it, and it evaluates to Scheme objects. Examples:
+```
+(begin '{ls | wc -l})
+```
+evaluates to the s-expr
+```
+(shell "ls" \x7C; "wc" "-l")
+```
+(if one squints hard enough, this is the homoiconic syntax peole are asking for)
+and expanding it yields an s-expr containing calls to plain Scheme functions:
+```
+(expand '{ls | wc -l})
+```
+evaluates to the s-expr
+```
+(begin
+   ; chez-scheme library stuff... then:
+   (sh-pipe* (sh-cmd "ls") '\x7C; (sh-cmd "wc" "-l")))
+```
+Final step: removing the `quote`,
+```
+(begin {ls | wc -l})
+```
+evaluates to a Scheme datum (a `sh-job` record-type) that can be inspected, modified, launched, etc. and pretty-prints to
+```
+(sh-pipe (sh-cmd "ls") (sh-cmd "wc" "-l"))
+```
+The last fragment above is also machine-readable: if evaluated, it creates and returns an equivalent `sh-job` datum.
