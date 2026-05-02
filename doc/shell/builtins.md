@@ -1,4 +1,4 @@
-# shell builtins
+# Shell builtins
 
 In shell syntax, the following shell builtins are recognized:
 

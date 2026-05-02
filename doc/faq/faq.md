@@ -4,6 +4,8 @@
 
 * [How does schemesh differ from other non-Lisp shells?](#how-does-schemesh-differ-from-other-non-lisp-shells)
 
+* [How to set environment variables?](#how-to-set-environment-variables)
+
 * [How to mix shell and Scheme syntax in a script?](../shell/mixed_syntax.md#files)
 
 * [Why another shell?](#why-another-shell)
@@ -20,7 +22,7 @@ customizable prompts, and automatic loading of `~/.config/schemesh/repl_init.ss`
 Most importantly, it also has job control (CTRL+Z, `fg`, `bg` etc.)
 and recognizes and extends Unix shell syntax for starting, redirecting and composing jobs.
 
-Schemesh author is not aware of any other Lisp-based shell that supports *all* of these features.
+Schemesh author is not aware of any other Lisp-based shell that supports **all** of these features.
 
 All other known Lisp-based shells lack at least job control,
 i.e. the ability to suspend a job and resume it in the background or foreground.
@@ -87,7 +89,7 @@ and recognizes Unix shell syntax for starting, redirecting and composing jobs.
 The main limitations are:
 
 1. no job control
-2. Eshell runs *inside* Emacs, so it's difficult to use as a login shell.
+2. Eshell runs **inside** Emacs, so it's difficult to use as a login shell.
 3. pipelines are supported, but in some cases they work differently from POSIX shell semantics:
 
    For example, `ls | less` shows `ls` output in one Emacs buffer i.e. without piping it into `less`,
@@ -104,11 +106,105 @@ To be written
 See [Mixing shell and Scheme syntax: FILES](../shell/mixed_syntax.md#files)
 
 
+## How to set environment variables?
+
+The general shell syntax is:
+```shell
+global set NAME VALUE
+```
+possibly followed by
+```shell
+global export NAME
+```
+The prefix `global` is needed because each job has its own environment variables,
+and `global` instructs to modify the top-most job, i.e. the shell itself.<br/>
+For more details, see [Shell builtins: set](../shell/builtins.md#set)
+
+At REPL top-level, the shorter `set NAME VALUE` optionally followed by `export NAME` suffices too.
+
+
 ## Why another shell?
 
-To be written
+The author was dissatisfied with traditional shells: they are more or less adequate for launching programs and pipelines,
+including job control, but their features for general-purpose programming varies from non-existent to awful.
+
+In the author's opinion, traditional shell scripts are an exercise in compulsive quoting (it's never enough)
+and in frustration for the lack of a reasonable type system:
+most traditional shells only know about strings, and even **returning** a string is often not supported.
+
+Dealing with numbers, vectors, maps, timestamps etc. in a traditional shell quickly becomes unfeasible.<br/>
+The usual reply to such an objection is "for general-purpose programming, use a programming language - not a shell".<br/>
+The issue with such solution is that launching and controlling jobs and pipelines from a general-purpose programming language
+is non-trivial and extremely verbose.
+
+Schemesh purpose is to fill this gap, i.e. it aims at being **both** a shell and a general-purpose programming environment,
+where the two aspects blend seamlessly: launching and controlling jobs and pipelines is simple and robust,
+both from shell syntax and from Scheme syntax - see [README: Job control](../../README.md#job-control)
 
 
 ## Why a shell scriptable in Chez Scheme?
 
-To be written
+The reasons for creating a shell scriptable in a general-purpose programming language
+are described in the previous question [FAQ: Why another shell?](#why-another-shell)
+
+The answer to "why **Chez Scheme** specifically?" follows.
+
+When implementing a shell, there are at least two programming languages involved:
+1. the "host" language: a shell is internally implemented in some programming language
+2. the "guest" language: a shell is a programmable environment, and can be scripted in some language
+
+Ideally, the "host" and "guest" language would be the same:
+this allows exposing (parts of) the internal implementation to the scripting environment,
+enriching it without having to internally write lots of boilerplate for translating between "host" and "guest" languages.
+
+It also ensures that the "guest" language is pre-existing and has some community around it:
+creating a new ad-hoc language understood only by a single program (the new shell being created)
+is both a large endeavour, and a significant obstacle to adoption.
+
+This idea "host and guest language are the same" requires a REPL,
+i.e. an interactive prompt that understands the same language used to implement it.
+
+In most languages, a REPL that understands the language itself is not provided,
+and implementing it is extremely difficult and time consuming:<br/>
+think about implementing in C an **interactive** C interpreter or compiler,<br/>
+or implementing in Rust an **interactive** Rust interpreter or compiler,<br/>
+or implementing in Go an **interactive** Go interpreter or compiler.<br/>
+where "interactive" means that code executed at REPL is immediately available for execution,<br/>
+without having to load it from disk, and that the interactive environment exposes the **full** host language - not a subset.
+
+Some languages natively offer a REPL that understands the language itself. Most notably:
+* Python
+* Haskell
+* most Lisp dialects: Clojure, Common Lisp, Racket, Scheme...
+
+Python would be a good choice for implementing a shell, if it wasn't so slow at runtime (it's an interpreter, after all)
+and if its syntax was easier to extend - indeed, [XONSH](https://xon.sh/) is a popular shell scriptable in Python.
+
+Haskell is a purely functional language, where side effects are strictly contained (and constrained).
+It also has a rich library for creating parsers,
+and a very sophisticated static type system - the latter can be quite heavyweight for interactive use.
+
+Regarding Lisp dialects, the author looked for the following characteristics:
+* open source license
+* compiler (**not** an interpreter) generating optimized native code
+* powerful FFI for interfacing with low-level POSIX API
+* small memory footprint
+
+[Clojure](https://clojure.org/) is quite memory hungry because it runs inside a JVM,
+and it also restricts side effects **only** to memory transactions.<br/>
+Calling C from Clojure/JVM is feasible, although it requires some boilerplate - see
+[Java Native Access (JNA)](https://github.com/java-native-access/jna).
+
+[Sbcl](https://www.sbcl.org/) is one of the best open-source Common Lisp optimizing compilers.
+It has good FFI support and only consumes 20-22 MB RAM at startup,
+at least if you don't load quicklisp and slime (then it grows to at least 100 MB).
+
+[Racket](https://racket-lang.org/) is a multi-language environment:
+nowadays it is backed by Chez Scheme and it shares Chez Scheme's strengths (see below),
+except for RAM usage: it uses ~140 MB at startup, and more if you load some of its many libraries.
+
+[Chez Scheme](https://cisco.github.io/ChezScheme/) is is one of the best open-source Scheme R6RS optimizing compilers, 
+with sophisticated C FFI and only 22-25 MB RAM usage in its default configuration.
+As a bonus, it can also be started from a user-created C executable.
+
+In the end, the author decided for Chez Scheme.
