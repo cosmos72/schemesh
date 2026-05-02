@@ -12,7 +12,7 @@
 
 * [Why a shell scriptable in Chez Scheme?](#why-a-shell-scriptable-in-chez-scheme)
 
-* [Why not a Lisp-like syntax for shell jobs?](#what-not-a-lisp-like-syntax-for-shell-jobs)
+* [Why not a Lisp-like syntax for shell jobs?](#why-not-a-lisp-like-syntax-for-shell-jobs)
 
 
 ## How does schemesh differ from other Lisp-based shells?
