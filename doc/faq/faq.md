@@ -117,7 +117,7 @@ possibly followed by
 global export NAME
 ```
 The prefix `global` is needed because each job has its own environment variables,
-and `global` instructs to modify the top-most job, i.e. the shell itself.<br/>
+and `global` instructs to modify the top-most job, i.e. the shell itself.
 For more details, see [Shell builtins: set](../shell/builtins.md#set)
 
 At REPL top-level, the shorter `set NAME VALUE` optionally followed by `export NAME` suffices too.
@@ -135,9 +135,10 @@ most traditional shells only know about strings, and even **returning** a string
 Dealing with numbers, vectors, maps, timestamps etc. in a traditional shell quickly becomes unfeasible.<br/>
 The usual reply to such an objection is "for general-purpose programming, use a programming language - not a shell".<br/>
 The issue with such solution is that launching and controlling jobs and pipelines from a general-purpose programming language
-is non-trivial and extremely verbose.
+is non-trivial and extremely verbose.<br/>
+Also, most general-purpose programming languages are not interactive.
 
-Schemesh purpose is to fill this gap, i.e. it aims at being **both** a shell and a general-purpose programming environment,
+Schemesh purpose is to fill this gap, i.e. it aims at being **both** a shell and an interactive general-purpose programming environment,
 where the two aspects blend seamlessly: launching and controlling jobs and pipelines is simple and robust,
 both from shell syntax and from Scheme syntax - see [README: Job control](../../README.md#job-control)
 
@@ -155,7 +156,7 @@ When implementing a shell, there are at least two programming languages involved
 
 Ideally, the "host" and "guest" language would be the same:
 this allows exposing (parts of) the internal implementation to the scripting environment,
-enriching it without having to internally write lots of boilerplate for translating between "host" and "guest" languages.
+enriching it without having to write lots of boilerplate for translating between "host" and "guest" languages.
 
 It also ensures that the "guest" language is pre-existing and has some community around it:
 creating a new ad-hoc language understood only by a single program (the new shell being created)
@@ -205,6 +206,6 @@ except for RAM usage: it uses ~140 MB at startup, and more if you load some of i
 
 [Chez Scheme](https://cisco.github.io/ChezScheme/) is is one of the best open-source Scheme R6RS optimizing compilers, 
 with sophisticated C FFI and only 22-25 MB RAM usage in its default configuration.
-As a bonus, it can also be started from a user-created C executable.
+As a bonus, it can also be embedded into a user-created C executable.
 
 In the end, the author decided for Chez Scheme.
