@@ -821,18 +821,25 @@ Most other Scheme functions are not (yet) documented.
 * how does schemesh differ from other Lisp-based shells as
   [Scsh](https://scsh.net/),
   [Rash](http://rash-lang.org/),
-  [Eshell](https://www.emacswiki.org/emacs/CategoryEshell#Eshell),
-  or (pick favorite shell) ?
+  [Eshell](https://www.emacswiki.org/emacs/CategoryEshell#Eshell) ?
 
   In extreme summary:
   none of them have job control, i.e. the ability to suspend a job and resume it in the background or foreground;
   some also have additional limitations.
 
-  Scsh lacks line editing, autocompletion and shell-like syntax - see [Scsh Reference manual - Caveats](https://scsh.net/docu/html/man-Z-H-2.html#node_sec_1.4)
+  Scsh also lacks line editing, autocompletion and shell-like syntax - see [Scsh Reference manual - Caveats](https://scsh.net/docu/html/man-Z-H-2.html#node_sec_1.4)
 
   Eshell runs *inside* Emacs, so it's difficult to use as a login shell.
 
-  For more details, see [doc/comparison_with_other_shells.md](doc/comparison_with_other_shells.md)
+  For more details, see [FAQ: comparison with other shells](doc/faq/faq.md#comparison-with-other-lisp-based-shells)
+
+* [How to set environment variables?](doc/faq/faq.md#how-to-set-environment-variables)
+
+* [How to mix shell and Scheme syntax in a script?](doc/shell/mixed-syntax.md#files)
+
+* [Why another shell?](doc/faq/faq.md#why-another-shell)
+
+* [Why a shell scriptable in Chez Scheme?](doc/faq/faq.md#why-a-shell-scriptable-in-chez-scheme)
 
 
 ## TO DO

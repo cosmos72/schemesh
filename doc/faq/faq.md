@@ -1,6 +1,12 @@
+# Frequently asked questions
+
+* [How does schemesh differ from other Lisp-based shells?](#how-does-schemesh-differ-from-other-lisp-based-shells)
+* [How to mix shell and Scheme syntax in a script?](../shell/mixed-syntax.md#files)
+* [Why another shell?](#why-another-shell)
+* [Why a shell scriptable in Chez Scheme?](#why-a-shell-scriptable-in-chez-scheme)
 
 
-# Comparison between schemesh and other Lisp-based shells
+## How does schemesh differ from other Lisp-based shells?
 
 Schemesh is intended as an interactive shell and REPL:
 it supports line editing, autocompletion, searchable history, aliases, builtins,
@@ -17,7 +23,7 @@ i.e. the ability to suspend a job and resume it in the background or foreground.
 Some alternative shells also have additional limitations.
 
 
-## Scsh
+### Scsh
 
 [Scsh](https://scsh.net/) is a Lisp programming environment built on top of [Scheme 48](https://www.s48.org/),
 with additional Scheme functions for running programs and setting up pipelines and redirections,
@@ -37,7 +43,7 @@ The reason for this limitation is:
 scsh syntax for creating shell commands is a DSL, i.e. a domain-specific language, built using macros that work on top of Scheme syntax.
 And in Scheme, the dot `.` is a low-level syntactic token with its own meaning - it cannot be used as an identifier.
 
-## Rash
+### Rash
 
 [Rash](http://rash-lang.org/) is a shell language, library, and REPL for [Racket](https://racket-lang.org/).
 
@@ -63,7 +69,7 @@ Rash has several limitations, sometimes due to design choices, that schemesh sol
    This is a limitation imposed by the underlying Racket system, and Rash can do relatively little to remove it.
 
 
-## Eshell
+### Eshell
 
 [Eshell](https://www.gnu.org/software/emacs/manual/html_mono/eshell.html) is a shell written in EmacsLisp.
 
