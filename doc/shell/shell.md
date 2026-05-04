@@ -63,8 +63,8 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   It is left-associative and implements logic short-circuit i.e. terminates at the first failure and returns it.
 
 * Or `{cmd1 arg1 || cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" \x7C;\x7C; "cmd2" "arg2")`.<br/>
+  It is left-associative and implements logic short-circuit i.e. terminates at the first success and returns it.<br/>
   Again, `\x7C;` indicates the symbol `|`.
-  It is left-associative and implements logic short-circuit i.e. terminates at the first success and returns it.
 
 * List `{cmd1 arg1 ; cmd2 arg2 &}` is parsed to `(shell "cmd1" "arg1" \x3B; "cmd2" "arg2" &)`.<br/>
   Note that both `;` and `&` are command **separators** and are parsed by this case (newline is treated as `;`).<br/>
@@ -79,3 +79,10 @@ Note: in traditional shells, `&&` has the same precedence as `||`.
 
 It can contain **any** shell syntax as the `(shell)` macro does: simple commands, file redirections, fd redirections,
 wildcards, substitutions, negation, pipelines, and, or, list.
+
+
+##### (shell-expr)
+`(shell-expr ARGS)` is the macro produced by parsing Scheme jobs `$(...)`
+
+Scheme job `$(some-scheme-func arg1 arg2)` is parsed to `(shell-expr (some-scheme-func arg1 arg2))`
+and can appear both in shell syntax and in Scheme syntax.
