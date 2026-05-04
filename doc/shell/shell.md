@@ -12,7 +12,7 @@ produced by parsing shell syntax.
 ### Macros
 
 ##### (shell)
-`(shell [ARGS])` is the main macro produced by parsing shell syntax.
+`(shell [ARGS])` is the main macro produced by parsing shell syntax `{...}`.
 
 You can see how shell syntax is parsed to `(shell)` macro by evaluating `(begin '{some shell command})`:
 
@@ -30,5 +30,31 @@ Again, shell syntax does **not** allow spaces between a file descriptor number a
 
 Note that arguments, file redirections and fd redirections **can** be interleaved.
 
+Wildcards are special characters in simple command arguments (either unquoted or double quoted)
+that contain one or more special characters `*` `?` `[...]` or `~`.<br/>
+The syntax `[...]` has an ambiguity: it may indicate either a subshell or a wildcard.<br/>
+At the beginning of a simple command, it is parsed as a subshell.<br/>
+In all other cases, `[...]` is parsed as a wildcard: if you need it at the beginning of a simple command, prefix it with `""`.
 
+Wildcards `{cmd ~user/*foo?[a-z]bar[!0-9]}` are parsed to `(shell cmd (shell-wildcard ~ "user/" * "foo" ? % "a-z" "bar" %! "0-9"))`.
+In detail:
+* `~` can only appear at the beginning of an argument. It expands to the home directory of specified user (by default, current user)
+* `*` matches any string, and is parsed to the symbol `*`
+* `?` matches any character, and is parsed to the symbol `?`
+* `[...]` matches any character present in brackets, and is parsed to the symbol `%` followed by the characters in brackets
+* `[...]` matches any character **not** present in brackets, and is parsed to the symbol `%!` followed by the characters in brackets
 
+Substitutions `` `subcommand args ...` `` and `$[subcommand args]` can appear anywhere in simple command arguments
+(either unquoted or double quoted) and indicate that specified subcommand must be executed,
+and its output must be inserted as a **single** string where the substitution appears.<br/>
+Note: traditional shells also split the output of subcommand to multiple strings, unless it's in double quotes.
+
+Both substitution syntaxes ``{cmd `subcommand arg`}`` and `{cmd $[subcommand arg]}`
+are parsed to `(shell "cmd" (shell-backquote "subcommand" "arg"))`
+and can contain *any* shell syntax, not only simple commands.
+
+##### (shell-subshell)
+`(shell-subshell [ARGS])` is the macro produced by parsing shell syntax `[...]`
+
+It can contain *any* shell syntax as the `(shell)` macro does: simple commands, file redirections, fd redirections,
+wildcards, substitutions, and, or, not, list, pipelines.
