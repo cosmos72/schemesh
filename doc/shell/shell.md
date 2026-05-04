@@ -59,13 +59,13 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   `(shell "cmd1" "arg1" \x7C; "cmd2" "arg2" \x7C;& "cmd3" "arg3")` where `\x7C;` indicates the symbol `|`
   because the latter has a special meaning in Chez Scheme.
 
-* And `{cmd1 arg1 && cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" && "cmd2" "arg2")`
+* And `{cmd1 arg1 && cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" && "cmd2" "arg2")`.
 
-* Or `{cmd1 arg1 || cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" \x7C;\x7C; "cmd2" "arg2")`
-  Again, `\x7C;` indicates the symbol `|`
+* Or `{cmd1 arg1 || cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" \x7C;\x7C; "cmd2" "arg2")`.<br/>
+  Again, `\x7C;` indicates the symbol `|`.
 
-* List `{cmd1 arg1 ; cmd2 arg2 &}` is parsed to `(shell "cmd1" "arg1" \x3B; "cmd2" "arg2" &)`
-  Note that both `;` and `&` are command **terminators**.
+* List `{cmd1 arg1 ; cmd2 arg2 &}` is parsed to `(shell "cmd1" "arg1" \x3B; "cmd2" "arg2" &)`.<br/>
+  Note that both `;` and `&` are command **separators** and are parsed by this case.<br/>
   Also, `\x3B;` indicates the symbol `;` because the latter has a special meaning in Scheme: it starts a comment.
 
 Negation, pipelines, and, or, list are in order of decreasing precedence, as described in [doc/shell/syntax.md](syntax.md).
@@ -74,4 +74,4 @@ Negation, pipelines, and, or, list are in order of decreasing precedence, as des
 `(shell-subshell [ARGS])` is the macro produced by parsing shell syntax `[...]`
 
 It can contain **any** shell syntax as the `(shell)` macro does: simple commands, file redirections, fd redirections,
-wildcards, substitutions, negation, pipelines, and, or.
+wildcards, substitutions, negation, pipelines, and, or, list.
