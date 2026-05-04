@@ -1,6 +1,6 @@
 # shell syntax
 
-Ordered from highest priority to lowest priority, shell syntax is:
+Ordered from highest precedence to lowest precedence, shell syntax is:
 
 0. grouping, subshell and scheme jobs:
    `{shell_commands}` groups commands. It has no special semantic, its only purpose is group them as a single entity, as parentheses do in math.

@@ -44,17 +44,34 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   - `[...]` matches any character present in brackets, and is parsed to the symbol `%` followed by the characters in brackets
   - `[...]` matches any character **not** present in brackets, and is parsed to the symbol `%!` followed by the characters in brackets
 
-* Substitutions `` `subcommand args ...` `` and `$[subcommand args]` can appear anywhere in simple command arguments
+* Substitutions `$[subcommand args]` and `` `subcommand args` `` can appear anywhere in simple command arguments
   (either unquoted or double quoted) and indicate that specified subcommand must be executed,
   and its output must be inserted as a **single** string where the substitution appears.<br/>
   Note: traditional shells also split the output of subcommand to multiple strings, unless it's in double quotes.
   
-  Both substitution syntaxes ``{cmd `subcommand arg`}`` and `{cmd $[subcommand arg]}`
+  Both substitution syntaxes `{cmd $[subcommand arg]}` and ``{cmd `subcommand arg`}``
   are parsed to `(shell "cmd" (shell-backquote "subcommand" "arg"))`
-  and can contain *any* shell syntax, not only simple commands.
+  and can contain **any** shell syntax, not only simple commands.
+
+* Negation `{! cmd args}` is parsed to `(shell ! "cmd" "args")`. Multiple consecutive negations are allowed.
+
+* Pipelines `{cmd1 arg1 | cmd2 arg2 |& cmd3 arg3}` are parsed to
+  `(shell "cmd1" "arg1" \x7C; "cmd2" "arg2" \x7C;& "cmd3" "arg3")` where `\x7C;` indicates the symbol `|`
+  because the latter has a special meaning in Chez Scheme.
+
+* And `{cmd1 arg1 && cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" && "cmd2" "arg2")`
+
+* Or `{cmd1 arg1 || cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" \x7C;\x7C; "cmd2" "arg2")`
+  Again, `\x7C;` indicates the symbol `|`
+
+* List `{cmd1 arg1 ; cmd2 arg2 &}` is parsed to `(shell "cmd1" "arg1" \x3B; "cmd2" "arg2" &)`
+  Note that both `;` and `&` are command **terminators**.
+  Also, `\x3B;` indicates the symbol `;` because the latter has a special meaning in Scheme: it starts a comment.
+
+Negation, pipelines, and, or, list are in order of decreasing precedence, as described in [doc/shell/syntax.md](syntax.md).
 
 ##### (shell-subshell)
 `(shell-subshell [ARGS])` is the macro produced by parsing shell syntax `[...]`
 
-It can contain *any* shell syntax as the `(shell)` macro does: simple commands, file redirections, fd redirections,
-wildcards, substitutions, and, or, not, list, pipelines.
+It can contain **any** shell syntax as the `(shell)` macro does: simple commands, file redirections, fd redirections,
+wildcards, substitutions, negation, pipelines, and, or.
