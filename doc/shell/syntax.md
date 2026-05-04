@@ -59,9 +59,9 @@ Ordered from highest precedence to lowest precedence, shell syntax is:
 
 7. pipeline: `CMD_NOT1 | CMD_NOT2 ...` or `CMD_NOT1 |& CMD_NOT1 ...`
 
-8. and: `CMD_PIPE1 && CMD_PIPE2 ...` also implements logic short-circuit i.e. exits at the first failure and returns it
+8. and: `CMD_PIPE1 && CMD_PIPE2 ...` also implements logic short-circuit i.e. terminates at the first failure and returns it
 
-9. or: `CMD_AND1 || CMD_AND2 ...` also implements logic short-circuit i.e. exits at the first success and returns it
+9. or: `CMD_AND1 || CMD_AND2 ...` also implements logic short-circuit i.e. terminates at the first success and returns it
 
 10. list: `CMD_OR1 ; [CMD_OR2 ...]` executes the commands sequentially.
     Instead `CMD_OR1 & [CMD_OR1 ...]` starts the first command in background,

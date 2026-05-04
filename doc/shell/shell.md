@@ -59,16 +59,20 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   `(shell "cmd1" "arg1" \x7C; "cmd2" "arg2" \x7C;& "cmd3" "arg3")` where `\x7C;` indicates the symbol `|`
   because the latter has a special meaning in Chez Scheme.
 
-* And `{cmd1 arg1 && cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" && "cmd2" "arg2")`.
+* And `{cmd1 arg1 && cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" && "cmd2" "arg2")`.<br/>
+  It is left-associative and implements logic short-circuit i.e. terminates at the first failure and returns it.
 
 * Or `{cmd1 arg1 || cmd2 arg2}` is parsed to `(shell "cmd1" "arg1" \x7C;\x7C; "cmd2" "arg2")`.<br/>
   Again, `\x7C;` indicates the symbol `|`.
+  It is left-associative and implements logic short-circuit i.e. terminates at the first success and returns it.
 
 * List `{cmd1 arg1 ; cmd2 arg2 &}` is parsed to `(shell "cmd1" "arg1" \x3B; "cmd2" "arg2" &)`.<br/>
-  Note that both `;` and `&` are command **separators** and are parsed by this case.<br/>
+  Note that both `;` and `&` are command **separators** and are parsed by this case (newline is treated as `;`).<br/>
   Also, `\x3B;` indicates the symbol `;` because the latter has a special meaning in Scheme: it starts a comment.
 
 Negation, pipelines, and, or, list are in order of decreasing precedence, as described in [doc/shell/syntax.md](syntax.md).
+
+Note: in traditional shells, `&&` has the same precedence as `||`.
 
 ##### (shell-subshell)
 `(shell-subshell [ARGS])` is the macro produced by parsing shell syntax `[...]`
