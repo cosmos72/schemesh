@@ -15,8 +15,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ fx1-
-                               fxvector-length fxvector-ref import meta-cond library-exports)
+    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ fx1- import meta-cond library-exports)
     (only (scheme2k bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
@@ -29,16 +28,25 @@
 ;; works even if src are the same vector and the two ranges overlap.
 ;;
 ;; NOTE: arguments order is different from SRFI 43 function with the same name
-(define (vector-copy! src src-start dst dst-start n)
-  (if (and (eq? src dst) (fx<? src-start dst-start))
-    ; copy backward
-    (do ((i (fx1- n) (fx1- i)))
-        ((fx<? i 0))
-      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))
-    ; copy forward
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n))
-      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))))
+(meta-cond
+  ;; vector-copy! is defined only in Chez Scheme >= 10.3.0
+  ((memq 'vector-copy! (library-exports '(chezscheme)))
+    (import (prefix
+                (only (chezscheme) vector-copy!)
+              chez:))
+    (define vector-copy! chez:vector-copy!))
+
+  (else
+    (define (vector-copy! src src-start dst dst-start n)
+      (if (and (eq? src dst) (fx<? src-start dst-start))
+        ; copy backward
+        (do ((i (fx1- n) (fx1- i)))
+            ((fx<? i 0))
+          (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))
+        ; copy forward
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n))
+          (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))))))
 
 
 ;; return a copy of vector vec containing only elements
@@ -307,44 +315,6 @@
       (hashtable-set! htable (car cell) (cdr cell))))
   htable)
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;     some additional fxvector functions    ;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(meta-cond
-  ;; fxvector-copy! is defined only in Chez Scheme >= 10.2.0
-  ((memq 'fxvector-copy! (library-exports '(chezscheme)))
-    (import (prefix
-                (only (chezscheme) fxvector-copy!)
-              chez:))
-    (define fxvector-copy!   chez:fxvector-copy!))
-
-  (else
-    (define fxvector-copy!   vector-copy!)))
-
-
-;; create and return a closure that iterates on elements of fxvector v.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in fxvector v and #t,
-;; or (values #<unspecified> #f) if end of vector is reached.
-(define in-fxvector
-  (case-lambda
-    ((v start end step)
-      (assert* 'in-fxvector (fx<=?* 0 start end (fxvector-length v)))
-      (assert* 'in-fxvector (fx>=? step 0))
-      (lambda ()
-        (if (fx<? start end)
-          (let ((elem (fxvector-ref v start)))
-            (set! start (fx+ start step))
-            (values elem #t))
-          (values #f #f))))
-    ((v start end)
-      (in-fxvector v start end 1))
-    ((v)
-      (in-fxvector v 0 (fxvector-length v) 1))))
 
 
 ) ; close library
