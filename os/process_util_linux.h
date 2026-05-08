@@ -38,13 +38,15 @@ static void uint64_multiply(void* src, size_t i, uint64_t scale) {
 }
 
 static struct timespec ticks_to_timespec(uint64_t ticks, uint64_t tick_per_s) {
-  struct timespec ret;
-  uint64_t        remainder = ticks % tick_per_s;
+  struct timespec ts{0, 0};
+  if (tick_per_s != 0) {
+    uint64_t rem = ticks % tick_per_s;
+    ts.tv_sec    = ticks / tick_per_s;
 
-  ret.tv_sec = ticks / tick_per_s;
-  /* requires tick_per_s < MAX_UINT64 / 1'000'000'000 */
-  ret.tv_nsec = (remainder * 1000000000 + tick_per_s / 2) / tick_per_s;
-  return ret;
+    /* requires tick_per_s < MAX_UINT64 / 1'000'000'000 */
+    ts.tv_nsec = (rem * 1000000000 + tick_per_s / 2) / tick_per_s;
+  }
+  return ts;
 }
 
 static struct timespec timespec_sub(struct timespec left, struct timespec right) {
@@ -101,7 +103,11 @@ static unsigned char* read_file_at(
     int dir_fd, const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid) {
   ssize_t n;
   size_t  end;
-  int     fd = openat(dir_fd, path, O_RDONLY);
+  int     fd;
+  if (path == NULL || dst == NULL || dstlen <= 1) {
+    return NULL;
+  }
+  fd = openat(dir_fd, path, O_RDONLY);
   if (fd < 0) {
     return NULL;
   }
