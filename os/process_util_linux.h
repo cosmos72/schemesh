@@ -38,13 +38,16 @@ static void uint64_multiply(void* src, size_t i, uint64_t scale) {
 }
 
 static struct timespec ticks_to_timespec(uint64_t ticks, uint64_t tick_per_s) {
-  struct timespec ts{0, 0};
+  struct timespec ts;
   if (tick_per_s != 0) {
     uint64_t rem = ticks % tick_per_s;
     ts.tv_sec    = ticks / tick_per_s;
 
     /* requires tick_per_s < MAX_UINT64 / 1'000'000'000 */
     ts.tv_nsec = (rem * 1000000000 + tick_per_s / 2) / tick_per_s;
+  } else {
+    ts.tv_sec  = 0;
+    ts.tv_nsec = 0;
   }
   return ts;
 }
