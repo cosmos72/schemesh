@@ -7,10 +7,13 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
+#ifndef SCHEME2K_OS_PROCESS_MACOS_H
+#define SCHEME2K_OS_PROCESS_MACOS_H
+
 #include <libproc.h>
 #include <sys/sysctl.h>
 
-#include "os_util_macos.h"
+#include "util.h"
 
 static ptr make_tty_name(dev_t tty_nr) {
   if (tty_nr > 0) {
@@ -203,3 +206,5 @@ static ptr c_process_get(ptr cs_s, ptr bvec) {
 
   return Scons(scheme2k_Sstring_utf8b(c->name.data, c->name.len), make_tty_name(c->tty));
 }
+
+#endif /* SCHEME2K_OS_PROCESS_MACOS_H */

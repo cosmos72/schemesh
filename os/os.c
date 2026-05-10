@@ -7,9 +7,28 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#include "process_all.h"
+#include <errno.h>
+#include <fcntl.h>  /* open() */
+#include <stddef.h> /* size_t */
+#include <stdint.h> /* int64_t, uint64_t */
+#include <stdio.h>
+#include <stdlib.h>   /* calloc(), free(), BSD devname() */
+#include <string.h>   /* memcpy(), strrchr(), strcmp() */
+#include <sys/stat.h> /* fstat(), S_IFCH */
+#include <time.h>     /* clock_gettime(), struct timespec */
+#include <unistd.h>   /* close(), read(), BSD pagesize(), sysconf(), _SC_PAGESIZE */
+
+#include "../containers/containers.h" /* scheme2k_Sstring_utf8b() */
+
+#include "disk.h"
+#include "process.h"
 
 void scheme2k_register_c_functions_os(void) {
+  Sregister_symbol("c_disk_open", &c_disk_open);
+  Sregister_symbol("c_disk_get", &c_disk_get);
+  Sregister_symbol("c_disk_skip", &c_disk_skip);
+  Sregister_symbol("c_disk_close", &c_disk_close);
+
   Sregister_symbol("c_process_open", &c_process_open);
   Sregister_symbol("c_process_get", &c_process_get);
   Sregister_symbol("c_process_skip", &c_process_skip);

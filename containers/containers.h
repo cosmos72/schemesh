@@ -7,8 +7,8 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#ifndef SCHEME2K_CONTAINERS_H
-#define SCHEME2K_CONTAINERS_H
+#ifndef SCHEME2K_CONTAINERS_CONTAINERS_H
+#define SCHEME2K_CONTAINERS_CONTAINERS_H
 
 #include "../chezscheme.h" /* ptr */
 #include <stddef.h>        /* size_t */
@@ -29,4 +29,4 @@ ptr scheme2k_Sbytevector(const char bytes[], const size_t len);
  */
 ptr scheme2k_Sstring_utf8b(const char bytes[], const size_t len);
 
-#endif /* SCHEME2K_CONTAINERS_H */
+#endif /* SCHEME2K_CONTAINERS_CONTAINERS_H */

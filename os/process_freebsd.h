@@ -7,6 +7,9 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
+#ifndef SCHEME2K_OS_PROCESS_FREEBSD_H
+#define SCHEME2K_OS_PROCESS_FREEBSD_H
+
 #include <libutil.h> /* kinfo_getallproc() */
 
 #include <sys/time.h>
@@ -148,3 +151,5 @@ static ptr c_process_get(ptr addr, ptr bvec) {
 
   return Scons(scheme2k_Sstring_utf8b(kp->ki_comm, (size_t)-1), make_tty_name(kp->ki_tdev));
 }
+
+#endif /* SCHEME2K_OS_PROCESS_FREEBSD_H */

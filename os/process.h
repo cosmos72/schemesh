@@ -7,47 +7,10 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#include <errno.h>
-#include <fcntl.h>  /* open() */
-#include <stddef.h> /* size_t */
-#include <stdint.h> /* int64_t, uint64_t */
-#include <stdio.h>
-#include <stdlib.h>   /* calloc(), free(), BSD devname() */
-#include <string.h>   /* memcpy(), strrchr(), strcmp() */
-#include <sys/stat.h> /* fstat(), S_IFCH */
-#include <time.h>     /* clock_gettime(), struct timespec */
-#include <unistd.h>   /* close(), read(), BSD pagesize(), sysconf(), _SC_PAGESIZE */
+#ifndef SCHEME2K_OS_PROCESS_H
+#define SCHEME2K_OS_PROCESS_H
 
 #include "../containers/containers.h"
-
-typedef char sizeof_int64_is_8[sizeof(int64_t) == 8 ? 1 : -1];
-typedef char sizeof_uint64_is_8[sizeof(uint64_t) == 8 ? 1 : -1];
-typedef char sizeof_double_is_8[sizeof(double) == 8 ? 1 : -1];
-
-static void set_int64(void* dst, size_t i, int64_t val) {
-  if (dst) {
-    memcpy((uint8_t*)dst + i * 8, &val, 8);
-  }
-}
-
-static void set_uint64(void* dst, size_t i, uint64_t val) {
-  if (dst) {
-    memcpy((uint8_t*)dst + i * 8, &val, 8);
-  }
-}
-
-static void set_timespec(void* dst, size_t i, struct timespec t) {
-  set_uint64(dst, i, (uint32_t)t.tv_nsec);
-  set_int64(dst, i + 1, t.tv_sec);
-}
-
-static int c_errno_set(int errno_value) {
-  return -(errno = errno_value);
-}
-
-static int c_errno(void) {
-  return -errno;
-}
 
 enum {
   e_proc_pid         = 0,  /* int64 */
@@ -105,3 +68,5 @@ static size_t get_os_pagesize(void) {
 #else
 #include "process_unsupported.h"
 #endif
+
+#endif /* SCHEME2K_OS_PROCESS_H */

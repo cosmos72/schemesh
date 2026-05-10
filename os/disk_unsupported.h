@@ -7,19 +7,19 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#ifndef SCHEME2K_OS_PROCESS_UNSUPPORTED_H
-#define SCHEME2K_OS_PROCESS_UNSUPPORTED_H
+#ifndef SCHEME2K_OS_DISK_UNSUPPORTED_H
+#define SCHEME2K_OS_DISK_UNSUPPORTED_H
 
 /**
  * on success, return scheme unsigned number containing C DIR*
  * on error, return c_errno() < 0
  */
-static ptr c_process_open(void) {
+static ptr c_disk_open(void) {
   return Sinteger(c_errno_set(ENOTSUP)); /* < 0 */
 }
 
-static void c_process_close(ptr dir_s) {
-  (void)dir_s;
+static void c_disk_close(ptr disk_s) {
+  (void)disk_s;
 }
 
 /**
@@ -28,21 +28,21 @@ static void c_process_close(ptr dir_s) {
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0
  */
-static int c_process_skip(ptr dir_s) {
-  (void)dir_s;
+static int c_disk_skip(ptr disk_s) {
+  (void)disk_s;
   return 0;
 }
 
 /*
  * read one process from /proc.
- *   on success, return list (name_string, status_char, tty_string) and fill bvec.
+ *   on success, return pair (device_name . mountpoint) and fill bvec.
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0
  */
-static ptr c_process_get(ptr dir_s, ptr bvec) {
-  (void)dir_s;
+static ptr c_disk_get(ptr disk_s, ptr bvec) {
+  (void)disk_s;
   (void)bvec;
   return Sfixnum(0);
 }
 
-#endif /* SCHEME2K_OS_PROCESS_UNSUPPORTED_H */
+#endif /* SCHEME2K_OS_DISK_UNSUPPORTED_H */

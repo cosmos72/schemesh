@@ -7,6 +7,11 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
+#ifndef SCHEME2K_OS_UTIL_MACOS_H
+#define SCHEME2K_OS_UTIL_MACOS_H
+
+#include <string.h> /* memcpy() */
+
 typedef struct {
   size_t len;
   char*  data;
@@ -94,3 +99,5 @@ static struct timespec timeval_to_timespec(const struct timeval tv) {
   ts.tv_nsec = tv.tv_usec * 1000;
   return ts;
 }
+
+#endif /* SCHEME2K_OS_UTIL_MACOS_H */

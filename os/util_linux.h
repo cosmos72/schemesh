@@ -7,6 +7,13 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
+#ifndef SCHEME2K_OS_UTIL_LINUX_H
+#define SCHEME2K_OS_UTIL_LINUX_H
+
+#include <sys/stat.h>  /* fstat() */
+#include <sys/types.h> /* ssize_t */
+#include <time.h>      /* struct timespec */
+
 #if 0  /* unused */
 static int64_t get_int64(const void* src, size_t i) {
   int64_t val = 0;
@@ -148,9 +155,9 @@ static size_t parse_char(const unsigned char** src, char ret[1]) {
 
 /**
  * skip whitespace, parse decimal digits, convert them to an uint64_t
- * and store it in ((uint64_t*)dst)[i].
+ * and store it in *dst starting at byte offset i.
  * @return number of parsed decimal digits.
- * if no digits could be parsed, store 0 in ((uint64_t*)dst)[i].
+ * if no digits could be parsed, store 0 in *dst.
  */
 static size_t parse_uint64(const unsigned char** src, void* dst, size_t i) {
   uint64_t      val;
@@ -172,9 +179,9 @@ static size_t parse_uint64(const unsigned char** src, void* dst, size_t i) {
 
 /**
  * skip whitespace, parse optional sign and decimal digits, and convert them to an int64_t,
- * and store it in *ret.
+ * and store it in *dst starting at byte offset i.
  * @return number of parsed decimal digits.
- * if no digits could be parsed, store 0 in *ret.
+ * if no digits could be parsed, store 0 in *dst.
  */
 static size_t parse_int64(const unsigned char** src, void* dst, size_t i) {
   uint64_t      val      = 0;
@@ -196,13 +203,12 @@ static size_t parse_int64(const unsigned char** src, void* dst, size_t i) {
   return digits;
 }
 
-#if 0
 /**
  * skip whitespace, copy up to dstlen-1 non-whitespace characters to dst.
  * always add '\0' terminator to dst.
  * @return number of copied characters.
  */
-static size_t parse_string(const unsigned char** src, char dst[], size_t dstlen) {
+static size_t parse_string(const unsigned char** src, char* dst, size_t dstlen) {
   size_t        len = 0;
   unsigned char ch;
   skip_ws(src);
@@ -218,7 +224,23 @@ static size_t parse_string(const unsigned char** src, char dst[], size_t dstlen)
   }
   return len;
 }
-#endif /* 0 */
+
+/**
+ * skip characters until and including first '\n'
+ * @return number of skipped characters.
+ */
+static size_t skip_line(const unsigned char** src) {
+  size_t        len = 0;
+  unsigned char ch;
+  while ((ch = **src) != '\0') {
+    ++*src;
+    ++len;
+    if (ch == '\n') {
+      break;
+    }
+  }
+  return len;
+}
 
 static int string_is_decimal_number(const char* str) {
   char ch;
@@ -256,3 +278,5 @@ static uint64_t get_os_tick_per_s(void) {
   }
   return n;
 }
+
+#endif /* SCHEME2K_OS_UTIL_LINUX_H */

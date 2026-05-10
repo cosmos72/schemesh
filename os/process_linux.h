@@ -7,12 +7,15 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
+#ifndef SCHEME2K_OS_PROCESS_LINUX_H
+#define SCHEME2K_OS_PROCESS_LINUX_H
+
 #include <dirent.h>        /* opendir()        */
 #include <inttypes.h>      /*                  */
 #include <sys/sysmacros.h> /* major(), minor() */
 #include <sys/types.h>     /* opendir()        */
 
-#include "os_util_linux.h"
+#include "util.h"
 
 static struct timespec boot_time_utc = {0, -1};
 
@@ -469,3 +472,5 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
 #endif /* 0 */
   return Sfalse;
 }
+
+#endif /* SCHEME2K_OS_PROCESS_LINUX_H */

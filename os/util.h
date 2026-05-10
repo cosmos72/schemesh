@@ -1,0 +1,55 @@
+/**
+ * Copyright (C) 2023-2026 by Massimiliano Ghilardi
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ */
+
+#ifndef SCHEME2K_OS_UTIL_H
+#define SCHEME2K_OS_UTIL_H
+
+#include <errno.h>
+#include <stddef.h> /* size_t */
+#include <stdint.h> /* int64_t, uint64_t */
+#include <string.h> /* memcpy() */
+
+typedef char sizeof_int64_is_8[sizeof(int64_t) == 8 ? 1 : -1];
+typedef char sizeof_uint64_is_8[sizeof(uint64_t) == 8 ? 1 : -1];
+typedef char sizeof_double_is_8[sizeof(double) == 8 ? 1 : -1];
+
+static void set_int64(void* dst, size_t i, int64_t val) {
+  if (dst) {
+    memcpy((uint8_t*)dst + i * 8, &val, 8);
+  }
+}
+
+static void set_uint64(void* dst, size_t i, uint64_t val) {
+  if (dst) {
+    memcpy((uint8_t*)dst + i * 8, &val, 8);
+  }
+}
+
+static void set_timespec(void* dst, size_t i, struct timespec t) {
+  set_uint64(dst, i, (uint32_t)t.tv_nsec);
+  set_int64(dst, i + 1, t.tv_sec);
+}
+
+static int c_errno_set(int errno_value) {
+  return -(errno = errno_value);
+}
+
+static int c_errno(void) {
+  return -errno;
+}
+
+#if defined(__linux__)
+#include "util_linux.h"
+#elif defined(__APPLE__)
+#include "util_macos.h"
+#elif defined(__FreeBSD__)
+#include "util_freebsd.h"
+#endif
+
+#endif /* SCHEME2K_OS_UTIL_H */
