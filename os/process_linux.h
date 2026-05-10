@@ -384,7 +384,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   char                 state;
   uint8_t              ok;
 
-  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_byte_n) {
+  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_proc_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
   }
   vec = Sbytevector_data(bvec);
@@ -395,7 +395,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   if (!entry) {
     return Sinteger(c_errno()); /* 0 if end of dir, otherwise error */
   }
-  memset(vec, '\0', e_byte_n);
+  memset(vec, '\0', e_proc_byte_n);
 
   buf_written = snprintf(buf, sizeof(buf), "%s/stat", entry->d_name);
 
@@ -403,18 +403,20 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
 
   ok = buf_written > 0 && (unsigned)buf_written < sizeof(buf) &&
        (src_end = read_file_at(dirfd(dir), buf, (unsigned char*)buf, sizeof(buf), &uid, &gid)) &&
-       parse_int64(&src, vec, e_pid) && parse_linux_command(&src, src_end, comm, sizeof(comm)) &&
-       parse_char(&src, &state) && parse_int64(&src, vec, e_ppid) &&
-       parse_int64(&src, vec, e_pgid) && parse_int64(&src, vec, e_sid) &&
-       parse_int64(&src, &tty_nr, 0) && parse_int64(&src, NULL, 0 /*tty_pgrp*/) &&
-       parse_uint64(&src, NULL, 0 /*flags*/) && parse_uint64(&src, vec, e_min_fault) &&
-       parse_uint64(&src, NULL, 0 /*child_min_fault*/) && parse_uint64(&src, vec, e_maj_fault) &&
+       parse_int64(&src, vec, e_proc_pid) &&
+       parse_linux_command(&src, src_end, comm, sizeof(comm)) && parse_char(&src, &state) &&
+       parse_int64(&src, vec, e_proc_ppid) && parse_int64(&src, vec, e_proc_pgid) &&
+       parse_int64(&src, vec, e_proc_sid) && parse_int64(&src, &tty_nr, 0) &&
+       parse_int64(&src, NULL, 0 /*tty_pgrp*/) && parse_uint64(&src, NULL, 0 /*flags*/) &&
+       parse_uint64(&src, vec, e_proc_min_fault) &&
+       parse_uint64(&src, NULL, 0 /*child_min_fault*/) &&
+       parse_uint64(&src, vec, e_proc_maj_fault) &&
        parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, &user_time_ticks, 0) &&
        parse_uint64(&src, &sys_time_ticks, 0) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
-       parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_priority) &&
-       parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_num_thread) &&
+       parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_proc_priority) &&
+       parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_proc_num_thread) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
-       parse_uint64(&src, vec, e_mem_virt) && parse_uint64(&src, vec, e_mem_rss);
+       parse_uint64(&src, vec, e_proc_mem_virt) && parse_uint64(&src, vec, e_proc_mem_rss);
 
   if (ok) {
     uint64_t tick_per_s, iowait_time_ticks;
@@ -430,11 +432,11 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
            parse_uint64(&src, &iowait_time_ticks, 0);
     }
 
-    set_int64(vec, e_uid, uid);
-    set_int64(vec, e_gid, gid);
+    set_int64(vec, e_proc_uid, uid);
+    set_int64(vec, e_proc_gid, gid);
 
     /* convert mem_resident from pages to bytes */
-    uint64_multiply(vec, e_mem_rss, get_os_pagesize());
+    uint64_multiply(vec, e_proc_mem_rss, get_os_pagesize());
 
     tick_per_s = get_os_tick_per_s();
 
@@ -442,22 +444,22 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
     {
       struct timespec start_time_utc =
           timespec_add(get_boot_time_utc(), ticks_to_timespec(start_time_ticks, tick_per_s));
-      set_timespec(vec, e_start_time, start_time_utc);
+      set_timespec(vec, e_proc_start_time, start_time_utc);
     }
     {
       struct timespec user_time = ticks_to_timespec(user_time_ticks, tick_per_s);
-      set_timespec(vec, e_user_time, user_time);
+      set_timespec(vec, e_proc_user_time, user_time);
     }
     {
       struct timespec sys_time = ticks_to_timespec(sys_time_ticks, tick_per_s);
-      set_timespec(vec, e_sys_time, sys_time);
+      set_timespec(vec, e_proc_sys_time, sys_time);
     }
     {
       struct timespec iowait_time = ticks_to_timespec(iowait_time_ticks, tick_per_s);
-      set_timespec(vec, e_iowait_time, iowait_time);
+      set_timespec(vec, e_proc_iowait_time, iowait_time);
     }
 
-    vec[e_state * 8] = (uint8_t)state;
+    vec[e_proc_state * 8] = (uint8_t)state;
 
     return Scons(scheme2k_Sstring_utf8b(comm, (size_t)-1), make_tty_name(tty_nr));
   }

@@ -123,28 +123,28 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   }
   kp = &procs->kp[procs->pos++];
 
-  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_byte_n) {
+  if (!Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_proc_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
   }
   vec = Sbytevector_data(bvec);
 
-  memset(vec, '\0', e_byte_n);
-  set_int64(vec, e_pid, kp->ki_pid);
-  set_int64(vec, e_uid, kp->ki_uid);
-  set_int64(vec, e_gid, kp->ki_groups[0]);
-  set_int64(vec, e_ppid, kp->ki_ppid);
-  set_int64(vec, e_pgid, kp->ki_pgid);
-  set_int64(vec, e_sid, kp->ki_sid);
-  set_uint64(vec, e_mem_rss, (uint64_t)kp->ki_rssize * get_os_pagesize());
-  set_uint64(vec, e_mem_virt, (uint64_t)kp->ki_size);
-  set_timeval(vec, e_start_time, kp->ki_start);
-  set_timeval(vec, e_user_time, kp->ki_rusage.ru_utime);
-  set_timeval(vec, e_sys_time, kp->ki_rusage.ru_stime);
-  set_int64(vec, e_priority, 20 - (int)kp->ki_nice);
-  set_int64(vec, e_num_thread, kp->ki_numthreads);
-  set_uint64(vec, e_min_fault, kp->ki_rusage.ru_minflt);
-  set_uint64(vec, e_maj_fault, kp->ki_rusage.ru_majflt);
-  vec[e_state * 8] = (uint8_t)state_to_char(kp->ki_stat);
+  memset(vec, '\0', e_proc_byte_n);
+  set_int64(vec, e_proc_pid, kp->ki_pid);
+  set_int64(vec, e_proc_uid, kp->ki_uid);
+  set_int64(vec, e_proc_gid, kp->ki_groups[0]);
+  set_int64(vec, e_proc_ppid, kp->ki_ppid);
+  set_int64(vec, e_proc_pgid, kp->ki_pgid);
+  set_int64(vec, e_proc_sid, kp->ki_sid);
+  set_uint64(vec, e_proc_mem_rss, (uint64_t)kp->ki_rssize * get_os_pagesize());
+  set_uint64(vec, e_proc_mem_virt, (uint64_t)kp->ki_size);
+  set_timeval(vec, e_proc_start_time, kp->ki_start);
+  set_timeval(vec, e_proc_user_time, kp->ki_rusage.ru_utime);
+  set_timeval(vec, e_proc_sys_time, kp->ki_rusage.ru_stime);
+  set_int64(vec, e_proc_priority, 20 - (int)kp->ki_nice);
+  set_int64(vec, e_proc_num_thread, kp->ki_numthreads);
+  set_uint64(vec, e_proc_min_fault, kp->ki_rusage.ru_minflt);
+  set_uint64(vec, e_proc_maj_fault, kp->ki_rusage.ru_majflt);
+  vec[e_proc_state * 8] = (uint8_t)state_to_char(kp->ki_stat);
 
   return Scons(scheme2k_Sstring_utf8b(kp->ki_comm, (size_t)-1), make_tty_name(kp->ki_tdev));
 }

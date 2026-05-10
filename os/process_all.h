@@ -50,24 +50,24 @@ static int c_errno(void) {
 }
 
 enum {
-  e_pid         = 0,  /* int64 */
-  e_uid         = 1,  /* int64 */
-  e_gid         = 2,  /* int64 */
-  e_ppid        = 3,  /* int64 */
-  e_pgid        = 4,  /* int64 */
-  e_sid         = 5,  /* int64 */
-  e_mem_rss     = 6,  /* bytes, uint64 */
-  e_mem_virt    = 7,  /* bytes, uint64 */
-  e_start_time  = 8,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
-  e_user_time   = 10, /* duration, timespec */
-  e_sys_time    = 12, /* duration, timespec */
-  e_iowait_time = 14, /* duration, timespec */
-  e_priority    = 16, /* int64  */
-  e_num_thread  = 17, /* int64  */
-  e_min_fault   = 18, /* uint64 */
-  e_maj_fault   = 19, /* uint64 */
-  e_state       = 20, /* char   */
-  e_byte_n      = e_state * 8 + 1,
+  e_proc_pid         = 0,  /* int64 */
+  e_proc_uid         = 1,  /* int64 */
+  e_proc_gid         = 2,  /* int64 */
+  e_proc_ppid        = 3,  /* int64 */
+  e_proc_pgid        = 4,  /* int64 */
+  e_proc_sid         = 5,  /* int64 */
+  e_proc_mem_rss     = 6,  /* bytes, uint64 */
+  e_proc_mem_virt    = 7,  /* bytes, uint64 */
+  e_proc_start_time  = 8,  /* utc,      timespec, uint64 tv_nsec then int64 tv_sec */
+  e_proc_user_time   = 10, /* duration, timespec */
+  e_proc_sys_time    = 12, /* duration, timespec */
+  e_proc_iowait_time = 14, /* duration, timespec */
+  e_proc_priority    = 16, /* int64  */
+  e_proc_num_thread  = 17, /* int64  */
+  e_proc_min_fault   = 18, /* uint64 */
+  e_proc_maj_fault   = 19, /* uint64 */
+  e_proc_state       = 20, /* char   */
+  e_proc_byte_n      = e_proc_state * 8 + 1,
 };
 
 static size_t get_os_pagesize(void) {
