@@ -78,7 +78,7 @@
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss posix/socket.ss
   (include "ipc/ipc.ss")
 
-  (include "os/process.ss")
+  (include "os/os.ss")              ; requires reflect/reflect.ss io/wire/wire.ss
 
   (include "vscreen/all.ss")
 

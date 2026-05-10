@@ -1,0 +1,45 @@
+;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi
+;;;
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
+
+
+;; customize how "disk-reader" objects are printed
+(record-writer (record-type-descriptor disk-reader)
+  (lambda (rx port writer)
+    (put-string port "#<disk-reader")
+    (put-string port (if (reader-eof? rx) " eof>" " ok>"))))
+
+
+;; customize how "disk-entry" objects are printed
+(record-writer (record-type-descriptor disk-entry)
+  (lambda (e port writer)
+    (put-string port "(make-disk-entry ")
+                            (writer (disk-entry-id e) port)
+    (put-char port #\space) (writer (disk-entry-file-system e) port)
+    (put-char port #\space) (writer (disk-entry-mount-point e) port)
+    (put-char port #\space) (writer (disk-entry-bytes-total e) port)
+    (put-char port #\space) (writer (disk-entry-bytes-free e) port)
+    (put-char port #\space) (writer (disk-entry-bytes-avail e) port)
+    (put-char port #\space) (writer (disk-entry-inodes-total e) port)
+    (put-char port #\space) (writer (disk-entry-inodes-free e) port)
+    (put-char port #\space) (writer (disk-entry-inodes-avail e) port)
+    (put-char port #\space) (writer (disk-entry-block-size e) port)
+    (put-char port #\space) (writer (disk-entry-dev e) port)
+    (put-char port #\space) (writer (disk-entry-flags e) port)
+    (put-string port ")")))
+
+
+(let* ((rtd (record-type-descriptor disk-entry))
+       (type-sym (record-type-name rtd))
+       (tag-disk-entry 241))
+
+  ;; customize visible reflect fields for `disk-entry` objects.
+  ;; register a deserializer that does NOT call (make-disk-entry), because it would alters incoming fields order:
+  ;; it only converts string->symbol the field disk-entry-state
+  (reflect-info-set! rtd (make-reflect-info-autodetect rtd type-sym) type-sym deserialize-disk-entry)
+
+  ;; customize how `wire` library serializes/deserializes `disk-entry` objects
+  (wire-register-rtd-reflect rtd tag-disk-entry make-disk-entry))

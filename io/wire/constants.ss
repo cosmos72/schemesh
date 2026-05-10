@@ -78,11 +78,12 @@
 (define tag-ord-hash      54)
 
 (define min-tag-to-allocate   90)
-(define next-tag-to-allocate 241)
+(define next-tag-to-allocate 240)
 (define max-tag-to-allocate  253)
 
-(define tag-rlimit        242)
-(define tag-process-entry 243) ; implemented in os/process.ss
+(define tag-disk-entry    241) ; implemented in os/disk.ss
+(define tag-process-entry 242) ; implemented in os/process.ss
+(define tag-rlimit        243)
 (define tag-dir-entry     244)
 (define tag-date          245)
 (define tag-time          246)

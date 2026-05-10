@@ -6,23 +6,6 @@
 ;;; version 2 of the License, or (at your option) any later version.
 
 
-;;; collect information about system processes
-;;;
-(library (scheme2k os (1 0 0))
-  (export make-process-reader process-reader process-reader?
-          make-process-entry  process-entry  process-entry?)
-  (import
-    (rnrs)
-    (only (chezscheme)                   1+ foreign-procedure fx1+ fx1- make-time record-writer string->immutable-string void)
-    (only (scheme2k bootstrap)           assert*)
-    (only (scheme2k containers list)     plist-update!)
-    (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
-    (only (scheme2k io wire)             wire-register-rtd-reflect)
-    (only (scheme2k posix fd)            raise-c-errno)
-    (only (scheme2k posix fs)            gid->groupname uid->username)
-    (only (scheme2k reflect)             make-reflect-info-autodetect reflect-info-set!))
-
-
 (define-record-type (process-reader %make-process-reader process-reader?)
   (parent reader)
   (fields
@@ -53,17 +36,17 @@
     (lambda (rx)
       (let ((handle (process-reader-handle rx)))
         (if handle
-          (let ((bvec (process-reader-bvec rx)))
-            (let ((ret (c-process-get handle bvec)))
-              (cond
-                ((pair? ret)
-                  (values (c->process-entry rx ret bvec) #t))
-                ((not ret)
-                  (%process-reader-get rx)) ;; error parsing /proc/pid/stat, skip it
-                ((eqv? 0 ret)
-                  (values #f #f)) ;; process-reader is exhausted
-                (else
-                  (raise-c-errno 'process-reader-get 'readdir ret handle)))))
+          (let* ((bvec (process-reader-bvec rx))
+                 (ret  (c-process-get handle bvec)))
+            (cond
+              ((pair? ret)
+                (values (c->process-entry rx ret bvec) #t))
+              ((not ret)
+                (%process-reader-get rx)) ;; error parsing /proc/pid/stat, skip it
+              ((eqv? 0 ret)
+                (values #f #f)) ;; process-reader is exhausted
+              (else
+                (raise-c-errno 'process-reader-get 'readdir ret handle))))
           (values #f #f)))))) ;; process-reader is closed
 
 
@@ -149,12 +132,6 @@
             name)))
     (void)))
 
-(define (u8->symbol u8)
-  (string->symbol (string (integer->char u8))))
-
-(define-syntax bvec-ref/s64 (identifier-syntax bytevector-s64-native-ref))
-(define-syntax bvec-ref/u64 (identifier-syntax bytevector-u64-native-ref))
-
 
 (define (c->process-entry rx l bvec)
   (let ((uid    (bvec-ref/u64 bvec (fx* 1 8)))
@@ -199,54 +176,3 @@
                                   (string->symbol val)
                                   val)))
   plist)
-
-
-;; customize how "process-reader" objects are printed
-(record-writer (record-type-descriptor process-reader)
-  (lambda (rx port writer)
-    (put-string port "#<process-reader")
-    (put-string port (if (reader-eof? rx) " eof>" " ok>"))))
-
-
-;; customize how "process-entry" objects are printed
-(record-writer (record-type-descriptor process-entry)
-  (lambda (e port writer)
-    (put-string port "(make-process-entry ")
-                            (writer (process-entry-pid e) port)
-    (put-char port #\space) (writer (process-entry-name e) port)
-    (put-char port #\space) (writer (process-entry-tty e) port)
-    (put-char port #\space) (writer (process-entry-state e) port)
-    (put-char port #\space) (writer (process-entry-user e) port)
-    (put-char port #\space) (writer (process-entry-group e) port)
-    (put-char port #\space) (writer (process-entry-uid e) port)
-    (put-char port #\space) (writer (process-entry-gid e) port)
-    (put-char port #\space) (writer (process-entry-ppid e) port)
-    (put-char port #\space) (writer (process-entry-pgid e) port)
-    (put-char port #\space) (writer (process-entry-sid e) port)
-    (put-char port #\space) (writer (process-entry-mem-rss e) port)
-    (put-char port #\space) (writer (process-entry-mem-virtual e) port)
-    (put-char port #\space) (writer (process-entry-start-time e) port)
-    (put-char port #\space) (writer (process-entry-user-time e) port)
-    (put-char port #\space) (writer (process-entry-sys-time e) port)
-    (put-char port #\space) (writer (process-entry-iowait-time e) port)
-    (put-char port #\space) (writer (process-entry-priority e) port)
-    (put-char port #\space) (writer (process-entry-threads e) port)
-    (put-char port #\space) (writer (process-entry-min-fault e) port)
-    (put-char port #\space) (writer (process-entry-maj-fault e) port)
-    (put-string port ")")))
-
-
-(let* ((rtd (record-type-descriptor process-entry))
-       (type-sym (record-type-name rtd))
-       (tag-process-entry 243))
-
-  ;; customize visible reflect fields for `process-entry` objects.
-  ;; register a deserializer that does NOT call (make-process-entry), because it would alters incoming fields order:
-  ;; it only converts string->symbol the field process-entry-state
-  (reflect-info-set! rtd (make-reflect-info-autodetect rtd type-sym) type-sym deserialize-process-entry)
-
-  ;; customize how `wire` library serializes/deserializes `process-entry` objects
-  (wire-register-rtd-reflect rtd tag-process-entry make-process-entry))
-
-
-) ; close library

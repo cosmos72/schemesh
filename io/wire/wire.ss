@@ -84,8 +84,8 @@
 ;;;                                         followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                         followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;       55 ... 88  => datum is a known symbol
-;;;      89 ... 242 => datum is a user-registered record type
-;;;     243 ... 253 => datum is a pre-registered record type
+;;;      89 ... 240 => datum is a user-registered record type
+;;;     241 ... 253 => datum is a pre-registered record type
 ;;;     254         => datum starts with extended tag
 ;;;     255         => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
 

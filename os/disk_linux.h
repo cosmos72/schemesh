@@ -13,11 +13,18 @@
 #include <sys/statvfs.h> /* statvfs() */
 
 /**
- * on success, return scheme unsigned number containing C DIR*
+ * on success, return a pair (0 . content_bytevector0) containing the bytes read from
+ *   /proc/self/mountinfo
  * on error, return c_errno() < 0
  */
 static ptr c_disk_open(void) {
-  return Sinteger(c_errno_set(ENOTSUP)); /* < 0 */
+  const size_t src_len = 65536;
+  ptr          bsrc    = Smake_bytevector(src_len, 0);
+  if (read_file_at(AT_FDCWD, "/proc/self/mountinfo", Sbytevector_data(bsrc), src_len, NULL, NULL) ==
+      NULL) {
+    return Sinteger(c_errno_set(ENOENT)); /* < 0 */
+  }
+  return Scons(Sfixnum(0), bsrc);
 }
 
 static void c_disk_close(ptr pair) {
@@ -25,7 +32,7 @@ static void c_disk_close(ptr pair) {
 }
 
 /**
- * skip one pone mounted filesystem from /proc/self/mountinfo
+ * skip one mounted filesystem from /proc/self/mountinfo
  *   on success, return 1
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0
@@ -37,8 +44,8 @@ static int c_disk_skip(ptr pair) {
   iptr                 src_len;
   size_t               skipped;
 
-  if (!Spairp(pair) || !Sbytevectorp(bsrc = Scar(pair)) || !Sfixnump(foffset = Scdr(pair)) ||
-      (offset = Sfixnum_value(foffset)) < 0 || (src_len = Sbytevector_length(bsrc)) <= 0 ||
+  if (!Spairp(pair) || !Sfixnump(foffset = Scar(pair)) || (offset = Sfixnum_value(foffset)) < 0 ||
+      !Sbytevectorp(bsrc = Scdr(pair)) || (src_len = Sbytevector_length(bsrc)) <= 0 ||
       offset >= src_len || (src = Sbytevector_data(bsrc))[src_len - 1] != '\0') {
     return c_errno_set(EINVAL);
   }
@@ -47,7 +54,7 @@ static int c_disk_skip(ptr pair) {
   if (skipped == 0) {
     return 0;
   }
-  Sset_cdr(pair, Sfixnum(offset + skipped)); /* update offset */
+  Sset_car(pair, Sfixnum(offset + skipped)); /* update offset */
   return 1;
 }
 
@@ -69,8 +76,8 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   iptr                 src_len;
   uint8_t              ok;
 
-  if (!Spairp(pair) || !Sbytevectorp(bsrc = Scar(pair)) || !Sfixnump(foffset = Scdr(pair)) ||
-      (offset = Sfixnum_value(foffset)) < 0 || (src_len = Sbytevector_length(bsrc)) <= 0 ||
+  if (!Spairp(pair) || !Sfixnump(foffset = Scar(pair)) || (offset = Sfixnum_value(foffset)) < 0 ||
+      !Sbytevectorp(bsrc = Scdr(pair)) || (src_len = Sbytevector_length(bsrc)) <= 0 ||
       offset >= src_len || (src = Sbytevector_data(bsrc))[src_len - 1] != '\0' ||
       !Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_disk_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
@@ -79,31 +86,30 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   vec = Sbytevector_data(bvec);
   memset(vec, '\0', e_disk_byte_n);
 
-  ok = parse_uint64(&src, NULL, 0 /*id*/) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
-       parse_string(&src, NULL, 4096 /*root*/) &&
+  ok = parse_uint64(&src, vec, 0 /*id*/) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
+       parse_string(&src, NULL, 4096 /*dev_t*/) && parse_string(&src, NULL, 4096 /*root*/) &&
        parse_string(&src, mountpoint, sizeof(mountpoint));
   skip_line(&src);
   /** TODO: parse dev_t, device_name */
 
-  Sset_cdr(pair, Sfixnum(src - Sbytevector_data(bsrc))); /* update offset */
+  Sset_car(pair, Sfixnum(src - Sbytevector_data(bsrc))); /* update offset */
 
   if (ok) {
     struct statvfs entry;
     if (statvfs(mountpoint, &entry) == 0) {
-      set_uint64(vec, e_disk_id, entry.f_fsid);
       set_uint64(vec, e_disk_size_total, entry.f_bsize * entry.f_blocks);
       set_uint64(vec, e_disk_size_free, entry.f_bsize * entry.f_bfree);
       set_uint64(vec, e_disk_size_avail, entry.f_bsize * entry.f_bavail);
-      set_uint64(vec, e_disk_inode_total, entry.f_bsize * entry.f_files);
-      set_uint64(vec, e_disk_inode_free, entry.f_bsize * entry.f_ffree);
-      set_uint64(vec, e_disk_inode_avail, entry.f_bsize * entry.f_favail);
+      set_uint64(vec, e_disk_inode_total, entry.f_files);
+      set_uint64(vec, e_disk_inode_free, entry.f_ffree);
+      set_uint64(vec, e_disk_inode_avail, entry.f_favail);
       set_uint64(vec, e_disk_blocksize, entry.f_bsize);
       set_uint64(vec, e_disk_flags, entry.f_flag);
       /** TODO: fill vec[e_disk_dev], return device_name */
       return Scons(Smake_string(0, 0), scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));
     }
   }
-  return Sfalse;
+  return *src ? Sfalse : Sfixnum(0);
 }
 
 #endif /* SCHEME2K_OS_DISK_LINUX_H */
