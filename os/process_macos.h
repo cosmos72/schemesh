@@ -13,8 +13,6 @@
 #include <libproc.h>
 #include <sys/sysctl.h>
 
-#include "util.h"
-
 static ptr make_tty_name(dev_t tty_nr) {
   if (tty_nr > 0) {
     char     buf[10];

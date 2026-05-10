@@ -19,6 +19,7 @@
 #include <unistd.h>   /* close(), read(), BSD pagesize(), sysconf(), _SC_PAGESIZE */
 
 #include "../containers/containers.h" /* scheme2k_Sstring_utf8b() */
+#include "util.h"                     /* used by disk.h and process.h */
 
 #include "disk.h"
 #include "process.h"

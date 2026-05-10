@@ -15,8 +15,6 @@
 #include <sys/sysmacros.h> /* major(), minor() */
 #include <sys/types.h>     /* opendir()        */
 
-#include "util.h"
-
 static struct timespec boot_time_utc = {0, -1};
 
 static struct timespec get_boot_time_utc(void) {

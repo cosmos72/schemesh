@@ -12,8 +12,6 @@
 
 #include <sys/statvfs.h> /* statvfs() */
 
-#include "util.h"
-
 /**
  * on success, return scheme unsigned number containing C DIR*
  * on error, return c_errno() < 0
