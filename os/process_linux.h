@@ -12,7 +12,7 @@
 #include <sys/sysmacros.h> /* major(), minor() */
 #include <sys/types.h>     /* opendir()        */
 
-#include "process_util_linux.h"
+#include "os_util_linux.h"
 
 static struct timespec boot_time_utc = {0, -1};
 

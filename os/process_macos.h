@@ -10,7 +10,7 @@
 #include <libproc.h>
 #include <sys/sysctl.h>
 
-#include "process_util_macos.h"
+#include "os_util_macos.h"
 
 static ptr make_tty_name(dev_t tty_nr) {
   if (tty_nr > 0) {
