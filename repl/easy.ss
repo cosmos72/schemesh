@@ -81,6 +81,11 @@
       (dirs paths (dir-reader-options)))))
 
 
+;; easy wrapper for (make-disk-reader)
+(define (disk)
+  (make-disk-reader))
+
+
 ;; easy wrapper for (port-eof?) (reader-eof?) (writer-eof?)
 (define (eof? obj)
   (cond

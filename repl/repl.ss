@@ -12,7 +12,7 @@
           repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/easy.ss
-          all all/vector close copy-all copy-all/close dir dirs eof? file files filter==> first last get put
+          all all/vector close copy-all copy-all/close dir dirs disk eof? file files filter==> first last get put
           proc select skip skip-first sort-by tty-colors where where@ with-sh-closable sh-start/reader1
 
           from-stdin from-csv from-json from-name0 from-list from-queue from-vector from-wire from-port
@@ -57,7 +57,7 @@
     (only (scheme2k io table)        make-table-writer)
     (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
-    (only (scheme2k os)              make-process-reader)
+    (only (scheme2k os)              make-disk-reader make-process-reader)
     (only (schemesh parser)          ast-unwrap ast-unwrap1 make-parsectx* parse-forms parser-name parsers to-parser)
     (only (scheme2k posix fd)        fd-close fd-read fd-read-all fd-type fd-write-all raise-c-errno)
     (only (scheme2k posix fs)        dir-entry? dir-entry-type dir-reader-options file-stat file-type make-dir-reader)
