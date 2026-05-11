@@ -111,8 +111,8 @@ static void fd_stat_uid_gid(int fd, int64_t* uid, int64_t* gid) {
 
 static unsigned char* read_file_at(
     int dir_fd, const char path[], unsigned char dst[], size_t dstlen, int64_t* uid, int64_t* gid) {
-  ssize_t n;
-  size_t  end;
+  size_t  n, end;
+  ssize_t ni;
   int     fd;
   if (path == NULL || dst == NULL || dstlen <= 1) {
     return NULL;
@@ -122,9 +122,12 @@ static unsigned char* read_file_at(
     return NULL;
   }
   fd_stat_uid_gid(fd, uid, gid);
-  n = read(fd, dst, dstlen - 1);
+  n = 0;
+  while (n < dstlen - 1 && (ni = read(fd, dst + n, dstlen - 1 - n)) > 0) {
+    n += ni;
+  }
   close(fd);
-  end      = n < 0 ? 0 : (size_t)n < dstlen ? (size_t)n : dstlen - 1;
+  end      = n < dstlen ? n : dstlen - 1;
   dst[end] = '\0';
   return dst + end;
 }
