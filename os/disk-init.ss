@@ -27,7 +27,8 @@
     (put-char port #\space) (writer (disk-entry-inodes-free e) port)
     (put-char port #\space) (writer (disk-entry-inodes-avail e) port)
     (put-char port #\space) (writer (disk-entry-block-size e) port)
-    (put-char port #\space) (writer (disk-entry-dev e) port)
+    (put-char port #\space) (writer (disk-entry-major e) port)
+    (put-char port #\space) (writer (disk-entry-minor e) port)
     (put-char port #\space) (writer (disk-entry-flags e) port)
     (put-string port ")")))
 
@@ -37,8 +38,7 @@
        (tag-disk-entry 241))
 
   ;; customize visible reflect fields for `disk-entry` objects.
-  ;; register a deserializer that does NOT call (make-disk-entry), because it would alters incoming fields order:
-  ;; it only converts string->symbol the field disk-entry-state
+  ;; register a deserializer that does NOT call (make-disk-entry), because it would alters incoming fields order
   (reflect-info-set! rtd (make-reflect-info-autodetect rtd type-sym) type-sym deserialize-disk-entry)
 
   ;; customize how `wire` library serializes/deserializes `disk-entry` objects

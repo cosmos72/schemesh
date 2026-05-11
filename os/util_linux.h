@@ -226,16 +226,16 @@ static size_t parse_string(const unsigned char** src, char* dst, size_t dstlen) 
 }
 
 /**
- * skip characters until and including first '\n'
+ * skip characters until and including find_ch
  * @return number of skipped characters.
  */
-static size_t skip_line(const unsigned char** src) {
+static size_t skip_until(const unsigned char** src, const char find_ch) {
   size_t        len = 0;
   unsigned char ch;
   while ((ch = **src) != '\0') {
     ++*src;
     ++len;
-    if (ch == '\n') {
+    if (ch == find_ch) {
       break;
     }
   }

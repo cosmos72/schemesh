@@ -50,7 +50,7 @@ static int c_disk_skip(ptr pair) {
     return c_errno_set(EINVAL);
   }
   src += offset;
-  skipped = skip_line(&src);
+  skipped = skip_until(&src, '\n');
   if (skipped == 0) {
     return 0;
   }
@@ -69,12 +69,15 @@ static int c_disk_skip(ptr pair) {
  */
 static ptr c_disk_get(ptr pair, ptr bvec) {
   char                 mountpoint[4096];
+  char                 fs_type[256];
+  char                 device_name[256];
   ptr                  bsrc, foffset;
   const unsigned char* src;
   unsigned char*       vec;
   iptr                 offset;
   iptr                 src_len;
   uint8_t              ok;
+  char                 colon;
 
   if (!Spairp(pair) || !Sfixnump(foffset = Scar(pair)) || (offset = Sfixnum_value(foffset)) < 0 ||
       !Sbytevectorp(bsrc = Scdr(pair)) || (src_len = Sbytevector_length(bsrc)) <= 0 ||
@@ -86,11 +89,13 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   vec = Sbytevector_data(bvec);
   memset(vec, '\0', e_disk_byte_n);
 
-  ok = parse_uint64(&src, vec, 0 /*id*/) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
-       parse_string(&src, NULL, 4096 /*dev_t*/) && parse_string(&src, NULL, 4096 /*root*/) &&
-       parse_string(&src, mountpoint, sizeof(mountpoint));
-  skip_line(&src);
-  /** TODO: parse dev_t, device_name */
+  ok = parse_uint64(&src, vec, e_disk_id) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
+       parse_uint64(&src, vec, e_disk_major) && parse_char(&src, &colon) && colon == ':' &&
+       parse_uint64(&src, vec, e_disk_minor) && parse_string(&src, NULL, 4096 /*root*/) &&
+       parse_string(&src, mountpoint, sizeof(mountpoint)) && skip_until(&src, '-') &&
+       parse_string(&src, fs_type, sizeof(fs_type)) &&
+       parse_string(&src, device_name, sizeof(device_name));
+  skip_until(&src, '\n');
 
   Sset_car(pair, Sfixnum(src - Sbytevector_data(bsrc))); /* update offset */
 
@@ -105,8 +110,8 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
       set_uint64(vec, e_disk_inode_avail, entry.f_favail);
       set_uint64(vec, e_disk_blocksize, entry.f_bsize);
       set_uint64(vec, e_disk_flags, entry.f_flag);
-      /** TODO: fill vec[e_disk_dev], return device_name */
-      return Scons(Smake_string(0, 0), scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));
+      return Scons(scheme2k_Sstring_utf8b(device_name, (size_t)-1),
+                   scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));
     }
   }
   return *src ? Sfalse : Sfixnum(0);
