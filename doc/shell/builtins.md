@@ -14,6 +14,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`cd-`](#cd-) change back to previous current directory
 * [`command`](#command) execute an external command, even if shadowed by an alias or by a builtin
 * [`dir`](#dir) display specified files and directories as structured data, or current directory by default
+* [`disk`](#disk) display mounted file systems as structured data
 * [`echo`](#echo) write space-separated arguments to standard output, terminated by a newline
 * [`echo0`](#echo0) write NUL-terminated arguments to standard output
 * [`exec`](#exec) replace the current shell or subshell with the specified command
@@ -392,6 +393,32 @@ possible output:
 │easy.ss   │file│41945│2026-03-14│2026-03-14│rw-r--r--│max │users│
 │repl.ss   │file│29965│2026-03-14│2026-03-14│rw-r--r--│max │users│
 └──────────┴────┴─────┴──────────┴──────────┴─────────┴────┴─────┘
+```
+
+#### disk
+Syntax: `disk [OPTIONS]`
+<br/>Added in 1.0.1
+
+Display mounted file systems as structured data.<br/>
+Options:
+* `-a` also display pseudo file systems
+* `--to-FORMAT` write structured data using specified `FORMAT` instead of autodetecting it
+
+Return success, or failure if `FORMAT` is not supported.
+
+Example:
+```shell
+disk
+```
+possible output:
+```
+┌───┬─────────┬───────────┬────────────┬────────────┬────────────┬────────────┬───────────┬────────────┬──────────┬─────┬─────┬─────┐
+│id │ device  │mount-point│bytes-total │ bytes-free │bytes-avail │inodes-total│inodes-free│inodes-avail│block-size│major│minor│flags│
+├───┼─────────┼───────────┼────────────┼────────────┼────────────┼────────────┼───────────┼────────────┼──────────┼─────┼─────┼─────┤
+│ 26│udev     │/dev       │ 16668770304│ 16668770304│ 16668770304│     4069524│    4068966│     4068966│      4096│    0│    6│ 4098│
+│ 28│tmpfs    │/run       │  3359391744│  3358326784│  3358326784│     4100817│    4099843│     4099843│      4096│    0│   25│ 4106│
+│ 29│/dev/sda2│/          │ 82228940800│ 54430990336│ 50283610112│     1261568│     939586│      939586│      4096│    8│    2│ 4096│
+└───┴─────────┴───────────┴────────────┴────────────┴────────────┴────────────┴───────────┴────────────┴──────────┴─────┴─────┴─────┘
 ```
 
 #### first
