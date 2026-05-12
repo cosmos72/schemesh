@@ -541,6 +541,7 @@ Type ? or help for this help.
     ;; additional builtins
     (hashtable-set! t "answers"    builtin-answers)
     (hashtable-set! t "dir"        builtin-dir)
+    (hashtable-set! t "disk"       builtin-disk)
     (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "from"       builtin-from)
     (hashtable-set! t "jobs"       builtin-jobs)
@@ -569,6 +570,12 @@ Type ? or help for this help.
       -l            display more details for each entry
       -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
+
+    (hashtable-set! t "disk" (string->utf8 " [-a] [--to-FORMAT]
+    display mounted file systems.
+    Options:
+      -a            also display pseudo file systems
+      --to-FORMAT   display file systems in given FORMAT, instead of autodetecting it\n"))
 
     (hashtable-set! t "first"  (string->utf8 " [OPTIONS] [N]
     parse data from stdin, autodetecting input format,

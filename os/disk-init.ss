@@ -18,7 +18,7 @@
   (lambda (e port writer)
     (put-string port "(make-disk-entry ")
                             (writer (disk-entry-id e) port)
-    (put-char port #\space) (writer (disk-entry-file-system e) port)
+    (put-char port #\space) (writer (disk-entry-device e) port)
     (put-char port #\space) (writer (disk-entry-mount-point e) port)
     (put-char port #\space) (writer (disk-entry-bytes-total e) port)
     (put-char port #\space) (writer (disk-entry-bytes-free e) port)

@@ -78,7 +78,7 @@
 (define-record-type disk-entry
   (fields
     (mutable id)            ; (void) or exact integer
-    (mutable file-system)   ; (void) or string
+    (mutable device)        ; (void) or string
     (mutable mount-point)   ; (void) or string
     (mutable bytes-total)   ; (void) or exact integer
     (mutable bytes-free)    ; (void) or exact integer
@@ -90,13 +90,13 @@
     (mutable major)         ; (void) or exact integer
     (mutable minor)         ; (void) or exact integer
     (mutable flags))        ; (void) or exact integer
-  (nongenerative %disk-entry-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %disk-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define (c->disk-entry rx l bvec)
   (make-disk-entry
     (bvec-ref/u64 bvec 0)              ; id,           uint64
-    (or (car l) "")                    ; file-system,  string or (void)
+    (or (car l) "")                    ; device,       string or (void)
     (or (cdr l) "")                    ; mount-point,  string or (void)
     (bvec-ref/u64 bvec (fx*  1 8))     ; bytes-total,  uint64
     (bvec-ref/u64 bvec (fx*  2 8))     ; bytes-free,   uint64

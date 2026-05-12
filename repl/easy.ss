@@ -750,6 +750,27 @@
       (to-stdout (sort-by rx name) to-opts))))
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: disk
+
+
+;; the "disk" builtin: write to stdout information about mounted file systems
+;; autodetecting output format, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-disk job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (let* ((rx   (disk))
+           (rx   (if (some-string-is? options "-a")
+                   rx
+                   (make-filter-reader rx (lambda (elem cache)
+                                            (let ((total (field elem 'bytes-total cache)))
+                                              (and (number? total) (not (zero? total)))))
+                                       'close-inner))))
+      (to-stdout rx options))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: first
 
@@ -885,8 +906,6 @@
 ;; autodetecting output format, or with specified --to-FORMAT.
 ;;
 ;; As all builtins do, must return job status.
-;;
-;; TODO: implement [-o fields] [-O fields]
 (define (builtin-proc job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
     (let* ((user    (if (some-string-contains? args "a") #f (c-username)))
