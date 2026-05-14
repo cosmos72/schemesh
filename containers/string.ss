@@ -342,7 +342,7 @@
             (if (fx<? (fx- end start) 4)
               (do ((i start (fx1+ i)))
                   ((or (fx>=? i end) (char=? char-or-pred (string-ref str i)))
-                    (if (fx>=? i end) #f i)))
+                    (and (fx<? i end) i)))
               (c-string-index-ch str char-or-pred start end)))
           (else
             (assert* 'string-index (procedure? char-or-pred))
