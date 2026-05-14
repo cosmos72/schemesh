@@ -13,6 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
+ ;; (only (scheme2k bootstrap)            debugf)
     (only (scheme2k containers list)      for-list list-remove-consecutive-duplicates!)
     (only (scheme2k containers string)    substring=? string-empty? string-prefix? string-split)
     (only (scheme2k containers hashtable) for-hash-keys)
@@ -89,7 +90,7 @@
            (stem-len  (charspan-length stem))
            (slash-pos (and stem? (not dollar?) (charspan-index-right stem #\/))))
 
-      ;; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
+      ;; (debugf "sh-autocomplete-shell stem ~s, stem-is-first-word? ~s, offset ~s, slash-pos ~s" stem stem-is-first-word? offset slash-pos)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
@@ -440,7 +441,7 @@
 
 
 (define (%list-directory dir prefix slash? quote-func completions)
-  ; (debugf "lineedit-shell-list/directory dir = ~s, prefix = ~s, quote-func = ~s" dir prefix quote-func)
+  ;; (debugf "lineedit-shell-list/directory dir ~s, prefix ~s, quote-func ~s" dir prefix quote-func)
   (let* ((dir?       (and slash? (not (string-empty? dir))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
@@ -452,7 +453,7 @@
           (when (eq? 'dir (cdr elem))
             (charspan-insert-right! name #\/))
           (span-insert-right! completions (quote-func name))))))
-  ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
+  ;; (debugf "lineedit-shell-list/directory completions ~s" completions)
   )
 
 

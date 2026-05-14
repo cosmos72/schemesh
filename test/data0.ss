@@ -119,6 +119,7 @@
 
 
   ;; ----------------- containers string ---------------------------------------
+  (string-index-right "\x0;\x0;\x0;\x0;/pro" #\/ 4 8)   4
   (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
   (string-split "" #\:)                                 ("")
   (string-split ":" #\:)                                ("" "")

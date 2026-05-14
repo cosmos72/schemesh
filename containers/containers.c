@@ -170,8 +170,8 @@ static ptr c_string_index_ch(ptr str, ptr ch, iptr start, iptr end) {
 static ptr c_string_index_right_ch(ptr str, ptr ch, iptr start, iptr end) {
   if (Sstringp(str) && Scharp(ch) && 0 <= start && start < end && end <= Sstring_length(str)) {
     string_char c = Schar_value(ch);
-    for (--end; start < end; --end) {
-      if (Sstring_ref(str, end) == c) {
+    while (end > start) {
+      if (Sstring_ref(str, --end) == c) {
         return Sfixnum(end);
       }
     }

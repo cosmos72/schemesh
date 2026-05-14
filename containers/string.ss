@@ -363,6 +363,7 @@
   (let ((c-string-index-right-ch (foreign-procedure "c_string_index_right_ch" (ptr ptr fixnum fixnum) ptr)))
     (case-lambda
       ((str char-or-pred start end)
+        ;; (debugf "string-index-right str ~s, char-or-pred ~s, start ~s, end ~s" str char-or-pred start end)
         (assert* 'string-index-right (string? str))
         (assert* 'string-index-right (fx<=?* 0 start end (string-length str)))
         (cond
