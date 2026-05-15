@@ -245,7 +245,10 @@
 ;; Print values or exit statuses. vals must be a proper list.
 (define (repl-print-list vals)
   (sh-consume-signals (repl-args-linectx))
+  (flush-output-port (current-error-port))
   (flush-output-port (console-error-port))
+  (flush-output-port (current-output-port))
+  ;; (flush-output-port (console-output-port)) ;; no need, done below
   (do ((p (console-output-port))
        (tail vals (cdr tail)))
       ((null? tail) (flush-output-port p))
