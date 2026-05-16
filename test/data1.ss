@@ -389,6 +389,20 @@
   (first-value (wire->datum
     #vu8(14 54 76 74 2 41 2 101 102 14 41 2 99 100 15)))   ,(ordered-hash string-hash string=? "ef" -2 "cd" -1)
 
+  ;; test serializing/deserializing `disk-entry` objects
+
+  (datum->wire
+    (make-disk-entry 30 "/dev/sda1" "/" 1048576 262144 262143 10000 3000 3000 4096 1 4096))
+                                                           #vu8(46 241 12 16 30 41 9 47 100 101 118 47 115 100 97 49 41
+                                                                1 47 18 0 0 16 18 0 0 4 18 255 255 3 17 16 39 17 184 11
+                                                                17 184 11 17 0 16 1 17 0 16)
+
+  (first-value (wire->datum
+    #vu8(46 241 12 16 30 41 9 47 100 101 118 47 115 100 97 49 41
+         1 47 18 0 0 16 18 0 0 4 18 255 255 3 17 16 39 17 184 11
+         17 184 11 17 0 16 1 17 0 16)))
+                                                          ,(make-disk-entry 30 "/dev/sda1" "/" 1048576 262144 262143
+                                                             10000 3000 3000 4096 (c-make-dev 0 1))
 
   ;; test serializing/deserializing `dir-entry` objects
 
@@ -410,7 +424,7 @@
          111 111 116 0 0 18 0 253 0 3 2 16 18)))
                                                            ,(make-dir-entry "." dir 4096 "" (make-time-utc 1771103542 74351376)
                                                               (make-time-utc 1771103542 74351376) (make-time-utc 1771103542 74351376)
-                                                              "rwxr-xr-x" "root" "root" 0 0 64768 3 2 18)
+                                                              "rwxr-xr-x" "root" "root" 0 0 (c-make-dev 253 0) (c-make-dev 0 3) 2 18)
 
 
   ;; test serializing/deserializing `process-entry` objects

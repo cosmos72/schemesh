@@ -27,9 +27,14 @@
     (put-char port #\space) (writer (disk-entry-inodes-free e) port)
     (put-char port #\space) (writer (disk-entry-inodes-avail e) port)
     (put-char port #\space) (writer (disk-entry-block-size e) port)
-    (put-char port #\space) (writer (disk-entry-major e) port)
-    (put-char port #\space) (writer (disk-entry-minor e) port)
-    (put-char port #\space) (writer (disk-entry-flags e) port)
+    (let ((dev (disk-entry-dev e)))
+      (cond
+        ((and (number? dev) (exact? dev))
+          (put-string port " (c-make-dev ") (writer (c-dev-major dev) port)
+          (put-char port #\space)           (writer (c-dev-minor dev) port)
+          (put-string port ")"))
+        (else
+          (put-char port #\space) (writer dev port))))
     (put-string port ")")))
 
 

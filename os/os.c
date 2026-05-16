@@ -25,6 +25,10 @@
 #include "process.h"
 
 void scheme2k_register_c_functions_os(void) {
+  Sregister_symbol("c_make_dev", &c_make_dev);
+  Sregister_symbol("c_dev_major", &c_dev_major);
+  Sregister_symbol("c_dev_minor", &c_dev_minor);
+
   Sregister_symbol("c_disk_open", &c_disk_open);
   Sregister_symbol("c_disk_get", &c_disk_get);
   Sregister_symbol("c_disk_skip", &c_disk_skip);

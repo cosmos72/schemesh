@@ -35,7 +35,7 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   The syntax `[...]` has an ambiguity: it may indicate either a subshell or a wildcard.<br/>
   At the beginning of a simple command, it is parsed as a subshell.<br/>
   In all other cases, `[...]` is parsed as a wildcard: if you need it at the beginning of a simple command, prefix it with `""`.
-  
+
   Wildcards `{cmd ~user/*foo?[a-z]bar[!0-9]}` are parsed to `(shell cmd (shell-wildcard ~ "user/" * "foo" ? % "a-z" "bar" %! "0-9"))`.
   In detail:
   - `~` can only appear at the beginning of an argument. It expands to the home directory of specified user (by default, current user)
@@ -48,7 +48,7 @@ Note that arguments, file redirections and fd redirections **can** be interleave
   (either unquoted or double quoted) and indicate that specified subcommand must be executed,
   and its output must be inserted as a **single** string where the substitution appears.<br/>
   Note: traditional shells also split the output of subcommand to multiple strings, unless it's in double quotes.
-  
+
   Both substitution syntaxes `{cmd $[subcommand arg]}` and ``{cmd `subcommand arg`}``
   are parsed to `(shell "cmd" (shell-backquote "subcommand" "arg"))`
   and can contain **any** shell syntax, not only simple commands.

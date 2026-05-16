@@ -10,7 +10,20 @@
 #ifndef SCHEME2K_OS_DISK_LINUX_H
 #define SCHEME2K_OS_DISK_LINUX_H
 
-#include <sys/statvfs.h> /* statvfs() */
+#include <sys/statvfs.h>   /* statvfs() */
+#include <sys/sysmacros.h> /* makedev(), major(), minor() */
+
+static uint64_t c_make_dev(unsigned major, unsigned minor) {
+  return (uint64_t)makedev(major, minor);
+}
+
+static unsigned c_dev_major(uint64_t dev) {
+  return major((dev_t)dev);
+}
+
+static unsigned c_dev_minor(uint64_t dev) {
+  return minor((dev_t)dev);
+}
 
 /**
  * on success, return a pair (0 . content_bytevector0) containing the bytes read from
@@ -71,6 +84,7 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   char                 mountpoint[4096];
   char                 fs_type[256];
   char                 device_name[256];
+  uint64_t             major, minor;
   ptr                  bsrc, foffset;
   const unsigned char* src;
   unsigned char*       vec;
@@ -90,8 +104,8 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   memset(vec, '\0', e_disk_byte_n);
 
   ok = parse_uint64(&src, vec, e_disk_id) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
-       parse_uint64(&src, vec, e_disk_major) && parse_char(&src, &colon) && colon == ':' &&
-       parse_uint64(&src, vec, e_disk_minor) && parse_string(&src, NULL, 4096 /*root*/) &&
+       parse_uint64(&src, &major, 0) && parse_char(&src, &colon) && colon == ':' &&
+       parse_uint64(&src, &minor, 0) && parse_string(&src, NULL, 4096 /*root*/) &&
        parse_string(&src, mountpoint, sizeof(mountpoint)) && skip_until(&src, '-') &&
        parse_string(&src, fs_type, sizeof(fs_type)) &&
        parse_string(&src, device_name, sizeof(device_name));
@@ -109,6 +123,7 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
       set_uint64(vec, e_disk_inode_free, entry.f_ffree);
       set_uint64(vec, e_disk_inode_avail, entry.f_favail);
       set_uint64(vec, e_disk_blocksize, entry.f_bsize);
+      set_uint64(vec, e_disk_dev, makedev(major, minor));
       set_uint64(vec, e_disk_flags, entry.f_flag);
       return Scons(scheme2k_Sstring_utf8b(device_name, (size_t)-1),
                    scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));

@@ -9,6 +9,8 @@
 
 (library (scheme2k posix fs (1 0 0))
   (export
+      c-make-dev c-dev-major c-dev-minor
+
       make-dir-entry  dir-entry  dir-entry?  dir-entry-type
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
 
@@ -33,6 +35,10 @@
     (only (scheme2k posix fd)              c-errno->string raise-c-errno)
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
+
+(define c-make-dev  (foreign-procedure "c_make_dev"  (unsigned unsigned) unsigned-64))
+(define c-dev-major (foreign-procedure "c_dev_major" (unsigned-64) unsigned))
+(define c-dev-minor (foreign-procedure "c_dev_minor" (unsigned-64) unsigned))
 
 ;; info about a filesystem entry: a file, dir, socket, pipe, symlink...
 (define-record-type (dir-entry %make-dir-entry dir-entry?)
@@ -633,6 +639,16 @@
   plist)
 
 
+(define (write-c-make-dev dev port writer)
+  (cond
+    ((and (number? dev) (exact? dev))
+      (put-string port "(c-make-dev ") (writer (c-dev-major dev) port)
+      (put-char port #\space)          (writer (c-dev-minor dev) port)
+      (put-string port ")"))
+    (else
+      (writer dev port))))
+
+
 ;; customize how "dir-reader" objects are printed
 (record-writer (record-type-descriptor dir-reader)
   (lambda (rx port writer)
@@ -646,16 +662,19 @@
 (record-writer (record-type-descriptor dir-entry)
   (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size     dir-entry-link
                            dir-entry-modified dir-entry-accessed dir-entry-status-changed   dir-entry-mode
-                           dir-entry-user     dir-entry-group    dir-entry-uid      dir-entry-gid
-                           dir-entry-dev      dir-entry-rdev     dir-entry-inode    dir-entry-nlink)))
+                           dir-entry-user     dir-entry-group    dir-entry-uid      dir-entry-gid)))
     (lambda (e port writer)
       (put-string port "(make-dir-entry")
       (do ((i 0 (fx1+ i))
            (n (vector-length accessors)))
-          ((fx>=? i n) (put-string port ")"))
+          ((fx>=? i n))
         (put-char port #\space)
-        (writer ((vector-ref accessors i) e) port)))))
-
+        (writer ((vector-ref accessors i) e) port))
+      (put-char port #\space) (write-c-make-dev (dir-entry-dev e) port writer)
+      (put-char port #\space) (write-c-make-dev (dir-entry-rdev e) port writer)
+      (put-char port #\space) (writer (dir-entry-inode e) port)
+      (put-char port #\space) (writer (dir-entry-nlink e) port)
+      (put-string port ")"))))
 
 ;; customize visible reflect fields for `dir-entry` objects.
 ;; the deserializer does NOT call (make-dir-entry), because it alters incoming fields order:

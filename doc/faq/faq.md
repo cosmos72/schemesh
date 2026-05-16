@@ -212,7 +212,7 @@ at least if you don't load quicklisp and slime (then it grows to at least 100 MB
 nowadays it is backed by Chez Scheme and it shares Chez Scheme's strengths (see below),
 except for RAM usage: it uses ~140 MB at startup, and more if you load some of its many libraries.
 
-[Chez Scheme](https://cisco.github.io/ChezScheme/) is is one of the best open-source Scheme R6RS optimizing compilers, 
+[Chez Scheme](https://cisco.github.io/ChezScheme/) is is one of the best open-source Scheme R6RS optimizing compilers,
 with sophisticated C FFI and only 22-25 MB RAM usage in its default configuration.
 As a bonus, it can also be embedded into a user-created C executable.
 
