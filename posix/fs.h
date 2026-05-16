@@ -29,6 +29,8 @@ typedef enum {
   e_vec_mode,
   e_vec_uid,
   e_vec_gid,
+  e_vec_dev,
+  e_vec_rdev,
   e_vec_inode,
   e_vec_num_links,
   e_vec_n,
@@ -45,6 +47,8 @@ enum {
   e_dir_flag_mode        = 1 << e_vec_mode,
   e_dir_flag_uid         = 1 << e_vec_uid,
   e_dir_flag_gid         = 1 << e_vec_gid,
+  e_dir_flag_dev         = 1 << e_vec_dev,
+  e_dir_flag_rdev        = 1 << e_vec_rdev,
   e_dir_flag_inode       = 1 << e_vec_inode,
   e_dir_flag_num_links   = 1 << e_vec_num_links,
   e_dir_flag_hidden      = 1 << e_vec_n,
@@ -241,6 +245,13 @@ static e_type file_stat_to_vec(const struct stat* st, e_type type, ptr vec, unsi
   }
   if (flags & e_dir_flag_gid) {
     Svector_set(vec, e_vec_gid, Sinteger(st->st_gid));
+  }
+  if (flags & e_dir_flag_dev) {
+    Svector_set(vec, e_vec_dev, Sinteger(st->st_dev));
+  }
+  if (flags & e_dir_flag_rdev) {
+    Svector_set(
+        vec, e_vec_rdev, Sinteger(type == e_type_chr || type == e_type_blk ? st->st_rdev : 0));
   }
   if (flags & e_dir_flag_inode) {
     Svector_set(vec, e_vec_inode, Sunsigned64(st->st_ino));

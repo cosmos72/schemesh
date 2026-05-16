@@ -49,9 +49,11 @@
     (mutable group)    ; (void) or immutable string
     (mutable uid)      ; (void) or exact integer
     (mutable gid)      ; (void) or exact integer
+    (mutable dev)      ; (void) or exact integer
+    (mutable rdev)     ; (void) or exact integer
     (mutable inode)    ; (void) or exact integer
     (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 (define (exact-integer-or-void? obj)
@@ -67,7 +69,7 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size link modified accessed status-changed mode user group uid gid inode nlink)
+(define (make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
@@ -80,14 +82,16 @@
   (assert* 'make-dir-entry (string-or-void? group))
   (assert* 'make-dir-entry (exact-integer-or-void? uid))
   (assert* 'make-dir-entry (exact-integer-or-void? gid))
+  (assert* 'make-dir-entry (exact-integer-or-void? dev))
+  (assert* 'make-dir-entry (exact-integer-or-void? rdev))
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link modified accessed status-changed mode user group uid gid inode nlink)))
+    (%make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
 
 
 (define (make-dir-entry-vector)
-  (make-vector 12 (void)))
+  (make-vector 14 (void)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; streaming API
@@ -290,20 +294,22 @@
       (make-dir-entry
         (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
           (path-append (dir-reader-path rx) name)
-          name)
-        (if-fixnum->type   (vector-ref vec 1))
-        (vector-ref vec 2)
-        (or (vector-ref vec 3) "") ; symlink target
-        (if-pair->time-utc (vector-ref vec 4)) ; modified
-        (if-pair->time-utc (vector-ref vec 6)) ; accessed
-        (if-pair->time-utc (vector-ref vec 6)) ; status-changed
-        (if-mode->string   (vector-ref vec 7))
-        (if-uid->username  rx (vector-ref vec 8))
-        (if-gid->groupname rx (vector-ref vec 9))
-        (vector-ref vec 8)
-        (vector-ref vec 9)
-        (vector-ref vec 10)
-        (vector-ref vec 11)))))
+          name)                                   ; name
+        (if-fixnum->type   (vector-ref vec 1))    ; type
+        (vector-ref vec 2)                        ; size
+        (or (vector-ref vec 3) "")                ; symlink target
+        (if-pair->time-utc (vector-ref vec 4))    ; modified
+        (if-pair->time-utc (vector-ref vec 6))    ; accessed
+        (if-pair->time-utc (vector-ref vec 6))    ; status-changed
+        (if-mode->string   (vector-ref vec 7))    ; mode
+        (if-uid->username  rx (vector-ref vec 8)) ; username
+        (if-gid->groupname rx (vector-ref vec 9)) ; groupname
+        (vector-ref vec 8)      ; uid
+        (vector-ref vec 9)      ; gid
+        (vector-ref vec 10)     ; dev
+        (vector-ref vec 11)     ; rdev
+        (vector-ref vec 12)     ; inode
+        (vector-ref vec 13))))) ; nlink
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; low-level API
@@ -638,10 +644,10 @@
 
 ;; customize how "dir-entry" objects are printed
 (record-writer (record-type-descriptor dir-entry)
-  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size    dir-entry-link
-                           dir-entry-modified dir-entry-accessed dir-entry-status-changed
-                           dir-entry-mode     dir-entry-user     dir-entry-group   dir-entry-uid
-                           dir-entry-gid      dir-entry-inode    dir-entry-nlink)))
+  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size     dir-entry-link
+                           dir-entry-modified dir-entry-accessed dir-entry-status-changed   dir-entry-mode
+                           dir-entry-user     dir-entry-group    dir-entry-uid      dir-entry-gid
+                           dir-entry-dev      dir-entry-rdev     dir-entry-inode    dir-entry-nlink)))
     (lambda (e port writer)
       (put-string port "(make-dir-entry")
       (do ((i 0 (fx1+ i))
