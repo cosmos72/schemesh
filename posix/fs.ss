@@ -60,7 +60,7 @@
     (catch (ex)
       (debug-condition ex)
       (let ((out (console-error-port)))
-        (put-string out "\x1b;[1;31m; ")
+        (put-string out "\x1b;[1;33m; ")
         (display-condition ex out)
         (put-string out "\x1b;[m\n")
         (flush-output-port out))
