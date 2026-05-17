@@ -162,6 +162,25 @@
   (make-process-reader))
 
 
+;; helper for (search . args)
+(define (%search-parse-args args paths accept-entry-proc? recurse-dir-proc?)
+  (if (null? args)
+    (values (reverse! paths) accept-entry-proc? recurse-dir-proc?)
+    (let ((arg (car args)))
+      (if (procedure? arg)
+        (if recurse-dir-proc?
+          (raise-errorf 'search "too many procedures in arguments: ~s ~s ~s" accept-entry-proc? recurse-dir-proc? arg)
+          (%search-parse-args (cdr args) paths (or accept-entry-proc? arg) (and accept-entry-proc? arg)))
+        (%search-parse-args (cdr args) (cons arg paths) accept-entry-proc? recurse-dir-proc?)))))
+
+
+;; easy wrapper for (make-fs-reader)
+(define (search . args)
+  (call-with-values
+    (lambda () (%search-parse-args args '() #f #f))
+    make-fs-reader))
+
+
 ;; easy wrapper for (get-line) (reader-skip)
 ;; always returns one value:
 ;;   #t if one element was skipped,

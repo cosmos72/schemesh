@@ -111,11 +111,12 @@
       (%make-fs-reader (if (or (null? path-or-list) (pair? path-or-list))
                          path-or-list
                          (list path-or-list))
-                       accept-entry-proc? recurse-dir-proc?))
+                       (or accept-entry-proc? (lambda (entry) #t))
+                       (or recurse-dir-proc?  (lambda (entry) (eq? 'dir (dir-entry-type entry))))))
     ((path-or-list accept-entry-proc?)
-      (make-fs-reader path-or-list accept-entry-proc? (lambda (entry) (eq? 'dir (dir-entry-type entry)))))
+      (make-fs-reader path-or-list accept-entry-proc? #f))
     ((path-or-list)
-      (make-fs-reader path-or-list (lambda (entry) #t)))))
+      (make-fs-reader path-or-list #f #f))))
 
 
 (define (%fs-reader-get rx)
