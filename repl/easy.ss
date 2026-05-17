@@ -165,7 +165,9 @@
 ;; helper for (search . args)
 (define (%search-parse-args args paths accept-entry-proc? recurse-dir-proc?)
   (if (null? args)
-    (values (reverse! paths) accept-entry-proc? recurse-dir-proc?)
+    (values (if (null? paths) '(".") (reverse! paths))
+            accept-entry-proc?
+            recurse-dir-proc?)
     (let ((arg (car args)))
       (if (procedure? arg)
         (if recurse-dir-proc?
@@ -177,7 +179,7 @@
 ;; easy wrapper for (make-fs-reader)
 (define (search . args)
   (call-with-values
-    (lambda () (%search-parse-args (if (null? args) '(".") args) '() #f #f))
+    (lambda () (%search-parse-args args '() #f #f))
     make-fs-reader))
 
 
