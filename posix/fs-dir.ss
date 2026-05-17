@@ -151,7 +151,7 @@
             (vector-fill! vec (void))
             (let ((err (c-dir-get handle vec flags)))
               (unless (and (fixnum? err) (fx>=? err 0))
-                (raise-c-errno 'dir-reader-get 'readdir err handle))
+                (raise-c-errno 'dir-reader-get 'readdir err (dir-reader-path rx)))
               (if (fx<=? err 0)
                 (values #f #f) ;; dir-reader is exhausted
                 (let ((ret (vector->dir-entry rx vec)))
