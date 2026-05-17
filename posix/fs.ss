@@ -27,8 +27,8 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme)                     console-error-port debug-condition display-condition foreign-procedure fx1+ fxlogbit?
-                                           include logbit? make-continuation-condition make-format-condition procedure-arity-mask
-                                           record-writer reverse! sort! string->immutable-string time? void)
+                                           include logbit? make-continuation-condition make-format-condition
+                                           procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
@@ -36,8 +36,8 @@
     (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
-    (only (scheme2k conversions)           text->bytevector text->bytevector0 text->string)
-    (only (scheme2k io obj)                reader reader-get reader-eof? reader-close reader-skip)
+    (only (scheme2k conversions)           text? text->bytevector text->bytevector0 text->string)
+    (only (scheme2k io obj)                reader reader? reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k posix fd)              c-errno->string raise-c-errno)
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
@@ -67,12 +67,10 @@
       #f)))
 
 
-(define (%make-dir-reader-list path-list uid-cache gid-cache dirs)
-  (if (null? path-list)
-    (reverse! dirs)
-    ;; TODO: on exception, close already-created dir-readers
-    (let ((dir (%make-dir-reader1 (car path-list) uid-cache gid-cache)))
-      (%make-dir-reader-list (cdr path-list) uid-cache gid-cache (if dir (cons dir dirs) dirs)))))
+(define (text-list? path-list)
+  (do ((l path-list (cdr l)))
+      ((or (null? l) (not (text? (car l))))
+        (null? l))))
 
 
 (define-record-type (fs-reader %make-fs-reader fs-reader?)
@@ -81,26 +79,25 @@
     path-list          ; initial path list
     accept-entry-proc? ; procedure for deciding whether to accept a dir-entry
     recurse-dir-proc?  ; procedure for deciding whether to recurse into a directory
-    (mutable dirs)     ; list of dir-readers
+    (mutable stack)    ; list of dir-entry and/or dir-readers
     uid-cache          ; eqv-hashtable uid -> user name
     gid-cache)         ; eqv-hashtable gid -> group name
   (protocol
     (lambda (args->new)
       (let ((%%make-fs-reader ;; shown when displaying procedure
               (lambda (path-list accept-entry-proc? recurse-dir-proc?)
-                (assert* 'make-fs-reader (list? path-list))
+                (assert* 'make-fs-reader (text-list? path-list))
                 (assert* 'make-fs-reader (procedure? accept-entry-proc?))
                 (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
                 (assert* 'make-fs-reader (procedure? recurse-dir-proc?))
                 (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask recurse-dir-proc?)))
-                (let ((uid-cache (make-eqv-hashtable))
-                      (gid-cache (make-eqv-hashtable))
-                      (%new      (args->new %fs-reader-get #f %fs-reader-close)))
-                  (%new path-list
-                        accept-entry-proc? recurse-dir-proc?
-                        (%make-dir-reader-list path-list uid-cache gid-cache '())
-                        uid-cache
-                        gid-cache)))))
+                ((args->new %fs-reader-get #f %fs-reader-close)
+                   (map text->string path-list)
+                   accept-entry-proc?
+                   recurse-dir-proc?
+                   (map text->bytevector0 path-list)
+                   (make-eqv-hashtable)
+                   (make-eqv-hashtable)))))
         %%make-fs-reader)))
   (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
@@ -119,36 +116,53 @@
       (make-fs-reader path-or-list #f #f))))
 
 
+(define (fs-reader-stack-push-dir! rx entry)
+  (fs-reader-stack-set! rx (cons (%make-dir-reader1 (dir-entry-name entry)
+                                                    (fs-reader-uid-cache rx)
+                                                    (fs-reader-gid-cache rx))
+                                  (fs-reader-stack rx))))
+
+
 (define (%fs-reader-get rx)
-  (let* ((dirs (fs-reader-dirs rx))
-         (dir  (and (pair? dirs) (car dirs))))
-    (if (not dir)
-      (values #f #f)
-      (let-values (((entry ok?) (reader-get dir)))
-        (cond
-          (ok?
-            (when (and (memq (dir-entry-type entry) '(dir symlink))
-                       ((fs-reader-recurse-dir-proc? rx) entry))
+  (let* ((stack (fs-reader-stack rx))
+         (top   (and (pair? stack) (car stack)))
+         (%fs-reader-process
+           (lambda (rx entry)
+             (when (and (memq (dir-entry-type entry) '(dir symlink))
+                        ((fs-reader-recurse-dir-proc? rx) entry))
               ;; next call to (%fs-reader-get) will recurse into subdirectory
-              (fs-reader-dirs-set! rx (cons (%make-dir-reader1 (dir-entry-name entry)
-                                                               (fs-reader-uid-cache rx)
-                                                               (fs-reader-gid-cache rx))
-                                            dirs)))
+              (fs-reader-stack-push-dir! rx entry))
             (if ((fs-reader-accept-entry-proc? rx) entry)
               (values entry #t)
               ;; skip entry and retry
-              (%fs-reader-get rx)))
-          (else
-            ;; dir is exausted. pop it and retry
-            (fs-reader-dirs-set! rx (cdr dirs))
-            (%fs-reader-get rx)))))))
+              (%fs-reader-get rx)))))
+    (cond
+      ((not top)
+        (values #f #f))
+      ((bytevector? top)
+        (let ((top (file-stat top '(symlinks))))
+          (fs-reader-stack-set! rx (cdr stack))
+          (when top
+            (%fs-reader-process rx top))))
+      ((dir-reader? top)
+        (let-values (((entry ok?) (reader-get top)))
+          (cond
+            (ok?
+              (%fs-reader-process rx entry))
+            (else
+              ;; dir is exhausted. pop it and retry
+              (fs-reader-stack-set! rx (cdr stack))
+              (%fs-reader-get rx))))))))
 
 
 (define (%fs-reader-close rx)
-  ;; close any still-open dir-reader
-  (do ((l (fs-reader-dirs rx) (cdr l)))
+  ;; close any dir-reader still open
+  (do ((l (fs-reader-stack rx) (cdr l)))
       ((null? l))
-    (reader-close (car l))))
+    (let ((e (car l)))
+      (when (reader? e)
+        (reader-close e))))
+  (fs-reader-stack-set! rx '()))
 
 
 ;; customize how "dir-reader" objects are printed
