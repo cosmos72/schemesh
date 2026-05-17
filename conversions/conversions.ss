@@ -12,7 +12,8 @@
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector text->string
     any->bytevector0 bytevector->bytevector0 text? text->bytevector0
-    any->string argv->list list->argv string-hashtable->argv transcoder-utf8
+    any->string argv->list
+    bytevector0->string list->argv string-hashtable->argv transcoder-utf8
 
     ;; unicode.ss
     char-display-width charspan-display-width string-display-width)

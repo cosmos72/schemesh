@@ -26,8 +26,8 @@
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     console-error-port debug-condition display-condition foreign-procedure fx1+ fxlogbit?
-                                           include logbit? make-continuation-condition make-format-condition
+    (only (chezscheme)                     console-error-port debug-condition display-condition foreign-procedure format fx1+
+                                           fxlogbit? include logbit? make-continuation-condition make-format-condition
                                            procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
@@ -36,7 +36,7 @@
     (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
-    (only (scheme2k conversions)           text? text->bytevector text->bytevector0 text->string)
+    (only (scheme2k conversions)           bytevector0->string text? text->bytevector text->bytevector0 text->string)
     (only (scheme2k io obj)                reader reader? reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k posix fd)              c-errno->string raise-c-errno)
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
@@ -140,10 +140,19 @@
       ((not top)
         (values #f #f))
       ((bytevector? top)
-        (let ((top (file-stat top '(symlinks))))
+        (let ((datum (file-stat top '(symlinks catch))))
           (fs-reader-stack-set! rx (cdr stack))
-          (when top
-            (%fs-reader-process rx top))))
+          (cond
+            ((dir-entry? datum)
+              (%fs-reader-process rx datum))
+            (else
+              (when (fixnum? datum)
+                (let ((port (console-error-port)))
+                  (format port "\x1b;[1;33m; Exception in file-stat: C function lstat(~s) failed with error ~s: ~a\x1b;[m\n"
+                          (bytevector0->string top) datum (c-errno->string datum))
+                  (flush-output-port port)))
+              ;; skip entry and retry
+              (%fs-reader-get rx)))))
       ((dir-reader? top)
         (let-values (((entry ok?) (reader-get top)))
           (cond
