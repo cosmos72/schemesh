@@ -26,8 +26,8 @@
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     console-error-port debug-condition display-condition foreign-procedure format fx1+
-                                           fxlogbit? include logbit? make-continuation-condition make-format-condition
+    (only (chezscheme)                     debug-condition display-condition foreign-procedure format fx1+ fxlogbit?
+                                           include logbit? make-continuation-condition make-format-condition
                                            procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
@@ -50,22 +50,6 @@
 ;;; recursively scan a directory tree: streaming API
 ;;;
 ;;; Scheme reimplementation of POSIX program "find"
-
-(define (%make-dir-reader1 path uid-cache gid-cache)
-  (try
-    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix dir-hide-dot-dotdot))))
-      (dir-reader-uid-cache-set! rx uid-cache)
-      (dir-reader-gid-cache-set! rx gid-cache)
-      rx)
-    (catch (ex)
-      (debug-condition ex)
-      (let ((out (console-error-port)))
-        (put-string out "\x1b;[1;33m; ")
-        (display-condition ex out)
-        (put-string out "\x1b;[m\n")
-        (flush-output-port out))
-      #f)))
-
 
 (define (text-list? path-list)
   (do ((l path-list (cdr l)))
@@ -116,11 +100,28 @@
       (make-fs-reader path-or-list #f #f))))
 
 
+(define (%make-dir-reader1 path uid-cache gid-cache)
+  (try
+    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix dir-hide-dot-dotdot))))
+      (dir-reader-uid-cache-set! rx uid-cache)
+      (dir-reader-gid-cache-set! rx gid-cache)
+      rx)
+    (catch (ex)
+      (debug-condition ex)
+      (let ((out (current-error-port)))
+        (put-string out "\x1b;[1;33m; ")
+        (display-condition ex out)
+        (put-string out "\x1b;[m\n")
+        (flush-output-port out))
+      #f)))
+
+
 (define (fs-reader-stack-push-dir! rx entry)
-  (fs-reader-stack-set! rx (cons (%make-dir-reader1 (dir-entry-name entry)
-                                                    (fs-reader-uid-cache rx)
-                                                    (fs-reader-gid-cache rx))
-                                  (fs-reader-stack rx))))
+  (let ((dir (%make-dir-reader1 (dir-entry-name entry)
+                                (fs-reader-uid-cache rx)
+                                (fs-reader-gid-cache rx))))
+    (when dir
+      (fs-reader-stack-set! rx (cons dir (fs-reader-stack rx))))))
 
 
 (define (%fs-reader-get rx)
@@ -147,7 +148,7 @@
               (%fs-reader-process rx datum))
             (else
               (when (fixnum? datum)
-                (let ((port (console-error-port)))
+                (let ((port (current-error-port)))
                   (format port "\x1b;[1;33m; Exception in file-stat: C function lstat(~s) failed with error ~s: ~a\x1b;[m\n"
                           (bytevector0->string top) datum (c-errno->string datum))
                   (flush-output-port port)))
