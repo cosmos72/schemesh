@@ -269,13 +269,13 @@
   ; remove offending input that triggered the exception
   (bytespan-clear! (linectx-rbuf lctx))
   ; display the condition
-  (let ((port (console-error-port)))
-    (put-string port "\n; ")
-    (put-string port message)
-    (put-string port ": ")
-    (display-condition ex port)
-    (newline port)
-    (flush-output-port port)))
+  (let ((out (console-error-port)))
+    (put-string out "\n\x1b;[1;31m; ")
+    (put-string out message)
+    (put-string out ": ")
+    (display-condition ex out)
+    (put-string out "\x1b;[m\n")
+    (flush-output-port out)))
 
 
 (define (linectx-clipboard-clear! lctx)

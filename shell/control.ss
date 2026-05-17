@@ -206,9 +206,9 @@
 
 
 (define (job-start/display-condition obj port)
-  (put-string port "; ")
+  (put-string port "\x1b;[1;31m; ")
   (display-condition obj port)
-  (newline port)
+  (put-string port "\x1b;[m\n")
   (flush-output-port port))
 
 

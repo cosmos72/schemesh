@@ -13,6 +13,7 @@
 
       make-dir-entry  dir-entry  dir-entry?  dir-entry-type
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
+      make-fs-reader  fs-reader  fs-reader?  fs-reader-path-list
 
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-stat file-type mkdir
@@ -21,8 +22,9 @@
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     foreign-procedure fx1+ fxlogbit? make-continuation-condition
-                                           make-format-condition record-writer sort! string->immutable-string time? void)
+    (only (chezscheme)                     console-error-port debug-condition display-condition foreign-procedure fx1+ fxlogbit?
+                                           include logbit? make-continuation-condition make-format-condition procedure-arity-mask
+                                           record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
@@ -36,618 +38,114 @@
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
 
-(define c-make-dev  (foreign-procedure "c_make_dev"  (unsigned unsigned) unsigned-64))
-(define c-dev-major (foreign-procedure "c_dev_major" (unsigned-64) unsigned))
-(define c-dev-minor (foreign-procedure "c_dev_minor" (unsigned-64) unsigned))
+(include "posix/fs-posix.ss")
+(include "posix/fs-dir.ss")
 
-;; info about a filesystem entry: a file, dir, socket, pipe, symlink...
-(define-record-type (dir-entry %make-dir-entry dir-entry?)
-  (fields
-    (mutable name)     ; string
-    (mutable type)     ; (void) or symbol
-    (mutable size)     ; (void) or size in bytes
-    (mutable link)     ; (void) or #f or string: symlink target
-    (mutable modified) ; (void) or time-utc
-    (mutable accessed) ; (void) or time-utc
-    (mutable status-changed) ; (void) or time-utc
-    (mutable mode)     ; (void) or POSIX permission string like "rwxr-xr--SST"
-    (mutable user)     ; (void) or immutable string
-    (mutable group)    ; (void) or immutable string
-    (mutable uid)      ; (void) or exact integer
-    (mutable gid)      ; (void) or exact integer
-    (mutable dev)      ; (void) or exact integer
-    (mutable rdev)     ; (void) or exact integer
-    (mutable inode)    ; (void) or exact integer
-    (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be42))
-
-
-(define (exact-integer-or-void? obj)
-  (or (eq? (void) obj) (and (integer? obj) (exact? obj))))
-
-(define (string-or-symbol-or-void? obj)
-  (or (eq? (void) obj) (symbol? obj) (string? obj)))
-
-(define (string-or-void? obj)
-  (or (eq? (void) obj) (string? obj)))
-
-(define (time-or-void? obj)
-  (or (eq? (void) obj) (time? obj)))
-
-
-(define (make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)
-  (assert* 'make-dir-entry (string? name))
-  (assert* 'make-dir-entry (string-or-symbol-or-void? type))
-  (assert* 'make-dir-entry (exact-integer-or-void? size))
-  (assert* 'make-dir-entry (string-or-void? link))
-  (assert* 'make-dir-entry (time-or-void? modified))
-  (assert* 'make-dir-entry (time-or-void? accessed))
-  (assert* 'make-dir-entry (time-or-void? status-changed))
-  (assert* 'make-dir-entry (string-or-void? mode))
-  (assert* 'make-dir-entry (string-or-void? user))
-  (assert* 'make-dir-entry (string-or-void? group))
-  (assert* 'make-dir-entry (exact-integer-or-void? uid))
-  (assert* 'make-dir-entry (exact-integer-or-void? gid))
-  (assert* 'make-dir-entry (exact-integer-or-void? dev))
-  (assert* 'make-dir-entry (exact-integer-or-void? rdev))
-  (assert* 'make-dir-entry (exact-integer-or-void? inode))
-  (assert* 'make-dir-entry (exact-integer-or-void? nlink))
-  (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
-
-
-(define (make-dir-entry-vector)
-  (make-vector 14 (void)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; streaming API
+;;; recursively scan a directory tree: streaming API
+;;;
+;;; Scheme reimplementation of POSIX program "find"
 
-(define-record-type (dir-reader %make-dir-reader dir-reader?)
+(define (%make-dir-reader1 path uid-cache gid-cache)
+  (try
+    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix))))
+      (dir-reader-uid-cache-set! rx uid-cache)
+      (dir-reader-gid-cache-set! rx gid-cache)
+      rx)
+    (catch (ex)
+      (debug-condition ex)
+      (let ((out (console-error-port)))
+        (put-string out "\x1b;[1;31m; ")
+        (display-condition ex out)
+        (put-string out "\x1b;[m\n")
+        (flush-output-port out))
+      #f)))
+
+    
+
+(define (%make-dir-reader-list path-list uid-cache gid-cache dirs)
+  (if (null? path-list)
+    (reverse! dirs)
+    ;; TODO: on exception, close already-created dir-readers
+    (let ((dir (%make-dir-reader1 (car path-list) uid-cache gid-cache)))
+      (%make-dir-reader-list (cdr path-list) uid-cache gid-cache (if dir (cons dir dirs) dirs)))))
+
+
+(define-record-type (fs-reader %make-fs-reader fs-reader?)
   (parent reader)
   (fields
-    (mutable handle)    ; #f or integer containing C DIR*
-    vec                 ; vector, used as buffer for C function c_dir_get()
-    (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
-    (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
-    path                ; directory being read
-    opts)               ; fixnum, bitwise-or of: 1 = dir-hide-dot-files, 2 = dir-path-as-prefix
+    path-list          ; initial path list
+    accept-entry-proc? ; procedure for deciding whether to accept a dir-entry
+    recurse-dir-proc?  ; procedure for deciding whether to recurse into a directory
+    (mutable dirs)     ; list of dir-readers
+    uid-cache          ; eqv-hashtable uid -> user name
+    gid-cache)         ; eqv-hashtable gid -> group name
   (protocol
     (lambda (args->new)
-      (lambda (handle path options)
-        ((args->new %dir-reader-get %dir-reader-skip %dir-reader-close)
-          handle (make-dir-entry-vector) #f #f path options))))
-  (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+      (let ((%%make-fs-reader ;; shown when displaying procedure
+              (lambda (path-list accept-entry-proc? recurse-dir-proc?)
+                (assert* 'make-fs-reader (list? path-list))
+                (assert* 'make-fs-reader (procedure? accept-entry-proc?))
+                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
+                (assert* 'make-fs-reader (procedure? recurse-dir-proc?))
+                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask recurse-dir-proc?)))
+                (let ((uid-cache (make-eqv-hashtable))
+                      (gid-cache (make-eqv-hashtable))
+                      (%new      (args->new %fs-reader-get #f %fs-reader-close)))
+                  (%new path-list
+                        accept-entry-proc? recurse-dir-proc?
+                        (%make-dir-reader-list path-list uid-cache gid-cache '())
+                        uid-cache
+                        gid-cache)))))
+        %%make-fs-reader)))
+  (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-(define (dir-hide-dot-files? options)
-  (fxlogbit? 0 options))
-
-
-(define (dir-path-as-prefix? options)
-  (fxlogbit? 1 options))
-
-
-(define-syntax dir-reader-option
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ option)
-        (let ((sym (syntax->datum #'option)))
-          (case sym
-            ((dir-hide-dot-files) 1)
-            ((dir-path-as-prefix) 2)
-            (else
-              (raise-errorf 'dir-reader-options "invalid syntax: (dir-reader-options ~s)" sym))))))))
-
-
-(define-syntax dir-reader-options
-  (syntax-rules ()
-    ((_)
-       0)
-    ((_ option1)
-      (dir-reader-option option1))
-    ((_ option1 option2 ...)
-      (fxior (dir-reader-option option1) (dir-reader-options option2 ...)))))
-
-
-(define make-dir-reader
-  (let ((c-dir-open (foreign-procedure "c_dir_open" (ptr) ptr)))
-    (case-lambda
-      ((path options)
-        ;; (debugf ">make-dir-reader path ~s, options ~s" path options)
-        (assert* 'make-dir-reader (fixnum? options))
-        (assert* 'make-dir-reader (fx<=? 0 options 3))
-        (let ((obj (c-dir-open (text->bytevector0 path))))
-          (unless (and (integer? obj) (exact? obj) (> obj 0))
-            (raise-c-errno 'make-dir-reader 'opendir obj path))
-          (%make-dir-reader obj (text->string path) options)))
-      ((path)
-        (make-dir-reader path (dir-reader-options))))))
-
-
-
-;; called by (reader-get)
-(define %dir-reader-get
-  (let ((c-dir-get (foreign-procedure "c_dir_get" (void* ptr unsigned) int)))
-    (lambda (rx)
-      (let ((handle (dir-reader-handle rx)))
-        (if handle
-          (let ((vec (dir-reader-vec rx)))
-            (vector-fill! vec (void))
-            (let ((err (c-dir-get handle vec #x3fff)))
-              (unless (and (fixnum? err) (fx>=? err 0))
-                (raise-c-errno 'dir-reader-get 'readdir err handle))
-              (if (fx<=? err 0)
-                (values #f #f) ;; dir-reader is exhausted
-                (let ((ret (vector->dir-entry rx vec)))
-                  (if ret
-                    ;; return this dir entry
-                    (values ret #t)
-                    ;; skip this dir entry, it starts with a dot
-                    (%dir-reader-get rx))))))
-          (values #f #f)))))) ;; dir-reader is closed
-
-
-;; called by (reader-skip)
-(define %dir-reader-skip
-  (let ((c-dir-skip (foreign-procedure "c_dir_skip" (void*) int)))
-    (lambda (rx)
-      (let ((handle (dir-reader-handle rx)))
-        (if handle
-          (let ((err (c-dir-skip handle)))
-            (unless (and (fixnum? err) (fx>=? err 0))
-              (raise-c-errno 'dir-reader-skip 'readdir err handle))
-            (fx>? err 0))
-          #f))))) ;; dir-reader is closed
-
-
-;; called by (reader-close)
-(define %dir-reader-close
-  (let ((c-dir-close (foreign-procedure "c_dir_close" (void*) void)))
-    (lambda (rx)
-      (let ((handle (dir-reader-handle rx)))
-        (when handle
-          (dir-reader-handle-set! rx #f)
-          (c-dir-close handle))))))
-
-
-(define if-fixnum->type
-  (let ((types '#(#f fifo char-device dir block-device file symlink socket)))
-    (lambda (obj)
-      (if (and (fixnum? obj) (fx<=? 1 obj 7))
-        (vector-ref types obj)
-        (void)))))
-
-
-(define if-mode->string
-  (let ((fullstr "rwxrwxrwxSST"))
-    (lambda (mode)
-      (if (fixnum? mode)
-        (let ((n (if (fx<=? mode #o777) 9 12)))
-          ;; (debugf "if-mode->string ~o" mode)
-          (do ((str (make-string n #\-))
-               (i 0 (fx1+ i)))
-              ((fx>=? i n) str)
-            (let ((bit (if (fx<? i 9)
-                         (fx>> #o400 i)
-                         (fx>> #o4000 (fx- i 9)))))
-              (unless (fxzero? (fxand bit mode))
-                (string-set! str i (string-ref fullstr i))))))
-        (void)))))
-
-
-(define (if-pair->time-utc obj)
-  (if (pair? obj)
-    (make-time-utc (car obj) (cdr obj))
-    (void)))
-
-
-(define (if-uid->username rx uid)
-  (cond
-    ((not (and (integer? uid) (exact? uid)))
-      ;; no uid => no username
-      (void))
-    ((not rx)
-      ;; no rx => convert uid to username without any cache
-      (uid->username uid))
-    (else
-      ;; use short-lived cache uid -> username stored in dir-reader
-      ;; reduces syscall clutter
-      (let ((cache (or (dir-reader-uid-cache rx)
-                       (let ((ht (make-eqv-hashtable)))
-                         (dir-reader-uid-cache-set! rx ht)
-                         ht))))
-        (or (hashtable-ref cache uid #f)
-            (let* ((xname (uid->username uid))
-                   (name  (if (string? xname) (string->immutable-string xname) (void))))
-              (hashtable-set! cache uid name) ;; also cache lookup failures
-              name))))))
-
-
-(define (if-gid->groupname rx gid)
-  (cond
-    ((not (and (integer? gid) (exact? gid)))
-      ;; no gid => no groupname
-      (void))
-    ((not rx)
-      ;; no rx => convert gid to groupname without any cache
-      (gid->groupname gid))
-    (else
-      ;; use short-lived cache gid -> groupname stored in dir-reader
-      ;; reduces syscall clutter
-      (let ((cache (or (dir-reader-gid-cache rx)
-                       (let ((ht (make-eqv-hashtable)))
-                         (dir-reader-gid-cache-set! rx ht)
-                         ht))))
-        (or (hashtable-ref cache gid #f)
-            (let* ((xname (gid->groupname gid))
-                   (name  (if (string? xname) (string->immutable-string xname) (void))))
-              (hashtable-set! cache gid name) ;; also cache lookup failures
-              name))))))
-
-
-(define (path-append a b)
-  (if (string-suffix? a "/")
-    (string-append a b)
-    (string-append a "/" b)))
-
-
-(define (vector->dir-entry rx vec)
-  (let ((name (vector-ref vec 0)))
-    (if (and rx
-             (dir-hide-dot-files? (dir-reader-opts rx))
-             (string-prefix? name "."))
-      #f ; skip this dir entry, it starts with a dot
-      (make-dir-entry
-        (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
-          (path-append (dir-reader-path rx) name)
-          name)                                   ; name
-        (if-fixnum->type   (vector-ref vec 1))    ; type
-        (vector-ref vec 2)                        ; size
-        (or (vector-ref vec 3) "")                ; symlink target
-        (if-pair->time-utc (vector-ref vec 4))    ; modified
-        (if-pair->time-utc (vector-ref vec 6))    ; accessed
-        (if-pair->time-utc (vector-ref vec 6))    ; status-changed
-        (if-mode->string   (vector-ref vec 7))    ; mode
-        (if-uid->username  rx (vector-ref vec 8)) ; username
-        (if-gid->groupname rx (vector-ref vec 9)) ; groupname
-        (vector-ref vec 8)      ; uid
-        (vector-ref vec 9)      ; gid
-        (vector-ref vec 10)     ; dev
-        (vector-ref vec 11)     ; rdev
-        (vector-ref vec 12)     ; inode
-        (vector-ref vec 13))))) ; nlink
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; low-level API
-
-(define c-errno-einval ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
-
-
-(define (%find-and-convert-fixnum-option caller options key default)
-  (let ((option (memq key options)))
-    (if option
-      (let ((value (if (null? (cdr option)) '() (cadr option))))
-        (unless (fixnum? value)
-          (raise-assertf caller "expecting a fixnum after option '~a, found ~s"
-            key value))
-        value)
-      default)))
-
-
-;; Create a directory.
-;; WARNING: Chez Scheme also defines a function (mkdir) with different options
-;;
-;; Mandatory first argument dirpath must be a bytevector, string or charspan.
-;; Optional second argument options must be a list, containing zero or more:
-;;   'catch - errors will be ignored instead of raising a condition
-;;   'mode followed by a fixnum - specifies the owner, group and others initial permissions
-;;            on the directory - see "man 2 mkdir" for details.
-;;
-;; On success, returns (void)
-;; On error:
-;;   if options contain 'catch, returns an integer error code
-;;   otherwise raises an exception.
-;;
-;; Differences between (mkdir) and Chez Scheme (mkdir):
-;; 1. (mkdir) also accepts bytevectors, bytespans or charspans, not only strings.
-;; 3. (mkdir) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
-;; 4. (mkdir) accepts option 'catch, instead Chez Scheme (mkdir) always raises an exception of failure.
-;; 5. (mkdir) returns (void) on success and error code on failure, instead of an unspecified value.
-(define mkdir
-  (let ((c-mkdir (foreign-procedure "c_mkdir" (ptr int) int)))
-    (case-lambda
-      ((dirpath options)
-        (let ((err (c-mkdir (text->bytevector0 dirpath)
-                            (%find-and-convert-fixnum-option 'mkdir options 'mode #o777))))
-          (cond
-            ((and (fixnum? err) (fxzero? err))
-              (void))
-            ((memq 'catch options)
-              (if (fixnum? err) err c-errno-einval))
-            (else
-              (raise-c-errno 'mkdir 'mkdir err dirpath)))))
-      ((dirpath)
-        (mkdir dirpath '())))))
-
-
-;; Delete a file or directory.
-;; Mandatory first argument path must be a bytevector, string or charspan.
-;; Optional second argument options must be a list containing zero or more:
-;;   'catch    - on error, return numeric c-errno instead of raising a condition
-;;
-;; On success, returns (void)
-;; On error:
-;;   if options contain 'catch, returns an integer error code
-;;   otherwise raises an exception.
-;;
-;; Differences between (file-delete) and Chez Scheme (delete-file):
-;; 1. (file-delete) also deletes empty directories
-;; 2. (file-delete) also accepts bytevectors, bytespans or charspans, not only strings.
-;; 3. (file-delete) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
-;; 4. (file-delete) accepts optional list instead of optional boolean argument errors?
-;; 5. (file-delete) returns (void) on success and error code on failure, instead of a boolean
-(define file-delete
-  (let ((c-file-delete (foreign-procedure "c_file_delete" (ptr) int)))
-    (case-lambda
-      ((path options)
-        (let ((err (c-file-delete (text->bytevector0 path))))
-          (cond
-            ((and (fixnum? err) (fxzero? err))
-              (void))
-            ((memq 'catch options)
-              (if (fixnum? err) err c-errno-einval))
-            (else
-              (raise-c-errno 'file-delete 'remove err path)))))
-      ((path)
-        (file-delete path '())))))
-
-;; Move or rename a file or directory from old-path to new-path.
-;; Both old-path and new-path are mandatory and each one must be a bytevector, string or charspan.
-;; Optional third argument options must be a list containing zero or more:
-;;   'catch    - on error, return numeric c-errno instead of raising a condition
-;;
-;; Note: to move a file or directory into an existing directory,
-;;       new-path must contain the directory path followed by "/SOME_NEW_NAME"
-;;
-;; On success, returns (void)
-;; On error:
-;;   if options contain 'catch, returns an integer error code
-;;   otherwise raises an exception.
-;;
-;; Differs from Chez Scheme (rename-file) in several aspects:
-;; 1. (file-rename) also accepts bytevectors, bytespans and charspans, not only strings.
-;; 2. (file-rename) converts strings and charspans to UTF-8b, instead of UTF-8.
-;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.
-;; 4. (file-rename) returns (void) on success and error code on failure, instead of an unspecified value.
-(define file-rename
-  (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
-    (case-lambda
-      ((old-path new-path options)
-        (let ((err (c-file-rename (text->bytevector0 old-path) (text->bytevector0 new-path))))
-          (cond
-            ((and (fixnum? err) (fxzero? err))
-              (void))
-            ((memq 'catch options)
-              (if (fixnum? err) err c-errno-einval))
-            (else
-              (raise-c-errno 'file-rename 'rename err old-path new-path)))))
-      ((old-path new-path)
-        (file-rename old-path new-path '())))))
-
-
-(define c-type->file-type
-  (let ((file-types '#(unknown fifo chardev dir blockdev file symlink socket)))
-    (lambda (c-type)
-      (if (fx<=? 0 c-type 7) (vector-ref file-types c-type) 'unknown))))
-
-
-;; Check existence and type of a filesystem path.
-;; Mandatory first argument path must be a bytevector, string, bytespan or charspan.
-;; Second optional argument options must be a list containing zero or more:
-;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
-;;   'symlinks - returned filenames that are symlinks will have type 'symlink
-;;               instead of the type of the file they point to.
-;;
-;; If file exists, return its type which is one of:
-;;   'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
-;; Returns #f if file does not exist.
-;;
-(define file-type
-  (let ((c-file-type (foreign-procedure "c_file_type" (ptr int) ptr)))
-    (case-lambda
-      ((path options)
-        (let* ((symlinks? (memq 'symlinks options))
-               (ret (c-file-type (text->bytevector0 path)
-                                 (if symlinks? 1 0))))
-          (cond
-            ((and (fixnum? ret) (fx>=? ret 0))
-              (c-type->file-type ret))
-            ((eq? ret #f)
-              #f)
-            ((memq 'catch options)
-              (if (fixnum? ret) ret c-errno-einval))
-            (else
-              (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))
-      ((path)
-        (file-type path '())))))
-
-
-;; Check existence and retrieve information for filesystem path.
-;; Mandatory first argument path must be a bytevector, string, bytespan or charspan.
-;; Second optional argument options must be a list containing zero or more:
-;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
-;;   'symlinks - if path refers to a symlink, return info about the symlink itself.
-;;               by default, return info about the file it points to.
-;;
-;; If file exists, return a dir-entry containing information about it.
-;; Return #f if file does not exist.
-;; Raise condition on errors, unless options contain 'catch
-(define file-stat
-  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr int ptr) ptr)))
-    (case-lambda
-      ((path options)
-        (let* ((vec       (make-dir-entry-vector))
-               (symlinks? (memq 'symlinks options))
-               (err       (c-file-stat (text->bytevector0 path) (if symlinks? 1 0) vec)))
-          (cond
-            ((and (fixnum? err) (fx>=? err 0))
-              (vector->dir-entry #f vec))
-            ((not err)
-              #f) ; path does not exist
-            ((memq 'catch options)
-              (if (fixnum? err) err c-errno-einval))
-            (else
-              (raise-c-errno 'file-stat (if symlinks? 'lstat 'stat) err path)))))
-      ((path)
-        (file-stat path '())))))
-
-
-
-(define (%find-and-convert-text-option caller options key)
-  (let ((option (memq key options)))
-    (if option
-      (let ((value (if (null? (cdr option)) '() (cadr option))))
-        (unless (or (bytevector? value) (string? value) (charspan? value))
-          (raise-assertf caller "expecting a bytevector, string or charspan after option '~a, found ~s"
-            key value))
-        (text->bytevector value))
-      #vu8())))
-
-
-;; List contents of a filesystem directory, in arbitrary order.
-;; WARNING: Chez Scheme also defines a function (directory-list) with different options.
-;;
-;; Mandatory first argument dirpath must be a bytevector, string, bytespan or charspan.
-;; Optional second argument options must be a list containing zero or more:
-;;   'append-slash - if a returned type is 'dir then a '/' will be appended
-;;            to corresponding filename
-;;   'bytes - each returned filename will be a bytevector, not a string
-;;   'catch - errors will be ignored instead of raising a condition
-;;   'symlinks - returned filenames that are symlinks will have type 'symlink
-;;               instead of the type of the file they point to.
-;;   'types  - each returned list element will be a pair (filename . type)
-;;             where filename is a bytevector or string and type is a symbol:
-;;             see below for possible values
-;;   'prefix followed by a charspan, string or bytevector, indicating the filter-prefix:
-;;            only filenames that start with such filter-prefix will be returned.
-;;   'suffix followed by a charspan, string or bytevector, indicating the filter-suffix:
-;;            only filenames that end with such filter-suffix will be returned.
-;;
-;; if option 'type is specified, returns a list of pairs (filename . type) where:
-;;  each filename is a either a bytevector (if options contain 'bytes) or a string
-;;  each type is one of: 'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
-;;
-;; if option 'type is not specified, returns a list of filename where:
-;;  each filename is a either a bytevector (if options contain 'bytes) or a string
-(define directory-list
-  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
-    (case-lambda
-      ((dirpath options)
-        ; (debugf "directory-list dir=~s, options=~s" dirpath options)
-        (let ((ret (c-directory-list
-                     (text->bytevector0 dirpath)
-                     (%find-and-convert-text-option 'directory-list options 'prefix)
-                     (%find-and-convert-text-option 'directory-list options 'suffix)
-                     (fxior (if (memq 'symlinks options) 1 0)
-                            (if (memq 'append-slash options) 2 0)
-                            (if (memq 'bytes    options) 4 0)
-                            (if (memq 'types    options) 8 0)))))
-          (cond
-            ((null? ret)
-              ret)
-            ((pair? ret)
-              (when (memq 'types options)
-                (for-list ((entry ret))
-                  (set-cdr! entry (c-type->file-type (cdr entry)))))
-              ret)
-            ((memq 'catch options)
-              '())
-            (else
-              (raise-c-errno 'directory-list 'opendir ret dirpath)))))
-      ((dirpath)
-        (directory-list dirpath '())))))
-
-
-;; List contents of a filesystem directory, in arbitrary order.
-;; Mandatory first argument dirpath must be a bytevector, string or charspan.
-;; Optional second argument options must be a list containing the same options described in (directory-list)
-;; with the difference that option 'types is always considered to be present.
-;;
-;; returns a list of pairs (filename . type) where:
-;;   each filename is a either a bytevector (if options contain 'bytes) or a string
-;;   each type is one of: 'unknown 'fifo 'chardev 'dir 'blockdev 'file 'symlink 'socket
-(define directory-list-type
+(define make-fs-reader
   (case-lambda
-    ((dirpath)
-       (directory-list dirpath '(types)))
-    ((dirpath options)
-       (directory-list dirpath (cons 'types options)))))
+    ((path-or-list accept-entry-proc? recurse-dir-proc?)
+      (%make-fs-reader (if (or (null? path-or-list) (pair? path-or-list))
+                         path-or-list
+                         (list path-or-list))
+                       accept-entry-proc? recurse-dir-proc?))
+    ((path-or-list accept-entry-proc?)
+      (make-fs-reader path-or-list accept-entry-proc? (lambda (entry) (eq? 'dir (dir-entry-type entry)))))
+    ((path-or-list)
+      (make-fs-reader path-or-list (lambda (entry) #t)))))
+    
 
-
-;; in-place sort dir-list, which must have the same structure as the output
-;; of (directory-list) or (directory-list-type)
-;; i.e. it must be a possibly empty list of strings, or list of bytevectors,
-;; or list or pairs (filename . type) where all filenames are either strings or bytevectors:
-;; mixtures are not allowed.
-(define (directory-sort! dir-list)
-  (if (or (null? dir-list) (null? (cdr dir-list)))
-    dir-list
-    (sort!
-      (let ((elem (car dir-list)))
+(define (%fs-reader-get rx)
+  (let* ((dirs (fs-reader-dirs rx))
+         (dir  (and (pair? dirs) (car dirs))))
+    (if (not dir)
+      (values #f #f)
+      (let-values (((entry ok?) (reader-get dir)))
         (cond
-          ((string? elem)
-            string<?)
-          ((bytevector? elem)
-            bytevector<?)
-          ((and (pair? elem) (string? (car elem)))
-            (lambda (entry1 entry2)
-              (string<? (car entry1) (car entry2))))
-          ((and (pair? elem) (bytevector? (car elem)))
-            (lambda (entry1 entry2)
-              (bytevector<? (car entry1) (car entry2))))
+          (ok?
+            (when (and (memq (dir-entry-type entry) '(dir symlink))
+                       ((fs-reader-recurse-dir-proc? rx) entry))
+              ;; next call to (%fs-reader-get) will recurse into subdirectory
+              (fs-reader-dirs-set! rx (cons (%make-dir-reader1 (dir-entry-name entry)
+                                                               (fs-reader-uid-cache rx)
+                                                               (fs-reader-gid-cache rx))
+                                            dirs)))
+            (if ((fs-reader-accept-entry-proc? rx) entry)
+              (values entry #t)
+              ;; skip entry and retry
+              (%fs-reader-get rx)))
           (else
-            (raise-assertf 'directory-sort! "expecting a list of string, bytevectors, or pairs (key . value)\
-              where all keys are bytevector or string, found list element ~s"
-              elem))))
-      dir-list)))
+            ;; dir is exausted. pop it and retry
+            (fs-reader-dirs-set! rx (cdr dirs))
+            (%fs-reader-get rx)))))))
 
 
-;; return string on success, or c-errno integer < 0 on error
-(define gid->groupname
-  (let ((c-get-groupname (foreign-procedure "c_get_groupname" (int) ptr)))
-    (lambda (gid)
-      (if (fixnum? gid)
-        (c-get-groupname gid)
-        c-errno-einval))))
-
-
-;; return string on success, or c-errno integer < 0 on error
-(define uid->username
-  (let ((c-get-username (foreign-procedure "c_get_username" (int) ptr)))
-    (lambda (uid)
-      (if (fixnum? uid)
-        (c-get-username uid)
-        c-errno-einval))))
-
-
-;; only convert string->symbol the field dir-entry-type
-(define (deserialize-dir-entry plist)
-  (plist-update! plist 'type (lambda (val)
-                               (if (string? val)
-                                 (string->symbol val)
-                                 val)))
-  plist)
-
-
-(define (write-c-make-dev dev port writer)
-  (cond
-    ((and (number? dev) (exact? dev))
-      (put-string port "(c-make-dev ") (writer (c-dev-major dev) port)
-      (put-char port #\space)          (writer (c-dev-minor dev) port)
-      (put-string port ")"))
-    (else
-      (writer dev port))))
-
+(define (%fs-reader-close rx)
+  ;; close any still-open dir-reader
+  (do ((l (fs-reader-dirs rx) (cdr l)))
+      ((null? l))
+    (reader-close (car l))))
+  
 
 ;; customize how "dir-reader" objects are printed
 (record-writer (record-type-descriptor dir-reader)
@@ -655,6 +153,15 @@
     (put-string port "#<dir-reader")
     (put-string port (if (reader-eof? rx) " eof " " ok "))
     (writer (dir-reader-path rx) port)
+    (put-char port #\>)))
+
+
+;; customize how "fs-reader" objects are printed
+(record-writer (record-type-descriptor fs-reader)
+  (lambda (rx port writer)
+    (put-string port "#<fs-reader")
+    (put-string port (if (reader-eof? rx) " eof " " ok "))
+    (writer (fs-reader-path-list rx) port)
     (put-char port #\>)))
 
 

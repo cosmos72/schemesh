@@ -34,16 +34,16 @@
       (let ((port (console-error-port)))
         (dynamic-wind
           (lambda () ; before body
-            (put-string port "; ")
+            (put-string port "\x1b;[1;31m; ")
             (display-condition obj port)
-            (newline port)
+            (put-string port "\x1b;[m\n")
             (flush-output-port port))
           (lambda () ; body
             (when (or (serious-condition? obj) (not (warning? obj)))
               (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
               (if (debug-on-exception)
                 (debug)
-                (put-string port "; type (debug) to enter the debugger, or (debug-condition) to retrieve the condition.\n"))
+                (put-string port "\x1b;[1m; type (debug) to enter the debugger, or (debug-condition) to retrieve the condition.\x1b;[m\n"))
               (flush-output-port port)))
           proc-after-body)))
     ((obj)

@@ -354,13 +354,13 @@
       (sh-eval-file path)
       #t
       (catch (ex)
-        (let ((port (console-error-port)))
-          (put-string port "; Warning: failed loading file ")
-          (put-datum  port path)
-          (put-string port ": ")
-          (display-condition ex port)
-          (newline port)
-          (flush-output-port port)
+        (let ((out (console-error-port)))
+          (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
+          (put-datum  out path)
+          (put-string out ": ")
+          (display-condition ex out)
+          (put-string out "\x1b;[m\n")
+          (flush-output-port out)
           #f)))))
 
 
