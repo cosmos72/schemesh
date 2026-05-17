@@ -11,7 +11,11 @@
   (export
       c-make-dev c-dev-major c-dev-minor
 
-      make-dir-entry  dir-entry  dir-entry?  dir-entry-type
+      dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-modified dir-entry-accessed
+      dir-entry-status-changed dir-entry-mode dir-entry-user dir-entry-group dir-entry-uid dir-entry-gid
+      dir-entry-dev dir-entry-rdev dir-entry-inode dir-entry-nlink
+
+      make-dir-entry  dir-entry  dir-entry?
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
       make-fs-reader  fs-reader  fs-reader?  fs-reader-path-list
 
@@ -62,7 +66,6 @@
         (flush-output-port out))
       #f)))
 
-    
 
 (define (%make-dir-reader-list path-list uid-cache gid-cache dirs)
   (if (null? path-list)
@@ -113,7 +116,7 @@
       (make-fs-reader path-or-list accept-entry-proc? (lambda (entry) (eq? 'dir (dir-entry-type entry)))))
     ((path-or-list)
       (make-fs-reader path-or-list (lambda (entry) #t)))))
-    
+
 
 (define (%fs-reader-get rx)
   (let* ((dirs (fs-reader-dirs rx))
@@ -145,7 +148,7 @@
   (do ((l (fs-reader-dirs rx) (cdr l)))
       ((null? l))
     (reader-close (car l))))
-  
+
 
 ;; customize how "dir-reader" objects are printed
 (record-writer (record-type-descriptor dir-reader)
