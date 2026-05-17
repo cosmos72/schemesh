@@ -177,7 +177,7 @@
 ;; easy wrapper for (make-fs-reader)
 (define (search . args)
   (call-with-values
-    (lambda () (%search-parse-args args '() #f #f))
+    (lambda () (%search-parse-args (if (null? args) '(".") args) '() #f #f))
     make-fs-reader))
 
 

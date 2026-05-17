@@ -140,9 +140,12 @@
     (lambda (rx)
       (let ((handle (dir-reader-handle rx)))
         (if handle
-          (let ((vec (dir-reader-vec rx)))
+          (let ((vec (dir-reader-vec rx))
+                (flags (if (dir-hide-dot-files? (dir-reader-opts rx))
+                         #x3fff
+                         #x7fff)))
             (vector-fill! vec (void))
-            (let ((err (c-dir-get handle vec #x3fff)))
+            (let ((err (c-dir-get handle vec flags)))
               (unless (and (fixnum? err) (fx>=? err 0))
                 (raise-c-errno 'dir-reader-get 'readdir err handle))
               (if (fx<=? err 0)
@@ -262,29 +265,25 @@
 
 (define (vector->dir-entry rx vec)
   (let ((name (vector-ref vec 0)))
-    (if (and rx
-             (dir-hide-dot-files? (dir-reader-opts rx))
-             (string-prefix? name "."))
-      #f ; skip this dir entry, it starts with a dot
-      (make-dir-entry
-        (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
-          (path-append (dir-reader-path rx) name)
-          name)                                   ; name
-        (if-fixnum->type   (vector-ref vec 1))    ; type
-        (vector-ref vec 2)                        ; size
-        (or (vector-ref vec 3) "")                ; symlink target
-        (if-pair->time-utc (vector-ref vec 4))    ; modified
-        (if-pair->time-utc (vector-ref vec 6))    ; accessed
-        (if-pair->time-utc (vector-ref vec 6))    ; status-changed
-        (if-mode->string   (vector-ref vec 7))    ; mode
-        (if-uid->username  rx (vector-ref vec 8)) ; username
-        (if-gid->groupname rx (vector-ref vec 9)) ; groupname
-        (vector-ref vec 8)      ; uid
-        (vector-ref vec 9)      ; gid
-        (vector-ref vec 10)     ; dev
-        (vector-ref vec 11)     ; rdev
-        (vector-ref vec 12)     ; inode
-        (vector-ref vec 13))))) ; nlink
+    (make-dir-entry
+      (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
+        (path-append (dir-reader-path rx) name)
+        name)                                   ; name
+      (if-fixnum->type   (vector-ref vec 1))    ; type
+      (vector-ref vec 2)                        ; size
+      (or (vector-ref vec 3) "")                ; symlink target
+      (if-pair->time-utc (vector-ref vec 4))    ; modified
+      (if-pair->time-utc (vector-ref vec 6))    ; accessed
+      (if-pair->time-utc (vector-ref vec 6))    ; status-changed
+      (if-mode->string   (vector-ref vec 7))    ; mode
+      (if-uid->username  rx (vector-ref vec 8)) ; username
+      (if-gid->groupname rx (vector-ref vec 9)) ; groupname
+      (vector-ref vec 8)      ; uid
+      (vector-ref vec 9)      ; gid
+      (vector-ref vec 10)     ; dev
+      (vector-ref vec 11)     ; rdev
+      (vector-ref vec 12)     ; inode
+      (vector-ref vec 13)))) ; nlink
 
 
 ;; only convert string->symbol the field dir-entry-type
