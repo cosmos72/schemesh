@@ -53,7 +53,7 @@
 
 (define (%make-dir-reader1 path uid-cache gid-cache)
   (try
-    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix))))
+    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix dir-hide-dot-dotdot))))
       (dir-reader-uid-cache-set! rx uid-cache)
       (dir-reader-gid-cache-set! rx gid-cache)
       rx)

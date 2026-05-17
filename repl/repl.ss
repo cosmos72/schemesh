@@ -568,9 +568,12 @@ Type ? or help for this help.
     (hashtable-set! t "dir"  (string->utf8 " [OPTIONS] [PATH]...
     display specified files and directories, or current directory by default.
     Options:
+      -A            also display entries starting with . except entries \".\" and \"..\"
       -a            also display entries starting with .
       -d            display directories themselves, not their contents
       -l            display more details for each entry
+      -p            prefix each name with directory path.
+                    set by default if two or more PATH are specified
       -v            display even more details for each entry
       --to-FORMAT   display entries in given FORMAT\n"))
 

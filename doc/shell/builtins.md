@@ -372,9 +372,11 @@ Syntax: `dir [OPTIONS] [PATH ...]`
 
 Display specified files and directories as structured data, or current directory by default.<br/>
 Options:
+* `-A` also display entries starting with `.`, except entries `.` and `..`
 * `-a` also display entries starting with `.`
 * `-d` display directories themselves, not their contents
 * `-l` display more details for each entry
+* `-p` prefix each name with directory path. Set by default if two or more `PATH` are specified
 * `-v` display even more details for each entry
 * `--to-FORMAT` display entries in given `FORMAT` instead of autodetecting it
 

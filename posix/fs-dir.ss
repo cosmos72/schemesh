@@ -79,7 +79,7 @@
     (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
     (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
     path                ; directory being read
-    opts)               ; fixnum, bitwise-or of: 1 = dir-hide-dot-files, 2 = dir-path-as-prefix
+    opts)               ; fixnum, bitwise-or of: 1 = dir-path-as-prefix, 2 = dir-hide-dot-files, 4 = dir-hide-dot-dotdot
   (protocol
     (lambda (args->new)
       (lambda (handle path options)
@@ -88,12 +88,15 @@
   (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-(define (dir-hide-dot-files? options)
+(define (dir-path-as-prefix? options)
   (fxlogbit? 0 options))
 
-
-(define (dir-path-as-prefix? options)
+(define (dir-hide-dot-files? options)
   (fxlogbit? 1 options))
+
+(define (dir-hide-dot-dotdot? options)
+  (fxlogbit? 2 options))
+
 
 
 (define-syntax dir-reader-option
@@ -102,8 +105,9 @@
       ((_ option)
         (let ((sym (syntax->datum #'option)))
           (case sym
-            ((dir-hide-dot-files) 1)
-            ((dir-path-as-prefix) 2)
+            ((dir-path-as-prefix) 1)
+            ((dir-hide-dot-files) 2)
+            ((dir-hide-dot-dotdot) 4)
             (else
               (raise-errorf 'dir-reader-options "invalid syntax: (dir-reader-options ~s)" sym))))))))
 
@@ -124,7 +128,7 @@
       ((path options)
         ;; (debugf ">make-dir-reader path ~s, options ~s" path options)
         (assert* 'make-dir-reader (fixnum? options))
-        (assert* 'make-dir-reader (fx<=? 0 options 3))
+        (assert* 'make-dir-reader (fx<=? 0 options 7))
         (let ((obj (c-dir-open (text->bytevector0 path))))
           (unless (and (integer? obj) (exact? obj) (> obj 0))
             (raise-c-errno 'make-dir-reader 'opendir obj path))
@@ -141,9 +145,9 @@
       (let ((handle (dir-reader-handle rx)))
         (if handle
           (let ((vec (dir-reader-vec rx))
-                (flags (if (dir-hide-dot-files? (dir-reader-opts rx))
-                         #x3fff
-                         #x7fff)))
+                (flags (cond ((dir-hide-dot-files?  (dir-reader-opts rx)) #x3fff)
+                             ((dir-hide-dot-dotdot? (dir-reader-opts rx)) #x7fff)
+                             (else                                        #xffff))))
             (vector-fill! vec (void))
             (let ((err (c-dir-get handle vec flags)))
               (unless (and (fixnum? err) (fx>=? err 0))

@@ -747,13 +747,14 @@
 
            ;; hide files starting with "." by default. option -a shows them
            (opts (fxior
-                   (if (some-string-contains? dir-opts "a")
-                     (dir-reader-options)
-                     (dir-reader-options dir-hide-dot-files))
-                   (if (null? (cdr paths))
-                     (dir-reader-options)
-                     ;; two or more paths => add each path as prefix
-                     (dir-reader-options dir-path-as-prefix))))
+                   (cond
+                     ((some-string-contains? dir-opts "a") (dir-reader-options))
+                     ((some-string-contains? dir-opts "A") (dir-reader-options dir-hide-dot-dotdot))
+                     (else                                 (dir-reader-options dir-hide-dot-files)))
+                   (if (or (pair? (cdr paths))
+                           (some-string-contains? dir-opts "p"))
+                     (dir-reader-options dir-path-as-prefix)
+                     (dir-reader-options))))
 
            (list-dirs-not-their-contents? (some-string-contains? dir-opts "d"))
 

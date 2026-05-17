@@ -51,7 +51,7 @@ enum {
   e_dir_flag_rdev            = 1 << e_vec_rdev,
   e_dir_flag_inode           = 1 << e_vec_inode,
   e_dir_flag_num_links       = 1 << e_vec_num_links,
-  e_dir_flag_hidden          = 1 << e_vec_n,
+  e_dir_flag_show_dot_files  = 1 << e_vec_n,
   e_dir_flag_show_dot_dotdot = 1 << (e_vec_n + 1),
 };
 
@@ -295,12 +295,12 @@ static int c_dir_skip(void* dir) {
   return 1; /* skipped one dir entry */
 }
 
-static int c_dir_accept_entry(unsigned opts, const char* name) {
+static int c_dir_accept_entry(unsigned flags, const char* name) {
   if (name[0] == '.') {
-    if ((opts & e_dir_flag_hidden) == 0) {
+    if ((flags & e_dir_flag_show_dot_files) == 0) {
       return 0;
     }
-    if ((opts & e_dir_flag_show_dot_dotdot) == 0) {
+    if ((flags & e_dir_flag_show_dot_dotdot) == 0) {
       if (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')) {
         return 0;
       }
@@ -313,7 +313,6 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   struct stat    st;
   struct dirent* entry;
   iptr           vec_n;
-  unsigned       opts = flags;
   int            dir_fd;
   e_type         type = e_type_unknown;
 
@@ -324,7 +323,9 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     vec_n = e_vec_n;
   }
   // unset flags that require access beyond the end of vec
-  flags = (flags & e_dir_flag_hidden) | (flags & ((1 << vec_n) - 1));
+  flags = (flags & e_dir_flag_show_dot_files) |  /**/
+          (flags & e_dir_flag_show_dot_dotdot) | /**/
+          (flags & ((1 << vec_n) - 1));
 
   do {
     errno = 0;
@@ -332,7 +333,7 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     if (!entry) {
       return -errno; /* 0 if end if dir, otherwise error */
     }
-  } while (!c_dir_accept_entry(opts, entry->d_name));
+  } while (!c_dir_accept_entry(flags, entry->d_name));
 
   /* file name can be arbitrary bytes, not only valid UTF-8 */
   if (flags & e_dir_flag_name) {
