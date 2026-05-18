@@ -154,6 +154,10 @@ static int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
 
+static int c_errno_eaccess(void) {
+  return -EACCES;
+}
+
 static int c_errno_eagain(void) {
   return -EAGAIN;
 }
@@ -180,6 +184,10 @@ static int c_errno_enoent(void) {
 
 static int c_errno_enotdir(void) {
   return -ENOTDIR;
+}
+
+static int c_errno_eperm(void) {
+  return -EPERM;
 }
 
 static int c_errno_esrch(void) {
@@ -741,6 +749,7 @@ int scheme2k_register_c_functions(void) {
   scheme2k_register_c_functions_os();
 
   Sregister_symbol("c_errno", &c_errno);
+  Sregister_symbol("c_errno_eaccess", &c_errno_eaccess);
   Sregister_symbol("c_errno_eagain", &c_errno_eagain);
   Sregister_symbol("c_errno_einprogress", &c_errno_einprogress);
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
@@ -748,6 +757,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_errno_eio", &c_errno_eio);
   Sregister_symbol("c_errno_enoent", &c_errno_enoent);
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
+  Sregister_symbol("c_errno_eperm", &c_errno_eperm);
   Sregister_symbol("c_errno_esrch", &c_errno_esrch);
   Sregister_symbol("c_errno_to_string", &c_errno_to_string);
 

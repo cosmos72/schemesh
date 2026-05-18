@@ -79,7 +79,7 @@
     (mutable uid-cache) ; #f or eqv-hashtable uid -> user name
     (mutable gid-cache) ; #f or eqv-hashtable gid -> group name
     path                ; directory being read
-    opts)               ; fixnum, bitwise-or of: 1 = dir-path-as-prefix, 2 = dir-hide-dot-files, 4 = dir-hide-dot-dotdot
+    opts)               ; fixnum, bitwise-or of: 1 = catch, 2 = dir-path-as-prefix, 4 = dir-hide-dot-files, 8 = dir-hide-dot-dotdot
   (protocol
     (lambda (args->new)
       (lambda (handle path options)
@@ -88,14 +88,17 @@
   (nongenerative %dir-reader-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-(define (dir-path-as-prefix? options)
+(define (dir-catch-errors? options)
   (fxlogbit? 0 options))
 
-(define (dir-hide-dot-files? options)
+(define (dir-path-as-prefix? options)
   (fxlogbit? 1 options))
 
-(define (dir-hide-dot-dotdot? options)
+(define (dir-hide-dot-files? options)
   (fxlogbit? 2 options))
+
+(define (dir-hide-dot-dotdot? options)
+  (fxlogbit? 3 options))
 
 
 
@@ -105,9 +108,10 @@
       ((_ option)
         (let ((sym (syntax->datum #'option)))
           (case sym
-            ((dir-path-as-prefix) 1)
-            ((dir-hide-dot-files) 2)
-            ((dir-hide-dot-dotdot) 4)
+            ((catch)               1)
+            ((dir-path-as-prefix)  2)
+            ((dir-hide-dot-files)  4)
+            ((dir-hide-dot-dotdot) 8)
             (else
               (raise-errorf 'dir-reader-options "invalid syntax: (dir-reader-options ~s)" sym))))))))
 
@@ -115,11 +119,9 @@
 (define-syntax dir-reader-options
   (syntax-rules ()
     ((_)
-       0)
-    ((_ option1)
-      (dir-reader-option option1))
+      0)
     ((_ option1 option2 ...)
-      (fxior (dir-reader-option option1) (dir-reader-options option2 ...)))))
+      (fxior (dir-reader-option option1) (dir-reader-option option2) ...))))
 
 
 (define make-dir-reader
@@ -128,11 +130,15 @@
       ((path options)
         ;; (debugf ">make-dir-reader path ~s, options ~s" path options)
         (assert* 'make-dir-reader (fixnum? options))
-        (assert* 'make-dir-reader (fx<=? 0 options 7))
+        (assert* 'make-dir-reader (fx<=? 0 options 15))
         (let ((obj (c-dir-open (text->bytevector0 path))))
-          (unless (and (integer? obj) (exact? obj) (> obj 0))
-            (raise-c-errno 'make-dir-reader 'opendir obj path))
-          (%make-dir-reader obj (text->string path) options)))
+          (cond
+            ((and (integer? obj) (exact? obj) (> obj 0))
+              (%make-dir-reader obj (text->string path) options))
+            ((dir-catch-errors? options)
+              obj)
+            (else
+              (raise-c-errno 'make-dir-reader 'opendir obj path)))))
       ((path)
         (make-dir-reader path (dir-reader-options))))))
 
@@ -140,7 +146,9 @@
 
 ;; called by (reader-get)
 (define %dir-reader-get
-  (let ((c-dir-get (foreign-procedure "c_dir_get" (void* ptr unsigned) int)))
+  (let ((c-dir-get       (foreign-procedure "c_dir_get" (void* ptr unsigned) int))
+        (c-errno-eaccess ((foreign-procedure "c_errno_eaccess" () int)))
+        (c-errno-eperm   ((foreign-procedure "c_errno_eperm" () int))))
     (lambda (rx)
       (let ((handle (dir-reader-handle rx)))
         (if handle
@@ -150,16 +158,22 @@
                              (else                                        #xffff))))
             (vector-fill! vec (void))
             (let ((err (c-dir-get handle vec flags)))
-              (unless (and (fixnum? err) (fx>=? err 0))
-                (raise-c-errno 'dir-reader-get 'readdir err (dir-reader-path rx)))
-              (if (fx<=? err 0)
-                (values #f #f) ;; dir-reader is exhausted
-                (let ((ret (vector->dir-entry rx vec)))
-                  (if ret
-                    ;; return this dir entry
-                    (values ret #t)
-                    ;; skip this dir entry, it starts with a dot
-                    (%dir-reader-get rx))))))
+              (cond
+                ((and (fixnum? err) (fxzero? err))
+                  (values #f #f)) ;; dir-reader is exhausted
+                ((and (fixnum? err) (fx>? err 0))
+                  (let ((ret (vector->dir-entry rx vec)))
+                    (if ret
+                      ;; return this dir entry
+                      (values ret #t)
+                      ;; skip this dir entry, it starts with a dot
+                      (%dir-reader-get rx))))
+                ((or (eqv? c-errno-eaccess err) (eqv? c-errno-eperm err))
+                  (warn-c-errno 'dir-reader-get 'readdir err (dir-reader-path rx))
+                  ;; directory is unreadable, reading it further produces an infinite loop
+                  (values #f #f))
+                (else
+                  (raise-c-errno 'dir-reader-get 'readdir err (dir-reader-path rx))))))
           (values #f #f)))))) ;; dir-reader is closed
 
 

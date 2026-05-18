@@ -38,7 +38,7 @@
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           bytevector0->string text? text->bytevector text->bytevector0 text->string)
     (only (scheme2k io obj)                reader reader? reader-get reader-eof? reader-close reader-skip)
-    (only (scheme2k posix fd)              c-errno->string raise-c-errno)
+    (only (scheme2k posix fd)              c-errno->string raise-c-errno warn-c-errno)
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
 
@@ -101,19 +101,15 @@
 
 
 (define (%make-dir-reader1 path uid-cache gid-cache)
-  (try
-    (let ((rx (make-dir-reader path (dir-reader-options dir-path-as-prefix dir-hide-dot-dotdot))))
-      (dir-reader-uid-cache-set! rx uid-cache)
-      (dir-reader-gid-cache-set! rx gid-cache)
-      rx)
-    (catch (ex)
-      (debug-condition ex)
-      (let ((out (current-error-port)))
-        (put-string out "\x1b;[1;33m; ")
-        (display-condition ex out)
-        (put-string out "\x1b;[m\n")
-        (flush-output-port out))
-      #f)))
+  (let ((rx (make-dir-reader path (dir-reader-options catch dir-path-as-prefix dir-hide-dot-dotdot))))
+    (cond
+      ((dir-reader? rx)
+        (dir-reader-uid-cache-set! rx uid-cache)
+        (dir-reader-gid-cache-set! rx gid-cache)
+        rx)
+      (else
+        (warn-c-errno 'make-dir-reader 'opendir rx path)
+        #f))))
 
 
 (define (fs-reader-stack-push-dir! rx entry)
@@ -148,10 +144,7 @@
               (%fs-reader-process rx datum))
             (else
               (when (fixnum? datum)
-                (let ((port (current-error-port)))
-                  (format port "\x1b;[1;33m; Exception in file-stat: C function lstat(~s) failed with error ~s: ~a\x1b;[m\n"
-                          (bytevector0->string top) datum (c-errno->string datum))
-                  (flush-output-port port)))
+                (warn-c-errno 'file-stat 'lstat datum (bytevector0->string top)))
               ;; skip entry and retry
               (%fs-reader-get rx)))))
       ((dir-reader? top)

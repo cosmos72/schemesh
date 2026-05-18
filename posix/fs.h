@@ -331,7 +331,7 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
     errno = 0;
     entry = readdir((DIR*)dir);
     if (!entry) {
-      return -errno; /* 0 if end if dir, otherwise error */
+      return -errno; /* 0 if end of dir, otherwise error */
     }
   } while (!c_dir_accept_entry(flags, entry->d_name));
 

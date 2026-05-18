@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)                       current-date date? date-year date-month date-day date-hour date-minute date-second date-zone-offset
-                                             format fx1+ fx1- fx/ time? time-second time-type time-utc->date void)
+                                             format fx1+ fx1- fx/ port-closed? time? time-second time-type time-utc->date void)
     (only (scheme2k bootstrap)               assert* debugf for)
     (only (scheme2k containers bytespan)     bytespan bytespan-clear! bytespan-display-left/integer! bytespan-display-right/unsigned-k-digits!
                                              bytespan-insert-right/bytevector! bytespan-insert-right/u8! latin1-bytespan->string)
@@ -591,15 +591,15 @@
 
 ;; called by (table-writer-close) and (writer-close)
 (define (%table-writer-close tx)
-  (delete-empty-columns tx)
-  (choose-column-widths tx)
-  (display-all tx)
   (let ((out (table-writer-out tx)))
-    (if (table-writer-close-out? tx)
-      ;; close out only if table-writer constructor was called with truish close-out?
-      (close-port out)
-      ;; otherwise only flush it
-      (flush-output-port out))))
-
+    (unless (port-closed? out)
+      (delete-empty-columns tx)
+      (choose-column-widths tx)
+      (display-all tx)
+      (if (table-writer-close-out? tx)
+        ;; close out only if table-writer constructor was called with truish close-out?
+        (close-port out)
+        ;; otherwise only flush it
+        (flush-output-port out)))))
 
 ) ; close library

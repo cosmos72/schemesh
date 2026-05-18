@@ -13,10 +13,10 @@
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set! fd-type
-    file->fd pipe-fds raise-c-errno)
+    file->fd pipe-fds raise-c-errno warn-c-errno)
   (import
     (rnrs)
-    (only (chezscheme)             foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
+    (only (chezscheme)             foreign-procedure format lock-object logbit? void procedure-arity-mask unlock-object)
     (only (scheme2k bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
     (scheme2k containers bytespan)
     (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose)
@@ -37,6 +37,12 @@
   ; (debugf "raise-c-errno ~s ~s" who c-errno)
   (raise-errorf who "C function ~s~s failed with error ~s: ~a"
     c-who c-args c-errno (if (integer? c-errno) (c-errno->string c-errno) "unknown error")))
+
+(define (warn-c-errno who c-who c-errno . c-args)
+  (let ((port (current-error-port)))
+    (format port "\x1b;[1;33m; Warning in ~s: C function ~s~s failed with error ~s: ~a\x1b;[m\n"
+            who c-who c-args c-errno (c-errno->string c-errno))
+    (flush-output-port port)))
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max
