@@ -70,7 +70,7 @@
     (lambda (args->new)
       (let ((%%make-fs-reader ;; shown when displaying procedure
               (lambda (path-list accept-entry-proc? recurse-dir-proc?)
-                (assert* 'make-fs-reader (text-list? path-list))
+                ;; (assert* 'make-fs-reader (text-list? path-list)) ; redundant, checked by (map text->string path-list) below
                 (assert* 'make-fs-reader (procedure? accept-entry-proc?))
                 (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
                 (assert* 'make-fs-reader (procedure? recurse-dir-proc?))

@@ -218,7 +218,7 @@
     ((charspan? x)
       (charspan->string x))
     (else
-      (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
+      (raise-assertf 'text->string "~s is not bytevector, string or charspan" x))))
 
 
 ;; convert a 0-terminated bytevector containing UTF-8b to string
