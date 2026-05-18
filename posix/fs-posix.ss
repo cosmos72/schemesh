@@ -13,6 +13,7 @@
 ;;; wrappers for low-level POSIX API
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
+(define c-errno-enoent ((foreign-procedure "c_errno_enoent" () int))) ;; integer, not a procedure
 
 (define c-make-dev  (foreign-procedure "c_make_dev"  (unsigned unsigned) unsigned-64))
 (define c-dev-major (foreign-procedure "c_dev_major" (unsigned-64) unsigned))

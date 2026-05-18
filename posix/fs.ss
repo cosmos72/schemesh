@@ -26,13 +26,14 @@
     (rename (rnrs)                         (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     debug-condition display-condition foreign-procedure format fx1+ fxlogbit?
+    (only (chezscheme)                     debug-condition display-condition foreign-procedure format fx1+ fx1- fxlogbit?
                                            include logbit? make-continuation-condition make-format-condition
                                            procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list plist-update!)
+    (only (scheme2k containers span)       list->span span-ref span-clear! span-delete-right! span-empty? span-insert-right! span-length)
     (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
@@ -63,7 +64,7 @@
     path-list          ; initial path list
     accept-entry-proc? ; procedure for deciding whether to accept a dir-entry
     recurse-dir-proc?  ; procedure for deciding whether to recurse into a directory
-    (mutable stack)    ; list of dir-entry and/or dir-readers
+    stack              ; span of dir-entry and/or dir-readers
     uid-cache          ; eqv-hashtable uid -> user name
     gid-cache)         ; eqv-hashtable gid -> group name
   (protocol
@@ -74,12 +75,12 @@
                 (assert* 'make-fs-reader (procedure? accept-entry-proc?))
                 (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
                 (assert* 'make-fs-reader (procedure? recurse-dir-proc?))
-                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask recurse-dir-proc?)))
+                (assert* 'make-fs-reader (logbit? 2 (procedure-arity-mask recurse-dir-proc?)))
                 ((args->new %fs-reader-get #f %fs-reader-close)
                    (map text->string path-list)
                    accept-entry-proc?
                    recurse-dir-proc?
-                   (map text->bytevector0 path-list)
+                   (list->span (map text->bytevector0 path-list))
                    (make-eqv-hashtable)
                    (make-eqv-hashtable)))))
         %%make-fs-reader)))
@@ -93,7 +94,7 @@
                          path-or-list
                          (list path-or-list))
                        (or accept-entry-proc? (lambda (entry) #t))
-                       (or recurse-dir-proc?  (lambda (entry) (eq? 'dir (dir-entry-type entry))))))
+                       (or recurse-dir-proc?  (lambda (entry depth) (eq? 'dir (dir-entry-type entry))))))
     ((path-or-list accept-entry-proc?)
       (make-fs-reader path-or-list accept-entry-proc? #f))
     ((path-or-list)
@@ -112,23 +113,23 @@
         #f))))
 
 
-(define (fs-reader-stack-push-dir! rx entry)
+(define (fs-reader-stack-push-dir! rx stack entry)
   (let ((dir (%make-dir-reader1 (dir-entry-name entry)
                                 (fs-reader-uid-cache rx)
                                 (fs-reader-gid-cache rx))))
     (when dir
-      (fs-reader-stack-set! rx (cons dir (fs-reader-stack rx))))))
+      (span-insert-right! stack dir))))
 
 
 (define (%fs-reader-get rx)
   (let* ((stack (fs-reader-stack rx))
-         (top   (and (pair? stack) (car stack)))
+         (top   (if (span-empty? stack) #f (span-ref stack 0)))
          (%fs-reader-process
            (lambda (rx entry)
              (when (and (memq (dir-entry-type entry) '(dir symlink))
-                        ((fs-reader-recurse-dir-proc? rx) entry))
+                        ((fs-reader-recurse-dir-proc? rx) entry (span-length stack)))
               ;; next call to (%fs-reader-get) will recurse into subdirectory
-              (fs-reader-stack-push-dir! rx entry))
+              (fs-reader-stack-push-dir! rx stack entry))
             (if ((fs-reader-accept-entry-proc? rx) entry)
               (values entry #t)
               ;; skip entry and retry
@@ -138,13 +139,12 @@
         (values #f #f))
       ((bytevector? top)
         (let ((datum (file-stat top '(symlinks catch))))
-          (fs-reader-stack-set! rx (cdr stack))
+          (span-delete-right! stack 1)
           (cond
             ((dir-entry? datum)
               (%fs-reader-process rx datum))
             (else
-              (when (fixnum? datum)
-                (warn-c-errno 'file-stat 'lstat datum (bytevector0->string top)))
+              (warn-c-errno 'fs-reader-get 'lstat (or datum c-errno-enoent) (bytevector0->string top))
               ;; skip entry and retry
               (%fs-reader-get rx)))))
       ((dir-reader? top)
@@ -154,18 +154,20 @@
               (%fs-reader-process rx entry))
             (else
               ;; dir is exhausted. pop it and retry
-              (fs-reader-stack-set! rx (cdr stack))
+              (span-delete-right! stack 1)
               (%fs-reader-get rx))))))))
 
 
 (define (%fs-reader-close rx)
   ;; close any dir-reader still open
-  (do ((l (fs-reader-stack rx) (cdr l)))
-      ((null? l))
-    (let ((e (car l)))
-      (when (reader? e)
-        (reader-close e))))
-  (fs-reader-stack-set! rx '()))
+  (let* ((stack (fs-reader-stack rx))
+         (n     (span-length stack)))
+    (do ((i (fx1- n) (fx1- i)))
+        ((fx<? i 0))
+      (let ((e (span-ref stack i)))
+        (when (reader? e)
+          (reader-close e))))
+    (span-clear! stack)))
 
 
 ;; customize how "dir-reader" objects are printed
