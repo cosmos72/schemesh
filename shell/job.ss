@@ -363,7 +363,7 @@
              (n    (span-length jobs)))
         (when (fx<? -1 id n)
           (span-set! jobs id #f)
-          (until (or (span-empty? jobs) (span-ref-right jobs))
+          (until (or (span-empty? jobs) (span-ref-right jobs 0))
             (span-delete-right! jobs 1)))
       (%job-id-set! job #f)
       (job-oid-set! job id) ;; needed for later displaying it

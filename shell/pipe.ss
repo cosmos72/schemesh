@@ -268,7 +268,7 @@
       (else
         (let ((status (if (span-empty? children)
                         (ok)
-                        (job-last-status (span-ref-right children)))))
+                        (job-last-status (span-ref-right children 0)))))
           ;x (debugf "... mj-pipe-advance-wait-finish status=~s" status)
           (job-status-set! 'mj-pipe-advance-wait mj status))))))
 

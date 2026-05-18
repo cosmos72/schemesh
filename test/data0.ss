@@ -310,7 +310,8 @@
   (span-capacity-right  (span 1 2 3))       3
   (span-empty? (span))                      #t
   (span-empty? (span 'x))                   #f
-  (span-ref-right (span 'x 'y))             y
+  (span-ref-right (span 'x 'y) 0)           y
+  (span-ref-right (span 'x 'y) 1)           x
   (span-ref (span 'a 'b 'c) 1)              b
   (let* ((v  (vector 1 2 3))
          (sp (vector->span v)))

@@ -91,9 +91,9 @@
   (assert* 'span-ref (fx<? -1 idx (span-length sp)))
   (vector-ref (span-vec sp) (fx+ idx (span-beg sp))))
 
-(define (span-ref-right sp)
-  (assert* 'span-ref-right (not (span-empty? sp)))
-  (vector-ref (span-vec sp) (fx1- (span-end sp))))
+(define (span-ref-right sp idx)
+  (assert* 'span-ref-right (fx<? -1 idx (span-length sp)))
+  (vector-ref (span-vec sp) (fx- (span-end sp) (fx1+ idx))))
 
 (define (span-set! sp idx val)
   (assert* 'span-set! (fx<? -1 idx (span-length sp)))

@@ -112,9 +112,10 @@
   (assert* 'fxspan-ref (fx<? -1 idx (fxspan-length sp)))
   (fxvector-ref (fxspan-vec sp) (fx+ idx (fxspan-beg sp))))
 
-(define (fxspan-ref-right sp)
-  (assert* 'fxspan-ref-right (not (fxspan-empty? sp)))
-  (fxspan-ref sp (fx1- (fxspan-length sp))))
+;; return i-th element of fxspan, counting from the right
+(define (fxspan-ref-right sp idx)
+  (assert* 'fxspan-ref-right (fx<? -1 idx (fxspan-length sp)))
+  (fxspan-ref sp (fx- (fxspan-length sp) (fx1+ idx))))
 
 ;; set i-th element of fxspan to value, which must be a fixnum
 (define (fxspan-set! sp idx value)

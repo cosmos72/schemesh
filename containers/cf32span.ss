@@ -146,9 +146,11 @@
     (bytevector-ieee-single-native-ref bv (bytepos+imag pos))))
 
 
-(define (cf32span-ref-right sp)
-  (assert* 'cf32span-ref-right (not (cf32span-empty? sp)))
-  (cf32span-ref sp (fx1- (cf32span-length sp))))
+;; return i-th element of cf32span, counting from the right
+(define (cf32span-ref-right sp idx)
+  (assert* 'cf32span-ref-right (fx<? -1 idx (cf32span-length sp)))
+  (cf32span-ref sp (fx- (cf32span-length sp) (fx1+ idx))))
+
 
 ;; set i-th element of cf32span to cfloat - which must be a cflonum -
 ;; or to fl-real and fl-imag, that must be both flonum

@@ -103,7 +103,7 @@
          (us-str (number->string (fx/ (time-nanosecond t) 1000)))
          (us-str-len (string-length us-str))
          (zeropad-time (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
-    (apply format out (string-append "; [pid ~a] ~a.~a~a " format-string "\n")
+    (apply format out (string-append "\x1b;[1;30m; [pid ~a] ~a.~a~a " format-string "\x1b;[m\n")
       (c-pid-get) (time-second t) zeropad-time us-str args)
     (flush-output-port out)))
 

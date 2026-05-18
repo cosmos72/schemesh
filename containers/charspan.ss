@@ -124,14 +124,10 @@
     ((sp)
       (charspan-ref sp 0))))
 
-(define charspan-ref-right
-  (case-lambda
-    ((sp idx)
-      (assert* 'charspan-ref-right (fx<? -1 idx (charspan-length sp)))
-      (let ((pos (fx- (charspan-length sp) (fx1+ idx))))
-        (string-ref (charspan-str sp) (fx+ pos (charspan-beg sp)))))
-    ((sp)
-      (charspan-ref-right sp 0))))
+(define (charspan-ref-right sp idx)
+  (assert* 'charspan-ref-right (fx<? -1 idx (charspan-length sp)))
+  (let ((pos (fx- (charspan-length sp) (fx1+ idx))))
+    (string-ref (charspan-str sp) (fx+ pos (charspan-beg sp)))))
 
 (define (charspan-set! sp idx ch)
   (assert* 'charspan-set! (fx<? -1 idx (charspan-length sp)))

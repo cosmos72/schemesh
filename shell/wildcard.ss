@@ -268,7 +268,7 @@
               (raise-errorf 'wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
             (when (string-index pattern #\/)
               (%raise-invalid-wildcard-pattern (car w) pattern))
-            (span-insert-right! (span-ref-right ret) pattern))
+            (span-insert-right! (span-ref-right ret 0) pattern))
             (set! w tail)))
       (set! w (cdr w)))
     (%patterns/simplify! ret)))
@@ -289,7 +289,7 @@
 (define (%patterns/prepare1! obj sp)
   (cond
     ((symbol? obj)
-      (span-insert-right! (span-ref-right sp) obj)
+      (span-insert-right! (span-ref-right sp 0) obj)
       (memq obj '(% %!)))
     (else
       (assert* 'wildcard (string? obj))
@@ -302,7 +302,7 @@
 ;; split non-empty string str around each delimiter / which is omitted.
 ;; and append each fragment to subspans inside sp, starting from subspan.
 (define (%split-string->paths sp str str-len)
-  (let ((subspan (span-ref-right sp))
+  (let ((subspan (span-ref-right sp 0))
         (cspan #f))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i str-len))
@@ -330,11 +330,11 @@
 
 
 (define (%ensure-ends-with-charspan! subspan)
-  (if (or (span-empty? subspan) (not (charspan? (span-ref-right subspan))))
+  (if (or (span-empty? subspan) (not (charspan? (span-ref-right subspan 0))))
     (let ((cspan (charspan)))
       (span-insert-right! subspan cspan)
       cspan)
-    (span-ref-right subspan)))
+    (span-ref-right subspan 0)))
 
 
 ;; simplify span in four steps:
@@ -366,7 +366,7 @@
             (span-set! sp i (span->sh-pattern* subspan)))))))
   ;; if last element is an empty subspan, remove it.
   (unless (span-empty? sp)
-    (let ((subspan (span-ref-right sp)))
+    (let ((subspan (span-ref-right sp 0)))
       (when (and (span? subspan) (span-empty? subspan))
         (span-delete-right! sp 1))))
   sp)
@@ -440,7 +440,7 @@
 (define (%patterns-end-with/char? sp ch)
   (if (span-empty? sp)
     #f
-    (let* ((p   (span-ref-right sp))
+    (let* ((p   (span-ref-right sp 0))
            (key (if (string? p) p (sh-pattern-ref-right/string p))))
       (and (string? key) (string-suffix? key ch)))))
 

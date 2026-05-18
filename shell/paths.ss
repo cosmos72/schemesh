@@ -82,7 +82,7 @@
 ;; return #t if path ends with "/" otherwise return #f
 (define (path-ends-with-sep? path)
   (and (not (charspan-empty? path))
-       (char=? #\/ (charspan-ref-right path))))
+       (char=? #\/ (charspan-ref-right path 0))))
 
 
 ;; given a charspan path, split its range [start, end) using "/" as separator
@@ -160,14 +160,14 @@
 (define (trim-path-prefix-len path)
   (let ((len (charspan-length path)))
     (if (and (fx>? len 1)
-             (char=? #\/ (charspan-ref-right path)))
+             (char=? #\/ (charspan-ref-right path 0)))
       (fx1- len)
       len)))
 
 (define (trim-path-suffix-len path)
   (let ((len (charspan-length path)))
     (if (and (fx>? len 0)
-             (char=? #\/ (charspan-ref-right path)))
+             (char=? #\/ (charspan-ref-right path 0)))
       (fx1- len)
       len)))
 

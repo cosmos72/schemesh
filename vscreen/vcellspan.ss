@@ -85,14 +85,10 @@
     ((csp)
       (vcellspan-ref csp 0))))
 
-(define vcellspan-ref-right
-  (case-lambda
-    ((csp idx)
-      (assert* 'vcellspan-ref-right (fx<? -1 idx (vcellspan-length csp)))
-      (let ((pos (fx- (vcellspan-length csp) (fx1+ idx))))
-        (vcellvector-ref (vcellspan-vec csp) (fx+ pos (vcellspan-beg csp)))))
-    ((csp)
-      (vcellspan-ref-right csp 0))))
+(define (vcellspan-ref-right csp idx)
+  (assert* 'vcellspan-ref-right (fx<? -1 idx (vcellspan-length csp)))
+  (let ((pos (fx- (vcellspan-length csp) (fx1+ idx))))
+    (vcellvector-ref (vcellspan-vec csp) (fx+ pos (vcellspan-beg csp)))))
 
 ;; c must be a character or cell
 (define (vcellspan-set! csp idx c)

@@ -125,9 +125,10 @@
         (pos (bytepos (fx+ idx (f32span-beg sp)))))
     (bytevector-ieee-single-native-ref bv pos)))
 
-(define (f32span-ref-right sp)
-  (assert* 'f32span-ref-right (not (f32span-empty? sp)))
-  (f32span-ref sp (fx1- (f32span-length sp))))
+;; return i-th element of f32span, counting from the right
+(define (f32span-ref-right sp idx)
+  (assert* 'f32span-ref-right (fx<? -1 idx (f32span-length sp)))
+  (f32span-ref sp (fx- (f32span-length sp) (fx1+ idx))))
 
 ;; set i-th element of f32span to float, which must be a flonum
 (define (f32span-set! sp idx float)

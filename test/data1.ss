@@ -44,7 +44,7 @@
   (vcellspan-empty? (vcellspan))                     #t
   (vcellspan-empty? (vcellspan #\~))                 #f
   (vcell->char
-    (vcellspan-ref-right (vcellspan #\{ #\\)))       #\\
+    (vcellspan-ref-right (vcellspan #\{ #\\) 0))     #\\
   (vcell->char
     (vcellspan-ref (vcellspan #\x #\y #\z) 2))       #\z
   (let ((sp (vcellspan #\A #\B)))
@@ -67,7 +67,7 @@
   (charspan-capacity-right (charspan #\a #\b #\c))  3
   (charspan-empty? (charspan))                      #t
   (charspan-empty? (charspan #\~))                  #f
-  (charspan-ref-right (charspan #\{ #\\))           #\\
+  (charspan-ref-right (charspan #\{ #\\) 0)         #\\
   (charspan-ref (charspan #\x #\y #\z) 2)           #\z
   (charspan-count=
     (string->charspan* "abcdef") 2

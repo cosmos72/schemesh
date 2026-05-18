@@ -33,7 +33,7 @@
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list plist-update!)
-    (only (scheme2k containers span)       list->span span-ref span-clear! span-delete-right! span-empty? span-insert-right! span-length)
+    (only (scheme2k containers span)       list->span span-ref-right span-clear! span-delete-right! span-empty? span-insert-right! span-length)
     (only (scheme2k containers string)     string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
@@ -123,17 +123,17 @@
 
 (define (%fs-reader-get rx)
   (let* ((stack (fs-reader-stack rx))
-         (top   (if (span-empty? stack) #f (span-ref stack 0)))
+         (top   (if (span-empty? stack) #f (span-ref-right stack 0)))
          (%fs-reader-process
            (lambda (rx entry)
              (when (and (memq (dir-entry-type entry) '(dir symlink))
                         ((fs-reader-recurse-dir-proc? rx) entry (span-length stack)))
-              ;; next call to (%fs-reader-get) will recurse into subdirectory
-              (fs-reader-stack-push-dir! rx stack entry))
-            (if ((fs-reader-accept-entry-proc? rx) entry)
-              (values entry #t)
-              ;; skip entry and retry
-              (%fs-reader-get rx)))))
+               ;; next call to (%fs-reader-get) will recurse into subdirectory
+               (fs-reader-stack-push-dir! rx stack entry))
+             (if ((fs-reader-accept-entry-proc? rx) entry)
+               (values entry #t)
+               ;; skip entry and retry
+               (%fs-reader-get rx)))))
     (cond
       ((not top)
         (values #f #f))
@@ -160,11 +160,11 @@
 
 (define (%fs-reader-close rx)
   ;; close any dir-reader still open
-  (let* ((stack (fs-reader-stack rx))
-         (n     (span-length stack)))
-    (do ((i (fx1- n) (fx1- i)))
-        ((fx<? i 0))
-      (let ((e (span-ref stack i)))
+  (let ((stack (fs-reader-stack rx)))
+    (do ((i 0 (fx1+ i))
+         (n (span-length stack)))
+        ((fx>=? i n))
+      (let ((e (span-ref-right stack i)))
         (when (reader? e)
           (reader-close e))))
     (span-clear! stack)))
