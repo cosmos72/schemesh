@@ -138,14 +138,15 @@
            (lambda (rx entry)
              ;; save depth into entry before possibly pushing a new dir-reader and increasing depth
              (dir-entry-depth-set! entry (fs-reader-depth rx))
-             (when (and (memq (dir-entry-type entry) '(dir symlink))
-                        ((fs-reader-recurse-dir-proc? rx) entry))
-               ;; next call to (%fs-reader-get) will recurse into subdirectory
-               (fs-reader-push-dir! rx stack entry))
-             (if ((fs-reader-accept-entry-proc? rx) entry)
-               (values entry #t)
-               ;; skip entry and retry
-               (%fs-reader-get rx)))))
+             (let ((accept? ((fs-reader-accept-entry-proc? rx) entry)))
+               (when (and (memq (dir-entry-type entry) '(dir symlink))
+                          ((fs-reader-recurse-dir-proc? rx) entry))
+                 ;; next call to (%fs-reader-get) will recurse into subdirectory
+                 (fs-reader-push-dir! rx stack entry))
+               (if accept?
+                 (values entry #t)
+                 ;; skip entry and retry
+                 (%fs-reader-get rx))))))
     (cond
       ((not top)
         (values #f #f))
