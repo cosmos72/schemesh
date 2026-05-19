@@ -66,6 +66,7 @@
     accept-entry-proc? ; procedure for deciding whether to accept a dir-entry
     recurse-dir-proc?  ; procedure for deciding whether to recurse into a directory
     stack              ; span of dir-entry and/or dir-readers
+    (mutable depth)    ; fixnum, directory recursion depth
     uid-cache          ; eqv-hashtable uid -> user name
     gid-cache)         ; eqv-hashtable gid -> group name
   (protocol
@@ -76,16 +77,17 @@
                 (assert* 'make-fs-reader (procedure? accept-entry-proc?))
                 (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
                 (assert* 'make-fs-reader (procedure? recurse-dir-proc?))
-                (assert* 'make-fs-reader (logbit? 2 (procedure-arity-mask recurse-dir-proc?)))
+                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask recurse-dir-proc?)))
                 ((args->new %fs-reader-get #f %fs-reader-close)
                    (map text->string path-list)
                    accept-entry-proc?
                    recurse-dir-proc?
                    (list->span (map text->bytevector0 path-list))
+                   0 ; depth
                    (make-eqv-hashtable)
                    (make-eqv-hashtable)))))
         %%make-fs-reader)))
-  (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define make-fs-reader
@@ -95,7 +97,7 @@
                          path-or-list
                          (list path-or-list))
                        (or accept-entry-proc? (lambda (entry) #t))
-                       (or recurse-dir-proc?  (lambda (entry depth) (eq? 'dir (dir-entry-type entry))))))
+                       (or recurse-dir-proc?  (lambda (entry) (eq? 'dir (dir-entry-type entry))))))
     ((path-or-list accept-entry-proc?)
       (make-fs-reader path-or-list accept-entry-proc? #f))
     ((path-or-list)
@@ -114,12 +116,19 @@
         #f))))
 
 
-(define (fs-reader-stack-push-dir! rx stack entry)
+(define (fs-reader-push-dir! rx stack entry)
   (let ((dir (%make-dir-reader1 (dir-entry-name entry)
                                 (fs-reader-uid-cache rx)
                                 (fs-reader-gid-cache rx))))
     (when dir
-      (span-insert-right! stack dir))))
+      (span-insert-right! stack dir)
+      (fs-reader-depth-set! rx (fx1+ (fs-reader-depth rx))))))
+
+
+(define (fs-reader-pop-dir! rx stack)
+  (span-delete-right! stack 1)
+  (fs-reader-depth-set! rx (fx1- (fs-reader-depth rx))))
+
 
 
 (define (%fs-reader-get rx)
@@ -127,10 +136,12 @@
          (top   (if (span-empty? stack) #f (span-ref-right stack 0)))
          (%fs-reader-process
            (lambda (rx entry)
+             ;; save depth into entry before possibly pushing a new dir-reader and increasing depth
+             (dir-entry-depth-set! entry (fs-reader-depth rx))
              (when (and (memq (dir-entry-type entry) '(dir symlink))
-                        ((fs-reader-recurse-dir-proc? rx) entry (span-length stack)))
+                        ((fs-reader-recurse-dir-proc? rx) entry))
                ;; next call to (%fs-reader-get) will recurse into subdirectory
-               (fs-reader-stack-push-dir! rx stack entry))
+               (fs-reader-push-dir! rx stack entry))
              (if ((fs-reader-accept-entry-proc? rx) entry)
                (values entry #t)
                ;; skip entry and retry
@@ -155,7 +166,7 @@
               (%fs-reader-process rx entry))
             (else
               ;; dir is exhausted. pop it and retry
-              (span-delete-right! stack 1)
+              (fs-reader-pop-dir! rx stack)
               (%fs-reader-get rx))))))))
 
 
@@ -168,7 +179,8 @@
       (let ((e (span-ref-right stack i)))
         (when (reader? e)
           (reader-close e))))
-    (span-clear! stack)))
+    (span-clear! stack))
+  (fs-reader-depth-set! rx 0))
 
 
 ;; customize how "dir-reader" objects are printed
