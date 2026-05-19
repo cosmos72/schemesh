@@ -16,6 +16,7 @@
     (mutable type)     ; (void) or symbol
     (mutable size)     ; (void) or size in bytes
     (mutable link)     ; (void) or #f or string: symlink target
+    (mutable depth)    ; (void) or fs-reader depth
     (mutable modified) ; (void) or time-utc
     (mutable accessed) ; (void) or time-utc
     (mutable status-changed) ; (void) or time-utc
@@ -28,7 +29,7 @@
     (mutable rdev)     ; (void) or exact integer
     (mutable inode)    ; (void) or exact integer
     (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
 (define (exact-integer-or-void? obj)
@@ -44,11 +45,12 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)
+(define (make-dir-entry name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
   (assert* 'make-dir-entry (string-or-void? link))
+  (assert* 'make-dir-entry (exact-integer-or-void? depth))
   (assert* 'make-dir-entry (time-or-void? modified))
   (assert* 'make-dir-entry (time-or-void? accessed))
   (assert* 'make-dir-entry (time-or-void? status-changed))
@@ -62,7 +64,7 @@
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
+    (%make-dir-entry name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
 
 
 (define (make-dir-entry-vector)
@@ -290,6 +292,7 @@
       (if-fixnum->type   (vector-ref vec 1))    ; type
       (vector-ref vec 2)                        ; size
       (or (vector-ref vec 3) "")                ; symlink target
+      (void)                                    ; depth
       (if-pair->time-utc (vector-ref vec 4))    ; modified
       (if-pair->time-utc (vector-ref vec 6))    ; accessed
       (if-pair->time-utc (vector-ref vec 6))    ; status-changed

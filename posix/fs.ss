@@ -11,8 +11,9 @@
   (export
       c-make-dev c-dev-major c-dev-minor
 
-      dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-modified dir-entry-accessed
-      dir-entry-status-changed dir-entry-mode dir-entry-user dir-entry-group dir-entry-uid dir-entry-gid
+      dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-depth
+      dir-entry-modified dir-entry-accessed dir-entry-status-changed
+      dir-entry-mode dir-entry-user dir-entry-group dir-entry-uid dir-entry-gid
       dir-entry-dev dir-entry-rdev dir-entry-inode dir-entry-nlink
 
       make-dir-entry  dir-entry  dir-entry?
@@ -190,7 +191,7 @@
 
 ;; customize how "dir-entry" objects are printed
 (record-writer (record-type-descriptor dir-entry)
-  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size     dir-entry-link
+  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size     dir-entry-link   dir-entry-depth
                            dir-entry-modified dir-entry-accessed dir-entry-status-changed   dir-entry-mode
                            dir-entry-user     dir-entry-group    dir-entry-uid      dir-entry-gid)))
     (lambda (e port writer)
