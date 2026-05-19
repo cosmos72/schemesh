@@ -30,7 +30,7 @@
     (only (chezscheme)                     debug-condition display-condition foreign-procedure format fx1+ fx1- fxlogbit?
                                            include logbit? make-continuation-condition make-format-condition
                                            procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
-    (only (scheme2k bootstrap)             assert* catch raise-assertf raise-errorf try)
+    (only (scheme2k bootstrap)             assert* assert-not* catch raise-assertf raise-errorf try)
     (only (scheme2k containers bytevector) bytevector<?)
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list plist-update!)
@@ -68,16 +68,17 @@
     stack              ; span of dir-entry and/or dir-readers
     (mutable depth)    ; fixnum, directory recursion depth
     uid-cache          ; eqv-hashtable uid -> user name
-    gid-cache)         ; eqv-hashtable gid -> group name
+    gid-cache          ; eqv-hashtable gid -> group name
+    reflect-cache)     ; eq-hashtable rtd -> reflect-info. actually unneded for dir-entry: its fields are known to reflect
   (protocol
     (lambda (args->new)
       (let ((%%make-fs-reader ;; shown when displaying procedure
               (lambda (path-list accept-entry-proc? recurse-dir-proc?)
                 ;; (assert* 'make-fs-reader (text-list? path-list)) ; redundant, checked by (map text->string path-list) below
-                (assert* 'make-fs-reader (procedure? accept-entry-proc?))
-                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask accept-entry-proc?)))
-                (assert* 'make-fs-reader (procedure? recurse-dir-proc?))
-                (assert* 'make-fs-reader (logbit? 1 (procedure-arity-mask recurse-dir-proc?)))
+                (assert*     'make-fs-reader (procedure? accept-entry-proc?))
+                (assert-not* 'make-fs-reader (fxzero? (bitwise-and 6 (procedure-arity-mask accept-entry-proc?))))
+                (assert*     'make-fs-reader (procedure? recurse-dir-proc?))
+                (assert-not* 'make-fs-reader (fxzero? (bitwise-and 6 (procedure-arity-mask recurse-dir-proc?))))
                 ((args->new %fs-reader-get #f %fs-reader-close)
                    (map text->string path-list)
                    accept-entry-proc?
@@ -85,9 +86,10 @@
                    (list->span (map text->bytevector0 path-list))
                    0 ; depth
                    (make-eqv-hashtable)
-                   (make-eqv-hashtable)))))
+                   (make-eqv-hashtable)
+                   (make-eq-hashtable)))))
         %%make-fs-reader)))
-  (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define make-fs-reader
@@ -116,7 +118,7 @@
         #f))))
 
 
-(define (fs-reader-push-dir! rx stack entry)
+(define (%push-dir! rx stack entry)
   (let ((dir (%make-dir-reader1 (dir-entry-name entry)
                                 (fs-reader-uid-cache rx)
                                 (fs-reader-gid-cache rx))))
@@ -125,10 +127,15 @@
       (fs-reader-depth-set! rx (fx1+ (fs-reader-depth rx))))))
 
 
-(define (fs-reader-pop-dir! rx stack)
+(define (%pop-dir! rx stack)
   (span-delete-right! stack 1)
   (fs-reader-depth-set! rx (fx1- (fs-reader-depth rx))))
 
+
+(define (%call-proc rx entry proc)
+  (if (logbit? 2 (procedure-arity-mask proc))
+    (proc entry (fs-reader-reflect-cache rx))
+    (proc entry)))
 
 
 (define (%fs-reader-get rx)
@@ -138,11 +145,11 @@
            (lambda (rx entry)
              ;; save depth into entry before possibly pushing a new dir-reader and increasing depth
              (dir-entry-depth-set! entry (fs-reader-depth rx))
-             (let ((accept? ((fs-reader-accept-entry-proc? rx) entry)))
+             (let ((accept? (%call-proc rx entry (fs-reader-accept-entry-proc? rx))))
                (when (and (memq (dir-entry-type entry) '(dir symlink))
-                          ((fs-reader-recurse-dir-proc? rx) entry))
+                          (%call-proc rx entry (fs-reader-recurse-dir-proc? rx)))
                  ;; next call to (%fs-reader-get) will recurse into subdirectory
-                 (fs-reader-push-dir! rx stack entry))
+                 (%push-dir! rx stack entry))
                (if accept?
                  (values entry #t)
                  ;; skip entry and retry
@@ -167,7 +174,7 @@
               (%fs-reader-process rx entry))
             (else
               ;; dir is exhausted. pop it and retry
-              (fs-reader-pop-dir! rx stack)
+              (%pop-dir! rx stack)
               (%fs-reader-get rx))))))))
 
 
