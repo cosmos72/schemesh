@@ -245,7 +245,7 @@
 
 (define cell-colors-table
   (hashtable string-hash string=?
-    "dir-entry"     (eq-hashtable 'name put-color-dir-entry-name)
+    "dir-entry"     (eq-hashtable 'name put-color-dir-entry-name 'path put-color-dir-entry-name)
     "process-entry" (eq-hashtable 'name color-bold-white
                                   'state (hashtable string-hash string=?
                                            "D" color-bold-red

@@ -11,7 +11,7 @@
   (export
       c-make-dev c-dev-major c-dev-minor
 
-      dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-depth
+      dir-entry-path dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-depth
       dir-entry-modified dir-entry-accessed dir-entry-status-changed
       dir-entry-mode dir-entry-user dir-entry-group dir-entry-uid dir-entry-gid
       dir-entry-dev dir-entry-rdev dir-entry-inode dir-entry-nlink
@@ -119,7 +119,7 @@
 
 
 (define (%push-dir! rx stack entry)
-  (let ((dir (%make-dir-reader1 (dir-entry-name entry)
+  (let ((dir (%make-dir-reader1 (dir-entry-path entry)
                                 (fs-reader-uid-cache rx)
                                 (fs-reader-gid-cache rx))))
     (when dir
@@ -211,8 +211,8 @@
 
 ;; customize how "dir-entry" objects are printed
 (record-writer (record-type-descriptor dir-entry)
-  (let ((accessors (vector dir-entry-name     dir-entry-type     dir-entry-size     dir-entry-link   dir-entry-depth
-                           dir-entry-modified dir-entry-accessed dir-entry-status-changed   dir-entry-mode
+  (let ((accessors (vector dir-entry-path     dir-entry-name     dir-entry-type     dir-entry-size           dir-entry-link
+                           dir-entry-depth    dir-entry-modified dir-entry-accessed dir-entry-status-changed dir-entry-mode
                            dir-entry-user     dir-entry-group    dir-entry-uid      dir-entry-gid)))
     (lambda (e port writer)
       (put-string port "(make-dir-entry")

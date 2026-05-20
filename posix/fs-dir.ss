@@ -12,7 +12,8 @@
 ;; info about a filesystem entry: a file, dir, socket, pipe, symlink...
 (define-record-type (dir-entry %make-dir-entry dir-entry?)
   (fields
-    (mutable name)     ; string
+    (mutable path)     ; (void) or string
+    (mutable name)     ; string. may be shared with path
     (mutable type)     ; (void) or symbol
     (mutable size)     ; (void) or size in bytes
     (mutable link)     ; (void) or #f or string: symlink target
@@ -29,7 +30,7 @@
     (mutable rdev)     ; (void) or exact integer
     (mutable inode)    ; (void) or exact integer
     (mutable nlink))   ; (void) or exact integer
-  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be43))
+  (nongenerative %dir-entry-7c46d04b-34f4-4046-b5c7-b63753c1be44))
 
 
 (define (exact-integer-or-void? obj)
@@ -45,7 +46,8 @@
   (or (eq? (void) obj) (time? obj)))
 
 
-(define (make-dir-entry name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)
+(define (make-dir-entry path name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)
+  (assert* 'make-dir-entry (string-or-void? path))
   (assert* 'make-dir-entry (string? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
@@ -64,7 +66,7 @@
   (assert* 'make-dir-entry (exact-integer-or-void? inode))
   (assert* 'make-dir-entry (exact-integer-or-void? nlink))
   (let ((type (if (string? type) (string->symbol type) type)))
-    (%make-dir-entry name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
+    (%make-dir-entry path name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)))
 
 
 (define (make-dir-entry-vector)
@@ -288,7 +290,8 @@
     (make-dir-entry
       (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
         (path-append (dir-reader-path rx) name)
-        name)                                   ; name
+        name)                                   ; path
+      name                                      ; name
       (if-fixnum->type   (vector-ref vec 1))    ; type
       (vector-ref vec 2)                        ; size
       (or (vector-ref vec 3) "")                ; symlink target
@@ -299,11 +302,11 @@
       (if-mode->string   (vector-ref vec 7))    ; mode
       (if-uid->username  rx (vector-ref vec 8)) ; username
       (if-gid->groupname rx (vector-ref vec 9)) ; groupname
-      (vector-ref vec 8)      ; uid
-      (vector-ref vec 9)      ; gid
-      (vector-ref vec 10)     ; dev
-      (vector-ref vec 11)     ; rdev
-      (vector-ref vec 12)     ; inode
+      (vector-ref vec 8)     ; uid
+      (vector-ref vec 9)     ; gid
+      (vector-ref vec 10)    ; dev
+      (vector-ref vec 11)    ; rdev
+      (vector-ref vec 12)    ; inode
       (vector-ref vec 13)))) ; nlink
 
 

@@ -77,7 +77,7 @@
 (define tag-eqv-ord-hash  53)
 (define tag-ord-hash      54)
 
-(define min-tag-to-allocate   90)
+(define min-tag-to-allocate   95)
 (define next-tag-to-allocate 240)
 (define max-tag-to-allocate  253)
 
@@ -104,20 +104,23 @@
 
 (define known-sym
   (eq-hashtable
-    '<type> 55 'boolean=? 56
-    'bytevector=? 57 'bytevector-hash 58
-    'cfl= 59 ; UNUSED 60
+    '<type> 55 'block-device 56 'boolean=? 57
+    'bytevector=? 58 'bytevector-hash 59
+    'cfl= 60
     'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
-    'enum-set=? 64  ; UNUSED 65
-    'eq? 66 'eqv? 67 'equal? 68 'equal-hash 69
-    'fl=? 70 ; UNUSED 71
-    'fx=? 72 ; UNUSED 72
-    'string=? 74 'string-ci=? 75 'string-hash 76 'string-ci-hash 77
-    'symbol=? 78 'symbol-hash 79
-    'time=? 80 'time-collector-cpu 81 'time-collector-real 82
-    'time-duration 83 ; UNUSED 84
-    'time-monotonic 85 'time-process 86 'time-thread 87 'time-utc 88
-    'unlimited 89))
+    'char-device 64
+    'date 65 'dir 66 'dir-entry 67
+    'enum-set=? 68
+    'eq? 69 'eqv? 70 'equal? 71 'equal-hash 72
+    'file 73 'fifo 74 'fl=? 75 'fx=? 76
+    'process-entry 77
+    'socket 78
+    'string=? 79 'string-ci=? 80 'string-hash 81 'string-ci-hash 82
+    'symbol=? 83 'symbol-hash 84
+    'symlink 85
+    'time=? 86 'time-collector-cpu 87 'time-collector-real 88 'time-duration 89
+    'time-monotonic 90 'time-process 91 'time-thread 92 'time-utc 93
+    'unlimited 94))
 
 
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes

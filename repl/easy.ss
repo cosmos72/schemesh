@@ -764,12 +764,12 @@
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (rx (cond
                 ((some-string-contains? dir-opts "v")
-                  rx)
+                  (select rx path type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink))
                 ((some-string-contains? dir-opts "l")
-                  (select rx name type size link modified accessed mode user group))
+                  (select rx path type size link modified accessed mode user group))
                 (else
-                  (select rx name type size link modified mode)))))
-      (to-stdout (sort-by rx name) to-opts))))
+                  (select rx path type size link modified mode)))))
+      (to-stdout (sort-by rx path) to-opts))))
 
 
 

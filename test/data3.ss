@@ -269,15 +269,15 @@
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (writer-put tx
-        (make-dir-entry "." 'dir 4096 "" 1 (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
+        (make-dir-entry "/" "." 'dir 4096 "" 1 (make-time-utc 1768467392 0) (make-time-utc 1770666829 82454476)
                         (make-time-utc 1770314180 254027974) "rwxr-xr-x"  "nobody" "users" 1000 100 65536 4 568413 2))
       (writer-close tx)
       (let* ((bv (to-bytevector))
              (rx  (make-json-reader (open-bytevector-input-port bv))))
         (list
           (utf8->string bv)
-          (first-value (reader-get rx))))))             ,("{\"<type>\":\"dir-entry\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"depth\":1,\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"dev\":65536,\"rdev\":4,\"inode\":568413,\"nlink\":2}\n"
-                                                          (<type> "dir-entry" name "." type dir size 4096 link "" depth 1 modified (make-time-utc 1768467392 0)
+          (first-value (reader-get rx))))))             ,("{\"<type>\":\"dir-entry\",\"path\":\"/\",\"name\":\".\",\"type\":\"dir\",\"size\":4096,\"link\":\"\",\"depth\":1,\"modified\":{\"<type>\":\"time-utc\",\"value\":1768467392},\"accessed\":{\"<type>\":\"time-utc\",\"value\":1770666829.082454476},\"status-changed\":{\"<type>\":\"time-utc\",\"value\":1770314180.254027974},\"mode\":\"rwxr-xr-x\",\"user\":\"nobody\",\"group\":\"users\",\"uid\":1000,\"gid\":100,\"dev\":65536,\"rdev\":4,\"inode\":568413,\"nlink\":2}\n"
+                                                          (<type> "dir-entry" path "/" name "." type dir size 4096 link "" depth 1 modified (make-time-utc 1768467392 0)
                                                             accessed (make-time-utc 1770666829 82454476) status-changed (make-time-utc 1770314180 254027974)
                                                             mode "rwxr-xr-x" user "nobody" group "users" uid 1000 gid 100 dev 65536 rdev 4 inode 568413 nlink 2))
 
@@ -285,7 +285,7 @@
   (let-values (((port to-bytevector) (open-bytevector-output-port)))
     (let ((tx (make-json-writer port)))
       (writer-put tx
-        (make-process-entry 1 "systemd" #f "S" "root" "root" 0 0 0 1 1 14536704 25296896
+        (make-process-entry 1 "systemd" #f 'S "root" "root" 0 0 0 1 1 14536704 25296896
           (make-time-monotonic 0 110000000) (make-time-duration 0 330000000) (make-time-duration 0 920000000)
           (make-time-duration 0 0) 20 1 10839 160))
       (writer-close tx)
