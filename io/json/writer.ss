@@ -23,7 +23,7 @@
     (lambda (args->new)
       (lambda (out close-out? cache json-or-ndjson)
         ((args->new %json-writer-put %json-writer-close)
-          out (bytespan) #f (eq? 'json json-or-ndjson) #f (and close-out? #t)))))
+          out (bytespan) cache (eq? 'json json-or-ndjson) #f (and close-out? #t)))))
   (nongenerative %json-writer-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
@@ -81,6 +81,17 @@
       (make-json1-writer out #f #f))
     (()
       (make-json1-writer (sh-stdout) #f #f))))
+
+
+(define (datum->json-bytes datum)
+  (let-values (((out get-bytevector) (open-bytevector-output-port)))
+    (let ((tx (make-json-writer out)))
+      (writer-put tx datum)
+      (get-bytevector))))
+
+
+(define (datum->json datum)
+  (utf8b->string (datum->json-bytes datum)))
 
 
 ;; called by (json-writer-close) and (writer-close)
