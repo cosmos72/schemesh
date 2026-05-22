@@ -199,7 +199,10 @@
                 (let ((var (car tail)) ...)
                   (with-while-until
                     body ...
-                    (%for-list (cdr tail) ...))))))))))
+                    (%for-list (cdr tail) ...)))))))
+      ((_ var l body ...)
+        (identifier? #'var)
+        #'(for-list ((var l)) body ...)))))
 
 
 ;; apply proc element-wise to the elements of the lists,
@@ -314,19 +317,21 @@
 (define-syntax for-alist
   (lambda (stx)
     (syntax-case stx ()
+      ((_ () body ...)
+        #'(forever body ...))
       ((_ ((key val alist) ...) body ...)
-        (if (null? #'(alist ...))
-          #'(forever body ...)
-          (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
-            #'(let %for-alist ((tail alist) ...)
-                (if (or (null? tail) ...)
-                  (void)
-                  (let ((key (caar tail)) ...
-                        (val (cdar tail)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-alist (cdr tail) ...)))))))))))
-
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
+          #'(let %for-alist ((tail alist) ...)
+              (if (or (null? tail) ...)
+                (void)
+                (let ((key (caar tail)) ...
+                      (val (cdar tail)) ...)
+                  (with-while-until
+                    body ...
+                    (%for-alist (cdr tail) ...)))))))
+      ((_ key val alist body ...)
+        (and (identifier? #'key) (identifier? #'val))
+        #'(for-alist ((key val alist)) body ...)))))
 
 ;; extension of (map) that also accepts improper lists
 ;; and in such case returns a new improper list
@@ -486,19 +491,21 @@
 (define-syntax for-plist
   (lambda (stx)
     (syntax-case stx ()
+      ((_ () body ...)
+        #'(forever body ...))
       ((_ ((key val plist) ...) body ...)
-        (if (null? #'(plist ...))
-          #'(forever body ...)
-          (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
-            #'(let %for-plist ((tail plist) ...)
-                (if (or (null? tail) ...)
-                  (void)
-                  (let ((key (car tail)) ...
-                        (val (cadr tail)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-plist (cddr tail) ...)))))))))))
-
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
+          #'(let %for-plist ((tail plist) ...)
+              (if (or (null? tail) ...)
+                (void)
+                (let ((key (car tail)) ...
+                      (val (cadr tail)) ...)
+                  (with-while-until
+                    body ...
+                    (%for-plist (cddr tail) ...)))))))
+      ((_ key val plist body ...)
+        (and (identifier? #'key) (identifier? #'val))
+        #'(for-plist ((key val plist)) body ...)))))
 
 ;; return #t if l is a list of symbols, otherwise return #f
 ;; Note: return #f for all improper lists, including cyclic lists.

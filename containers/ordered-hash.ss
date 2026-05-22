@@ -401,7 +401,7 @@
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
 ;;
-;; Note: body IS ALLOWED to remove the current keys bound to each variable from the corresponding hashtables.
+;; Note: body IS ALLOWED to remove the current key bound to each variable from the corresponding hashtables.
 (define-syntax for-ordered-hash
   (lambda (stx)
     (syntax-case stx ()
@@ -419,7 +419,10 @@
                       (val  (node-value node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash next ...))))))))))
+                    (%for-hash next ...)))))))
+      ((_ key val ohtable body ...)
+        (and (identifier? #'key) (identifier? #'val))
+        #'(for-ordered-hash ((key val ohtable)) body ...)))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -431,55 +434,82 @@
 ;; i.e. changes the value associated to key in hashtable.
 ;;
 ;; Do NOT modify the (car) of any pair!
+;;
+;; Note: body IS ALLOWED to remove the current cell bound to each variable from the corresponding hashtables.
 (define-syntax for-ordered-hash-cells
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((cell ohtable) ...) body ...)
-        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((next ...) (generate-pretty-temporaries #'(ohtable ...))))
           #'(let %for-hash-cells ((node (ord-hash-head ohtable)) ...)
               (when (and node ...)
-                (let ((cell (node-cell node)) ...)
+                ;; get next node before evaluating body:
+                ;; body IS allowed to remove current node.
+                (let ((next (node-next node)) ...
+                      (cell (node-cell node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash-cells (node-next node) ...))))))))))
+                    (%for-hash-cells next ...)))))))
+      ((_ cell ohtable body ...)
+        (identifier? #'cell)
+        #'(for-ordered-hash-cells ((cell ohtable)) body ...)))))
 
 
 ;; Iterate in parallel on elements of given ordered-hashs ht ..., and evaluate body ... on each key.
 ;; Stop iterating when the smallest ordered-hash is exhausted,
 ;; and return unspecified value.
+;;
+;; Note: body IS ALLOWED to remove the current key bound to each variable from the corresponding hashtables.
 (define-syntax for-ordered-hash-keys
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key ohtable) ...) body ...)
-        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((next ...) (generate-pretty-temporaries #'(ohtable ...))))
           #'(let %for-hash-keys ((node (ord-hash-head ohtable)) ...)
               (when (and node ...)
-                (let ((key (node-key node)) ...)
+                ;; get next node before evaluating body:
+                ;; body IS allowed to remove current node.
+                (let ((next (node-next node)) ...
+                      (key  (node-key node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash-keys (node-next node) ...))))))))))
+                    (%for-hash-keys next ...)))))))
+      ((_ key ohtable body ...)
+        (identifier? #'key)
+        #'(for-ordered-hash-keys ((key ohtable)) body ...)))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
+;;
+;; Note: body IS ALLOWED to remove the key corresponding to current value bound to each variable from the corresponding hashtables.
 (define-syntax for-ordered-hash-values
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((val ohtable) ...) body ...)
-        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...))))
+        (with-syntax (((node ...) (generate-pretty-temporaries #'(ohtable ...)))
+                      ((next ...) (generate-pretty-temporaries #'(ohtable ...))))
           #'(let %for-hash-values ((node (ord-hash-head ohtable)) ...)
               (when (and node ...)
-                (let ((val (node-value node)) ...)
+                ;; get next node before evaluating body:
+                ;; body IS allowed to remove current node.
+                (let ((next (node-next node)) ...
+                      (val  (node-value node)) ...)
                   (with-while-until
                     body ...
-                    (%for-hash-values (node-next node) ...))))))))))
+                    (%for-hash-values next ...)))))))
+      ((_ val ohtable body ...)
+        (identifier? #'val)
+        #'(for-ordered-hash-values ((val ohtable)) body ...)))))
 
 
 ;; return a freshly allocated, mutable vector containing pairs (key . val) in insertion order

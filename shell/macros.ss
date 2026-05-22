@@ -358,20 +358,20 @@
 (define-syntax for-glob
   (syntax-rules ()
     ((_ ((var glob) ...) body ...)
-      (for-list ((var (shell-glob* glob)) ...)
+      (for-list ((var (shell-glob glob)) ...)
          body ...))
     ((_ var glob body ...)
-      (for-list ((var (shell-glob* glob)))
+      (for-list ((var (shell-glob glob)))
          body ...))))
 
 
-;; (in-glob ...) is a shortcut for (in-list (shell-glob* ...))
+;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
 ;;
 ;; Added in 0.9.3
 (define-syntax in-glob
   (syntax-rules ()
     ((_ . args)
-      (in-list (shell-glob* . args)))))
+      (in-list (shell-glob . args)))))
 
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (close-proc expr-value) ...

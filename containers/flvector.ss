@@ -143,7 +143,10 @@
                   (let ((elem (flvector-ref tv i)) ...)
                     (with-while-until
                       body ...
-                      (%for-flvector (fx1+ i) n)))))))))))
+                      (%for-flvector (fx1+ i) n))))))))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #`(for-flvector ((elem v)) body ...)))))
 
 
 ;; create and return a closure that iterates on elements of flvector v.

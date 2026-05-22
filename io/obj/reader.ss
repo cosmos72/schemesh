@@ -192,7 +192,10 @@
                 (for-reader-inner-part (var ...) (ok? ...) (trx ...)
                   (with-while-until
                     body ...
-                    (for-reader-loop))))))))))
+                    (for-reader-loop)))))))
+      ((_ var rx body ...)
+        (identifier? #'var)
+        #'(for-reader ((var rx)) body ...)))))
 
 
 ;; create and return a iterator, i.e. a closure that accepts zero arguments and, at each call,

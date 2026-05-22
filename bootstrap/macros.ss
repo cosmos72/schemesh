@@ -70,7 +70,10 @@
                 (%for-inner-part ((vars ... flag iter) ...)
                   (with-while-until
                     body ...
-                    (for-loop))))))))))
+                    (for-loop)))))))
+      ((_ var iterator body ...)
+        (identifier? #'var)
+        #`(for ((var iterator)) body ...)))))
 
 
 ;; evaluate body ... repeatedly,

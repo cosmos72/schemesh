@@ -102,9 +102,14 @@
   ;; ------------------ for-reader -----------------------------------------------------------------
 
   (let ((l '()))
-    (for-reader ((obj (==> list-reader '(1 2 3 4 5) => where (fxodd? @@))))
+    (for-reader obj (==> list-reader '(1 2 3 4 5) => where (fxodd? @@))
       (set! l (cons obj l)))
     (reverse! l))                                       (1 3 5)
+
+  (let ((l '()))
+    (for-reader ((obj (==> list-reader '(1 2 3 4 5) => where (fxeven? @@))))
+      (set! l (cons obj l)))
+    (reverse! l))                                       (2 4)
 
   ;; ------------------ fifo-reader and fifo-writer --------------------------
 

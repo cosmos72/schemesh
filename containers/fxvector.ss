@@ -151,7 +151,10 @@
                   (let ((elem (fxvector-ref tv i)) ...)
                     (with-while-until
                       body ...
-                      (%for-fxvector (fx1+ i) n)))))))))))
+                      (%for-fxvector (fx1+ i) n))))))))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #`(for-fxvector ((elem v)) body ...)))))
 
 
 ;; create and return a closure that iterates on elements of fxvector v.

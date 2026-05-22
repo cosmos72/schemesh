@@ -384,8 +384,10 @@
                   (let ((elem (span-ref tsp i)) ...)
                     (with-while-until
                       body ...
-                      (%for-span (fx1+ i) n)))))))))))
-
+                      (%for-span (fx1+ i) n))))))))
+      ((_ elem sp body ...)
+        (identifier? #'elem)
+        #'(for-span ((elem sp)) body ...)))))
 
 ;; iterate on span elements, and call (proc i elem) on each one.
 ;; if (proc ...) evaluates to truish, stop iterating and return such value.

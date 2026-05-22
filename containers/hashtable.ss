@@ -266,7 +266,10 @@
                         (val (cdr cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash (hash-cursor-next! iter) ...)))))))))))
+                      (%for-hash (hash-cursor-next! iter) ...))))))))
+      ((_ key val ht body ...)
+        (and (identifier? #'key) (identifier? #'val))
+        #'(for-hash ((key val ht)) body ...)))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -290,8 +293,10 @@
                 (when (and cell ...)
                   (with-while-until
                     body ...
-                    (%for-hash-cells (hash-cursor-next! iter) ...))))))))))
-
+                    (%for-hash-cells (hash-cursor-next! iter) ...)))))))
+      ((_ cell ht body ...)
+        (identifier? #'cell)
+        #'(for-hash-cells ((cell ht)) body ...)))))
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
 ;; Stop iterating when the smallest hashtable is exhausted,
@@ -310,8 +315,10 @@
                   (let ((key (car cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash-keys (hash-cursor-next! iter) ...)))))))))))
-
+                      (%for-hash-keys (hash-cursor-next! iter) ...))))))))
+      ((_ key ht body ...)
+        (identifier? #'key)
+        #'(for-hash-keys ((key ht)) body ...)))))
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
 ;; Stop iterating when the smallest hashtable is exhausted,
@@ -330,7 +337,10 @@
                   (let ((val (cdr cell)) ...)
                     (with-while-until
                       body ...
-                      (%for-hash-keys (hash-cursor-next! iter) ...)))))))))))
+                      (%for-hash-keys (hash-cursor-next! iter) ...))))))))
+      ((_ val ht body ...)
+        (identifier? #'val)
+        #'(for-hash-values ((val ht)) body ...)))))
 
 
 ;; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,

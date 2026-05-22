@@ -262,8 +262,8 @@
 
   ;; ----------------- bytespan-display-... ------------------------------------------------------
   (let ((sp (bytespan)))
-    (for ((n (in-list (reverse '(#t #f 0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
-                       9999998 10000000 123456789 -1 -9 -10 -536870912)))))
+    (for n (in-list (reverse '(#t #f 0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
+                               9999998 10000000 123456789 -1 -9 -10 -536870912)))
       while (fixnum? n)
       (bytespan-display-left/fixnum! sp n)
       (bytespan-insert-left/u8! sp 32))
@@ -281,7 +281,7 @@
               "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 123456789 -1 -9 -10 -536870912 "
 
   (let ((sp (bytespan)))
-    (for-list ((n (reverse '(69070296726778056 -36789276097260750726076250762 -987654321099887766554433221100))))
+    (for-list n (reverse '(69070296726778056 -36789276097260750726076250762 -987654321099887766554433221100))
       (bytespan-display-left/integer! sp n)
       (bytespan-insert-left/u8! sp 32))
     (utf8b-bytespan->string sp))
@@ -354,6 +354,11 @@
   (list-reverse*! (list 1))                            (1)
   (list-reverse*! (list 1 2))                          (2 . 1)
   (list-reverse*! (list 1 2 3 4 5 6))                  (6 5 4 3 2 . 1)
+
+  (let ((ret '()))
+    (for-alist k v '((a . 1.0) (b 2.0) (c (3.0)))
+      (set! ret (cons (cons k v) ret)))
+    (reverse! ret))                                    ((a . 1.0) (b 2.0) (c (3.0)))
 
   (let ((ret '()))
     (for-alist ((k v '((#\a . 1.0) (#\b 2.0) (#\c (3.0)))))

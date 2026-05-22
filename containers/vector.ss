@@ -115,7 +115,7 @@
 ;; Stop iterating when the shortest vector is exhausted,
 ;; and return unspecified value.
 ;;
-;; The implementation of body ... can call directly or indirectly functions
+;; The implementation of body ... CAN call directly or indirectly functions
 ;; that inspect or modify the vectors elements.
 ;;
 ;; It must NOT call any function that modifies the vectors' length, as for example (vector-truncate!)
@@ -134,7 +134,10 @@
                   (let ((elem (vector-ref tv i)) ...)
                     (with-while-until
                       body ...
-                      (%for-vector (fx1+ i) n)))))))))))
+                      (%for-vector (fx1+ i) n))))))))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #'(for-vector ((elem v)) body ...)))))
 
 
 ;; apply proc element-wise to the i-th element of each vector
