@@ -16,6 +16,20 @@
     ((_ body1 body2 ...) (begin body1 body2 ...))))
 
 
+;; extended (unless expr body ...) that also accepts empty body
+(define-syntax unless0
+  (syntax-rules ()
+    ((_ expr)          (begin expr (void)))
+    ((_ expr body ...) (if expr (void) (begin0 body ...)))))
+
+
+;; extended (when expr body ...) that also accepts empty body
+(define-syntax when0
+  (syntax-rules ()
+    ((_ expr)          (begin expr (void)))
+    ((_ expr body ...) (if expr (begin0 body ...) (void)))))
+
+
 ;; helper macro, introduces optional early termination if "while expr" or "until expr"
 ;; appear at top level without parentheses (and without quotes)
 (define-syntax with-while-until
@@ -25,14 +39,14 @@
     ((_ body)
       body)
     ((_ while pred body ...)
-      (when pred (with-while-until body ...)))
+      (when0 pred (with-while-until body ...)))
     ((_ until pred body ...)
-      (unless pred (with-while-until body ...)))
+      (unless0 pred (with-while-until body ...)))
     ((_ body1 body2 ...)
       (begin body1 (with-while-until body2 ...)))))
 
 
-(define-syntax %for-inner-part
+(define-syntax for-inner-part
   (syntax-rules ()
     ((_ () body ...)
       (begin0 body ...))
@@ -43,7 +57,7 @@
     ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
       (let-values0 (((vars ... flag) (iter)))
         (when0 flag
-          (%for-inner-part ((vars2 ... flag2 iter2) ...)
+          (for-inner-part ((vars2 ... flag2 iter2) ...)
             body ...))))))
 
 
@@ -67,7 +81,7 @@
                       ((iter ...) (generate-pretty-temporaries #'(iterator ...))))
           #`(let* ((iter iterator) ...)
               (let for-loop ()
-                (%for-inner-part ((vars ... flag iter) ...)
+                (for-inner-part ((vars ... flag iter) ...)
                   (with-while-until
                     body ...
                     (for-loop)))))))
@@ -164,20 +178,6 @@
                       (when (fx<? i n)
                         (with-while-until
                           body ... (%repeat (fx1+ i))))))))
-
-
-;; extended (unless expr body ...) that also accepts empty body
-(define-syntax unless0
-  (syntax-rules ()
-    ((_ expr)          (begin expr (void)))
-    ((_ expr body ...) (if expr (void) (begin0 body ...)))))
-
-
-;; extended (when expr body ...) that also accepts empty body
-(define-syntax when0
-  (syntax-rules ()
-    ((_ expr)          (begin expr (void)))
-    ((_ expr body ...) (if expr (begin0 body ...) (void)))))
 
 
 ;; evaluate pred, and if #f evaluate body ... then repeat

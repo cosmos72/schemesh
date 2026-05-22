@@ -249,7 +249,7 @@
 ;;  either (values elem #t) i.e. the next element from the list
 ;;  or (values #<unspecified> #f) when the list is exhausted or after (reader-close rx) has been called.
 ;;
-;; This function effectively converts arbitrary elements a reader
+;; This function effectively converts a arbitrary elements to a reader generating them in order.
 (define (datum-reader . l)
   (list-reader l))
 

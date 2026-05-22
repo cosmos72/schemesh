@@ -376,10 +376,24 @@
     (syntax-case stx ()
       ((_ () body ...)
         #'(forever body ...))
+      #|
+      ((_ ((idx elem0 sp0) (elem sp) ...) body ...)
+        (with-syntax (((tsp0 tsp ...) (generate-pretty-temporaries #'(sp0 sp ...))))
+          #'(let ((tsp0 sp0)
+                  (tsp  sp) ...)
+              (let %for-span ((i 0) (n (fxmin (span-length tsp0) (span-length tsp) ...)))
+                (when (fx<? i n)
+                  (let ((idx i)
+                        (elem0 (span-ref tsp0 i))
+                        (elem  (span-ref tsp i)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-span (fx1+ i) n))))))))
+      |#
       ((_ ((elem sp) ...) body ...)
         (with-syntax (((tsp ...) (generate-pretty-temporaries #'(sp ...))))
           #'(let ((tsp sp) ...)
-              (let %for-span ((i 0) (n (fxmin (span-length sp) ...)))
+              (let %for-span ((i 0) (n (fxmin (span-length tsp) ...)))
                 (when (fx<? i n)
                   (let ((elem (span-ref tsp i)) ...)
                     (with-while-until

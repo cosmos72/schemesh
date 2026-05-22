@@ -146,7 +146,7 @@
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
-              (let %for-fxvector ((i 0) (n (fxmin (fxvector-length v) ...)))
+              (let %for-fxvector ((i 0) (n (fxmin (fxvector-length tv) ...)))
                 (when (fx<? i n)
                   (let ((elem (fxvector-ref tv i)) ...)
                     (with-while-until

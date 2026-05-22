@@ -32,7 +32,7 @@
       void1 void^
 
       ;; macros.ss
-      begin0 for forever if0 lambda0 let0 let1 let*-pairs0 let-values0 repeat unless0 until when0 while with-while-until)
+      begin0 for for/list forever if0 lambda0 let0 let1 let*-pairs0 let-values0 repeat unless0 until when0 while with-while-until)
   (import
     (rnrs)
     (rnrs exceptions)

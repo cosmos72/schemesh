@@ -129,7 +129,7 @@
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
-              (let %for-vector ((i 0) (n (fxmin (vector-length v) ...)))
+              (let %for-vector ((i 0) (n (fxmin (vector-length tv) ...)))
                 (when (fx<? i n)
                   (let ((elem (vector-ref tv i)) ...)
                     (with-while-until
