@@ -26,10 +26,8 @@
     '(#\x20ac #\xdc80 #\xdcff #\xffff #\x10ffff))      (8364 56448 56575 65535 1114111)
   ;; string escape sequences #\xdc80; ... #\xdcff; are allowed only by UTF-8b
   (let ((ret '()))
-    (string-iterate
-        "\" \x20ac; \xdc80; \xdcff; \""
-      (lambda (i ch)
-        (set! ret (cons (char->integer ch) ret))))
+    (for-string ch "\" \x20ac; \xdc80; \xdcff; \""
+      (set! ret (cons (char->integer ch) ret)))
     (reverse! ret))                                    (34 32 8364 32 56448 32 56575 32 34)
   (list #| '\' . #| ,`@# |# |# ; nested block comments
        '#(a 1.0 2/3) '#2(d) #vu8(1 2 3)

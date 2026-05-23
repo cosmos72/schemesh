@@ -27,7 +27,6 @@
     (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate! void)
     (only (scheme2k bootstrap)             assert* fx<=?* raise-assertf)
     (only (scheme2k containers bytevector) subbytevector-fill!)
-    (only (scheme2k containers string)     string-iterate)
     (scheme2k containers bytespan)
     (scheme2k containers charspan))
 

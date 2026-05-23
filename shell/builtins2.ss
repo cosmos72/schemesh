@@ -330,19 +330,17 @@
     (unless (fxzero? (vector-length vec))
       (subvector-sort! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
       (bytespan-reserve-right! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
-      (vector-iterate vec
-        (lambda (i elem)
-          (%env-display-var (car elem) (cdr elem) wbuf)
-          (when (fx>=? (bytespan-length wbuf) 4096)
-            (fd-write/bytespan! fd wbuf))))
+      (for-vector elem vec
+        (%env-display-var (car elem) (cdr elem) wbuf)
+        (when (fx>=? (bytespan-length wbuf) 4096)
+          (fd-write/bytespan! fd wbuf)))
       (when (eq? 'export which)
         (bytespan-insert-right/bytevector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
-        (vector-iterate vec
-          (lambda (i elem)
-            (bytespan-insert-right/u8! wbuf 32)   ; " "
-            (bytespan-insert-right/string! wbuf (car elem))
-            (when (fx>=? (bytespan-length wbuf) 4096)
-              (fd-write/bytespan! fd wbuf))))
+        (for-vector elem vec
+          (bytespan-insert-right/u8! wbuf 32)   ; " "
+          (bytespan-insert-right/string! wbuf (car elem))
+          (when (fx>=? (bytespan-length wbuf) 4096)
+            (fd-write/bytespan! fd wbuf)))
         (bytespan-insert-right/u8! wbuf 10))       ; "\n"
       (fd-write/bytespan! fd wbuf)))
   (void))
