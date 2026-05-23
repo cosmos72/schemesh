@@ -58,7 +58,7 @@
 (define (%for-each-skip-car! l)
   (do ((tail l (cdr tail)))
       ((null? tail) l)
-    (set-car! tail (cadr tail))))
+    (set-car! tail (cdar tail))))
 
 
 ;; apply proc element-wise to the (car) of each list
