@@ -413,18 +413,32 @@
     ((sp)
       (in-bytespan sp 0 (bytespan-length sp) 1))))
 
-;; (bytespan-iterate l proc) iterates on all elements of given bytespan sp,
+
+;; (bytespan-iterate sp proc) iterates on all elements of given bytespan sp,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (bytespan-iterate sp proc)
-  (let ((start (bytespan-beg sp))
-        (end   (bytespan-end sp))
-        (bv    (bytespan-vec sp)))
-    (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (not (proc (fx- i start) (bytevector-u8-ref bv i))))
-       (fx>=? i end)))))
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the bytespan(s) elements, and can also call (bytespan-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the bytespan (insert or erase elements,
+;; change the bytespan size or capacity, etc).
+;;
+;; If no bytespan is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define bytespan-iterate
+  (case-lambda
+    ((sp start end proc)
+      (assert* 'bytespan-iterate (fx<=?* 0 start end (bytespan-length sp)))
+      (assert* 'bytespan-iterate (procedure? proc))
+      (let %bytespan-iterate ((sp sp) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (bytespan-ref/u8 sp i))))
+            (and ret (%bytespan-iterate sp proc ret (fx1+ i) n)))
+          ret)))
+    ((sp proc)
+      (bytespan-iterate sp 0 (bytespan-length sp) proc))))
+
 
 ;; (bytespan-index) iterates on bytespan u8 elements in range [start, end)
 ;; and returns the index of first u8 element that causes (byte-or-pred elem) to return truish.

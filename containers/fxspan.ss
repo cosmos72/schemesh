@@ -350,16 +350,32 @@
     ((sp)
       (in-fxspan sp 0 (fxspan-length sp) 1))))
 
-;; (fxspan-iterate sp proc) iterates on all elements of given fxspan sp,
+
+;; (fxspan-iterate vec proc) iterates on all elements of given fxspan vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (fxspan-iterate sp proc)
-  (do ((len (fxspan-length sp))
-       (i   0 (fx1+ i)))
-    ((or (fx>=? i len) (not (proc i (fxspan-ref sp i))))
-     (fx>=? i len))))
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the fxspan(s) elements, and can also call (fxspan-set! vec ...).
+;;
+;; It must NOT call any other function that modifies the fxspan (insert or erase elements,
+;; change the fxspan size or capacity, etc).
+;;
+;; If no fxspan is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define fxspan-iterate
+  (case-lambda
+    ((vec start end proc)
+      (assert* 'fxspan-iterate (fx<=?* 0 start end (fxspan-length vec)))
+      (assert* 'fxspan-iterate (procedure? proc))
+      (let %fxspan-iterate ((vec vec) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (fxspan-ref vec i))))
+            (and ret (%fxspan-iterate vec proc ret (fx1+ i) n)))
+          ret)))
+    ((vec proc)
+      (fxspan-iterate vec 0 (fxspan-length vec) proc))))
+
 
 (define port->fxspan
   (case-lambda

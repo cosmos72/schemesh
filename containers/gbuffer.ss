@@ -198,29 +198,37 @@
       (in-gbuffer gb 0 (gbuffer-length gb) 1))))
 
 
-;; iterate on gbuffer elements, and call (proc i elem) on each one.
-;; Stops iterating if (proc ...) returns #f.
+;; (gbuffer-iterate gb proc) iterates on all elements of given gbuffer gb,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc i elem) returned truish,
-;; otherwise returns #f.
-;;
-;; The implementation of (proc ...) can call directly or indirectly functions
-;; that inspect the gbuffer without modifying it, and can also call (gbuffer-set! sp ...).
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the gbuffer(s) elements, and can also call (gbuffer-set! gb ...).
 ;;
 ;; It must NOT call any other function that modifies the gbuffer (insert or erase elements,
 ;; change the gbuffer size or capacity, etc).
-(define (gbuffer-iterate gb proc)
-  (do ((i 0 (fx1+ i))
-       (n (gbuffer-length gb)))
-    ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i))))
-     (fx>=? i n))))
+;;
+;; If no gbuffer is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define gbuffer-iterate
+  (case-lambda
+    ((gb start end proc)
+      (assert* 'gbuffer-iterate (fx<=?* 0 start end (gbuffer-length gb)))
+      (assert* 'gbuffer-iterate (procedure? proc))
+      (let %gbuffer-iterate ((gb gb) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (gbuffer-ref gb i))))
+            (and ret (%gbuffer-iterate gb proc ret (fx1+ i) n)))
+          ret)))
+    ((gb proc)
+      (gbuffer-iterate gb 0 (gbuffer-length gb) proc))))
 
 
 ;; customize how "gbuffer" objects are printed
 (record-writer (record-type-descriptor %gbuffer)
-  (lambda (sp port writer)
+  (lambda (gb port writer)
     (display "(gbuffer" port)
-    (gbuffer-iterate sp
+    (gbuffer-iterate gb
       (lambda (i elem)
         (display #\space port)
         (writer elem port)))

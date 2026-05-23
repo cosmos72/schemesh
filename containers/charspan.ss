@@ -458,13 +458,31 @@
       (in-charspan sp 0 (charspan-length sp) 1))))
 
 
-(define (charspan-iterate sp proc)
-  (let ((start (charspan-beg sp))
-        (end   (charspan-end sp))
-        (s     (charspan-str sp)))
-    (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (not (proc (fx- i start) (string-ref s i))))
-        (fx>=? i end)))))
+;; (charspan-iterate sp proc) iterates on all elements of given charspan sp,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the charspan(s) elements, and can also call (charspan-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the charspan (insert or erase elements,
+;; change the charspan size or capacity, etc).
+;;
+;; If no charspan is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define charspan-iterate
+  (case-lambda
+    ((sp start end proc)
+      (assert* 'charspan-iterate (fx<=?* 0 start end (charspan-length sp)))
+      (assert* 'charspan-iterate (procedure? proc))
+      (let %charspan-iterate ((sp sp) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (charspan-ref sp i))))
+            (and ret (%charspan-iterate sp proc ret (fx1+ i) n)))
+          ret)))
+    ((sp proc)
+      (charspan-iterate sp 0 (charspan-length sp) proc))))
+
 
 ;; iterate on charspan elements in range [start, end) and return the index
 ;; of first element that causes (predicate elem) to return truish.

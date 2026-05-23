@@ -62,48 +62,48 @@
 (define (vcellspan . c-list)
   (list->vcellspan c-list))
 
-(define (vcellspan-length csp)
-  (fx- (vcellspan-end csp) (vcellspan-beg csp)))
+(define (vcellspan-length vsp)
+  (fx- (vcellspan-end vsp) (vcellspan-beg vsp)))
 
 ;; return length of internal vcellvector, i.e. maximum number of elements
 ;; that can be stored without reallocating
-(define (vcellspan-capacity csp)
-  (vcellvector-length (vcellspan-vec csp)))
+(define (vcellspan-capacity vsp)
+  (vcellvector-length (vcellspan-vec vsp)))
 
-(define (vcellspan-empty? csp)
-  (fx>=? (vcellspan-beg csp) (vcellspan-end csp)))
+(define (vcellspan-empty? vsp)
+  (fx>=? (vcellspan-beg vsp) (vcellspan-end vsp)))
 
-(define (vcellspan-clear! csp)
-  (vcellspan-beg-set! csp 0)
-  (vcellspan-end-set! csp 0))
+(define (vcellspan-clear! vsp)
+  (vcellspan-beg-set! vsp 0)
+  (vcellspan-end-set! vsp 0))
 
 (define vcellspan-ref
   (case-lambda
-    ((csp idx)
-      (assert* 'vcellspan-ref (fx<? -1 idx (vcellspan-length csp)))
-      (vcellvector-ref (vcellspan-vec csp) (fx+ idx (vcellspan-beg csp))))
-    ((csp)
-      (vcellspan-ref csp 0))))
+    ((vsp idx)
+      (assert* 'vcellspan-ref (fx<? -1 idx (vcellspan-length vsp)))
+      (vcellvector-ref (vcellspan-vec vsp) (fx+ idx (vcellspan-beg vsp))))
+    ((vsp)
+      (vcellspan-ref vsp 0))))
 
-(define (vcellspan-ref-right csp idx)
-  (assert* 'vcellspan-ref-right (fx<? -1 idx (vcellspan-length csp)))
-  (let ((pos (fx- (vcellspan-length csp) (fx1+ idx))))
-    (vcellvector-ref (vcellspan-vec csp) (fx+ pos (vcellspan-beg csp)))))
+(define (vcellspan-ref-right vsp idx)
+  (assert* 'vcellspan-ref-right (fx<? -1 idx (vcellspan-length vsp)))
+  (let ((pos (fx- (vcellspan-length vsp) (fx1+ idx))))
+    (vcellvector-ref (vcellspan-vec vsp) (fx+ pos (vcellspan-beg vsp)))))
 
 ;; c must be a character or cell
-(define (vcellspan-set! csp idx c)
-  (assert* 'vcellspan-set! (fx<? -1 idx (vcellspan-length csp)))
-  (vcellvector-set! (vcellspan-vec csp) (fx+ idx (vcellspan-beg csp)) c))
+(define (vcellspan-set! vsp idx c)
+  (assert* 'vcellspan-set! (fx<? -1 idx (vcellspan-length vsp)))
+  (vcellvector-set! (vcellspan-vec vsp) (fx+ idx (vcellspan-beg vsp)) c))
 
 ;; c must be a character or cell
 (define vcellspan-fill!
   (case-lambda
-    ((csp start end c)
-      (assert* 'vcellspan-fill! (fx<=?* 0 start end (vcellspan-length csp)))
-      (let ((offset (vcellspan-beg csp)))
-        (vcellvector-fill! (vcellspan-vec csp) (fx+ offset start) (fx+ offset end) c)))
-    ((csp cell)
-      (vcellspan-fill! csp 0 (vcellspan-length csp) cell))))
+    ((vsp start end c)
+      (assert* 'vcellspan-fill! (fx<=?* 0 start end (vcellspan-length vsp)))
+      (let ((offset (vcellspan-beg vsp)))
+        (vcellvector-fill! (vcellspan-vec vsp) (fx+ offset start) (fx+ offset end) c)))
+    ((vsp cell)
+      (vcellspan-fill! vsp 0 (vcellspan-length vsp) cell))))
 
 
 ;; make a copy of vcellspan and return it
@@ -122,177 +122,177 @@
                      (vcellspan-vec dst) (fx+ dst-start (vcellspan-beg dst)) n))
 
 
-(define (vcellspan-reallocate-left! csp len cap)
+(define (vcellspan-reallocate-left! vsp len cap)
   (assert* 'vcellspan-reallocate-left! (fx<=? 0 len cap))
-  (let ((copy-len (fxmin len (vcellspan-length csp)))
-        (old-vec  (vcellspan-vec csp))
+  (let ((copy-len (fxmin len (vcellspan-length vsp)))
+        (old-vec  (vcellspan-vec vsp))
         (new-vec  (make-vcellvector cap))
         (new-beg  (fx- cap len)))
-    (vcellvector-copy! old-vec (vcellspan-beg csp) new-vec new-beg copy-len)
-    (vcellspan-beg-set! csp new-beg)
-    (vcellspan-end-set! csp cap)
-    (vcellspan-vec-set! csp new-vec)))
+    (vcellvector-copy! old-vec (vcellspan-beg vsp) new-vec new-beg copy-len)
+    (vcellspan-beg-set! vsp new-beg)
+    (vcellspan-end-set! vsp cap)
+    (vcellspan-vec-set! vsp new-vec)))
 
-(define (vcellspan-reallocate-right! csp len cap)
+(define (vcellspan-reallocate-right! vsp len cap)
   (assert* 'vcellspan-reallocate-right! (fx<=? 0 len cap))
-  (let ((copy-len (fxmin len (vcellspan-length csp)))
-        (old-vec (vcellspan-vec csp))
+  (let ((copy-len (fxmin len (vcellspan-length vsp)))
+        (old-vec (vcellspan-vec vsp))
         (new-vec (make-vcellvector cap)))
-    (vcellvector-copy! old-vec (vcellspan-beg csp) new-vec 0 copy-len)
-    (vcellspan-beg-set! csp 0)
-    (vcellspan-end-set! csp len)
-    (vcellspan-vec-set! csp new-vec)))
+    (vcellvector-copy! old-vec (vcellspan-beg vsp) new-vec 0 copy-len)
+    (vcellspan-beg-set! vsp 0)
+    (vcellspan-end-set! vsp len)
+    (vcellspan-vec-set! vsp new-vec)))
 
 ;; return distance between begin of internal vcellvector and last element
-(define (vcellspan-capacity-left csp)
-  (vcellspan-end csp))
+(define (vcellspan-capacity-left vsp)
+  (vcellspan-end vsp))
 
 ;; return distance between first element and end of internal vcellvector
-(define (vcellspan-capacity-right csp)
-  (fx- (vcellvector-length (vcellspan-vec csp)) (vcellspan-beg csp)))
+(define (vcellspan-capacity-right vsp)
+  (fx- (vcellvector-length (vcellspan-vec vsp)) (vcellspan-beg vsp)))
 
 ;; ensure distance between begin of internal vcellvector and last element is >= n.
 ;; does NOT change the length
-(define (vcellspan-reserve-left! csp len)
+(define (vcellspan-reserve-left! vsp len)
   (assert* 'vcellspan-reserve-left! (fx>=? len 0))
-  (let ((vec      (vcellspan-vec csp))
-        (cap-left (vcellspan-capacity-left csp)))
+  (let ((vec      (vcellspan-vec vsp))
+        (cap-left (vcellspan-capacity-left vsp)))
     (cond
       ((fx<=? len cap-left)
         ;; nothing to do
         (void))
       ((fx<=? len (vcellvector-length vec))
         ;; vcellvector is large enough, move elements to the back
-        (let* ((cap     (vcellspan-capacity csp))
-               (old-len (vcellspan-length csp))
+        (let* ((cap     (vcellspan-capacity vsp))
+               (old-len (vcellspan-length vsp))
                (new-beg (fx- cap old-len)))
-          (vcellvector-copy! vec (vcellspan-beg csp) vec new-beg old-len)
-          (vcellspan-beg-set! csp new-beg)
-          (vcellspan-end-set! csp cap)))
+          (vcellvector-copy! vec (vcellspan-beg vsp) vec new-beg old-len)
+          (vcellspan-beg-set! vsp new-beg)
+          (vcellspan-end-set! vsp cap)))
       (else
         ;; vcellvector is too small, reallocate it
         (let ((new-cap (fxmax 8 len (fx* 2 cap-left))))
-          (vcellspan-reallocate-left! csp (vcellspan-length csp) new-cap))))))
+          (vcellspan-reallocate-left! vsp (vcellspan-length vsp) new-cap))))))
 
 ;; ensure distance between first element and end of internal vcellvector is >= n.
 ;; does NOT change the length
-(define (vcellspan-reserve-right! csp len)
+(define (vcellspan-reserve-right! vsp len)
   (assert* 'vcellspan-reserve-right! (fx>=? len 0))
-  (let ((vec       (vcellspan-vec csp))
-        (cap-right (vcellspan-capacity-right csp)))
+  (let ((vec       (vcellspan-vec vsp))
+        (cap-right (vcellspan-capacity-right vsp)))
     (cond
       ((fx<=? len cap-right)
         ;; nothing to do
         (void))
       ((fx<=? len (vcellvector-length vec))
         ;; vcellvector is large enough, move elements to the front
-        (let ((len (vcellspan-length csp)))
-          (vcellvector-copy! vec (vcellspan-beg csp) vec 0 len)
-          (vcellspan-beg-set! csp 0)
-          (vcellspan-end-set! csp len)))
+        (let ((len (vcellspan-length vsp)))
+          (vcellvector-copy! vec (vcellspan-beg vsp) vec 0 len)
+          (vcellspan-beg-set! vsp 0)
+          (vcellspan-end-set! vsp len)))
       (else
         ;; vcellvector is too small, reallocate it
         (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
-          (vcellspan-reallocate-right! csp (vcellspan-length csp) new-cap))))))
+          (vcellspan-reallocate-right! vsp (vcellspan-length vsp) new-cap))))))
 
 ;; grow or shrink vcellspan on the left (front), set length to n
-(define (vcellspan-resize-left! csp len)
+(define (vcellspan-resize-left! vsp len)
   (assert* 'vcellspan-resize-left! (fx>=? len 0))
-  (vcellspan-reserve-left! csp len)
-  (assert* 'vcellspan-resize-left! (fx>=? (vcellspan-capacity-left csp) len))
-  (vcellspan-beg-set! csp (fx- (vcellspan-end csp) len)))
+  (vcellspan-reserve-left! vsp len)
+  (assert* 'vcellspan-resize-left! (fx>=? (vcellspan-capacity-left vsp) len))
+  (vcellspan-beg-set! vsp (fx- (vcellspan-end vsp) len)))
 
 ;; grow or shrink vcellspan on the right (back), set length to n
-(define (vcellspan-resize-right! csp len)
+(define (vcellspan-resize-right! vsp len)
   (assert* 'vcellspan-resize-right! (fx>=? len 0))
-  (vcellspan-reserve-right! csp len)
-  (assert* 'vcellspan-resize-right! (fx>=? (vcellspan-capacity-right csp) len))
-  (vcellspan-end-set! csp (fx+ len (vcellspan-beg csp))))
+  (vcellspan-reserve-right! vsp len)
+  (assert* 'vcellspan-resize-right! (fx>=? (vcellspan-capacity-right vsp) len))
+  (vcellspan-end-set! vsp (fx+ len (vcellspan-beg vsp))))
 
 
 ;; each c must be a character or cell
 (define vcellspan-insert-left!
   (case-lambda
-    ((csp)
+    ((vsp)
       (void))
-    ((csp c1)
-      (vcellspan-resize-left! csp (fx1+ (vcellspan-length csp)))
-      (vcellspan-set! csp 0 c1))
-    ((csp c1 c2)
-      (vcellspan-resize-left! csp (fx+ 2 (vcellspan-length csp)))
-      (vcellspan-set! csp 0 c1)
-      (vcellspan-set! csp 1 c2))
-    ((csp . c-list)
-      (vcellspan-resize-left! csp (fx+ (vcellspan-length csp) (length c-list)))
+    ((vsp c1)
+      (vcellspan-resize-left! vsp (fx1+ (vcellspan-length vsp)))
+      (vcellspan-set! vsp 0 c1))
+    ((vsp c1 c2)
+      (vcellspan-resize-left! vsp (fx+ 2 (vcellspan-length vsp)))
+      (vcellspan-set! vsp 0 c1)
+      (vcellspan-set! vsp 1 c2))
+    ((vsp . c-list)
+      (vcellspan-resize-left! vsp (fx+ (vcellspan-length vsp) (length c-list)))
       (do ((pos 0 (fx1+ pos))
            (tail c-list (cdr tail)))
           ((null? tail))
-        (vcellspan-set! csp pos (car tail))))))
+        (vcellspan-set! vsp pos (car tail))))))
 
 
 ;; each c must be a character or cell
 (define vcellspan-insert-right!
   (case-lambda
-    ((csp)
+    ((vsp)
       (void))
-    ((csp c1)
-      (let ((len (vcellspan-length csp)))
-        (vcellspan-resize-right! csp (fx1+ len))
-        (vcellspan-set! csp len c1)))
-    ((csp c1 c2)
-      (let ((len (vcellspan-length csp)))
-        (vcellspan-resize-right! csp (fx+ 2 len))
-        (vcellspan-set! csp len c1)
-        (vcellspan-set! csp (fx1+ len) c2)))
-    ((csp . c-list)
-      (let ((len (vcellspan-length csp)))
-        (vcellspan-resize-right! csp (fx+ len (length c-list)))
+    ((vsp c1)
+      (let ((len (vcellspan-length vsp)))
+        (vcellspan-resize-right! vsp (fx1+ len))
+        (vcellspan-set! vsp len c1)))
+    ((vsp c1 c2)
+      (let ((len (vcellspan-length vsp)))
+        (vcellspan-resize-right! vsp (fx+ 2 len))
+        (vcellspan-set! vsp len c1)
+        (vcellspan-set! vsp (fx1+ len) c2)))
+    ((vsp . c-list)
+      (let ((len (vcellspan-length vsp)))
+        (vcellspan-resize-right! vsp (fx+ len (length c-list)))
         (do ((pos len (fx1- pos))
              (tail c-list (cdr tail)))
             ((null? tail))
-          (vcellspan-set! csp pos (car tail)))))))
+          (vcellspan-set! vsp pos (car tail)))))))
 
 
-;; insert range [start, end) of vcellspan csp-src at the beginning of vcellspan csp-dst
+;; insert range [start, end) of vcellspan vsp-src at the beginning of vcellspan vsp-dst
 (define vcellspan-insert-left/vcellspan!
   (case-lambda
-    ((csp-dst csp-src src-start src-end)
-      (assert* 'vcellspan-insert-left/vcellspan! (fx<=?* 0 src-start src-end (vcellspan-length csp-src)))
-      (assert-not* 'vcellspan-insert-left/vcellspan! (eq? csp-dst csp-src))
+    ((vsp-dst vsp-src src-start src-end)
+      (assert* 'vcellspan-insert-left/vcellspan! (fx<=?* 0 src-start src-end (vcellspan-length vsp-src)))
+      (assert-not* 'vcellspan-insert-left/vcellspan! (eq? vsp-dst vsp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
-          (vcellspan-resize-left! csp-dst (fx+ src-n (vcellspan-length csp-dst)))
-          (vcellspan-copy! csp-src src-start csp-dst 0 src-n))))
-    ((csp-dst csp-src)
-      (vcellspan-insert-left/vcellspan! csp-dst csp-src 0 (vcellspan-length csp-src)))))
+          (vcellspan-resize-left! vsp-dst (fx+ src-n (vcellspan-length vsp-dst)))
+          (vcellspan-copy! vsp-src src-start vsp-dst 0 src-n))))
+    ((vsp-dst vsp-src)
+      (vcellspan-insert-left/vcellspan! vsp-dst vsp-src 0 (vcellspan-length vsp-src)))))
 
 
-;; append range [start, end) of vcellspan csp-src at the end of vcellspan csp-dst
+;; append range [start, end) of vcellspan vsp-src at the end of vcellspan vsp-dst
 (define vcellspan-insert-right/vcellspan!
   (case-lambda
-    ((csp-dst csp-src src-start src-end)
-      (assert* 'vcellspan-insert-right/vcellspan! (fx<=?* 0 src-start src-end (vcellspan-length csp-src)))
-      (assert-not* 'vcellspan-insert-right/vcellspan! (eq? csp-dst csp-src))
+    ((vsp-dst vsp-src src-start src-end)
+      (assert* 'vcellspan-insert-right/vcellspan! (fx<=?* 0 src-start src-end (vcellspan-length vsp-src)))
+      (assert-not* 'vcellspan-insert-right/vcellspan! (eq? vsp-dst vsp-src))
       (when (fx<? src-start src-end)
-        (let ((pos (vcellspan-length csp-dst))
+        (let ((pos (vcellspan-length vsp-dst))
               (src-n (fx- src-end src-start)))
-          (vcellspan-resize-right! csp-dst (fx+ pos src-n))
-          (vcellspan-copy! csp-src src-start csp-dst pos src-n))))
-    ((csp-dst csp-src)
-      (vcellspan-insert-right/vcellspan! csp-dst csp-src 0 (vcellspan-length csp-src)))))
+          (vcellspan-resize-right! vsp-dst (fx+ pos src-n))
+          (vcellspan-copy! vsp-src src-start vsp-dst pos src-n))))
+    ((vsp-dst vsp-src)
+      (vcellspan-insert-right/vcellspan! vsp-dst vsp-src 0 (vcellspan-length vsp-src)))))
 
 
 ;; erase n elements at the left (front) of vcellspan
-(define (vcellspan-delete-left! csp n)
-  (assert* 'vcellspan-delete-left! (fx<=? 0 n (vcellspan-length csp)))
+(define (vcellspan-delete-left! vsp n)
+  (assert* 'vcellspan-delete-left! (fx<=? 0 n (vcellspan-length vsp)))
   (unless (fxzero? n)
-    (vcellspan-beg-set! csp (fx+ n (vcellspan-beg csp)))))
+    (vcellspan-beg-set! vsp (fx+ n (vcellspan-beg vsp)))))
 
 ;; erase n elements at the right (back) of vcellspan
-(define (vcellspan-delete-right! csp n)
-  (assert* 'vcellspan-delete-right! (fx<=? 0 n (vcellspan-length csp)))
+(define (vcellspan-delete-right! vsp n)
+  (assert* 'vcellspan-delete-right! (fx<=? 0 n (vcellspan-length vsp)))
   (unless (fxzero? n)
-    (vcellspan-end-set! csp (fx- (vcellspan-end csp) n))))
+    (vcellspan-end-set! vsp (fx- (vcellspan-end vsp) n))))
 
 
 ;; iterate on vcellspan elements in range [start, end) and return the index
@@ -301,58 +301,75 @@
 ;; Return #f if no such element is found.
 (define vcellspan-index
   (case-lambda
-    ((sp char-or-pred start end)
-      (assert* 'vcellspan-index (fx<=?* 0 start end (vcellspan-length sp)))
+    ((vsp char-or-pred start end)
+      (assert* 'vcellspan-index (fx<=?* 0 start end (vcellspan-length vsp)))
       (let ((pred (if (char? char-or-pred)
                     (lambda (e) (char=? char-or-pred (vcell->char e)))
                     char-or-pred)))
         (assert* 'vcellspan-index (procedure? pred))
         (assert* 'vcellspan-index (logbit? 1 (procedure-arity-mask pred)))
         (do ((i start (fx1+ i)))
-            ((or (fx>=? i end) (pred (vcellspan-ref sp i)))
+            ((or (fx>=? i end) (pred (vcellspan-ref vsp i)))
               (and (fx<? i end) i)))))
-    ((sp char-or-pred)
-      (vcellspan-index sp char-or-pred 0 (vcellspan-length sp)))))
+    ((vsp char-or-pred)
+      (vcellspan-index vsp char-or-pred 0 (vcellspan-length vsp)))))
 
 
-;; create and return a closure that iterates on elements of vcellspan csp.
+;; create and return a closure that iterates on elements of vcellspan vsp.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in vcellspan csp and #t,
+;; either (values elem #t) i.e. the next element in vcellspan vsp and #t,
 ;; or (values #<unspecified> #f) if end of vcellspan is reached.
 (define in-vcellspan
   (case-lambda
-    ((csp start end step)
-      (assert* 'in-vcellspan (fx<=?* 0 start end (vcellspan-length csp)))
+    ((vsp start end step)
+      (assert* 'in-vcellspan (fx<=?* 0 start end (vcellspan-length vsp)))
       (assert* 'in-vcellspan (fx>=? step 0))
       (let ((%in-vcellspan ; name shown when displaying the closure
               (lambda ()
                 (if (fx<? start end)
-                  (let ((elem (vcellspan-ref csp start)))
+                  (let ((elem (vcellspan-ref vsp start)))
                     (set! start (fx+ start step))
                     (values elem #t))
                   (values #\x0 #f)))))
         %in-vcellspan))
-    ((csp start end)
-      (in-vcellspan csp start end 1))
-    ((csp)
-      (in-vcellspan csp 0 (vcellspan-length csp) 1))))
+    ((vsp start end)
+      (in-vcellspan vsp start end 1))
+    ((vsp)
+      (in-vcellspan vsp 0 (vcellspan-length vsp) 1))))
 
 
-(define (vcellspan-iterate csp proc)
-  (let ((start (vcellspan-beg csp))
-        (end   (vcellspan-end csp))
-        (vec   (vcellspan-vec csp)))
-    (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (not (proc (fx- i start) (vcellspan-ref vec i))))
-        (fx>=? i end)))))
+;; (vcellspan-iterate vsp proc) iterates on all elements of given vcellspan vsp,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the vcellspan(s) elements, and can also call (vcellspan-set! vsp ...).
+;;
+;; It must NOT call any other function that modifies the vcellspan (insert or erase elements,
+;; change the vcellspan size or capacity, etc).
+;;
+;; If no vcellspan is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define vcellspan-iterate
+  (case-lambda
+    ((vsp start end proc)
+      (assert* 'vcellspan-iterate (fx<=?* 0 start end (vcellspan-length vsp)))
+      (assert* 'vcellspan-iterate (procedure? proc))
+      (let %vcellspan-iterate ((vsp vsp) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (vcellspan-ref vsp i))))
+            (and ret (%vcellspan-iterate vsp proc ret (fx1+ i) n)))
+          ret)))
+    ((vsp proc)
+      (vcellspan-iterate vsp 0 (vcellspan-length vsp) proc))))
 
 
 (define vcellspan-write
   (case-lambda
-    ((csp start end port)
-      (assert* 'vcellspan-display! (fx<=?* 0 start end (vcellspan-length csp)))
-      (let ((offset (vcellspan-beg csp)))
-        (vcellvector-write (vcellspan-vec csp) (fx+ offset start) (fx+ offset end) port)))
-    ((csp port)
-      (vcellvector-write (vcellspan-vec csp) (vcellspan-beg csp) (vcellspan-end csp) port))))
+    ((vsp start end port)
+      (assert* 'vcellspan-display! (fx<=?* 0 start end (vcellspan-length vsp)))
+      (let ((offset (vcellspan-beg vsp)))
+        (vcellvector-write (vcellspan-vec vsp) (fx+ offset start) (fx+ offset end) port)))
+    ((vsp port)
+      (vcellvector-write (vcellspan-vec vsp) (vcellspan-beg vsp) (vcellspan-end vsp) port))))

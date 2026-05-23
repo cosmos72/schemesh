@@ -345,16 +345,32 @@
     ((sp)
       (in-f32span sp 0 (f32span-length sp) 1))))
 
+
 ;; (f32span-iterate sp proc) iterates on all elements of given f32span sp,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (f32span-iterate sp proc)
-  (do ((len (f32span-length sp))
-       (i   0 (fx1+ i)))
-    ((or (fx>=? i len) (not (proc i (f32span-ref sp i))))
-     (fx>=? i len))))
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the f32span(s) elements, and can also call (f32span-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the f32span (insert or erase elements,
+;; change the f32span size or capacity, etc).
+;;
+;; If no f32span is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define f32span-iterate
+  (case-lambda
+    ((sp start end proc)
+      (assert* 'f32span-iterate (fx<=?* 0 start end (f32span-length sp)))
+      (assert* 'f32span-iterate (procedure? proc))
+      (let %f32span-iterate ((sp sp) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (f32span-ref sp i))))
+            (and ret (%f32span-iterate sp proc ret (fx1+ i) n)))
+          ret)))
+    ((sp proc)
+      (f32span-iterate sp 0 (f32span-length sp) proc))))
+
 
 (define port->f32span
   (case-lambda

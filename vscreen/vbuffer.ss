@@ -214,11 +214,30 @@
       (in-vbuffer vb 0 (vbuffer-length vb) 1))))
 
 
-(define (vbuffer-iterate vb proc)
-  (do ((i 0 (fx1+ i))
-       (n (vbuffer-length vb)))
-    ((or (fx>=? i n) (not (proc i (vbuffer-ref vb i))))
-     (fx>=? i n))))
+;; (vbuffer-iterate vb proc) iterates on all elements of given vbuffer vb,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the vbuffer(s) elements, and can also call (vbuffer-set! vb ...).
+;;
+;; It must NOT call any other function that modifies the vbuffer (insert or erase elements,
+;; change the vbuffer size or capacity, etc).
+;;
+;; If no vbuffer is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define vbuffer-iterate
+  (case-lambda
+    ((vb start end proc)
+      (assert* 'vbuffer-iterate (fx<=?* 0 start end (vbuffer-length vb)))
+      (assert* 'vbuffer-iterate (procedure? proc))
+      (let %vbuffer-iterate ((vb vb) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (vbuffer-ref vb i))))
+            (and ret (%vbuffer-iterate vb proc ret (fx1+ i) n)))
+          ret)))
+    ((vb proc)
+      (vbuffer-iterate vb 0 (vbuffer-length vb) proc))))
 
 
 (define vbuffer-display/bytespan
