@@ -8,12 +8,13 @@
 
 (library (scheme2k containers bytevector (1 0 0))
   (export
-    in-bytevector list->bytevector subbytevector
+    bytevector-compare bytevector-hash bytevector-index
+    bytevector<=? bytevector<? bytevector>=? bytevector>? 
 
-    bytevector-compare subbytevector-fill! bytevector-hash bytevector-index
-    bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
+    bytevector-iterate for-bytevector in-bytevector list->bytevector
 
-    subbytevector-compare subbytevector=? subbytevector<? subbytevector<=? subbytevector>? subbytevector>=?
+    subbytevector subbytevector-compare subbytevector-fill!
+    subbytevector=? subbytevector<? subbytevector<=? subbytevector>? subbytevector>=?
 
     bytevector-sint-ref* bytevector-sint-set*!
     bytevector-uint-ref* bytevector-uint-set*!)
@@ -26,7 +27,7 @@
                                bytevector-u24-ref  bytevector-u40-ref  bytevector-u48-ref  bytevector-u56-ref
                                bytevector-u24-set! bytevector-u40-set! bytevector-u48-set! bytevector-u56-set!
                                foreign-procedure fx1+ fx1- fx/ logbit? procedure-arity-mask void)
-    (only (scheme2k bootstrap) assert* fx<=?*))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries lambda0))
 
 
 ;; each element in list l must be a fixnum in the range [-128, 255]
@@ -145,18 +146,6 @@
       (in-bytevector bv start end 1))
     ((bv)
       (in-bytevector bv 0 (bytevector-length bv) 1))))
-
-
-;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
-;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
-;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (bytevector-iterate bvec proc)
-  (do ((i 0 (fx1+ i))
-       (n (bytevector-length bvec)))
-      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i))))
-       (fx>=? i n))))
 
 
 ;; compare the two bytevectors bvec1 and bvec2.
@@ -482,5 +471,63 @@
     ((little) (bytevector-sint-set/little! bv pos sint size))
     ((big)    (bytevector-sint-set/big!    bv pos sint size))
     (else     (syntax-violation 'bytevector-sint-set*! "invalid endianness" eness))))
+
+
+;; (bytevector-iterate bv proc) iterates on all elements of given bytevector bv,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the bytevector(s) elements, and can also call (bytevector-...-set! bv ...).
+;;
+;; It must NOT call any function that modifies the bytevector's length, as for example
+;; (bytevector-truncate!)
+;;
+;; If no bytevector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define bytevector-iterate
+  (case-lambda
+    ((bv start end proc)
+      (assert* 'bytevector-iterate (fx<=?* 0 start end (bytevector-length bv)))
+      (assert* 'bytevector-iterate (procedure? proc))
+      (let %bytevector-iterate ((bv bv) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (bytevector-u8-ref bv i))))
+            (and ret (%bytevector-iterate bv proc ret (fx1+ i) n)))
+          ret)))
+    ((bv proc)
+      (bytevector-iterate bv 0 (bytevector-length bv) proc))))
+
+
+
+;; Iterate in parallel on elements of given bytevector(s) bv ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest bytevector is exhausted, or when body ... evaluates to #f
+;; If no bytevector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect or modify the bytevector(s) elements.
+;; It must NOT call any function that modifies the bytevector(s) length, as for example (bytevector-truncate!)
+;;
+;; Added in 1.0.1
+(define-syntax for-bytevector
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #'(for () body ...))
+      ((_ elem bv body ...)
+        (identifier? #'elem)
+        #'(bytevector-iterate bv (lambda (_ elem) body ...)))
+      ((_ ((elem bv)) body ...)
+        #'(bytevector-iterate bv (lambda (_ elem) body ...)))
+      ((_ ((elem bv) ...) body ...)
+        (with-syntax (((tv ...) (generate-pretty-temporaries #'(bv ...))))
+          #'(let ((tv bv) ...)
+              (let %for-bytevector ((i 0) (n (fxmin (bytevector-length tv) ...)) (ret #t))
+                (if (fx<? i n)
+                  (let ((elem (bytevector-u8-ref tv i)) ...)
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-bytevector (fx1+ i) n ret))))))))))))
 
 ) ; close library
