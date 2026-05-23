@@ -10,6 +10,7 @@
 (library (scheme2k containers list (1 0 0))
   (export
     any count every for-alist for-list for-plist map* in-alist in-list in-plist on-list
+    alist-iterate list-iterate plist-iterate
 
     list-copy* list-index list-quoteq! list-reverse*! list-reverse->vector list-remove-consecutive-duplicates!
 
@@ -21,7 +22,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         fx1+ fx1- list-copy reverse! void)
-    (only (scheme2k bootstrap) forever generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) begin0 for generate-pretty-temporaries lambda0))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -188,27 +189,53 @@
             (%every ret proc (%for-each-skip-car! tails))))))))
 
 
-;; Iterate in parallel on elements of given lists l ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest list is exhausted, and return unspecified value.
+;; (list-iterate l proc) iterates on all elements of given list l,
+;; and calls (proc index elem) on each (car) element. stops iterating if (proc ...) returns #f
 ;;
-;; If no lists are specified, behave as (forever body ...)
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the list or modify its (car) elements.
+;; It must NOT call any other function that modifies the list, as for example setting the (cdr) elements.
+;;
+;; If no list is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+;;
+;; Added in 1.0.1
+(define (list-iterate l proc)
+  (let %list-iterate ((tail l) (proc proc) (ret #t) (i 0))
+    (if (null? tail)
+      ret
+      (let ((ret (proc i (car tail))))
+        (and ret (%list-iterate (cdr tail) proc ret (fx1+ i)))))))
+
+
+;; Iterate in parallel on elements of given list(s) v ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest list is exhausted, or when body ... evaluates to #f
+;; If no list is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the list(s) or modify the their (car) elements.
+;; It must NOT call any other function that modifies the list(s), as for example setting the (cdr) elements.
 (define-syntax for-list
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
-      ((_ ((var l) ...) body ...)
-        (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
-          #'(let %for-list ((tail l) ...)
-              (if (or (null? tail) ...)
-                (void)
-                (let ((var (car tail)) ...)
-                  (with-while-until
-                    body ...
-                    (%for-list (cdr tail) ...)))))))
+        #'(for () body ...))
       ((_ var l body ...)
         (identifier? #'var)
-        #'(for-list ((var l)) body ...)))))
+        #'(list-iterate l (lambda0 (_ var) body ...)))
+      ((_ ((var l)) body ...)
+        #'(list-iterate l (lambda0 (_ var) body ...)))
+      ((_ ((var l) ...) body ...)
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
+          #'(let %for-list ((ret #t) (tail l) ...)
+              (if (or (null? tail) ...)
+                ret
+                (let ((var (car tail)) ...)
+                  (let ((ret (begin0 body ...)))
+                    (and ret (%for-list ret (cdr tail) ...)))))))))))
 
 
 ;; apply proc element-wise to the elements of the lists,
@@ -318,28 +345,55 @@
         (%recurse (cdr tail))))))
 
 
-;; Iterate in parallel on elements of given alists, and evaluate body ... on each element.
-;; Stop iterating when the shortest list is exhausted, and return unspecified value.
+;; (alist-iterate l proc) iterates on all elements of given alist l,
+;; and calls (proc index key value) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; If no lists are specified, behave as (forever body ...)
+;; (proc index key value) can call directly or indirectly functions
+;; that inspect the alist or modify its keys and values.
+;; It must NOT call any other function that modifies the alist, as for example setting the (cdr) elements.
+;;
+;; If no alist is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+;;
+;; Added in 1.0.1
+(define (alist-iterate l proc)
+  (let %alist-iterate ((tail l) (proc proc) (ret #t) (i 0))
+    (if (null? tail)
+      ret
+      (let ((ret (proc i (caar tail) (cdar tail))))
+        (and ret (%alist-iterate (cdr tail) proc ret (fx1+ i)))))))
+
+
+;; Iterate in parallel on elements of given alist(s) v ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest alist is exhausted, or when body ... evaluates to #f
+;; If no alist is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the alist(s) or modify the their keys or values.
+;; It must NOT call any other function that modifies the alist(s), as for example setting the (cdr) elements.
 (define-syntax for-alist
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
-      ((_ ((key val alist) ...) body ...)
-        (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
-          #'(let %for-alist ((tail alist) ...)
+        #'(for () body ...))
+      ((_ key val l body ...)
+        (identifier? #'var)
+        #'(alist-iterate l (lambda0 (_ key val) body ...)))
+      ((_ ((key val l)) body ...)
+        #'(alist-iterate l (lambda0 (_ key val) body ...)))
+      ((_ ((var l) ...) body ...)
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
+          #'(let %for-alist ((ret #t) (tail l) ...)
               (if (or (null? tail) ...)
-                (void)
+                ret
                 (let ((key (caar tail)) ...
                       (val (cdar tail)) ...)
-                  (with-while-until
-                    body ...
-                    (%for-alist (cdr tail) ...)))))))
-      ((_ key val alist body ...)
-        (and (identifier? #'key) (identifier? #'val))
-        #'(for-alist ((key val alist)) body ...)))))
+                  (let ((ret (begin0 body ...)))
+                    (and ret (%for-alist ret (cdr tail) ...)))))))))))
+
 
 ;; extension of (map) that also accepts improper lists
 ;; and in such case returns a new improper list
@@ -492,28 +546,55 @@
         (values key val #t)))))
 
 
-;; Iterate in parallel on elements of given property lists plist ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest property list is exhausted, and return unspecified value.
+;; (plist-iterate l proc) iterates on all elements of given plist l,
+;; and calls (proc index key value) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; If no plists are specified, behave as (forever body ...)
+;; (proc index key value) can call directly or indirectly functions
+;; that inspect the plist or modify its keys and values.
+;; It must NOT call any other function that modifies the plist, as for example setting the (cddr) elements.
+;;
+;; If no plist is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+;;
+;; Added in 1.0.1
+(define (plist-iterate l proc)
+  (let %plist-iterate ((tail l) (proc proc) (ret #t) (i 0))
+    (if (null? tail)
+      ret
+      (let ((ret (proc i (car tail) (cadr tail))))
+        (and ret (%plist-iterate (cddr tail) proc ret (fx1+ i)))))))
+
+
+;; Iterate in parallel on elements of given plist(s) v ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest plist is exhausted, or when body ... evaluates to #f
+;; If no plist is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the plist(s) or modify the their keys or values.
+;; It must NOT call any other function that modifies the plist(s), as for example setting the (cddr) elements.
 (define-syntax for-plist
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
-      ((_ ((key val plist) ...) body ...)
-        (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
-          #'(let %for-plist ((tail plist) ...)
+        #'(for () body ...))
+      ((_ key val l body ...)
+        (identifier? #'var)
+        #'(plist-iterate l (lambda0 (_ key val) body ...)))
+      ((_ ((key val l)) body ...)
+        #'(plist-iterate l (lambda0 (_ key val) body ...)))
+      ((_ ((var l) ...) body ...)
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
+          #'(let %for-plist ((ret #t) (tail l) ...)
               (if (or (null? tail) ...)
-                (void)
+                ret
                 (let ((key (car tail)) ...
                       (val (cadr tail)) ...)
-                  (with-while-until
-                    body ...
-                    (%for-plist (cddr tail) ...)))))))
-      ((_ key val plist body ...)
-        (and (identifier? #'key) (identifier? #'val))
-        #'(for-plist ((key val plist)) body ...)))))
+                  (let ((ret (begin0 body ...)))
+                    (and ret (%for-plist ret (cddr tail) ...)))))))))))
+
 
 ;; return #t if l is a list of symbols, otherwise return #f
 ;; Note: return #f for all improper lists, including cyclic lists.
