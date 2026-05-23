@@ -127,9 +127,8 @@
   ; (debugf "(%paren->hashtable ~s)" paren)
   (let ((inner-span (paren-inner paren)))
     (when inner-span
-      (span-iterate inner-span
-        (lambda (i inner)
-          (%paren->hashtable inner htable)))))
+      (for-span inner inner-span
+        (%paren->hashtable inner htable))))
   ; if multiple paren start or end at the same position,
   ; the outer one wins.
   ; if they are at the same depth, the later one wins.
@@ -226,10 +225,9 @@
   (let ((inner-span (paren-inner paren))
         (ret #f))
     (when (span? inner-span)
-      (span-iterate inner-span
-        (lambda (i inner)
-          (set! ret (%paren-find/surrounds inner xy outer-start-xy outer-end-xy))
-          (not ret))))
+      (for-span inner inner-span
+        (set! ret (%paren-find/surrounds inner xy outer-start-xy outer-end-xy))
+        (not ret)))
     (or ret paren)))
 
 

@@ -320,23 +320,19 @@
             ;; if all odd-indexed children are the symbol '|
             ;; then write job in simplified form without '|
             ;; as (sh-pipe) function expects
-           (span-iterate (multijob-children job)
-             (lambda (i child)
-               (unless (symbol? child)
-                 (put-char  port #\space)
-                 (put-datum port child)))))
+           (for-span child (multijob-children job)
+             (unless (symbol? child)
+               (put-char  port #\space)
+               (put-datum port child))))
           (else
             (job-write/children job port)))
         (put-char port #\))))))
 
 
 (define (job-write/children job port)
-  (span-iterate (multijob-children job)
-    (lambda (i child)
-      (if (symbol? child)
-        (put-string port " '")
-        (put-char   port #\space))
-      (put-datum port child))))
+  (for-span child (multijob-children job)
+    (put-string port (if (symbol? child) " '" " "))
+    (put-datum port child)))
 
 
 (define (job-write/multijob* job port)

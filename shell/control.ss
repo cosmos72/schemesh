@@ -154,10 +154,9 @@
       (raise-errorf caller "job already started with job id ~s" (job-id job))
       (raise-errorf caller "job already started")))
   (when (sh-multijob? job)
-    (span-iterate (multijob-children job)
-      (lambda (i elem)
-        (when (sh-job? elem)
-          (job-raise-if-started/recursive caller elem))))))
+    (for-span elem (multijob-children job)
+      (when (sh-job? elem)
+        (job-raise-if-started/recursive caller elem)))))
 
 
 ;; set status 'new in job and all their recursive children.
@@ -171,10 +170,9 @@
       (jexpr-suspend-proc-set! job #f))
     ((sh-multijob? job)
       (multijob-current-child-index-set! job -1)
-      (span-iterate (multijob-children job)
-        (lambda (i elem)
-          (when (sh-job? elem)
-            (job-status-set-new/recursive! elem)))))))
+      (for-span elem (multijob-children job)
+        (when (sh-job? elem)
+          (job-status-set-new/recursive! elem))))))
 
 
 (define (job-start/may-throw caller job k-continue options)

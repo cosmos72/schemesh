@@ -495,10 +495,9 @@
 (record-writer (record-type-descriptor %span)
   (lambda (sp port writer)
     (put-string port "(span")
-    (span-iterate sp
-      (lambda (i elem)
-        (put-char port #\space)
-        (writer elem port)))
+    (for-span elem sp
+      (put-char port #\space)
+      (writer elem port))
     (put-string port ")")))
 
 ) ; close library

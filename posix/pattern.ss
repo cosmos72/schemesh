@@ -549,12 +549,11 @@
 (record-writer (record-type-descriptor pattern)
   (lambda (p port writer)
     (display "(sh-pattern" port)
-    (span-iterate (pattern-span p)
-      (lambda (i elem)
-        (if (symbol? elem)
-          (display " '" port)
-          (display #\space port))
-        (writer elem port)))
+    (for-span elem (pattern-span p)
+      (if (symbol? elem)
+        (display " '" port)
+        (display #\space port))
+      (writer elem port))
     (display ")" port)))
 
 ) ; close library

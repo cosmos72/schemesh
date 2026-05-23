@@ -306,9 +306,8 @@
     (linectx-draw-bad-paren/start lctx paren opt-palette)
     (let ((inner-span (paren-inner paren)))
       (when inner-span
-        (span-iterate inner-span
-          (lambda (i inner-paren)
-            (linectx-draw-bad-paren-recurse/start lctx inner-paren opt-palette)))))))
+        (for-span inner-paren inner-span
+          (linectx-draw-bad-paren-recurse/start lctx inner-paren opt-palette))))))
 
 
 ;; draw the end of specified paren and the start of all contained parens using specified palette.
@@ -317,9 +316,8 @@
   (when paren
     (let ((inner-span (paren-inner paren)))
       (when inner-span
-        (span-iterate inner-span
-          (lambda (i inner-paren)
-            (linectx-draw-bad-paren-recurse/end lctx inner-paren opt-palette)))))
+        (for-span inner-paren inner-span
+          (linectx-draw-bad-paren-recurse/end lctx inner-paren opt-palette))))
     (linectx-draw-bad-paren/end lctx paren opt-palette)))
 
 

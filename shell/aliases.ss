@@ -114,11 +114,10 @@
     (for-hash-cells ((cell (sh-aliases)))
       (span-insert-right! aliases cell))
     (span-sort! (lambda (cell1 cell2) (string<? (car cell1) (car cell2))) aliases)
-    (span-iterate aliases
-      (lambda (i cell)
-        (show-alias* (car cell) (cdr cell) wbuf)
-        (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-write/bytespan! fd wbuf))))
+    (for-span cell aliases
+      (show-alias* (car cell) (cdr cell) wbuf)
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bytespan! fd wbuf)))
     (fd-write/bytespan! fd wbuf)
     (void))) ; return (void), means builtin finished, successfully
 
