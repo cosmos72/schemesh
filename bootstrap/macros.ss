@@ -30,6 +30,30 @@
     ((_ expr body ...) (if expr (begin0 body ...) (void)))))
 
 
+;; evaluate body ... n times
+(define-syntax repeat
+  (syntax-rules ()
+    ((_ n body ...) (let %repeat ((i 0) (end n))
+                      (when (fx<? i end)
+                        body ... (%repeat (fx1+ i) end))))))
+
+
+;; if pred evaluates to #f, then evaluate body ... and repeat
+(define-syntax until
+  (syntax-rules ()
+    ((_ pred body ...) (let %until ()
+                         (unless pred
+                           body ... (%until))))))
+
+
+;; if pred evaluates to truish, then evaluate body ... and repeat
+(define-syntax while
+  (syntax-rules ()
+    ((_ pred body ...) (let %while ()
+                         (when pred
+                           body ... (%while))))))
+
+
 ;; helper macro, introduces optional early termination if "while expr" or "until expr"
 ;; appear at top level without parentheses (and without quotes)
 (define-syntax with-while-until
@@ -48,46 +72,51 @@
 
 (define-syntax for-inner-part
   (syntax-rules ()
-    ((_ () body ...)
+    ((_ ret () body ...)
       (begin0 body ...))
-    ((_ ((vars ... flag iter)) body ...)
+    ((_ ret ((vars ... flag iter)) body ...)
       (let-values0 (((vars ... flag) (iter)))
-        (when0 flag
-          body ...)))
-    ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
+        (if flag
+          (begin0 body ...)
+          ret)))
+    ((_ ret ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
       (let-values0 (((vars ... flag) (iter)))
-        (when0 flag
-          (for-inner-part ((vars2 ... flag2 iter2) ...)
-            body ...))))))
+        (if flag
+          (for-inner-part ret ((vars2 ... flag2 iter2) ...)
+            body ...)
+          ret)))))
 
 
 ;;; Loop in parallel on elements returned by zero or more iterators,
 ;;; and execute body ... at each iteration, with vars bound to elements returned by iterators.
 ;;;
-;;; The loop finishes when some iterator is exhausted, and returns unspecified value.
+;;; If body ... evaluates to #f, the loop finishes and returns #f
+;;; Otherwise the loop finishes when some iterator is exhausted,
+;;     and returns the value of last body ... evaluation (or #t if body ... was never evaluated).
 ;;; In such case, the remaining iterators are not called again.
 ;;;
-;;; If no iterators are specified, behave as (forever body ...)
+;;; If no iterators are specified, the loop finishes when body ... evaluates to #f, and returns #f
 ;;;
 ;;; Typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
-;;;
-;;; Note: also supports optional early termination if "while expr" or "until expr"
-;;; appear at top level without parentheses (and without quotes)
 (define-syntax for
   (lambda (stx)
     (syntax-case stx ()
+      ((_ () body ...)
+        #`(let for-loop0 ()
+             (and (begin0 body ...) (for-loop0))))
+      ((_ var iterator body ...)
+        (identifier? #'var)
+        #`(iterate iterator (lambda (_ var) body ...)))
+      ((_ ((var iterator)) body ...)
+        #`(iterate iterator (lambda (_ var) body ...)))
       ((_ ((vars ... iterator) ...) body ...)
         (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...)))
                       ((iter ...) (generate-pretty-temporaries #'(iterator ...))))
           #`(let* ((iter iterator) ...)
-              (let for-loop ()
-                (for-inner-part ((vars ... flag iter) ...)
-                  (with-while-until
-                    body ...
-                    (for-loop)))))))
-      ((_ var iterator body ...)
-        (identifier? #'var)
-        #`(for ((var iterator)) body ...)))))
+              (let for-loop ((ret #t))
+                (for-inner-part ret ((vars ... flag iter) ...)
+                  (let ((ret (begin0 body ...)))
+                    (and ret (for-loop ret)))))))))))
 
 
 ;; evaluate body ... repeatedly,
@@ -167,38 +196,3 @@
       (let-values (((var vars ...) expr))
         (let-values0 (more-vars ...)
           body ...)))))
-
-
-;; evaluate body ... n times,
-;; with optional early termination if "while expr" or "until expr"
-;; appear at top level without parentheses (and without quotes)
-(define-syntax repeat
-  (syntax-rules ()
-    ((_ n body ...) (let %repeat ((i 0))
-                      (when (fx<? i n)
-                        (with-while-until
-                          body ... (%repeat (fx1+ i))))))))
-
-
-;; evaluate pred, and if #f evaluate body ... then repeat
-;; with optional early termination if "while expr" or "until expr"
-;; appear at top level without parentheses (and without quotes)
-(define-syntax until
-  (syntax-rules ()
-    ((_ pred body ...) (let %until ()
-                         (unless pred
-                           (with-while-until
-                             body ... (%until)))))))
-
-
-;; evaluate pred, and if truish evaluate body ... then repeat
-;; with optional early termination if "while expr" or "until expr"
-;; appear at top level without parentheses (and without quotes)
-(define-syntax while
-  (syntax-rules ()
-    ((_ pred body ...) (let %while ()
-                         (when pred
-                           (with-while-until
-                             body ... (%while)))))))
-
-

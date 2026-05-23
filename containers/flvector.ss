@@ -11,7 +11,7 @@
   (export
     ;; flvector-native? is a constant, not a procedure
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
-    flvector-copy! for-flvector in-flvector)
+    flvector-copy! flvector-iterate for-flvector in-flvector)
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
@@ -116,8 +116,22 @@
           (flvector-set! dst (fx+ i dst-start) (flvector-ref src (fx+ i src-start))))))))
 
 
+;; (flvector-iterate l proc) iterates on all elements of given flvector v,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc index elem) returned truish,
+;; otherwise returns #f.
+;;
+;; Added in 1.0.1
+(define (flvector-iterate v proc)
+  (do ((i 0 (fx1+ i))
+       (n (flvector-length v)))
+      ((or (fx>=? i n) (not (proc i (flvector-ref v i))))
+       (fx>=? i n))))
+
+
 ;; Iterate in parallel on elements of given flvector(s) v ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest flvector is exhausted,
+;; Stop iterating when the shortest flvector is exhausted, or when body ... evaluates to #f
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
@@ -125,7 +139,7 @@
 ;;
 ;; It must NOT call any function that modifies the flvector(s) length, as for example (flvector-truncate!)
 ;;
-;; If no flvector is specified, behaves as (forever body ...)
+;; If no flvector is specified, the loop finishes when body ... evaluates to #f
 ;;
 ;; Return unspecified value.
 ;;
@@ -134,19 +148,20 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
+        #'(while (begin0 body ...)))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #`(flvector-iterate v (lambda (i elem) body ...)))
+      ((_ ((elem v)) body ...)
+        #`(flvector-iterate v (lambda (i elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
               (let %for-flvector ((i 0) (n (fxmin (flvector-length tv) ...)))
                 (when (fx<? i n)
                   (let ((elem (flvector-ref tv i)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-flvector (fx1+ i) n))))))))
-      ((_ elem v body ...)
-        (identifier? #'elem)
-        #`(for-flvector ((elem v)) body ...)))))
+                    (when (begin0 body ...)
+                      (%for-flvector (fx1+ i) n)))))))))))
 
 
 ;; create and return a closure that iterates on elements of flvector v.

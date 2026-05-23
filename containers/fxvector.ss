@@ -125,7 +125,7 @@
                (fxvector=? vec1 0 vec2 0 n1)))))))
 
 ;; Iterate in parallel on elements of given fxvector(s) v ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest fxvector is exhausted,
+;; Stop iterating when the shortest fxvector is exhausted, or when body ... evaluates to #f
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
@@ -133,7 +133,7 @@
 ;;
 ;; It must NOT call any function that modifies the fxvector(s) length, as for example (fxvector-truncate!)
 ;;
-;; If no flvector is specified, behaves as (forever body ...)
+;; If no flvector is specified, the loop finishes when body ... evaluates to #f
 ;;
 ;; Return unspecified value.
 ;;
@@ -149,8 +149,7 @@
               (let %for-fxvector ((i 0) (n (fxmin (fxvector-length tv) ...)))
                 (when (fx<? i n)
                   (let ((elem (fxvector-ref tv i)) ...)
-                    (with-while-until
-                      body ...
+                    (when (begin0 body ...)
                       (%for-fxvector (fx1+ i) n))))))))
       ((_ elem v body ...)
         (identifier? #'elem)

@@ -72,7 +72,7 @@
 
 
 ;; enhanced variant of Chez Scheme eval:
-;; if form recursively contains a (begin ...) with one or more macros,
+;; if form recursively contains a (begin ...),
 ;; evaluate the sub-forms one-by-one in order.
 ;;
 ;; Reason: we want to allow things like
@@ -139,23 +139,6 @@
   (map generate-pretty-temporary l))
 
 
-;; extended (void) that accepts one argument, ignores it and returns (void)
-(define (void1 arg)
-  (void))
-
-;; extended (void) that accepts arbitrary arguments, ignores them and returns (void)
-(define void^
-  (case-lambda
-    (() (void))
-    ((a) (void))
-    ((a b) (void))
-    ((a b c) (void))
-    ((a b c d) (void))
-    ((a b c d e) (void))
-    ((a b c d e f) (void))
-    ((a b c d e f . more) (void))))
-
-
 ;; Raise a condition describing an assertion violation.
 ;; Condition format message and its arguments must be provided by caller.
 (define (raise-assertf who format-string . format-args)
@@ -206,6 +189,24 @@
           (make-format-condition)
           (make-message-condition format-string)
           (make-irritants-condition format-args))))))
+
+
+
+;; extended (void) that accepts one argument, ignores it and returns (void)
+(define (void1 arg)
+  (void))
+
+;; extended (void) that accepts arbitrary arguments, ignores them and returns (void)
+(define void^
+  (case-lambda
+    (() (void))
+    ((a) (void))
+    ((a b) (void))
+    ((a b c) (void))
+    ((a b c d) (void))
+    ((a b c d e) (void))
+    ((a b c d e f) (void))
+    ((a b c d e f . more) (void))))
 
 
 (define (warnf-port)
