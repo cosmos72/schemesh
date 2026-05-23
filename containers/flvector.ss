@@ -15,7 +15,7 @@
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
-    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries lambda0))
 
 
 (meta-cond
@@ -162,9 +162,9 @@
         #'(for () body ...))
       ((_ elem v body ...)
         (identifier? #'elem)
-        #'(flvector-iterate v (lambda (_ elem) body ...)))
+        #'(flvector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v)) body ...)
-        #'(flvector-iterate v (lambda (_ elem) body ...)))
+        #'(flvector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)

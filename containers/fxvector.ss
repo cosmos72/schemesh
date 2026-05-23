@@ -15,7 +15,7 @@
     (only (chezscheme)         foreign-procedure
                                fx1+ fx1- fxvector? fxvector-length fxvector-ref fxvector-set!
                                import meta-cond library-exports)
-    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries lambda0))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -169,9 +169,9 @@
         #'(for () body ...))
       ((_ elem v body ...)
         (identifier? #'elem)
-        #'(fxvector-iterate v (lambda (_ elem) body ...)))
+        #'(fxvector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v)) body ...)
-        #'(fxvector-iterate v (lambda (_ elem) body ...)))
+        #'(fxvector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)

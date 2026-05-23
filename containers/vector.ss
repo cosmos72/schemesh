@@ -16,7 +16,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ fx1- import meta-cond library-exports)
-    (only (scheme2k bootstrap) assert* begin0 for fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* raise-errorf generate-pretty-temporaries lambda0))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -141,9 +141,9 @@
         #'(for () body ...))
       ((_ elem v body ...)
         (identifier? #'elem)
-        #'(vector-iterate v (lambda (_ elem) body ...)))
+        #'(vector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v)) body ...)
-        #'(vector-iterate v (lambda (_ elem) body ...)))
+        #'(vector-iterate v (lambda0 (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)

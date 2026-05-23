@@ -499,7 +499,6 @@
       (bytevector-iterate bv 0 (bytevector-length bv) proc))))
 
 
-
 ;; Iterate in parallel on elements of given bytevector(s) bv ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest bytevector is exhausted, or when body ... evaluates to #f
 ;; If no bytevector is specified, the loop finishes when body ... evaluates to #f
@@ -518,9 +517,9 @@
         #'(for () body ...))
       ((_ elem bv body ...)
         (identifier? #'elem)
-        #'(bytevector-iterate bv (lambda (_ elem) body ...)))
+        #'(bytevector-iterate bv (lambda0 (_ elem) body ...)))
       ((_ ((elem bv)) body ...)
-        #'(bytevector-iterate bv (lambda (_ elem) body ...)))
+        #'(bytevector-iterate bv (lambda0 (_ elem) body ...)))
       ((_ ((elem bv) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(bv ...))))
           #'(let ((tv bv) ...)

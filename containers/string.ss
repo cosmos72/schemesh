@@ -28,7 +28,7 @@
     (rnrs mutable-strings)
     (only (chezscheme)               foreign-procedure format fx1+ fx1- logbit? procedure-arity-mask
                                      reverse! string-copy! string-truncate! void)
-    (only (scheme2k bootstrap)       assert* fx<=?* while)
+    (only (scheme2k bootstrap)       assert* lambda0 for fx<=?* generate-pretty-temporaries lambda0 while)
     (only (scheme2k containers list) for-list list-copy*))
 
 
@@ -360,9 +360,9 @@
         #'(for () body ...))
       ((_ elem str body ...)
         (identifier? #'elem)
-        #'(string-iterate str (lambda (_ elem) body ...)))
+        #'(string-iterate str (lambda0 (_ elem) body ...)))
       ((_ ((elem str)) body ...)
-        #'(string-iterate str (lambda (_ elem) body ...)))
+        #'(string-iterate str (lambda0 (_ elem) body ...)))
       ((_ ((elem str) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(str ...))))
           #'(let ((tv str) ...)
