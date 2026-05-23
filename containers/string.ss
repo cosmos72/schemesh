@@ -9,10 +9,11 @@
 
 (library (scheme2k containers string (1 0 0))
   (export
-    assert-string-list? in-string
-    string-any string-contains string-count string-empty? string-every
+    assert-string-list? for-string in-string
+    string-any string-contains string-count string-empty? string-every string-iterate
+
     string-index string-index-right
-    string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
+    string-is-unsigned-base10-integer? string-is-signed-base10-integer? 
     string-join string-list? string-list-split-after-nuls
     string-map string-prefix? string-count=
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
@@ -314,16 +315,62 @@
       (in-string str 0 (string-length str) 1))))
 
 
-;; (string-iterate l proc) iterates on all elements of given string src,
-;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
+
+;; (string-iterate str proc) iterates on all elements of given string str,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index ch) returned truish,
-;; otherwise returns #f.
-(define (string-iterate str proc)
-  (do ((i 0 (fx1+ i))
-       (n (string-length str)))
-      ((or (fx>=? i n) (not (proc i (string-ref str i))))
-       (fx>=? i n))))
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the string(s) elements, and can also call (string-set! str ...).
+;;
+;; It must NOT call any function that modifies the string's length, as for example
+;; (string-truncate!)
+;;
+;; If no string is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define string-iterate
+  (case-lambda
+    ((str start end proc)
+      (assert* 'string-iterate (fx<=?* 0 start end (string-length str)))
+      (assert* 'string-iterate (procedure? proc))
+      (let %string-iterate ((str str) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (string-ref str i))))
+            (and ret (%string-iterate str proc ret (fx1+ i) n)))
+          ret)))
+    ((str proc)
+      (string-iterate str 0 (string-length str) proc))))
+
+
+;; Iterate in parallel on elements of given string(s) str ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest string is exhausted, or when body ... evaluates to #f
+;; If no string is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect or modify the string(s) elements.
+;; It must NOT call any function that modifies the string(s) length, as for example (string-truncate!)
+;;
+;; Added in 1.0.1
+(define-syntax for-string
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #'(for () body ...))
+      ((_ elem str body ...)
+        (identifier? #'elem)
+        #'(string-iterate str (lambda (_ elem) body ...)))
+      ((_ ((elem str)) body ...)
+        #'(string-iterate str (lambda (_ elem) body ...)))
+      ((_ ((elem str) ...) body ...)
+        (with-syntax (((tv ...) (generate-pretty-temporaries #'(str ...))))
+          #'(let ((tv str) ...)
+              (let %for-string ((i 0) (n (fxmin (string-length tv) ...)) (ret #t))
+                (if (fx<? i n)
+                  (let ((elem (string-ref tv i)) ...)
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-string (fx1+ i) n ret))))))))))))
 
 
 ;; search string range [start, end) and return index of first character
