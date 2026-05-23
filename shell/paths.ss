@@ -91,28 +91,26 @@
 ;;   and pos-start is its end index.
 ;; stop iterating if (proc ...) returns #f.
 ;;
-;; Returns #t if all calls to (proc path pos-start pos-end) returned truish,
-;; otherwise returns #f.
+;; (proc ...) can call directly or indirectly functions
+;; that inspect the charspan elements, and can also call (charspan-set! path ...).
+;;
+;; It must NOT call any other function that modifies the charspan (insert or erase elements,
+;; change the charspan size or capacity, etc).
+;;
+;; Returns value of last call to (proc ...), or #t if (proc ...) was never called.
 (define sh-path-iterate
   (case-lambda
-    ((path proc)
-      (sh-path-iterate* path 0 (charspan-length path) proc))
     ((path start end proc)
-      (sh-path-iterate* path start end proc))))
-
-
-;; same as (sh-path-iterate*), all arguments are mandatory
-(define (sh-path-iterate* path start end proc)
-  (assert* 'sh-path-iterate (fx<=?* 0 start end (charspan-length path)))
-  (assert* 'sh-path-iterate (procedure? proc))
-  (let %loop ((pos start))
-    (if (fx>=? pos end)
-      #t
-      (let ((sep (or (charspan-index path #\/ pos end)
-                     end)))
-        (if (proc path pos sep)
-          (%loop (fx1+ sep))
-          #f)))))
+      (assert* 'sh-path-iterate (fx<=?* 0 start end (charspan-length path)))
+      (assert* 'sh-path-iterate (procedure? proc))
+      (let %loop ((pos start) (ret #t))
+        (if (fx<? pos end)
+          (let* ((sep (or (charspan-index path #\/ pos end) end))
+                 (ret (proc path pos sep)))
+            (and ret (%loop (fx1+ sep) ret)))
+          ret)))
+    ((path proc)
+      (sh-path-iterate path 0 (charspan-length path) proc))))
 
 
 ;; given a path, return the length of its parent path.
