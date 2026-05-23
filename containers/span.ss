@@ -25,7 +25,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (scheme2k bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
+    (only (scheme2k bootstrap)         assert* assert-not* begin0 for fx<=?* generate-pretty-temporaries)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k io obj)            make-reader)
     (only (scheme2k containers vector) subvector vector-copy! subvector-fill! subvector->list))
@@ -360,49 +360,6 @@
       (in-span sp 0 (span-length sp) 1))))
 
 
-;; Iterate in parallel on elements of given spans sp ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest span is exhausted,
-;; and return unspecified value.
-;;
-;; The implementation of body ... can call directly or indirectly functions
-;; that inspect the spans without modifying them, and can also call (span-set! ...).
-;;
-;; It must NOT call any other function that modify the spans (insert or erase elements,
-;; change any span size or capacity, etc).
-;;
-;; Return unspecified value.
-(define-syntax for-span
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ () body ...)
-        #'(forever body ...))
-      #|
-      ((_ ((idx elem0 sp0) (elem sp) ...) body ...)
-        (with-syntax (((tsp0 tsp ...) (generate-pretty-temporaries #'(sp0 sp ...))))
-          #'(let ((tsp0 sp0)
-                  (tsp  sp) ...)
-              (let %for-span ((i 0) (n (fxmin (span-length tsp0) (span-length tsp) ...)))
-                (when (fx<? i n)
-                  (let ((idx i)
-                        (elem0 (span-ref tsp0 i))
-                        (elem  (span-ref tsp i)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-span (fx1+ i) n))))))))
-      |#
-      ((_ ((elem sp) ...) body ...)
-        (with-syntax (((tsp ...) (generate-pretty-temporaries #'(sp ...))))
-          #'(let ((tsp sp) ...)
-              (let %for-span ((i 0) (n (fxmin (span-length tsp) ...)))
-                (when (fx<? i n)
-                  (let ((elem (span-ref tsp i)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-span (fx1+ i) n))))))))
-      ((_ elem sp body ...)
-        (identifier? #'elem)
-        #'(for-span ((elem sp)) body ...)))))
-
 ;; iterate on span elements, and call (proc i elem) on each one.
 ;; if (proc ...) evaluates to truish, stop iterating and return such value.
 ;;
@@ -429,29 +386,59 @@
       (span-iterate-any sp 0 (span-length sp) proc))))
 
 
-;; iterate on span elements, and call (proc i elem) on each one.
-;; Stops iterating if (proc ...) returns #f.
+;; (span-iterate sp proc) iterates on all elements of given span sp,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc i elem) returned truish,
-;; otherwise returns #f.
-;;
-;; The implementation of (proc ...) can call directly or indirectly functions
-;; that inspect the span without modifying it, and can also call (span-set! sp ...).
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the span(s) elements, and can also call (span-set! sp ...).
 ;;
 ;; It must NOT call any other function that modifies the span (insert or erase elements,
 ;; change the span size or capacity, etc).
+;;
+;; If no span is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
 (define span-iterate
   (case-lambda
     ((sp start end proc)
       (assert* 'span-iterate (fx<=?* 0 start end (span-length sp)))
       (assert* 'span-iterate (procedure? proc))
-      (do ((i start (fx1+ i))
-           (offset (span-beg sp))
-           (v      (span-vec sp)))
-        ((or (fx>=? i end) (not (proc i (vector-ref v (fx+ i offset)))))
-          (fx>=? i end))))
+      (let %span-iterate ((sp sp) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (span-ref sp i))))
+            (and ret (%span-iterate sp proc ret (fx1+ i) n)))
+          ret)))
     ((sp proc)
       (span-iterate sp 0 (span-length sp) proc))))
+
+
+;; Iterate in parallel on elements of given span(s) sp ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest span is exhausted, or when body ... evaluates to #f
+;; If no span is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect or modify the span(s) elements.
+;; It must NOT call any function that modifies the span(s) length, as for example (span-truncate!)
+(define-syntax for-span
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #'(for () body ...))
+      ((_ elem sp body ...)
+        (identifier? #'elem)
+        #'(span-iterate sp (lambda (_ elem) body ...)))
+      ((_ ((elem sp)) body ...)
+        #'(span-iterate sp (lambda (_ elem) body ...)))
+      ((_ ((elem sp) ...) body ...)
+        (with-syntax (((tsp ...) (generate-pretty-temporaries #'(sp ...))))
+          #'(let ((tsp sp) ...)
+              (let %for-span ((i 0) (n (fxmin (span-length tsp) ...)) (ret #t))
+                (if (fx<? i n)
+                  (let ((elem (span-ref tsp i)) ...)
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-span (fx1+ i) n ret))))))))))))
 
 
 ;; (span-index) iterates forward on span elements from start

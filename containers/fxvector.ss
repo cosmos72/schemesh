@@ -15,7 +15,7 @@
     (only (chezscheme)         foreign-procedure
                                fx1+ fx1- fxvector? fxvector-length fxvector-ref fxvector-set!
                                import meta-cond library-exports)
-    (only (scheme2k bootstrap) assert* forever fx<=?* generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -124,43 +124,68 @@
           (and (fx=? n1 n2)
                (fxvector=? vec1 0 vec2 0 n1)))))))
 
+
+;; (fxvector-iterate vec proc) iterates on all elements of given fxvector vec,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the fxvector(s) elements, and can also call (fxvector-set! vec ...).
+;;
+;; It must NOT call any function that modifies the fxvector's length, as for example
+;; (fxvector-truncate!)
+;;
+;; If no fxvector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define fxvector-iterate
+  (case-lambda
+    ((vec start end proc)
+      (assert* 'fxvector-iterate (fx<=?* 0 start end (fxvector-length vec)))
+      (assert* 'fxvector-iterate (procedure? proc))
+      (let %fxvector-iterate ((vec vec) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (fxvector-ref vec i))))
+            (and ret (%fxvector-iterate vec proc ret (fx1+ i) n)))
+          ret)))
+    ((vec proc)
+      (fxvector-iterate vec 0 (fxvector-length vec) proc))))
+
+
 ;; Iterate in parallel on elements of given fxvector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest fxvector is exhausted, or when body ... evaluates to #f
-;; and return unspecified value.
+;; If no fxvector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
 ;; that inspect or modify the fxvector(s) elements.
-;;
 ;; It must NOT call any function that modifies the fxvector(s) length, as for example (fxvector-truncate!)
-;;
-;; If no flvector is specified, the loop finishes when body ... evaluates to #f
-;;
-;; Return unspecified value.
 ;;
 ;; Added in 0.9.3
 (define-syntax for-fxvector
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
+        #'(for () body ...))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #'(fxvector-iterate v (lambda (_ elem) body ...)))
+      ((_ ((elem v)) body ...)
+        #'(fxvector-iterate v (lambda (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
-              (let %for-fxvector ((i 0) (n (fxmin (fxvector-length tv) ...)))
-                (when (fx<? i n)
+              (let %for-fxvector ((i 0) (n (fxmin (fxvector-length tv) ...)) (ret #t))
+                (if (fx<? i n)
                   (let ((elem (fxvector-ref tv i)) ...)
-                    (when (begin0 body ...)
-                      (%for-fxvector (fx1+ i) n))))))))
-      ((_ elem v body ...)
-        (identifier? #'elem)
-        #`(for-fxvector ((elem v)) body ...)))))
-
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-fxvector (fx1+ i) n ret))))))))))))
 
 ;; create and return a closure that iterates on elements of fxvector v.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values elem #t) i.e. the next element in fxvector v and #t,
-;; or (values #<unspecified> #f) if end of vector is reached.
+;; or (values #<unspecified> #f) if end of fxvector is reached.
 (define in-fxvector
   (case-lambda
     ((v start end step)

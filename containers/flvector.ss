@@ -15,7 +15,7 @@
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
-    (only (scheme2k bootstrap) assert* forever fx<=?* generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* generate-pretty-temporaries))
 
 
 (meta-cond
@@ -116,52 +116,63 @@
           (flvector-set! dst (fx+ i dst-start) (flvector-ref src (fx+ i src-start))))))))
 
 
-;; (flvector-iterate l proc) iterates on all elements of given flvector v,
+;; (flvector-iterate vec proc) iterates on all elements of given flvector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the flvector(s) elements, and can also call (flvector-set! vec ...).
+;;
+;; It must NOT call any function that modifies the flvector's length, as for example
+;; (flvector-truncate!)
+;;
+;; If no flvector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
 ;;
 ;; Added in 1.0.1
-(define (flvector-iterate v proc)
-  (do ((i 0 (fx1+ i))
-       (n (flvector-length v)))
-      ((or (fx>=? i n) (not (proc i (flvector-ref v i))))
-       (fx>=? i n))))
+(define flvector-iterate
+  (case-lambda
+    ((vec start end proc)
+      (assert* 'flvector-iterate (fx<=?* 0 start end (flvector-length vec)))
+      (assert* 'flvector-iterate (procedure? proc))
+      (let %flvector-iterate ((vec vec) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (flvector-ref vec i))))
+            (and ret (%flvector-iterate vec proc ret (fx1+ i) n)))
+          ret)))
+    ((vec proc)
+      (flvector-iterate vec 0 (flvector-length vec) proc))))
 
 
 ;; Iterate in parallel on elements of given flvector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest flvector is exhausted, or when body ... evaluates to #f
-;; and return unspecified value.
+;; If no flvector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
 ;; that inspect or modify the flvector(s) elements.
-;;
 ;; It must NOT call any function that modifies the flvector(s) length, as for example (flvector-truncate!)
-;;
-;; If no flvector is specified, the loop finishes when body ... evaluates to #f
-;;
-;; Return unspecified value.
 ;;
 ;; Added in 0.9.3
 (define-syntax for-flvector
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(while (begin0 body ...)))
+        #'(for () body ...))
       ((_ elem v body ...)
         (identifier? #'elem)
-        #`(flvector-iterate v (lambda (i elem) body ...)))
+        #'(flvector-iterate v (lambda (_ elem) body ...)))
       ((_ ((elem v)) body ...)
-        #`(flvector-iterate v (lambda (i elem) body ...)))
+        #'(flvector-iterate v (lambda (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
-              (let %for-flvector ((i 0) (n (fxmin (flvector-length tv) ...)))
-                (when (fx<? i n)
+              (let %for-flvector ((i 0) (n (fxmin (flvector-length tv) ...)) (ret #t))
+                (if (fx<? i n)
                   (let ((elem (flvector-ref tv i)) ...)
-                    (when (begin0 body ...)
-                      (%for-flvector (fx1+ i) n)))))))))))
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-flvector (fx1+ i) n ret))))))))))))
 
 
 ;; create and return a closure that iterates on elements of flvector v.
@@ -169,7 +180,7 @@
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values elem #t) i.e. the next element in flvector v and #t,
-;; or (values #<unspecified> #f) if end of vector is reached.
+;; or (values #<unspecified> #f) if end of flvector is reached.
 (define in-flvector
   (case-lambda
     ((v start end step)

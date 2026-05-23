@@ -16,7 +16,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ fx1- import meta-cond library-exports)
-    (only (scheme2k bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* begin0 for fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -99,45 +99,59 @@
       (in-vector v 0 (vector-length v) 1))))
 
 
-;; (vector-iterate l proc) iterates on all elements of given vector vec,
+;; (vector-iterate vec proc) iterates on all elements of given vector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (vector-iterate vec proc)
-  (do ((i 0 (fx1+ i))
-       (n (vector-length vec)))
-      ((or (fx>=? i n) (not (proc i (vector-ref vec i))))
-       (fx>=? i n))))
+;; (proc index elem) can call directly or indirectly functions
+;; that inspect the vector(s) elements, and can also call (vector-set! vec ...).
+;;
+;; It must NOT call any function that modifies the vector's length, as for example
+;; (vector-truncate!)
+;;
+;; If no vector is specified, the loop finishes when body ... evaluates to #f
+;;
+;; Returns value of last call to (proc index elem), or #t if (proc index elem) was never called.
+(define vector-iterate
+  (case-lambda
+    ((vec start end proc)
+      (assert* 'vector-iterate (fx<=?* 0 start end (vector-length vec)))
+      (assert* 'vector-iterate (procedure? proc))
+      (let %vector-iterate ((vec vec) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (vector-ref vec i))))
+            (and ret (%vector-iterate vec proc ret (fx1+ i) n)))
+          ret)))
+    ((vec proc)
+      (vector-iterate vec 0 (vector-length vec) proc))))
 
 
 ;; Iterate in parallel on elements of given vector(s) v ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest vector is exhausted,
-;; and return unspecified value.
+;; Stop iterating when the shortest vector is exhausted, or when body ... evaluates to #f
+;; If no vector is specified, the loop finishes when body ... evaluates to #f
 ;;
-;; The implementation of body ... CAN call directly or indirectly functions
-;; that inspect or modify the vectors elements.
+;; Returns value of last body ... evaluation, or #t if body .. was never evaluated.
 ;;
-;; It must NOT call any function that modifies the vectors' length, as for example (vector-truncate!)
-;;
-;; Return unspecified value.
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect or modify the vector(s) elements.
+;; It must NOT call any function that modifies the vector(s) length, as for example (vector-truncate!)
 (define-syntax for-vector
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
-        #'(forever body ...))
+        #'(for () body ...))
+      ((_ elem v body ...)
+        (identifier? #'elem)
+        #'(vector-iterate v (lambda (_ elem) body ...)))
+      ((_ ((elem v)) body ...)
+        #'(vector-iterate v (lambda (_ elem) body ...)))
       ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
-              (let %for-vector ((i 0) (n (fxmin (vector-length tv) ...)))
-                (when (fx<? i n)
+              (let %for-vector ((i 0) (n (fxmin (vector-length tv) ...)) (ret #t))
+                (if (fx<? i n)
                   (let ((elem (vector-ref tv i)) ...)
-                    (with-while-until
-                      body ...
-                      (%for-vector (fx1+ i) n))))))))
-      ((_ elem v body ...)
-        (identifier? #'elem)
-        #'(for-vector ((elem v)) body ...)))))
+                    (let ((ret (begin0 body ...)))
+                      (and ret (%for-vector (fx1+ i) n ret))))))))))))
 
 
 ;; apply proc element-wise to the i-th element of each vector
