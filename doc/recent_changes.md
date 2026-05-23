@@ -20,6 +20,8 @@
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
 * add function `(sh-compile-file)` and merge functions `(sh-include)` `(sh-include*)` into new function `(sh-include-file)`
 * add functions `(datum->json)` and `(datum->json-bytes)`
+* add functions `(bytevector-iterate)` `(alist-iterate)` `(list-iterate)` `(plist-iterate)` `(iterate)` `(iterate-any)`
+* add macro `(for-string)` and refactor macros `(for...)`
 * delete function `(parsectx-unread-char)`
 * start annotating forms returned by `parsectx`
 
