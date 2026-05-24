@@ -20,6 +20,48 @@
 (define c-dev-minor (foreign-procedure "c_dev_minor" (unsigned-64) unsigned))
 
 
+(define chez-cd-wrapper
+  (let ((chez-cd (let ()
+                   (import (prefix (only (chezscheme) cd) chez:))
+                   chez:cd)))
+    (case-lambda
+      (()           (chez-cd))
+      ((new-dir)    (chez-cd (text->string new-dir))))))
+
+
+;; intentionally same name as Chez Scheme (cd)
+(define cd
+  (let ((proc          chez-cd-wrapper)
+        (can-set-proc? #t))
+    (case-lambda
+      (()           (proc))
+      ((new-dir)    (proc new-dir))
+      ((_ new-proc) (assert* 'cd can-set-proc?)
+                    (assert* 'cd (procedure? new-proc))
+                    (set! can-set-proc? #f)
+                    (set! proc new-proc)))))
+
+
+;; intentionally same name as Chez Scheme (current-directory)
+(define current-directory cd)
+
+
+;; convert bytevector, bytespan, string or charspan path
+;; to bytevector0 C path.
+;;
+;; does NOT assume that OS's idea of current directory matches our own:
+;; each job may have its own current directory
+(define (path->c-path0 text)
+  (let ((c-path0 (text->bytevector0 text)))
+    (assert* 'path->c-path0 (fx>? (bytevector-length c-path0) 1))
+    (if (fx=? 47 (bytevector-u8-ref c-path0 0)) ; #\/
+      c-path0
+      (let ((c-prefix (string->utf8 (cd))))
+        (if (fx=? 47 (bytevector-u8-ref c-prefix (fx1- (bytevector-length c-prefix))))
+          (bytevector-append c-prefix c-path0)
+          (bytevector-append c-prefix #vu8(47) c-path0))))))
+        
+
 (define (%find-and-convert-fixnum-option caller options key default)
   (let ((option (memq key options)))
     (if option
@@ -54,7 +96,7 @@
   (let ((c-mkdir (foreign-procedure "c_mkdir" (ptr int) int)))
     (case-lambda
       ((dirpath options)
-        (let ((err (c-mkdir (text->bytevector0 dirpath)
+        (let ((err (c-mkdir (path->c-path0 dirpath)
                             (%find-and-convert-fixnum-option 'mkdir options 'mode #o777))))
           (cond
             ((and (fixnum? err) (fxzero? err))
@@ -87,7 +129,7 @@
   (let ((c-file-delete (foreign-procedure "c_file_delete" (ptr) int)))
     (case-lambda
       ((path options)
-        (let ((err (c-file-delete (text->bytevector0 path))))
+        (let ((err (c-file-delete (path->c-path0 path))))
           (cond
             ((and (fixnum? err) (fxzero? err))
               (void))
@@ -120,7 +162,7 @@
   (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
     (case-lambda
       ((old-path new-path options)
-        (let ((err (c-file-rename (text->bytevector0 old-path) (text->bytevector0 new-path))))
+        (let ((err (c-file-rename (path->c-path0 old-path) (path->c-path0 new-path))))
           (cond
             ((and (fixnum? err) (fxzero? err))
               (void))
@@ -154,7 +196,7 @@
     (case-lambda
       ((path options)
         (let* ((symlinks? (memq 'symlinks options))
-               (ret (c-file-type (text->bytevector0 path)
+               (ret (c-file-type (path->c-path0 path)
                                  (if symlinks? 1 0))))
           (cond
             ((and (fixnum? ret) (fx>=? ret 0))
@@ -185,7 +227,7 @@
       ((path options)
         (let* ((vec       (make-dir-entry-vector))
                (symlinks? (memq 'symlinks options))
-               (err       (c-file-stat (text->bytevector0 path) (if symlinks? 1 0) vec)))
+               (err       (c-file-stat (path->c-path0 path) (if symlinks? 1 0) vec)))
           (cond
             ((and (fixnum? err) (fx>=? err 0))
               (vector->dir-entry #f vec))
@@ -204,8 +246,8 @@
   (let ((option (memq key options)))
     (if option
       (let ((value (if (null? (cdr option)) '() (cadr option))))
-        (unless (or (bytevector? value) (string? value) (charspan? value))
-          (raise-assertf caller "expecting a bytevector, string or charspan after option '~a, found ~s"
+        (unless (text? value)
+          (raise-assertf caller "expecting a bytevector, bytespan, string or charspan after option '~a, found ~s"
             key value))
         (text->bytevector value))
       #vu8())))
@@ -242,7 +284,7 @@
       ((dirpath options)
         ; (debugf "directory-list dir=~s, options=~s" dirpath options)
         (let ((ret (c-directory-list
-                     (text->bytevector0 dirpath)
+                     (path->c-path0 dirpath)
                      (%find-and-convert-text-option 'directory-list options 'prefix)
                      (%find-and-convert-text-option 'directory-list options 'suffix)
                      (fxior (if (memq 'symlinks options) 1 0)

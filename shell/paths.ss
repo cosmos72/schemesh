@@ -13,15 +13,21 @@
           sh-subpath sh-subpath? sh-path->subpath text->sh-path*)
   (import
     (rnrs)
-    (only (chezscheme)               fx1+ fx1- void)
-    (only (scheme2k bootstrap)       assert* fx<=?* while)
-    (scheme2k containers charspan)
-    (only (scheme2k containers list) for-list))
+    (only (chezscheme)                   fx1+ fx1- void)
+    (only (scheme2k bootstrap)           assert* fx<=?* while)
+    (only (scheme2k containers bytespan) bytespan?)
+          (scheme2k containers charspan)
+    (only (scheme2k containers utf8b)    utf8b-bytespan->string utf8b->string)
+    (only (scheme2k containers list)     for-list))
 
 
-;; convert a string or a charspan to charspan
+;; convert a bytevector, bytespan, string or charspan to charspan
 (define (text->sh-path* text)
-  (if (charspan? text) text (string->charspan* text)))
+  (cond
+    ((bytevector? text) (string->charspan* (utf8b->string text)))
+    ((bytespan? text)   (string->charspan* (utf8b-bytespan->string text)))
+    ((charspan? text)   text)
+    (else               (string->charspan* text))))
 
 
 ;; a path is a charspan representing a relative or absolute directory.

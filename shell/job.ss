@@ -124,7 +124,7 @@
                                           charspan->utf8b charspan->utf8b/0
                                           string->utf8b string->utf8b/0 utf8b->string)
     (only (scheme2k containers vector)    for-vector vector-iterate)
-    (only (scheme2k conversions)          bytevector->bytevector0 list->argv string-hashtable->argv text->bytevector0)
+    (only (scheme2k conversions)          bytevector->bytevector0 list->argv string-hashtable->argv text? text->bytevector0)
           (scheme2k posix)                ;; produces smaller libschemesh than listing each imported symbol
     (only (scheme2k posix thread)         thread-count thread-id thread-signal-handle threads-status threads-status-changes)
     (only (scheme2k io obj)               readers-writers-collect)

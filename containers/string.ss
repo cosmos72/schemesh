@@ -13,7 +13,7 @@
     string-any string-contains string-count string-empty? string-every string-iterate
 
     string-index string-index-right
-    string-is-unsigned-base10-integer? string-is-signed-base10-integer? 
+    string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-join string-list? string-list-split-after-nuls
     string-map string-prefix? string-count=
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!

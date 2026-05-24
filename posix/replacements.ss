@@ -20,6 +20,9 @@
       get-char get-datum get-line get-string-all get-string-n get-string-some
       put-char put-datum put-string put-string-some
 
+      ;; posix/fs.ss
+      cd current-directory
+
       ;; posix/thread.ss
       current-thread fork-thread get-initial-thread get-thread-id make-thread
       thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
@@ -44,7 +47,7 @@
                                (put-string-some chez:put-string-some))
 
     (only (scheme2k posix fd)  c-errno->string)
-    (only (scheme2k posix fs)  file-type file-delete)
+    (only (scheme2k posix fs)  cd current-directory file-type file-delete)
     (scheme2k posix thread))
 
 

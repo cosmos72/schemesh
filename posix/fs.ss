@@ -9,7 +9,7 @@
 
 (library (scheme2k posix fs (1 0 0))
   (export
-      c-make-dev c-dev-major c-dev-minor
+      c-make-dev c-dev-major c-dev-minor path->c-path0
 
       dir-entry-path dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-depth
       dir-entry-modified dir-entry-accessed dir-entry-status-changed
@@ -20,6 +20,7 @@
       make-dir-reader dir-reader dir-reader? dir-reader-options dir-reader-path
       make-fs-reader  fs-reader  fs-reader?  fs-reader-path-list
 
+      current-directory cd
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-stat file-type mkdir
       gid->groupname uid->username)
@@ -28,10 +29,10 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme)                     debug-condition display-condition foreign-procedure format fx1+ fx1- fxlogbit?
-                                           include logbit? make-continuation-condition make-format-condition
+                                           import include logbit? make-continuation-condition make-format-condition
                                            procedure-arity-mask record-writer reverse! sort! string->immutable-string time? void)
     (only (scheme2k bootstrap)             assert* assert-not* catch raise-assertf raise-errorf try)
-    (only (scheme2k containers bytevector) bytevector<?)
+    (only (scheme2k containers bytevector) bytevector<? bytevector-append)
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list plist-update!)
     (only (scheme2k containers span)       list->span span-ref-right span-clear! span-delete-right! span-empty? span-insert-right! span-length)

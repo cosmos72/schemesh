@@ -8,8 +8,8 @@
 
 (library (scheme2k containers bytevector (1 0 0))
   (export
-    bytevector-compare bytevector-hash bytevector-index
-    bytevector<=? bytevector<? bytevector>=? bytevector>? 
+    bytevector-append bytevector-compare bytevector-hash bytevector-index
+    bytevector<=? bytevector<? bytevector>=? bytevector>?
 
     bytevector-iterate for-bytevector in-bytevector list->bytevector
 
@@ -93,6 +93,54 @@
         (when (fx>? n 1)
           (bytevector-u8-set! bvec (fx1+ start) val)))
       (c-subbytevector-fill! bvec start end val))))
+
+
+(define (sum-bytevectors-length bvs retlen)
+  (if (null? bvs)
+    retlen
+    (sum-bytevectors-length (cdr bvs) (fx+ retlen (bytevector-length (car bvs))))))
+
+
+;; concatenate multiple bytevectors
+(define bytevector-append
+  (case-lambda
+    (()
+      #vu8())
+    ((bv0)
+      (assert* 'bytevector-append (bytevector? bv0))
+      bv0)
+    ((bv0 bv1)
+      (assert* 'bytevector-append (bytevector? bv0))
+      (assert* 'bytevector-append (bytevector? bv1))
+      (let* ((len0 (bytevector-length bv0))
+             (len1 (bytevector-length bv1))
+             (ret  (make-bytevector (fx+ len0 len1))))
+        (bytevector-copy! bv0 0 ret 0 len0)
+        (bytevector-copy! bv1 0 ret len0 len1)
+        ret))
+    ((bv0 bv1 bv2)
+      (assert* 'bytevector-append (bytevector? bv0))
+      (assert* 'bytevector-append (bytevector? bv1))
+      (assert* 'bytevector-append (bytevector? bv2))
+      (let* ((len0  (bytevector-length bv0))
+             (len1  (bytevector-length bv1))
+             (len01 (fx+ len0 len1))
+             (len2  (bytevector-length bv2))
+             (ret   (make-bytevector (fx+ len01 len2))))
+        (bytevector-copy! bv0 0 ret 0 len0)
+        (bytevector-copy! bv1 0 ret len0 len1)
+        (bytevector-copy! bv2 0 ret len01 len2)
+        ret))
+    (bvs
+      (let %bytevector-append ((ret (make-bytevector (sum-bytevectors-length bvs 0)))
+                               (pos 0)
+                               (bvs bvs))
+        (if (null? bvs)
+          ret
+          (let* ((bv (car bvs))
+                 (len (bytevector-length bv)))
+            (bytevector-copy! bv 0 ret pos len)
+            (%bytevector-append ret (fx+ pos len) (cdr bvs))))))))
 
 
 ;; search bytevector range [start, end) and return index of first byte equal to u8 or that satisfies pred.

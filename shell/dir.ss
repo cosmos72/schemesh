@@ -41,7 +41,7 @@
         (%job-owd (if (sh-job? parent) parent (sh-globals))))))
 
 
-;; return charspan containing current directory,
+;; return charspan containing current directory of current job,
 ;; or charspan containing current directory of specified job-or-id.
 ;;
 ;; NOTE: returned charspan must NOT be modified.
@@ -52,7 +52,7 @@
 
 
 ;; set the current directory of a job or job-id to specified path.
-;; if job or job-id is not specified, defaults to (sh-globals)
+;; if job or job-id is not specified, defaults to current job.
 ;; if path is not specified, defaults to job's environment variable $HOME.
 ;; if path is specified, it must be a string or charspan.
 ;;
@@ -63,11 +63,11 @@
 (define sh-cd
   (case-lambda
     (()
-      (job-cd #t (sh-env-ref #t "HOME")))
+      (job-cd #f (sh-env-ref #f "HOME")))
 
     ((arg)
-      (if (or (string? arg) (charspan? arg))
-        (job-cd #t arg)
+      (if (text? arg)
+        (job-cd #f arg)
         (let ((job (sh-job arg)))
           (job-cd job (sh-env-ref job "HOME")))))
 
@@ -79,6 +79,8 @@
 
 
 ;; internal function called by (sh-cd)
+;;
+;; path must be a bytevector, bytespan, string or charspan
 ;;
 ;; set the current directory of job to specified path,
 ;; that will be normalized and must be an accessible directory on filesystem.

@@ -52,6 +52,8 @@
   (bytevector-compare #vu8(66 77) #vu8(66 77 0))   -1
   (bytevector-compare #vu8(66 77) #vu8(66 78))     -1
   (bytevector-compare #vu8(79) #vu8(78 0))         1
+  (bytevector-append #vu8(0) #vu8(1 2) #vu8()
+                     #vu8(3 4 5) #vu8(255))        #vu8(0 1 2 3 4 5 255)
   (string-count= "qwertyuiop" 2 "_ertyuio7" 1 8)   7
 
   (let* ((n   9)

@@ -104,6 +104,14 @@
   (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-port #f 1 'textual)) 'rw #t))
   (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-port #f 2 'textual)) 'rw #t))
 
+  ;; install job-aware procedure as (cd) and (current-directory)
+  (cd #f (case-lambda
+           (()
+             (charspan->string (sh-cwd)))
+           ((new-dir)
+             (assert* 'cd (text? new-dir))
+             (sh-cd new-dir))))
+
 
   (let ((bt (sh-builtins))
         (ft (builtins-that-finish-immediately)))
