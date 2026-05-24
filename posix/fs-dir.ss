@@ -135,7 +135,7 @@
         ;; (debugf ">make-dir-reader path ~s, options ~s" path options)
         (assert* 'make-dir-reader (fixnum? options))
         (assert* 'make-dir-reader (fx<=? 0 options 15))
-        (let ((obj (c-dir-open (text->bytevector0 path))))
+        (let ((obj (c-dir-open (path->c-path0 path))))
           (cond
             ((and (integer? obj) (exact? obj) (> obj 0))
               (%make-dir-reader obj (text->string path) options))

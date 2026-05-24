@@ -84,7 +84,7 @@
                    (map text->string path-list)
                    accept-entry-proc?
                    recurse-dir-proc?
-                   (list->span (map text->bytevector0 path-list))
+                   (list->span (map path->c-path0 path-list))
                    0 ; depth
                    (make-eqv-hashtable)
                    (make-eqv-hashtable)

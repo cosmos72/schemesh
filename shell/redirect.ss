@@ -616,17 +616,15 @@
   (cond
     ((fixnum? path-or-fd)
       path-or-fd)
-    ((or (string? path-or-fd) (bytevector? path-or-fd))
-      (let ((bvec (text->bytevector0 path-or-fd))
-            (slash 47))
-        (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
-          (let ((bspan (charspan->utf8b job-dir)))
-            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan 0)))
-              ;; append / after job's directory if missing
-              (bytespan-insert-right/u8! bspan slash))
-            (bytespan-insert-right/bytevector! bspan bvec)
-            (bytespan->bytevector bspan))
-          bvec)))
+    ((text? path-or-fd)
+      (let ((bvec0 (text->bytevector0 path-or-fd)))
+        (if (and job-dir (not (fx=? 47 (bytevector-u8-ref bvec0 0))))
+          (let ((job-dir0 (charspan->utf8b job-dir)))
+            (if (fx=? 47 (bytevector-u8-ref job-dir0 (fx1- (bytevector-length job-dir0))))
+              (bytevector-append job-dir0 bvec0)
+              ;; append / after job's directory
+              (bytevector-append job-dir0 #vu8(47) bvec0)))
+          bvec0)))
     ;; wildcards may expand to a list of strings: accept them if they have length 1
     ((and (pair? path-or-fd) (null? (cdr path-or-fd)) (string? (car path-or-fd)))
       (%prefix-job-dir-if-relative-path job-dir (car path-or-fd)))
