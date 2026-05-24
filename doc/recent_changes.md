@@ -12,12 +12,14 @@
 
 * fix issue #44: always correctly redirect external commands executed in a pipeline
 * fix issue #49: flush `(current-error-port)` and `(current-output-port)` after evaluating an expression or a file
+* fix most filesystem-related functions to honor current job's current directory
 * better document how to mix shell and Scheme syntax.
 * add shell builtin `kill`
 * add type `disk-reader`, its convenience function `(disk)` and shell builtin `disk`
 * add type `fs-reader` and its convenience function `(search)`
 * add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with `#\return`.
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
+* add function `(bytevector-append)`
 * add function `(sh-compile-file)` and merge functions `(sh-include)` `(sh-include*)` into new function `(sh-include-file)`
 * add functions `(datum->json)` and `(datum->json-bytes)`
 * add functions `(bytevector-iterate)` `(alist-iterate)` `(list-iterate)` `(plist-iterate)` `(iterate)` `(iterate-any)`
