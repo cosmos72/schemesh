@@ -41,7 +41,7 @@
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           bytevector0->string text? text->bytevector text->bytevector0 text->string)
     (only (scheme2k io obj)                reader reader? reader-get reader-eof? reader-close reader-skip)
-    (only (scheme2k posix fd)              c-errno->string raise-c-errno warn-c-errno)
+    (only (scheme2k posix base)            c-errno-einval c-errno->string raise-c-errno warn-c-errno)
     (only (scheme2k reflect)               make-reflect-info-autodetect reflect-info-set!))
 
 

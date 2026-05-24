@@ -13,7 +13,7 @@
     (rnrs)
     (only (chezscheme)            foreign-procedure)
     (only (scheme2k bootstrap)    assert*)
-    (only (scheme2k posix fd)     raise-c-errno)
+    (only (scheme2k posix base)   raise-c-errno)
     (only (scheme2k posix signal) signal-name->number))
 
 

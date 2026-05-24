@@ -20,7 +20,7 @@
     (only (scheme2k containers hashtable) for-hash plist->eq-hashtable)
     (only (scheme2k containers list)  plist-ref)
     (only (scheme2k containers span)  span? span->list)
-    (only (scheme2k posix fd)         c-exit)
+    (only (scheme2k posix base)       c-exit)
     (only (scheme2k posix signal)     signal-name->number signal-raise)
     (only (scheme2k reflect)          make-reflect-info reflect-info-set!))
 

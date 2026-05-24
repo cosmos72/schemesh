@@ -44,8 +44,9 @@
 
   (include "reflect/reflect.ss")
 
-  (include "posix/fd.ss")
-  (include "posix/fs.ss")
+  (include "posix/base.ss")
+  (include "posix/fs.ss")           ; requires reflect/reflect.ss posix/base.ss
+  (include "posix/fd.ss")           ; requires posix/fs.ss        posix/base.ss
   (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/signal.ss")

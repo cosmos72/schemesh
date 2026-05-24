@@ -25,7 +25,7 @@
           (scheme2k lineedit lineedit)
     (only (scheme2k lineedit paren)      paren-name)
           (scheme2k lineedit parser)
-    (only (scheme2k posix fd)            c-hostname)
+    (only (scheme2k posix base)          c-hostname)
     (only (scheme2k posix fs)            uid->username)
           (schemesh parser)
           (schemesh shell autocomplete)

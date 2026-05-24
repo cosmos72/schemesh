@@ -18,7 +18,7 @@
     (only (scheme2k containers list)     plist-update!)
     (only (scheme2k io obj)              reader reader-get reader-eof? reader-close reader-skip)
     (only (scheme2k io wire)             wire-register-rtd-reflect)
-    (only (scheme2k posix fd)            raise-c-errno)
+    (only (scheme2k posix base)          raise-c-errno)
     (only (scheme2k posix fs)            c-dev-major c-dev-minor gid->groupname uid->username)
     (only (scheme2k reflect)             make-reflect-info-autodetect reflect-info-set!))
 

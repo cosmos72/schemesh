@@ -24,7 +24,7 @@
     (only (scheme2k containers bytespan)   bytevector->bytespan*)
     (only (scheme2k containers hashtable)  alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k containers utf8b)      utf8b->string)
-    (only (scheme2k posix fd)              raise-c-errno))
+    (only (scheme2k posix base)            raise-c-errno))
 
 
 ;; generic socket endpoint

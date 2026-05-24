@@ -16,7 +16,7 @@
     (only (chezscheme)                 foreign-procedure fx1+ record-writer vector->immutable-vector void)
     (only (scheme2k bootstrap)         assert* raise-errorf)
     (only (scheme2k containers span)   make-span span-set!)
-    (only (scheme2k posix fd)          raise-c-errno))
+    (only (scheme2k posix base)        raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))

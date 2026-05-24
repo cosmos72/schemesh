@@ -9,40 +9,23 @@
 
 (library (scheme2k posix fd (1 0 0))
   (export
-    c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set! fd-type
-    file->fd pipe-fds raise-c-errno warn-c-errno)
+    file->fd pipe-fds)
   (import
     (rnrs)
-    (only (chezscheme)             foreign-procedure format lock-object logbit? void procedure-arity-mask unlock-object)
+    (only (chezscheme)             foreign-procedure format logbit? void procedure-arity-mask unlock-object)
     (only (scheme2k bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
-    (scheme2k containers bytespan)
+          (scheme2k containers bytespan)
     (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose)
-    (only (scheme2k conversions)   text->bytevector0 transcoder-utf8))
+    (only (scheme2k conversions)   transcoder-utf8)
+    (only (scheme2k posix base)    c-errno c-errno-einval raise-c-errno)
+    (only (scheme2k posix fs)      path->c-path0))
 
-(define c-errno         (foreign-procedure "c_errno" () int))
-(define c-errno-einval  ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
-(define c-errno->string (foreign-procedure "c_errno_to_string" (int) ptr))
-(define c-exit          (foreign-procedure "c_exit" (int) int))
 
-(define c-hostname
-  (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () ptr)))
-         (hostname (if (string? hostname-or-error) hostname-or-error "???")))
-    (lambda ()
-      hostname)))
-
-(define (raise-c-errno who c-who c-errno . c-args)
-  ; (debugf "raise-c-errno ~s ~s" who c-errno)
-  (raise-errorf who "C function ~s~s failed with error ~s: ~a"
-    c-who c-args c-errno (if (integer? c-errno) (c-errno->string c-errno) "unknown error")))
-
-(define (warn-c-errno who c-who c-errno . c-args)
-  (let ((port (current-error-port)))
-    (format port "\x1b;[1;33m; Warning in ~s: C function ~s~s failed with error ~s: ~a\x1b;[m\n"
-            who c-who c-args c-errno (c-errno->string c-errno))
-    (flush-output-port port)))
+(define c-errno-eio   ((foreign-procedure "c_errno_eio" () int)))    ; integer, not a procedure
+(define c-errno-eintr ((foreign-procedure "c_errno_eintr" () int)))  ; integer, not a procedure
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max
@@ -279,9 +262,7 @@
 ;;   If interrupted, returns 'timeout
 ;;   On other errors, raises condition.
 (define fd-select
-  (let ((c-fd-select (foreign-procedure __collect_safe "c_fd_select" (int int int) int))
-        (c-errno-eio  ((foreign-procedure "c_errno_eio" () int)))
-        (c-errno-eintr ((foreign-procedure "c_errno_eintr" () int))))
+  (let ((c-fd-select (foreign-procedure __collect_safe "c_fd_select" (int int int) int)))
     (lambda (fd direction timeout-milliseconds)
       (assert* 'fd-select (memq direction '(read write rw)))
       (check-interrupts)
@@ -360,11 +341,11 @@
 ;;   mandatory direction must be one of the symbols: 'read 'write 'rw
 ;;   optional flags must be a list containing zero or more: 'create 'truncate 'append
 (define file->fd
-  (let ((c-open-file-fd (foreign-procedure __collect_safe "c_file_fd"
+  (let ((c-open-file-fd (foreign-procedure "c_file_fd"
                           (ptr int int int int) int)))
     (case-lambda
       ((filepath direction flags)
-        (let* ((filepath0 (text->bytevector0 filepath))
+        (let* ((filepath0 (path->c-path0 filepath))
                (dir (case direction
                       ((read) 0) ((write) 1) ((rw) 2)
                       (else (error 'file->fd

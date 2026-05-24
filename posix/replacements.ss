@@ -41,14 +41,14 @@
         (put-datum       r6rs:put-datum)
         (put-string      r6rs:put-string))
 
-    (rename (only (chezscheme) foreign-procedure format get-string-some make-continuation-condition
-                               make-format-condition put-string-some sort! void)
-                               (get-string-some chez:get-string-some)
-                               (put-string-some chez:put-string-some))
+    (rename (only (chezscheme)  foreign-procedure format get-string-some make-continuation-condition
+                                make-format-condition put-string-some sort! void)
+                                (get-string-some chez:get-string-some)
+                                (put-string-some chez:put-string-some))
 
-    (only (scheme2k posix fd)  c-errno->string)
-    (only (scheme2k posix fs)  cd current-directory file-type file-delete)
-    (scheme2k posix thread))
+    (only (scheme2k posix base) c-errno->string)
+    (only (scheme2k posix fs)   cd current-directory file-type file-delete)
+          (scheme2k posix thread))
 
 
 ;;; read and return the next character from textual-input-port,
