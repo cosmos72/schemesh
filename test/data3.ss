@@ -405,6 +405,9 @@
   (sh-run (shell "false"))                             ,(failed 1)
   (sh-run (shell "echo0"))                             ,@"#<void>"
   (sh-run (shell "status" "210"))                      ,(failed 210)
+  (sh-run/ok? (shell "parent" "true"))                 #t
+  (sh-run/ok? (shell "parent" "false"))                #f
+  (sh-run     (shell "global" "status" "501234567"))   ,(failed 501234567)
   (sh-run (shell-subshell "true"))                     ,@"#<void>"
   (sh-run (shell-subshell "false"))                    ,(failed 1)
   (sh-run (shell-subshell "echo0"))                    ,@"#<void>"

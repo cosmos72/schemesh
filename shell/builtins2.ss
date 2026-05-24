@@ -196,8 +196,9 @@
     (let* ((args    (cdr prog-and-args))
            (builtin (sh-builtin-find args)))
       (if builtin
-        (begin
-          (job-temp-parent-set! job (sh-globals))
+        (let ((globals (sh-globals)))
+          (unless (eq? job globals)
+            (job-temp-parent-set! job globals))
           (builtin-start builtin job args options))
         (write-builtin-error "global" "not a shell builtin" (car args))))))
 
@@ -284,6 +285,14 @@
     signal-name))
 
 
+;; set the temp-parent of job to job's temp-parent's parent
+(define (job-temp-parent-up! job)
+  (unless (eq? job (sh-globals))
+    (let* ((parent      (or (job-temp-parent job) (job-parent job)))
+           (grandparent (and parent (job-parent parent))))
+      (job-temp-parent-set! job (or grandparent (sh-globals))))))
+
+
 ;; the "parent" builtin: run the builtin passed as first argument
 ;; with its parent job temporarily changed to current parent's parent.
 ;; Useful mostly for builtins "cd", "pwd" and "set"
@@ -293,23 +302,13 @@
   ;; (debugf "builtin-parent ~s" prog-and-args)
   (if (null? (cdr prog-and-args))
     (void)
-    (let* ((args       (cdr prog-and-args))
-           (builtin    (sh-builtin-find args))
-           (old-parent (job-parent job))
-           (new-parent (or (and old-parent (job-parent old-parent)) #t)))
-      (builtin
+    (let* ((args    (cdr prog-and-args))
+           (builtin (sh-builtin-find args)))
+      (if builtin
         (begin
           (job-temp-parent-up! job)
           (builtin-start builtin job args options))
         (write-builtin-error "parent" "not a shell builtin" (car args))))))
-
-
-;; set the temp-parent of job to job's grand-parent.
-(define (job-temp-parent-up! job)
-  (let* ((parent      (job-parent job))
-         (grandparent (and parent (job-parent parent))))
-    (when grandparent
-      (job-temp-parent-set! job grandparent))))
 
 
 ;; display a single environment variable
