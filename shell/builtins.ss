@@ -27,6 +27,47 @@
          (list-ref repl-args 2))))
 
 
+;; return gbuffer containing previous commands saved to history,
+;; or #f if not available.
+(define repl-history
+  (case-lambda
+    (()
+      (let ((lctx (repl-args-linectx)))
+        (and (linectx? lctx) (linectx-history lctx))))
+    ((n)
+      (let* ((ch (repl-history))
+             (len (if ch (gbuffer-length ch) 0)))
+        (and (fx<? -1 n len)
+             (gbuffer-ref ch n))))))
+
+
+;; implementation of "history" builtin, display previous commands saved to history.
+(define repl-history-display
+  (case-lambda
+    (()
+      (repl-history-display (repl-args-linectx)))
+    ((lctx)
+      (let ((fd (sh-fd 1)))
+        ; (debugf "repl-history-display ~s" lctx)
+        (if (linectx? lctx)
+          (let ((wbuf (make-bytespan 0)))
+            (vhistory-iterate (linectx-history lctx)
+              (lambda (i lines)
+                (bytespan-insert-right/u8!      wbuf 32) ; space
+                (bytespan-display-right/fixnum! wbuf i)
+                (bytespan-insert-right/u8!      wbuf 9) ; tab
+                (vlines-iterate lines
+                  (lambda (j line)
+                    (vline-display/bytespan line wbuf)))
+                (bytespan-insert-right/u8! wbuf 10) ; newline
+                (when (fx>=? (bytespan-length wbuf) 4096)
+                  (fd-write/bytespan! fd wbuf))))
+            (fd-write/bytespan! fd wbuf)
+            (void)) ; return (void), means builtin finished successfully
+          (failed 1))))))
+
+
+
 ;; React to uncaught conditions
 (define sh-exception-handler
   (case-lambda
@@ -131,46 +172,6 @@ The following names are recognized as builtins:\n\n")
             (bytespan-insert-right/string! wbuf "'. Try 'help' or 'help help'.\n")
             (fd-write/bytespan! (sh-fd 1) wbuf)
             (failed 1)))))))
-
-
-;; return gbuffer containing previous commands saved to history,
-;; or #f if not available.
-(define repl-history
-  (case-lambda
-    (()
-      (let ((lctx (repl-args-linectx)))
-        (and (linectx? lctx) (linectx-history lctx))))
-    ((n)
-      (let* ((ch (repl-history))
-             (len (if ch (gbuffer-length ch) 0)))
-        (and (fx<? -1 n len)
-             (gbuffer-ref ch n))))))
-
-
-;; implementation of "history" builtin, display previous commands saved to history.
-(define repl-history-display
-  (case-lambda
-    (()
-      (repl-history-display (repl-args-linectx)))
-    ((lctx)
-      (let ((fd   (sh-fd 1)))
-        ; (debugf "repl-history-display ~s" lctx)
-        (if (linectx? lctx)
-          (let ((wbuf (make-bytespan 0)))
-            (vhistory-iterate (linectx-history lctx)
-              (lambda (i lines)
-                (bytespan-insert-right/u8!      wbuf 32) ; space
-                (bytespan-display-right/fixnum! wbuf i)
-                (bytespan-insert-right/u8!      wbuf 9) ; tab
-                (vlines-iterate lines
-                  (lambda (j line)
-                    (vline-display/bytespan line wbuf)))
-                (bytespan-insert-right/u8! wbuf 10) ; newline
-                (when (fx>=? (bytespan-length wbuf) 4096)
-                  (fd-write/bytespan! fd wbuf))))
-            (fd-write/bytespan! fd wbuf)
-            (void)) ; return (void), means builtin finished successfully
-          (failed 1))))))
 
 
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)

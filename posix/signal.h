@@ -326,6 +326,10 @@ static int c_signal_restore_sigwinch(void) {
  * duration_inout must be a pair (seconds_int64 . nanoseconds_int32)
  * and if the returned value is > 0, duration it will be updated
  * with the remaining duration to sleep.
+ *
+ * Return 0 if successfully paused for user-specified duration,
+ *   or 1 if interrupted by a signal,
+ *   or < 0 on errors.
  */
 static int c_countdown(ptr duration_inout) {
   struct timespec duration, left = {};
