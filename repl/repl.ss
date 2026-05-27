@@ -543,6 +543,7 @@ Type ? or help for this help.
 (begin
   (let ((t (sh-builtins)))
     ;; additional builtins
+    (hashtable-set! t "all"        builtin-all)
     (hashtable-set! t "answers"    builtin-answers)
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "disk"       builtin-disk)
@@ -561,6 +562,14 @@ Type ? or help for this help.
     (hashtable-set! t "where"      builtin-where))
 
   (let ((t (sh-builtins-help)))
+
+    (hashtable-set! t "all"  (string->utf8 " [OPTIONS]
+    parse data from stdin, autodetecting input format,
+    and copy all elements to stdout, autodetecting output format.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT
+      --to-FORMAT   write elements to stdout in given FORMAT\n"))
+
     (hashtable-set! t "answers"  (string->utf8 " [--to-FORMAT]
     display values returned by recent expressions evaluated at repl.
     Options:

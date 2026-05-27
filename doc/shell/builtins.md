@@ -6,6 +6,7 @@ In shell syntax, the following shell builtins are recognized:
 
 * [`.`](#dot) read a file and execute the contained shell script or Scheme source code
 * [`:`](#colon) do nothing and return success, ignoring all arguments
+* [`all`](#all) copy all structured data elements from stdin to stdout
 * [`alias`](#alias) define or display aliases
 * [`answers`](#answers) display as structured data the values returned by recent expressions or commands executed at repl
 * [`bg`](bg) resume a job and move a job to the background
@@ -339,6 +340,18 @@ Return job exit status, or failure if job was not found.
 
 ------------------------------------------------------------------------------------------------------
 ### Structured Pipelines
+
+#### all
+Syntax: `first [OPTIONS]`
+<br/>Added in 1.0.1
+
+Read structured data from standard input,
+then write all elements to standard output.<br/>
+Options:
+* `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
+* `--to-FORMAT` write structured data using specified `FORMAT` instead of autodetecting it
+
+Return success, or failure if `FORMAT` is not supported.
 
 #### answers
 Syntax: `answers [--to-FORMAT]`

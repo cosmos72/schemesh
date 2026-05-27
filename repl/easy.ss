@@ -717,6 +717,24 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: all
+
+
+;; the "all" builtin:
+;; parse elements from standard input autodetecting input format, or with specified --from-FORMAT,
+;; and write them to standard output autodetecting output format, or with specified --to-FORMAT.
+;;
+;; As all builtins do, must return job status.
+;;
+;; Added in 1.0.1
+(define (builtin-all job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (unless (null? args)
+      (raise-errorf 'all "too many arguments"))
+    (to-stdout (from-stdin options) options)))
+      
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: dir
 
 
