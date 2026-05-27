@@ -27,12 +27,22 @@
 (define c-errno-eio   ((foreign-procedure "c_errno_eio" () int)))    ; integer, not a procedure
 (define c-errno-eintr ((foreign-procedure "c_errno_eintr" () int)))  ; integer, not a procedure
 
+(define c-fd-close    (foreign-procedure "c_fd_close" (int) int))
+
 (define fds-close-on-fork-table (make-eqv-hashtable))
 (define fds-close-on-fork-mutex (make-mutex))
 
-(define (fds-close-on-fork-add! fd)
+(define (fds-close-on-fork-insert! fd)
   (with-mutex fds-close-on-fork-mutex
     (hashtable-set! fds-close-on-fork-table fd #t)))
+
+(define (fds-close-on-fork-delete! fd-or-list)
+  (with-mutex fds-close-on-fork-mutex
+    (if (fixnum? fd-or-list)
+      (hashtable-delete! fds-close-on-fork-table fd-or-list)
+      (do ((l fd-or-list (cdr l)))
+          ((null? l))
+        (hashtable-delete! fds-close-on-fork-table (car l))))))
 
 
 (define fds-close-on-fork
@@ -43,8 +53,8 @@
             ((null? l))
           (hashtable-delete! fds-close-on-fork-table (car l)))
         (hash-for-each-key fds-close-on-fork-table
-          (lambda (fd)
-            (fd-close fd)))
+          ;; do NOT use fd-close, it would call (hashtable-delete! fds-close-on-fork-table fd)
+          c-fd-close)
         (hashtable-clear! fds-close-on-fork-table)))
     (()
       (fds-close-on-fork '()))))
@@ -59,17 +69,18 @@
           ret
           (raise-c-errno 'fd-open-max 'sysconf ret))))))
 
-(define fd-close
-  (let ((c-fd-close (foreign-procedure "c_fd_close" (int) int)))
-    (lambda (fd)
-      (c-fd-close fd)))) ; used in cleanups, do NOT raise exceptions here
+(define (fd-close fd)
+  (fds-close-on-fork-delete! fd)
+  (c-fd-close fd)) ; used in cleanups, do NOT raise exceptions here
 
 (define fd-close-list
   (let ((c-fd-close-list (foreign-procedure "c_fd_close_list" (ptr) int)))
     (lambda (fd-list)
       (if (null? fd-list)
         0
-        (c-fd-close-list fd-list))))) ; used in cleanups, do NOT raise exceptions here
+        (begin
+          (fds-close-on-fork-delete! fd-list)
+          (c-fd-close-list fd-list)))))) ; used in cleanups, do NOT raise exceptions here
 
 (define fd-dup
   (let ((c-fd-dup (foreign-procedure "c_fd_dup" (int) int)))
@@ -94,7 +105,7 @@
     (lambda (from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)
       (let ((ret (c-fd-redirect from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)))
         (when (and close-on-exec? (>= ret 0))
-          (fds-close-on-fork-add! from-fd))
+          (fds-close-on-fork-insert! from-fd))
         ret))))
 
 
@@ -411,9 +422,9 @@
           (cond
             ((pair? ret)
               (when read-fd-close-on-exec?
-                (fds-close-on-fork-add! (car ret)))
+                (fds-close-on-fork-insert! (car ret)))
               (when write-fd-close-on-exec?
-                (fds-close-on-fork-add! (cdr ret)))
+                (fds-close-on-fork-insert! (cdr ret)))
               (values (car ret) (cdr ret)))
             (else
               (raise-c-errno 'pipe-fds 'pipe ret)))))
