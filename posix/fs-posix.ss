@@ -59,7 +59,7 @@
         (if (fx=? 47 (bytevector-u8-ref c-prefix (fx1- (bytevector-length c-prefix))))
           (bytevector-append c-prefix c-path0)
           (bytevector-append c-prefix #vu8(47) c-path0))))))
-        
+
 
 (define (%find-and-convert-fixnum-option caller options key default)
   (let ((option (memq key options)))

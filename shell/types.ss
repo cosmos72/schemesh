@@ -21,7 +21,7 @@
     (mutable last-status job-last-status %job-last-status-set!)
     ;; #f or exception that caused the job to terminate
     (mutable exception)
-    (mutable redirects) ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+    redirects           ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
                         ; contains redirections requested by user for THIS job
 
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)

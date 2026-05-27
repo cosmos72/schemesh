@@ -579,12 +579,6 @@
         ))))
 
 
-;; redirect a file descriptor. returns < 0 on error
-;; arguments: fd direction-ch to-fd-or-bytevector0 close-on-exec?
-(define fd-redirect
-  (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int))
-
-
 ;; called by (job-remap-fds!)
 (define (job-remap-fd! job job-dir index)
   ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
@@ -634,14 +628,24 @@
         path-or-fd))))
 
 
+;; prefix fds and remap-fds of specified job onto list l.
+;; return updated list l.
+(define (job-remap-fds-list job l)
+  (let ((remap-fds (job-fds-to-remap job)))
+    (when remap-fds
+      (for-hash-values ((sfd remap-fds))
+        (set! l (cons (s-fd->int sfd) l)))))
+  l)
+
+
 ;; release job's remapped fds and unset (job-fds-to-remap job)
 (define (job-unmap-fds! job)
   (let ((remap-fds (job-fds-to-remap job)))
     (when remap-fds
-      (for-hash-values ((fd remap-fds))
-        (when (s-fd-release fd)
-          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
-          (fd-close (s-fd->int fd))))
+      (for-hash-values ((sfd remap-fds))
+        (when (s-fd-release sfd)
+          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int sfd))
+          (fd-close (s-fd->int sfd))))
       (job-fds-to-remap-set! job #f))))
 
 

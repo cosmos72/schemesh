@@ -307,6 +307,18 @@
         (fx<? index pos))))
 
 
+;; prefix redirect to-fds of specified job onto list l.
+;; return updated list l.
+(define (job-redirects-fds-list job l)
+  (let ((sp (job-redirects job)))
+    (do ((i 0 (fx+ i 4))
+         (n (span-length sp)))
+        ((fx>=? i n) l)
+      (let ((to (span-ref sp (fx+ i 2))))
+        (when (fixnum? to)
+          (set! l (cons to l)))))))
+
+
 ;; return parent-dir if different from child-dir, otherwise return #f
 ;; Note: parent-dir and child-dir may be #f
 (define (%parent-dir-if-different parent-dir child-dir)
@@ -356,6 +368,14 @@
   (%job-last-status-set! job (running))))
 
 
+(define (fds-close-on-fork-unused-by job)
+  (let ((fds '()))
+    (job-default-parents-iterate job
+      (lambda (parent)
+        (set! fds (job-remap-fds-list parent (job-redirects-fds-list parent fds)))))
+    (fds-close-on-fork fds)))
+
+
 ;; Fork a new subprocess, and in the child subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
@@ -396,12 +416,7 @@
                   (spawn-job-procedure-child-before job))
                 (lambda () ; body
                   (options->call-fd-close options)
-
-                  ;; BUGGED: breaks tests
-                  ;;(job-default-parents-iterate job
-                  ;;  (lambda (parent)
-                  ;;    (job-unmap-fds! parent)
-                  ;;    (job-unredirect/temp/all! parent)))
+                  (fds-close-on-fork-unused-by job)
 
                   ;c (debugf "> [child] spawn-job-procedure job=~s subprocess calling proc ~s" job proc)
                   (proc job (options-filter-out options '(fd-close spawn?)))
@@ -465,6 +480,7 @@
                     (spawn-job-procedure-child-before job))
                   (lambda () ; body
                     (options->call-fd-close options)
+                    (fds-close-on-fork)
                     (sh-current-job job)
                     (set! status (call-with-values proc ok)))
                   (lambda () ; run after body, even if it raised a condition

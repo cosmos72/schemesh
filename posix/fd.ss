@@ -9,16 +9,16 @@
 
 (library (scheme2k posix fd (1 0 0))
   (export
-    fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
+    fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-redirect fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set! fd-type
-    file->fd pipe-fds)
+    fds-close-on-fork file->fd pipe-fds)
   (import
     (rnrs)
-    (only (chezscheme)             foreign-procedure format logbit? void procedure-arity-mask unlock-object)
+    (only (chezscheme)             foreign-procedure format logbit? void make-mutex procedure-arity-mask unlock-object with-mutex)
     (only (scheme2k bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
           (scheme2k containers bytespan)
-    (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose)
+    (only (scheme2k containers hashtable) alist->eq-hashtable hash-for-each-key hashtable-transpose)
     (only (scheme2k conversions)   transcoder-utf8)
     (only (scheme2k posix base)    c-errno c-errno-einval raise-c-errno)
     (only (scheme2k posix fs)      path->c-path0))
@@ -26,6 +26,29 @@
 
 (define c-errno-eio   ((foreign-procedure "c_errno_eio" () int)))    ; integer, not a procedure
 (define c-errno-eintr ((foreign-procedure "c_errno_eintr" () int)))  ; integer, not a procedure
+
+(define fds-close-on-fork-table (make-eqv-hashtable))
+(define fds-close-on-fork-mutex (make-mutex))
+
+(define (fds-close-on-fork-add! fd)
+  (with-mutex fds-close-on-fork-mutex
+    (hashtable-set! fds-close-on-fork-table fd #t)))
+
+
+(define fds-close-on-fork
+  (case-lambda
+    ((keep-fd-list)
+      (with-mutex fds-close-on-fork-mutex
+        (do ((l keep-fd-list (cdr l)))
+            ((null? l))
+          (hashtable-delete! fds-close-on-fork-table (car l)))
+        (hash-for-each-key fds-close-on-fork-table
+          (lambda (fd)
+            (fd-close fd)))
+        (hashtable-clear! fds-close-on-fork-table)))
+    (()
+      (fds-close-on-fork '()))))
+
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max
@@ -63,6 +86,16 @@
         (if (>= ret 0)
           (void)
           (raise-c-errno 'fd-dup2 'dup2 ret old-fd new-fd))))))
+
+
+;; redirect a file descriptor. returns 0 on success, < 0 on error
+(define fd-redirect
+  (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int)))
+    (lambda (from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)
+      (let ((ret (c-fd-redirect from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)))
+        (when (and close-on-exec? (>= ret 0))
+          (fds-close-on-fork-add! from-fd))
+        ret))))
 
 
 (define (int64? obj)
@@ -375,9 +408,15 @@
     (case-lambda
       ((read-fd-close-on-exec? write-fd-close-on-exec?)
         (let ((ret (c-pipe-fds read-fd-close-on-exec? write-fd-close-on-exec?)))
-          (if (pair? ret)
-            (values (car ret) (cdr ret))
-            (raise-c-errno 'pipe-fds 'pipe ret))))
+          (cond
+            ((pair? ret)
+              (when read-fd-close-on-exec?
+                (fds-close-on-fork-add! (car ret)))
+              (when write-fd-close-on-exec?
+                (fds-close-on-fork-add! (cdr ret)))
+              (values (car ret) (cdr ret)))
+            (else
+              (raise-c-errno 'pipe-fds 'pipe ret)))))
       (()
         (pipe-fds 'close-on-exec 'close-on-exec)))))
 
