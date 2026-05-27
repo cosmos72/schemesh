@@ -378,7 +378,7 @@ static size_t http_copy_some(http* ctx, FILE* out, int may_block) {
   } else if (!still_running) {
     apply_status_easy(ctx, ctx->easy, "http_read()");
   } else if (ctx->err != CURLE_OK) {
-    // ctx->err may be set by notify_multi() callback
+    /* ctx->err may be set by notify_multi() callback */
   } else if (loop_apply_msg(ctx, "http_read()") != CURLE_OK) {
   }
   if (ctx->copied_n != 0) {

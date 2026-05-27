@@ -36,7 +36,7 @@
     (only (scheme2k containers charspan)   charspan?)
     (only (scheme2k containers list)       for-list plist-update!)
     (only (scheme2k containers span)       list->span span-ref-right span-clear! span-delete-right! span-empty? span-insert-right! span-length)
-    (only (scheme2k containers string)     string-prefix? string-suffix?)
+    (only (scheme2k containers string)     string-index-right string-prefix? string-suffix?)
     (only (scheme2k containers time)       make-time-utc)
     (only (scheme2k containers utf8b)      string->utf8b)
     (only (scheme2k conversions)           bytevector0->string text? text->bytevector text->bytevector0 text->string)
@@ -66,7 +66,7 @@
     path-list          ; initial path list
     accept-entry-proc? ; procedure for deciding whether to accept a dir-entry
     recurse-dir-proc?  ; procedure for deciding whether to recurse into a directory
-    stack              ; span of dir-entry and/or dir-readers
+    stack              ; span of paths, dir-entry and/or dir-readers
     (mutable depth)    ; fixnum, directory recursion depth
     uid-cache          ; eqv-hashtable uid -> user name
     gid-cache          ; eqv-hashtable gid -> group name
@@ -80,15 +80,16 @@
                 (assert-not* 'make-fs-reader (fxzero? (bitwise-and 6 (procedure-arity-mask accept-entry-proc?))))
                 (assert*     'make-fs-reader (procedure? recurse-dir-proc?))
                 (assert-not* 'make-fs-reader (fxzero? (bitwise-and 6 (procedure-arity-mask recurse-dir-proc?))))
-                ((args->new %fs-reader-get #f %fs-reader-close)
-                   (map text->string path-list)
-                   accept-entry-proc?
-                   recurse-dir-proc?
-                   (list->span (map path->c-path0 path-list))
-                   0 ; depth
-                   (make-eqv-hashtable)
-                   (make-eqv-hashtable)
-                   (make-eq-hashtable)))))
+                (let ((path-list (map text->string path-list)))
+                  ((args->new %fs-reader-get #f %fs-reader-close)
+                     path-list
+                     accept-entry-proc?
+                     recurse-dir-proc?
+                     (list->span path-list)
+                     0 ; depth
+                     (make-eqv-hashtable)
+                     (make-eqv-hashtable)
+                     (make-eq-hashtable))))))
         %%make-fs-reader)))
   (nongenerative %fs-reader-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
@@ -139,26 +140,28 @@
     (proc entry)))
 
 
+(define (%fs-reader-process rx entry)
+  (let ((stack (fs-reader-stack rx)))
+    ;; save depth into entry before possibly pushing a new dir-reader and increasing depth
+    (dir-entry-depth-set! entry (fs-reader-depth rx))
+    (let ((accept? (%call-proc rx entry (fs-reader-accept-entry-proc? rx))))
+      (when (and (memq (dir-entry-type entry) '(dir symlink))
+                 (%call-proc rx entry (fs-reader-recurse-dir-proc? rx)))
+        ;; next call to (%fs-reader-get) will recurse into subdirectory
+        (%push-dir! rx stack entry))
+      (if accept?
+        (values entry #t)
+        ;; skip entry and retry
+        (%fs-reader-get rx)))))
+
+
 (define (%fs-reader-get rx)
   (let* ((stack (fs-reader-stack rx))
-         (top   (if (span-empty? stack) #f (span-ref-right stack 0)))
-         (%fs-reader-process
-           (lambda (rx entry)
-             ;; save depth into entry before possibly pushing a new dir-reader and increasing depth
-             (dir-entry-depth-set! entry (fs-reader-depth rx))
-             (let ((accept? (%call-proc rx entry (fs-reader-accept-entry-proc? rx))))
-               (when (and (memq (dir-entry-type entry) '(dir symlink))
-                          (%call-proc rx entry (fs-reader-recurse-dir-proc? rx)))
-                 ;; next call to (%fs-reader-get) will recurse into subdirectory
-                 (%push-dir! rx stack entry))
-               (if accept?
-                 (values entry #t)
-                 ;; skip entry and retry
-                 (%fs-reader-get rx))))))
+         (top   (if (span-empty? stack) #f (span-ref-right stack 0))))
     (cond
       ((not top)
         (values #f #f))
-      ((bytevector? top)
+      ((string? top)
         (let ((datum (file-stat top '(symlinks catch))))
           (span-delete-right! stack 1)
           (cond

@@ -1,6 +1,6 @@
-// Source - https://stackoverflow.com/a/38277403
-// Posted by user6558785, modified by community. See post 'Timeline' for change history
-// Retrieved 2026-03-19, License - CC BY-SA 3.0
+/* Source - https://stackoverflow.com/a/38277403                                        */
+/* Posted by user6558785, modified by community. See post 'Timeline' for change history */
+/* Retrieved 2026-03-19, License - CC BY-SA 3.0                                         */
 
 #ifndef SCHEME2K_OS_PROCESS_OPENBSD_H
 #define SCHEME2K_OS_PROCESS_OPENBSD_H

@@ -62,7 +62,7 @@
 ;; easy wrapper for (make-dir-reader)
 (define dir
   (case-lambda
-    (()          (make-dir-reader (current-dir)))
+    (()          (make-dir-reader "."))
     ((path)      (make-dir-reader path))
     ((path opts) (make-dir-reader path opts))))
 
@@ -745,7 +745,7 @@
   (let*-values (((paths options)    (split-args-and-options prog-and-args))
                 ((dir-opts to-opts) (split-double-hyphens options)))
     ;; if no paths specified, list current directory
-    (let* ((paths (if (null? paths) (list (sh-cwd)) paths))
+    (let* ((paths (if (null? paths) '(".") paths))
 
            ;; hide files starting with "." by default. option -a shows them
            (opts (fxior
@@ -764,11 +764,11 @@
            ;; show only some fields by default. option -l shows more fields, option -v shows all fields
            (rx (cond
                 ((some-string-contains? dir-opts "v")
-                  (select rx path type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink))
+                  rx)
                 ((some-string-contains? dir-opts "l")
-                  (select rx path type size link modified accessed mode user group))
+                  (select rx path name type size link modified accessed mode user group))
                 (else
-                  (select rx path type size link modified mode)))))
+                  (select rx path name type size link modified mode)))))
       (to-stdout (sort-by rx path) to-opts))))
 
 

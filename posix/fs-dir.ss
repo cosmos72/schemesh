@@ -48,7 +48,7 @@
 
 (define (make-dir-entry path name type size link depth modified accessed status-changed mode user group uid gid dev rdev inode nlink)
   (assert* 'make-dir-entry (string-or-void? path))
-  (assert* 'make-dir-entry (string? name))
+  (assert* 'make-dir-entry (string-or-void? name))
   (assert* 'make-dir-entry (string-or-symbol-or-void? type))
   (assert* 'make-dir-entry (exact-integer-or-void? size))
   (assert* 'make-dir-entry (string-or-void? link))
@@ -288,7 +288,7 @@
 (define (vector->dir-entry rx vec)
   (let ((name (vector-ref vec 0)))
     (make-dir-entry
-      (if (and rx (dir-path-as-prefix? (dir-reader-opts rx)))
+      (if (and rx (string? name) (dir-path-as-prefix? (dir-reader-opts rx)))
         (path-append (dir-reader-path rx) name)
         name)                                   ; path
       name                                      ; name

@@ -221,15 +221,21 @@
 ;; Return #f if file does not exist.
 ;; Raise condition on errors, unless options contain 'catch
 (define file-stat
-  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr int ptr) ptr)))
+  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr unsigned ptr) ptr)))
     (case-lambda
       ((path options)
         (let* ((vec       (make-dir-entry-vector))
                (symlinks? (memq 'symlinks options))
-               (err       (c-file-stat (path->c-path0 path) (if symlinks? 1 0) vec)))
+               (err       (c-file-stat (path->c-path0 path) (if symlinks? #x6ffe #x2ffe) vec))
+               (path      (text->string path)))
           (cond
             ((and (fixnum? err) (fx>=? err 0))
-              (vector->dir-entry #f vec))
+              (let ((entry (vector->dir-entry #f vec))
+                    (slash (string-index-right path #\/)))
+                (dir-entry-path-set! entry path)
+                (dir-entry-name-set! entry (if slash (substring path (fx1+ slash) (string-length path))
+                                                     path))
+                entry))
             ((not err)
               #f) ; path does not exist
             ((memq 'catch options)

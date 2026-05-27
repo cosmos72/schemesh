@@ -51,6 +51,7 @@ enum {
   e_dir_flag_rdev            = 1 << e_vec_rdev,
   e_dir_flag_inode           = 1 << e_vec_inode,
   e_dir_flag_num_links       = 1 << e_vec_num_links,
+  e_file_stat_keep_symlink   = 1 << e_vec_n,
   e_dir_flag_show_dot_files  = 1 << e_vec_n,
   e_dir_flag_show_dot_dotdot = 1 << (e_vec_n + 1),
 };
@@ -322,7 +323,7 @@ static int c_dir_get(void* dir, ptr vec, unsigned flags) {
   if ((vec_n = Svector_length(vec)) > e_vec_n) {
     vec_n = e_vec_n;
   }
-  // unset flags that require access beyond the end of vec
+  /* unset flags that require access beyond the end of vec */
   flags = (flags & e_dir_flag_show_dot_files) |  /**/
           (flags & e_dir_flag_show_dot_dotdot) | /**/
           (flags & ((1 << vec_n) - 1));
@@ -619,13 +620,13 @@ static ptr c_file_type(ptr bytevector0_path, int keep_symlinks) {
  * If file does not exist, return Sfalse.
  * On errors, return Sinteger(c_errno())
  */
-static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks, ptr vec) {
+static ptr c_file_stat(ptr bytevector0_path, unsigned flags, ptr vec) {
   struct stat st;
   const char* path0;
   iptr        path_len;
   iptr        vec_n;
-  unsigned    flags;
   e_type      type;
+  unsigned    keep_symlinks;
   if (!Sbytevectorp(bytevector0_path) ||                                              /**/
       (path_len = Sbytevector_length(bytevector0_path)) <= 0 ||                       /**/
       (path0 = (const char*)Sbytevector_data(bytevector0_path))[path_len - 1] != 0 || /**/
@@ -635,8 +636,9 @@ static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks, ptr vec) {
   if ((vec_n = Svector_length(vec)) > e_vec_n) {
     vec_n = e_vec_n;
   }
-  // unset flags that require access beyond the end of vec
-  flags = ((1 << vec_n) - 1);
+  keep_symlinks = flags & e_file_stat_keep_symlink;
+  /* unset flags that require access beyond the end of vec */
+  flags &= ((1 << vec_n) - 1);
 
   if (keep_symlinks ? lstat(path0, &st) : stat(path0, &st) < 0) {
     int err = c_errno();

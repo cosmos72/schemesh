@@ -390,7 +390,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   }
   vec = Sbytevector_data(bvec);
 
-  // ---- Read next /proc/<pid>/stat ----
+  /* ---- Read next /proc/<pid>/stat ---- */
   dir   = to_dir(dir_s);
   entry = c_process_get_next_pid(dir);
   if (!entry) {

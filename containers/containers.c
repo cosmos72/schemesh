@@ -695,7 +695,7 @@ ptr scheme2k_Sstring_utf8b(const char bytes[], size_t len) {
 /**************************** flvector functions ******************************/
 /******************************************************************************/
 
-#ifdef Sflvector_ref // defined only by Chez Scheme >= 10.0.0
+#ifdef Sflvector_ref /* defined only by Chez Scheme >= 10.0.0 */
 
 static void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
 #if 0 /* redundant, already checked by Scheme function (flvector-copy!) */

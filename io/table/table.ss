@@ -146,6 +146,9 @@
 
 (define (delete-empty-columns tx)
   (let ((cols (table-writer-cols  tx)))
+    ;; if "path" column is present, remove redundant column "name"
+    (when (ordered-hash-ref cols 'path #f)
+      (ordered-hash-delete! cols 'name))
     (for-ordered-hash ((k col cols))
       (when (fxzero? (column-maxlen col))
         (ordered-hash-delete! cols k)))))
