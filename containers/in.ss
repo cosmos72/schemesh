@@ -16,7 +16,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ last-pair reverse!)
-    (only (scheme2k bootstrap) assert* debugf))
+    (only (scheme2k bootstrap) assert*))
 
 
 ;; A iterator is a closure that, at each call, returns N+1 values:

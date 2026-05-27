@@ -15,7 +15,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme)                annotation? annotation-expression annotation-source annotation-stripped
                                       source-object-bfp source-object-column source-object-line)
-    (only (scheme2k bootstrap)        assert* trace-define)
+    (only (scheme2k bootstrap)        assert*)
     (only (scheme2k containers list)  map*)
     (only (scheme2k lineedit parser)  parsectx-annotations? make-parsectx-annotation))
 

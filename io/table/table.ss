@@ -14,7 +14,7 @@
     (rnrs)
     (only (chezscheme)                       current-date date? date-year date-month date-day date-hour date-minute date-second date-zone-offset
                                              format fx1+ fx1- fx/ port-closed? time? time-second time-type time-utc->date void)
-    (only (scheme2k bootstrap)               assert* debugf for)
+    (only (scheme2k bootstrap)               assert* for)
     (only (scheme2k containers bytespan)     bytespan bytespan-clear! bytespan-display-left/integer! bytespan-display-right/unsigned-k-digits!
                                              bytespan-insert-right/bytevector! bytespan-insert-right/u8! latin1-bytespan->string)
     (only (scheme2k containers date)         date->string)

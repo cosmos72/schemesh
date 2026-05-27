@@ -20,7 +20,7 @@
     (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
                        make-continuation-condition make-format-condition make-time
                        procedure-arity-mask time? time-nanosecond time-second time-type void)
-    (only (scheme2k bootstrap)            assert* check-interrupts debugf raise-assertf  with-locked-objects)
+    (only (scheme2k bootstrap)            assert* check-interrupts raise-assertf  with-locked-objects)
     (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
