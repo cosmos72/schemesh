@@ -729,9 +729,10 @@
 ;; Added in 1.0.1
 (define (builtin-all job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (unless (null? args)
-      (raise-errorf 'all "too many arguments"))
-    (to-stdout (from-stdin options) options)))
+    (if (null? args)
+      (to-stdout (from-stdin options) options)
+      (write-builtin-error "all" "too many arguments"))))
+
       
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -823,19 +824,21 @@
 ;; As all builtins do, must return job status.
 (define (builtin-first job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (let* ((n (cond
-                ((null? args)
-                  1)
-                ((null? (cdr args))
-                  (let ((n (string->number (car args))))
-                    (assert* 'first (integer? n))
-                    (assert* 'first (exact? n))
-                    n))
-                (else
-                 (raise-errorf 'first "too many arguments"))))
-            (rx (from-stdin options))
-            (rx (make-range-reader rx 0 n)))
-      (to-stdout rx options))))
+    (let ((n (cond
+               ((null? args)
+                 1)
+               ((null? (cdr args))
+                 (let ((n (string->number (car args))))
+                   (assert* 'first (integer? n))
+                   (assert* 'first (exact? n))
+                   n))
+               (else
+                 #f))))
+      (if n
+        (let* ((rx (from-stdin options))
+               (rx (make-range-reader rx 0 n)))
+          (to-stdout rx options))
+        (write-builtin-error "first" "too many arguments")))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -849,17 +852,19 @@
 ;; As all builtins do, must return job status.
 (define (builtin-from job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (when (null? args)
-      (raise-errorf 'from "too few arguments"))
-    (unless (null? (cdr args))
-      (raise-errorf 'from "too many arguments"))
-    (let* ((arg (car args))
-           (from (cond ((string=? arg "csv")    from-csv)
-                       ((string=? arg "json")   from-json)
-                       ((string=? arg "name0")  from-name0)
-                       ((string=? arg "wire")   from-wire)
-                       (else                    from-stdin))))
-      (to-stdout (from) options))))
+    (cond
+      ((null? args)
+        (write-builtin-error "from" "too few arguments"))
+      ((null? (cdr args))
+        (let* ((arg (car args))
+               (from (cond ((string=? arg "csv")    from-csv)
+                           ((string=? arg "json")   from-json)
+                           ((string=? arg "name0")  from-name0)
+                           ((string=? arg "wire")   from-wire)
+                           (else                    from-stdin))))
+          (to-stdout (from) options)))
+      (else
+        (write-builtin-error "from" "too many arguments")))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -905,18 +910,20 @@
 ;; As all builtins do, must return job status.
 (define (builtin-last job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (let* ((n (cond
-                ((null? args)
-                  1)
-                ((null? (cdr args))
-                  (let ((n (string->number (car args))))
-                    (assert* 'last (fixnum? n))
-                    n))
-                (else
-                 (raise-errorf 'last "too many arguments"))))
-            (rx (from-stdin options))
-            (rx (make-last-reader rx n)))
-      (to-stdout rx options))))
+    (let ((n (cond
+               ((null? args)
+                 1)
+               ((null? (cdr args))
+                 (let ((n (string->number (car args))))
+                   (assert* 'last (fixnum? n))
+                   n))
+               (else
+                 #f))))
+      (if n
+        (let* ((rx (from-stdin options))
+               (rx (make-last-reader rx n)))
+          (to-stdout rx options))
+        (write-builtin-error "last" "too many arguments")))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -930,12 +937,14 @@
 ;; As all builtins do, must return job status.
 (define (builtin-parse job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (when (null? args)
-      (raise-errorf 'parse "too few arguments"))
-    (unless (null? (cdr args))
-      (raise-errorf 'parse "too many arguments"))
-    (let ((in (file->port (car args) 'read '() 'binary (buffer-mode block))))
-      (to-stdout (from-port in 'close-in options) options))))
+    (cond
+      ((null? args)
+        (write-builtin-error "parse" "too few arguments"))
+      ((null? (cdr args))
+        (let ((in (file->port (car args) 'read '() 'binary (buffer-mode block))))
+          (to-stdout (from-port in 'close-in options) options)))
+      (else
+        (write-builtin-error "parse" "too many arguments")))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -988,11 +997,11 @@
 ;; As all builtins do, must return job status.
 (define (builtin-select job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (when (null? args)
-      (raise-errorf 'select "too few arguments"))
-    (let* ((rx (from-stdin options))
-           (rx (make-field-reader rx (map string->symbol args))))
-      (to-stdout rx options))))
+    (if (null? args)
+      (write-builtin-error "select" "too few arguments")
+      (let* ((rx (from-stdin options))
+             (rx (make-field-reader rx (map string->symbol args))))
+        (to-stdout rx options)))))
 
 
 
@@ -1008,20 +1017,21 @@
 ;; As all builtins do, must return job status.
 (define (builtin-skip job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (let* ((n (cond
-                ((null? args)
-                  1)
-                ((null? (cdr args))
-                  (let ((n (string->number (car args))))
-                    (assert* 'skip (integer? n))
-                    (assert* 'skip (exact? n))
-                    n))
-                (else
-                 (raise-errorf 'skip "too many arguments"))))
-            (rx (from-stdin options))
-            (rx (make-range-reader rx n #t)))
-      (to-stdout rx options))))
-
+    (let ((n (cond
+               ((null? args)
+                 1)
+               ((null? (cdr args))
+                 (let ((n (string->number (car args))))
+                   (assert* 'skip (integer? n))
+                   (assert* 'skip (exact? n))
+                   n))
+               (else
+                 #f))))
+      (if n
+        (let* ((rx (from-stdin options))
+               (rx (make-range-reader rx n #t)))
+          (to-stdout rx options))
+        (write-builtin-error "skip" "too many arguments")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: sort-by
@@ -1034,15 +1044,15 @@
 ;; As all builtins do, must return job status.
 (define (builtin-sort-by job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (when (null? args)
-      (raise-errorf 'sort-by "too few arguments"))
-    (let* ((convert-field-name (if (some-string-is? options "-r")
-                                 (lambda (arg) (list '- (string->symbol arg)))
-                                 string->symbol))
-           (field-names  (map convert-field-name args))
-           (rx           (from-stdin options))
-           (rx           (make-sort-reader rx field-names 'close-inner)))
-      (to-stdout rx options))))
+    (if (null? args)
+      (write-builtin-error "sort-by" "too few arguments")
+      (let* ((convert-field-name (if (some-string-is? options "-r")
+                                   (lambda (arg) (list '- (string->symbol arg)))
+                                   string->symbol))
+             (field-names  (map convert-field-name args))
+             (rx           (from-stdin options))
+             (rx           (make-sort-reader rx field-names 'close-inner)))
+        (to-stdout rx options)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1056,18 +1066,20 @@
 ;; As all builtins do, must return job status.
 (define (builtin-to job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (when (null? args)
-      (raise-errorf 'to "too few arguments"))
-    (unless (null? (cdr args))
-      (raise-errorf 'to "too many arguments"))
-    (let* ((arg (car args))
-           (to (cond ((string=? arg "csv")    to-csv)
-                     ((string=? arg "json")   to-json)
-                     ((string=? arg "json1")  to-json1)
-                     ((string=? arg "table")  to-table)
-                     ((string=? arg "wire")   to-wire)
-                     (else                    to-stdout))))
-      (to (from-stdin options)))))
+    (cond
+      ((null? args)
+        (write-builtin-error "to" "too few arguments"))
+      ((null? (cdr args))
+        (let* ((arg (car args))
+               (to (cond ((string=? arg "csv")    to-csv)
+                         ((string=? arg "json")   to-json)
+                         ((string=? arg "json1")  to-json1)
+                         ((string=? arg "table")  to-table)
+                         ((string=? arg "wire")   to-wire)
+                         (else                    to-stdout))))
+          (to (from-stdin options))))
+      (else
+        (write-builtin-error "to" "too many arguments")))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1078,20 +1090,21 @@
 ;; As all builtins do, must return job status.
 (define (builtin-threads job prog-and-args options)
   (let-values (((args options) (split-args-and-options prog-and-args)))
-    (unless (null? args)
-      (raise-errorf 'threads "too many arguments"))
-    (let* ((iter (hash-cursor (threads-status)))
-           (%threads-status-reader ;; name shown when displaying the closure
-             (lambda (rx)
-               (let ((cell (hash-cursor-next! iter)))
-                 (if cell
-                   (let* ((t+status+name (cdr cell))
-                          (status (vector-ref t+status+name 1))
-                          (name   (vector-ref t+status+name 2)))
-                     (values (list 'id (car cell) 'status status 'name name) #t))
-                   (values #f #f)))))
-           (rx (make-reader %threads-status-reader #f #f)))
-      (to-stdout rx options))))
+    (if (null? args)
+      (let* ((iter (hash-cursor (threads-status)))
+             (%threads-status-reader ;; name shown when displaying the closure
+               (lambda (rx)
+                 (let ((cell (hash-cursor-next! iter)))
+                   (if cell
+                     (let* ((t+status+name (cdr cell))
+                            (status (vector-ref t+status+name 1))
+                            (name   (vector-ref t+status+name 2)))
+                       (values (list 'id (car cell) 'status status 'name name) #t))
+                     (values #f #f)))))
+             (rx (make-reader %threads-status-reader #f #f)))
+        (to-stdout rx options))
+      (write-builtin-error "threads" "too many arguments"))))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

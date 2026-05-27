@@ -23,8 +23,8 @@
 ;; write warning or error message to file descriptor fd.
 ;;
 ;; returns (void)
-(define (fd-write-strings: fd prefix strings)
-  (let ((wbuf (bytespan)))
+(define (fd-write-strings fd prefix strings)
+  (let ((wbuf (make-bytespan 0)))
     (bytespan-insert-right/string! wbuf prefix)
     (for-list ((arg strings))
       (bytespan-insert-right/u8! wbuf 58 32) ; ": "
@@ -38,14 +38,14 @@
 ;; print warning message to (sh-fd 2)
 ;; always returns (void)
 (define (write-builtin-warning . args)
-  (fd-write-strings: (sh-fd 2) "; warning" args)
+  (fd-write-strings (sh-fd 2) "; warning" args)
   (void))
 
 
 ;; print error message to (sh-fd 2)
 ;; always returns (failed 1)
 (define (write-builtin-error . args)
-  (fd-write-strings: (sh-fd 2) "schemesh" args)
+  (fd-write-strings (sh-fd 2) "schemesh" args)
   (failed 1))
 
 

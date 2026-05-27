@@ -36,8 +36,9 @@
     (only (scheme2k bootstrap)            ==> assert* catch define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
-    (only (scheme2k containers bytespan)  bytespan-peek-data bytespan-peek-beg bytespan-peek-end bytespan-clear! make-bytespan)
-    (only (scheme2k containers list)      any plist-ref)
+    (only (scheme2k containers bytespan)  bytespan-clear! bytespan-insert-right/u8! bytespan-length
+                                          bytespan-peek-data bytespan-peek-beg bytespan-peek-end make-bytespan)
+    (only (scheme2k containers list)      any for-list plist-ref)
     (only (scheme2k containers span)      make-span span-clear! span-delete-left! span-fill! span-index span-insert-right! span-length
                                           span-reader span-ref span-set!)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
@@ -80,6 +81,8 @@
     (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; write contents of bytespan wbuf to file descriptor fd,
 ;; then clear bytespan wbuf
 ;;
@@ -89,6 +92,29 @@
                 (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
   (bytespan-clear! wbuf))
 
+
+;; write warning or error message to file descriptor fd.
+;;
+;; returns (void)
+(define (fd-write-strings fd prefix strings)
+  (let ((wbuf (make-bytespan 0)))
+    (bytespan-insert-right/string! wbuf prefix)
+    (for-list ((arg strings))
+      (bytespan-insert-right/u8! wbuf 58 32) ; ": "
+      (bytespan-insert-right/string! wbuf arg)
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bytespan! fd wbuf)))
+    (bytespan-insert-right/u8! wbuf 10)
+    (fd-write/bytespan! fd wbuf)))
+
+
+;; print error message to (sh-fd 2)
+;; always returns (failed 1)
+(define (write-builtin-error . args)
+  (fd-write-strings (sh-fd 2) "schemesh" args)
+  (failed 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (include "repl/easy.ss")
 (include "repl/answers.ss")
