@@ -34,10 +34,9 @@
           #f             ; env var assignments - initially none
           (and current-job (job-parent current-job)) ; temp parent job
           (or current-job (sh-globals))              ; default parent job
-          '()                                        ; on-finish thunk list
+          #f #f '()                                  ; resume-proc, suspend-proc, on-finish thunk list
           proc                                       ; procedure to call for executing the job
-          label
-          #f #f)))                                   ; resume-proc suspend-proc
+          label)))
     ((proc)
       (sh-expr proc #f))))
 
@@ -59,7 +58,7 @@
     ;; jexpr-proc may want to use (sh-fd N)
     (job-remap-fds! job)
 
-    (jexpr-resume-proc-set! job (jexpr-prepare-resume-proc job))
+    (job-resume-proc-set! job (jexpr-prepare-resume-proc job))
 
     ;; jobs are started non-blockingly,
     ;; but running a jexpr job always blocks
@@ -74,19 +73,19 @@
   ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
-    (when (jexpr-resume-proc job)
-      (jexpr-call-resume-proc job))))
+    (when (job-resume-proc job)
+      (job-call-resume-proc job))))
 
 
-;; call the continuation stored in jexpr-resume-proc of a job for resuming it.
-;; save the current continuation in its jexpr-suspend-proc
-(define (jexpr-call-resume-proc job)
+;; call the continuation stored in job-resume-proc of a job for resuming it.
+;; save the current continuation in its job-suspend-proc
+(define (job-call-resume-proc job)
   (call/cc
-    ;; Capture the continuation representing THIS call to (jexpr-call-resume-proc)
+    ;; Capture the continuation representing THIS call to (job-call-resume-proc)
     (lambda (susp)
-      (let ((resume-proc (jexpr-resume-proc job)))
-        (jexpr-resume-proc-set!  job #f)
-        (jexpr-suspend-proc-set! job susp)
+      (let ((resume-proc (job-resume-proc job)))
+        (job-resume-proc-set!  job #f)
+        (job-suspend-proc-set! job susp)
         ;; (format (debugf-port) "-> jexpr job=~s\tstatus=~s\tcalling resume-proc ~s ...\n" job (job-last-status job) resume-proc)
         (resume-proc (void))
         ;; (format (debugf-port) "<- jexpr job=~s\tstatus=~s\t... resume-proc ~s returned\n" job (job-last-status job) resume-proc)
@@ -160,15 +159,15 @@
 ;; If job is later resumed, it eventually returns #t to the caller of (jexpr-suspend)
 ;; If job is not an sh-expr or is not running, immediately return #f.
 (define (jexpr-suspend job signal-name)
-  (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
+  (let ((suspend-proc (job-suspend-proc job)))
     ;;y (debugf "jexpr-suspend job=~s suspend-proc=~s" job suspend-proc)
     (when suspend-proc
       (call/cc
         ;; Capture the continuation representing THIS call to (job-suspend)
         (lambda (cont)
           ;; store it as job's resume-proc
-          (jexpr-resume-proc-set!  job cont)
-          (jexpr-suspend-proc-set! job #f)
+          (job-resume-proc-set!  job cont)
+          (job-suspend-proc-set! job #f)
           (%job-last-status-set! job (stopped signal-name))
           ; (job-id-update! job) ; verbose
           ;; suspend job, i.e. call its suspend-proc

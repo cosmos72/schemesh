@@ -323,14 +323,13 @@
         (job-unmap-fds! job)
         (job-unredirect/temp/all! job) ; remove temporary redirections
         (job-temp-parent-set!  job #f) ; remove temporary parent job
+        (job-resume-proc-set!  job #f)
+        (job-suspend-proc-set! job #f)
 
         (cond
           ((sh-cmd? job)
             ;; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
-          ((sh-expr? job)
-            (jexpr-resume-proc-set!  job #f)
-            (jexpr-suspend-proc-set! job #f))
           ((sh-multijob? job)
             (multijob-current-child-index-set! job -1)))
         status)
@@ -580,6 +579,5 @@
 (include "shell/display.ss") ; must be next-to-last one, contains (record-writer ...)
 
 (include "shell/init.ss")    ; must be last one, contains expressions
-
 
 ) ; close library

@@ -47,8 +47,10 @@
     (mutable temp-parent) ; #f or temporary parent job, contains default values of env variables.
                           ; Set to #f when job finishes
     (mutable default-parent) ; default parent job, contains default values of env variables, cwd and redirections
+    (mutable resume-proc)    ; #f or continuation to resume job
+    (mutable suspend-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable on-finish))     ; list of thunks to call when job finishes
-  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;; Define the record type "cmd"
@@ -57,7 +59,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;; Define the record type "jexpr"
@@ -65,10 +67,8 @@
   (parent job)
   (fields
     proc                    ; procedure to call for executing the job
-    label                   ; #f or source fragment that compiled to proc
-    (mutable resume-proc)   ; #f or continuation to resume job
-    (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
-  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be42))
+    label)                  ; #f or source fragment that compiled to proc
+  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
 ;; Define the record type "multijob"
@@ -78,7 +78,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,8 +181,9 @@
   (case-lambda
     ((job parent)
       (cond ((sh-cmd?      job) (cmd-copy      job parent))
+            ((sh-expr? job)     (jexpr-copy    job parent))
             ((sh-multijob? job) (multijob-copy job parent))
-            (raise-errorf 'sh-job-copy "~s is not a sh-cmd or a sh-multijob" job)))
+            (raise-errorf 'sh-job-copy "~s is not a sh-cmd, sh-expr or sh-multijob" job)))
     ((job) (sh-job-copy job (sh-globals)))))
 
 
@@ -207,9 +208,35 @@
       (and env-lazy (span-copy env-lazy)))
     #f                            ; temp-parent
     parent                        ; default-parent
-    (list-copy (job-on-finish j)) ; copy on-finish thunks
+    #f #f '()                     ; no resume-proc, no suspend-proc, no on-finish thunks
     (list-copy (cmd-arg-list j))  ; copy arg-list
     #f))                          ; expanded-arg-list
+
+
+;; Create a copy of sh-cmd j, and return it.
+;; Returned job will have no id, status 'new and specified parent.
+(define (jexpr-copy j parent)
+  (%make-jexpr
+    #f #f #f #f #f       ; id oid pid pgid pgid-fg
+    (new) #f             ; status exception
+    (let ((redirects (job-redirects j)))
+      (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
+    0 #f #f              ; redirects-temp-n fds-to-remap ports
+    (job-start-proc j)
+    (job-step-proc  j)
+    (let ((cwd (%job-cwd j)))
+      (and cwd (charspan-copy cwd)))
+    (let ((owd (job-owd j)))
+      (and owd (charspan-copy owd)))
+    (let ((env (job-env j)))
+      (and env (hashtable-copy env)))
+    (let ((env-lazy (job-env-lazy j)))
+      (and env-lazy (span-copy env-lazy)))
+    #f                            ; temp-parent
+    parent                        ; default-parent
+    #f #f '()                     ; no resume-proc, suspend-proc, on-finish thunks
+    (jexpr-proc j)
+    (jexpr-label j)))
 
 
 ;; Create a copy of sh-multijob j, and return it.
@@ -237,7 +264,7 @@
         (and env-lazy (span-copy env-lazy)))
       #f                   ; temp-parent
       parent               ; default-parent
-      (list-copy (job-on-finish j))
+      #f #f '()            ; no resume-proc, no suspend-proc, no on-finish thunks
       (multijob-kind j)
       -1                   ; current-child-index
       children)))

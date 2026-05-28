@@ -46,7 +46,8 @@
            (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
            (make-hashtable string-hash string=?) ; env variables
            #f                        ; no env var assignments
-           #f #f '()                 ; no temp parent, no default parent, no on-finish thunks
+           #f #f                     ; no temp parent, no default parent
+           #f #f '()                 ; no resume-proc, no suspend-proc, no on-finish thunks
            'sh-globals -1 (span #t))))) ; skip job-id 0, is used by (sh-globals) itself
 
   (c-environ->sh-global-env)

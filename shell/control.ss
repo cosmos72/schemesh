@@ -164,15 +164,14 @@
 (define (job-status-set-new/recursive! job)
   (%job-last-status-set! job (new))
   (job-exception-set! job #f)
-  (cond
-    ((sh-expr? job)
-      (jexpr-resume-proc-set! job #f)
-      (jexpr-suspend-proc-set! job #f))
-    ((sh-multijob? job)
-      (multijob-current-child-index-set! job -1)
-      (for-span elem (multijob-children job)
-        (when (sh-job? elem)
-          (job-status-set-new/recursive! elem))))))
+  (job-resume-proc-set! job #f)
+  (job-suspend-proc-set! job #f)
+  (job-on-finish-set! job '())
+  (when (sh-multijob? job)
+    (multijob-current-child-index-set! job -1)
+    (for-span elem (multijob-children job)
+      (when (sh-job? elem)
+        (job-status-set-new/recursive! elem)))))
 
 
 (define (job-start/may-throw caller job k-continue options)
@@ -261,7 +260,7 @@
            (ex           (and (not (symbol? signal-name-or-condition-object))
                               signal-name-or-condition-object))
            (fatal?       (or ex (signal-name-is-usually-fatal? signal-name)))
-           (suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
+           (suspend-proc (job-suspend-proc job))
            (pid          (job-pid job))
            (pgid         (job-pgid job))
            ;; send signals to job's process group, if present.
