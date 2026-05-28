@@ -69,7 +69,7 @@
 ;; continue a jexpr job
 (define (jexpr-advance caller job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
-  ;; continue only if caller asked to continue job and wait.
+  ;; continue only if caller asked to continue job and wait for it to finish or stop.
   ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
