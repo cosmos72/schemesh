@@ -50,11 +50,11 @@
     sh-string-append
 
     ;; expr.ss
-    sh-expr sh-expr-on-finish
+    sh-expr
 
     ;; job.ss
     sh-consume-signals sh-cwd
-    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception
+    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception sh-job-on-finish
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -233,8 +233,7 @@
       (unless (eq? job (sh-globals))
         (job-ports-close job)
         (hashtable-clear! ports))))
-  (when (sh-expr? job)
-    (jexpr-call-on-finish-forget job)))
+  (job-call-on-finish-forget job))
 
 
 (define queued-job-ports-flush-close-forget (sh-make-thread-parameter '()))
@@ -500,6 +499,22 @@
 ;; Raises error if no job matches job-or-id.
 (define (sh-job-exception job-or-id)
   (job-exception (sh-job job-or-id)))
+
+
+;; add a thunk to be called once when specified job finishes.
+;; Note: after calling the thunk list, the list itself is removed.
+(define (sh-job-on-finish job thunk)
+  (assert* 'sh-job-on-finish (sh-job? job))
+  (assert* 'sh-job-on-finish (procedure? thunk))
+  (assert* 'sh-job-on-finish (logbit? 0 (procedure-arity-mask thunk)))
+  (job-on-finish-set! job (cons thunk (job-on-finish job))))
+
+
+;; call all on-finish thunks added to sh-job, in reverse order, then remove them.
+(define (job-call-on-finish-forget job)
+  (for-list ((thunk (job-on-finish job)))
+    (thunk))
+  (job-on-finish-set! job '()))
 
 
 (define (car<? pa pb)

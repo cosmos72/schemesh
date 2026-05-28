@@ -27,7 +27,7 @@
     (only (scheme2k posix status)      ok failed)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
-    (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-expr-on-finish sh-fd))
+    (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-job-on-finish sh-fd))
 
 
 (define (default-parser-for-file-extension path)
@@ -363,12 +363,12 @@
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
 ;; behavior depends on (sh-current-job):
 ;;
-;; if (sh-current-job) is a sh-expr, behaves similarly to dynamic-wind:
+;; if (sh-current-job) is set, behaves similarly to dynamic-wind:
 ;;   (before) is called again before re-entering (proc),
 ;;   (after) is called again before re-leaving (proc),
 ;;   and (on-finish) is called only when (sh-current-job) finishes.
 ;;
-;; if (sh-current-job) is not a sh-expr,
+;; if (sh-current-job) is not set,
 ;;   raises a condition that prevents re-entering (before) and (proc).
 ;;   Reason: there is no way to detect in advance whether (proc) will be re-entered or not,
 ;;   thus (on-finish) must be called at the first exit from (proc),
@@ -377,14 +377,14 @@
 (define (sh-dynamic-wind before proc after on-finish)
   ;; if (sh-current-job) is a sh-expr, save on-finish into it and allow multiple exit and re-enter.
   (let ((job (sh-current-job)))
-    (if (sh-expr? job)
-      (dynamic-wind/jexpr before proc after on-finish job)
+    (if job
+      (dynamic-wind/job   before proc after on-finish job)
       (dynamic-wind/nojob before proc after on-finish))))
 
 
-;; implementation of (sh-dynamic-wind) if current job is a sh-expr
-(define (dynamic-wind/jexpr before proc after on-finish job)
-  (sh-expr-on-finish job on-finish)
+;; implementation of (sh-dynamic-wind) if current job is set
+(define (dynamic-wind/job before proc after on-finish job)
+  (sh-job-on-finish job on-finish)
   (dynamic-wind before proc after))
 
 

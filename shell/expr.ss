@@ -24,7 +24,7 @@
       (when label
         (assert* 'sh-expr (string? label)))
       (let ((current-job (sh-current-job)))
-        (%make-sh-expr
+        (%make-jexpr
           #f #f #f #f #f ; id oid pid pgid pgid-fg
           (new) #f       ; last-status exception
           (span) 0 #f #f ; redirections ports
@@ -34,28 +34,12 @@
           #f             ; env var assignments - initially none
           (and current-job (job-parent current-job)) ; temp parent job
           (or current-job (sh-globals))              ; default parent job
+          '()                                        ; on-finish thunk list
           proc                                       ; procedure to call for executing the job
           label
-          #f #f                                      ; resume-proc suspend-proc
-          '())))                                     ; on-finish thunk list
+          #f #f)))                                   ; resume-proc suspend-proc
     ((proc)
       (sh-expr proc #f))))
-
-
-;; add a thunk to be called when sh-expr job finishes.
-;; Note: after calling the thunk list, the list itself is removed.
-(define (sh-expr-on-finish job thunk)
-  (assert* 'sh-expr-on-finish (sh-expr? job))
-  (assert* 'sh-expr-on-finish (procedure? thunk))
-  (assert* 'sh-expr-on-finish (logbit? 0 (procedure-arity-mask thunk)))
-  (jexpr-on-finish-set! job (cons thunk (jexpr-on-finish job))))
-
-
-;; call all on-finish thunks added to sh-expr, in reverse order, then remove them.
-(define (jexpr-call-on-finish-forget job)
-  (for-list ((thunk (jexpr-on-finish job)))
-    (thunk))
-  (jexpr-on-finish-set! job '()))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.

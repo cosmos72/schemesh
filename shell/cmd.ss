@@ -22,6 +22,7 @@
       #f              ; env var assignments - initially none
       (and current-job (job-parent current-job)) ; temp parent job
       (or current-job (sh-globals))              ; default parent job
+      '()                                        ; no on-finish thunks
       program-and-args
       #f)))           ; expanded arg-list
 

@@ -46,8 +46,9 @@
     (mutable env-lazy)    ; #f or span of env variable name each followed by string or procedure
     (mutable temp-parent) ; #f or temporary parent job, contains default values of env variables.
                           ; Set to #f when job finishes
-    (mutable default-parent)) ; default parent job, contains default values of env variables, cwd and redirections
-  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+    (mutable default-parent) ; default parent job, contains default values of env variables, cwd and redirections
+    (mutable on-finish))     ; list of thunks to call when job finishes
+  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;; Define the record type "cmd"
@@ -56,19 +57,18 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;; Define the record type "jexpr"
-(define-record-type (jexpr %make-sh-expr sh-expr?)
+(define-record-type (jexpr %make-jexpr sh-expr?)
   (parent job)
   (fields
     proc                    ; procedure to call for executing the job
     label                   ; #f or source fragment that compiled to proc
     (mutable resume-proc)   ; #f or continuation to resume job
-    (mutable suspend-proc)  ; #f or continuation to suspend job and return to whoever started/resumed it
-    (mutable on-finish))    ; list of thunks to call when job finishes
-  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+    (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
+  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 ;; Define the record type "multijob"
@@ -78,7 +78,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -205,10 +205,11 @@
       (and env (hashtable-copy env)))
     (let ((env-lazy (job-env-lazy j)))
       (and env-lazy (span-copy env-lazy)))
-    #f                   ; temp-parent
-    parent               ; default-parent
-    (list-copy (cmd-arg-list j)) ; copy arg-list
-    #f))                 ; expanded-arg-list
+    #f                            ; temp-parent
+    parent                        ; default-parent
+    (list-copy (job-on-finish j)) ; copy on-finish thunks
+    (list-copy (cmd-arg-list j))  ; copy arg-list
+    #f))                          ; expanded-arg-list
 
 
 ;; Create a copy of sh-multijob j, and return it.
@@ -236,6 +237,7 @@
         (and env-lazy (span-copy env-lazy)))
       #f                   ; temp-parent
       parent               ; default-parent
+      (list-copy (job-on-finish j))
       (multijob-kind j)
       -1                   ; current-child-index
       children)))
