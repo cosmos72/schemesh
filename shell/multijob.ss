@@ -147,6 +147,17 @@
     mj))
 
 
+;; prefix remap fds and redirect to-fds of specified job's children, grandchildren... onto list l.
+;; return updated list l.
+(define (multijob-children-remap-and-redirects-fds-list job fds)
+  (for-span child (multijob-children job)
+    (when (sh-job? child)
+      (set! fds (job-remap-and-redirects-fds-list child fds))
+      (when (sh-multijob? child)
+        (set! fds (multijob-children-remap-and-redirects-fds-list child fds)))))
+  fds)
+
+
 ;; Internal function stored in (job-start-proc job) by (sh-list),
 ;; and called by (sh-start) to actually start the multijob.
 ;;

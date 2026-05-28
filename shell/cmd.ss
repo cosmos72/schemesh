@@ -308,10 +308,11 @@
         (fx<? index pos))))
 
 
-;; prefix redirect to-fds of specified job onto list l.
+;; prefix remap fds and redirect to-fds of specified job onto list l.
 ;; return updated list l.
-(define (job-redirects-fds-list job l)
-  (let ((sp (job-redirects job)))
+(define (job-remap-and-redirects-fds-list job l)
+  (let ((l  (job-remap-fds-list job l))
+        (sp (job-redirects job)))
     (do ((i 0 (fx+ i 4))
          (n (span-length sp)))
         ((fx>=? i n) l)
@@ -373,8 +374,11 @@
   (let ((fds '()))
     (job-default-parents-iterate job
       (lambda (parent)
-        (set! fds (job-remap-fds-list parent (job-redirects-fds-list parent fds)))))
-    (fds-close-on-fork fds)))
+        (set! fds (job-remap-and-redirects-fds-list parent fds))))
+    (let ((fds (if (sh-multijob? job)
+                 (multijob-children-remap-and-redirects-fds-list job fds)
+                 fds)))
+      (fds-close-on-fork fds))))
 
 
 ;; Fork a new subprocess, and in the child subprocess
