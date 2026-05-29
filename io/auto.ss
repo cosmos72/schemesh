@@ -15,7 +15,7 @@
   (import
     (rnrs)
     (only (chezscheme)                 fx1+ record-writer)
-    (only (scheme2k bootstrap)         assert*)
+    (only (scheme2k bootstrap)         assert* debugf)
     (only (scheme2k io csv)            make-csv-reader)
     (only (scheme2k io json)           make-json-reader)
     (only (scheme2k io wire)           make-wire-reader)

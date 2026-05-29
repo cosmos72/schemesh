@@ -70,7 +70,6 @@
 ;;     The option 'spawn? #t causes builtins and multijobs to start in a subprocess too.
 ;;     It is slower, but has the beneficial effect that reading/writing
 ;;     their redirected file descriptors from main schemesh process will no longer deadlock.
-;;
 (define (sh-options options)
   (let ((ret '()))
     (for-plist ((key value options))

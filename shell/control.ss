@@ -125,6 +125,7 @@
 
 
 ;; Internal functions called by (sh-start)
+;; returns job status
 (define (job-start caller job options)
   (unless (main-thread?)
     (raise-threaded-message-condition
@@ -208,7 +209,7 @@
   (flush-output-port port))
 
 
-;; Start a job and return immediately, without waiting for it to finish.
+;; Start a job in background and return immediately, without waiting for it to finish.
 ;; For possible values of options, see (sh-options)
 ;;
 ;; Returns job status, typically (running job-id) but other values are allowed.
@@ -221,11 +222,11 @@
 ;;   and may indicate that the job has already finished.
 (define sh-start
   (case-lambda
-    ((job)
-      (sh-start job '()))
     ((job options)
       (job-start 'sh-start job options)
-      (job-id-update! job)))) ; sets job-id if started, otherwise unsets it. also returns job status
+      (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
+    ((job)
+      (sh-start job '()))))
 
 
 ;; Send a signal to a job-or-id.
@@ -287,12 +288,13 @@
             (fatal?
               (job-status-set! 'job-kill job (killed signal-name))))
           #t)
-        (suspend-proc
+        ((or suspend-proc (job-resume-proc job))
           (when fatal?
             (job-status-set! 'job-kill job
               (if ex (exception ex) (killed signal-name)))
             ;; should not return
-            (suspend-proc (void)))
+            (when suspend-proc
+              (suspend-proc (void))))
           #t)
         ((sh-multijob? job)
           (when fatal?
@@ -329,7 +331,7 @@
 ;;
 ;; If current job is later resumed, it eventually returns #t to the caller of (sh-current-job-suspend).
 (define (sh-current-job-suspend signal-name)
-  (jexpr-suspend (sh-current-job) signal-name))
+  (job-call-suspend-proc (sh-current-job) signal-name))
 
 
 (meta begin
@@ -417,8 +419,8 @@
           ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
           ;; in all cases, we have a pid to wait on.
           (notrace-call (pid-advance     caller job wait-flags)))
-        ((sh-expr? job)
-          (notrace-call (jexpr-advance   caller job wait-flags)))
+        ((job-resume-proc job)
+          (notrace-call (proc-advance    caller job wait-flags)))
         ((sh-multijob-pipe? job)
           (notrace-call (mj-pipe-advance caller job wait-flags)))
         ((sh-multijob? job)

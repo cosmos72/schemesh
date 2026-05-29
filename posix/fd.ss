@@ -189,9 +189,14 @@
   (let ((c-fd-read (foreign-procedure __collect_safe "c_fd_read" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-result start end)
+        ;; (debugf "> fd-read-noretry fd ~s, start ~s, end ~s" fd start end)
         (check-interrupts)
+        ;; (debugf ". fd-read-noretry fd ~s, start ~s, end ~s" fd start end)
         (let ((ret (with-locked-objects (bytevector-result)
                      (c-fd-read fd bytevector-result start end))))
+          ;; (debugf "< fd-read-noretry fd ~s, start ~s, end ~s, ret ~s, current-job ~s" fd start end ret ((top-level-value 'sh-current-job)))
+          (when (eq? #t ret)
+            (check-interrupts))
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))

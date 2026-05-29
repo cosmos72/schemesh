@@ -66,34 +66,6 @@
     (job-status-set! 'sh-expr job (stopped 'sigtstp)))))
 
 
-;; continue a jexpr job
-(define (jexpr-advance caller job wait-flags)
-  ;; jexpr jobs execute Scheme code, which always blocks:
-  ;; continue only if caller asked to continue job and wait for it to finish or stop.
-  ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
-  (when (and (sh-wait-flag-wait? wait-flags)
-             (sh-wait-flag-continue-if-stopped? wait-flags))
-    (when (job-resume-proc job)
-      (job-call-resume-proc job))))
-
-
-;; call the continuation stored in job-resume-proc of a job for resuming it.
-;; save the current continuation in its job-suspend-proc
-(define (job-call-resume-proc job)
-  (call/cc
-    ;; Capture the continuation representing THIS call to (job-call-resume-proc)
-    (lambda (susp)
-      (let ((resume-proc (job-resume-proc job)))
-        (job-resume-proc-set!  job #f)
-        (job-suspend-proc-set! job susp)
-        ;; (format (debugf-port) "-> jexpr job=~s\tstatus=~s\tcalling resume-proc ~s ...\n" job (job-last-status job) resume-proc)
-        (resume-proc (void))
-        ;; (format (debugf-port) "<- jexpr job=~s\tstatus=~s\t... resume-proc ~s returned\n" job (job-last-status job) resume-proc)
-        )))
-  ;; ignore the value returned by (resume-proc) and by continuation (susp)
-  (void))
-
-
 ;; prepare and return a closure for running jexpr-proc
 (define (jexpr-prepare-resume-proc job)
   (let ((jexpr-initial-resume-proc
@@ -148,19 +120,50 @@
 
         ;; (debugf "jexpr-sigchld job=~s\tsiblings-old-status=~s\tsiblings-new-status=~s" (sh-job->string job) siblings-old-status siblings-new-status)
         (when some-sibling-stopped-status
-          (jexpr-suspend job (status->value some-sibling-stopped-status)))
+          (job-call-suspend-proc job (status->value some-sibling-stopped-status)))
         #t))
     #f))
 
 
-;; Suspend a sh-expr and call its suspend-proc continuation,
+;; continue a job via its resume-proc
+(define (proc-advance caller job wait-flags)
+  ;; jexpr jobs execute Scheme code, which always blocks:
+  ;; continue only if caller asked to continue job and wait for it to finish or stop.
+  ; (debugf "proc-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
+  (when (and (sh-wait-flag-wait? wait-flags)
+             (sh-wait-flag-continue-if-stopped? wait-flags))
+    (when (job-resume-proc job)
+      (job-call-resume-proc job))))
+
+
+
+;; Call the continuation stored in job-resume-proc of a job for resuming it.
+;; save the current continuation in its job-suspend-proc
+(define (job-call-resume-proc job)
+  (call/cc
+    ;; Capture the continuation representing THIS call to (job-call-resume-proc)
+    (lambda (susp)
+      (let ((resume-proc (job-resume-proc job)))
+        (job-resume-proc-set!  job #f)
+        (job-suspend-proc-set! job susp)
+        ;; (format (debugf-port) "-> jexpr job=~s\tstatus=~s\tcalling resume-proc ~s ...\n" job (job-last-status job) resume-proc)
+        (when (job-stopped? job)
+          (job-status-set/running! job))
+        (resume-proc (void))
+        ;; (format (debugf-port) "<- jexpr job=~s\tstatus=~s\t... resume-proc ~s returned\n" job (job-last-status job) resume-proc)
+        )))
+  ;; ignore the value returned by (resume-proc) and by continuation (susp)
+  (void))
+
+
+;; Try to suspend a sh-job by calling its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; If job is later resumed, it eventually returns #t to the caller of (jexpr-suspend)
-;; If job is not an sh-expr or is not running, immediately return #f.
-(define (jexpr-suspend job signal-name)
-  (let ((suspend-proc (job-suspend-proc job)))
-    ;;y (debugf "jexpr-suspend job=~s suspend-proc=~s" job suspend-proc)
+;; If job is later resumed, it eventually returns #t to the caller of (job-call-suspend-proc)
+;; If job's suspend-proc is not set, immediately return #f.
+(define (job-call-suspend-proc job signal-name)
+  (let ((suspend-proc (and job (job-suspend-proc job))))
+    ;; (debugf "job-call-suspend-proc job=~s suspend-proc=~s" job suspend-proc)
     (when suspend-proc
       (call/cc
         ;; Capture the continuation representing THIS call to (job-suspend)
@@ -172,4 +175,5 @@
           ; (job-id-update! job) ; verbose
           ;; suspend job, i.e. call its suspend-proc
           (suspend-proc (void)))))
+    ;;y (debugf "job-call-suspend-proc job ~s, status ~s, resume-proc ~s, suspend-proc ~s" job (job-last-status job) (job-resume-proc job) (job-suspend-proc job))
     (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)

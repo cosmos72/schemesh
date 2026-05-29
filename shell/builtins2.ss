@@ -447,31 +447,31 @@
   (%builtin-start-already-redirected builtin c args options))
 
 
-;; filled at the end of job.ss
-(define builtins-that-finish-immediately
-  (let ((ht (make-eq-hashtable)))
-    (lambda () ht)))
-
-
 ;; internal function called by (builtin-start) to execute a builtin.
 ;; returns job status.
 (define (%builtin-start-already-redirected builtin job args options)
-  (call-or-spawn-job-procedure job options
-    (lambda (job options)
-      ;; execute the builtin
-      ;c (debugf "builtin-start options=~s args=~s job=~s" options args job)
-      (job-status-set! 'builtin-start job
-        (let ((status  (builtin job args options)))
-          ;c (debugf "< builtin-start options=~s args=~s job=~s status=~s" options args job status)
-          (if (or (finished? status) (options->spawn? options)
-                  (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
-            status
-            (%warn-bad-builtin-exit-status builtin args status))))))) ; returns (void)
-
-
-;; always returns (void). Useful for (builtin-start)
-(define (%warn-bad-builtin-exit-status builtin args status)
-  (format (console-error-port)
-    "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"
-    status builtin args)
-  (void))
+  (let ((%builtin-start-impl
+          (lambda (job options)
+            ;; (debugf "builtin-start options=~s args=~s job=~s" options args job)
+            (job-status-set! 'builtin-start job
+              (builtin job args options)))))
+    (if (options->spawn? options)
+      ;; spawn a subprocess execute run builtin inside it
+      (spawn-job-procedure job options %builtin-start-impl)
+      ;; execute the builtin directly
+      (begin
+        (call/cc
+          ;; Capture the continuation representing THIS call to (builtin-start)
+          (lambda (susp)
+            (job-resume-proc-set!  job #f)
+            (job-suspend-proc-set! job susp)
+            (%builtin-start-impl job options)))
+        (let ((status (job-last-status job)))
+          ;c (debugf "builtin ~s, pid ~s, status ~s" job (job-pid job) status)
+          (cond
+            ((or (job-pid job) (not (running? status)))
+              status)
+            ((job-resume-proc job)
+              (job-status-set! 'builtin-start job (stopped 'sigtstp)))
+            (else
+              (job-status-set! 'builtin-start job (void)))))))))

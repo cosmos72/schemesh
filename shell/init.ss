@@ -114,8 +114,7 @@
              (sh-cd new-dir))))
 
 
-  (let ((bt (sh-builtins))
-        (ft (builtins-that-finish-immediately)))
+  (let ((bt (sh-builtins)))
 
     ; additional builtins
     (hashtable-set! bt "alias"      builtin-alias)
@@ -138,14 +137,7 @@
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unset"      builtin-unset)
-    (hashtable-set! bt "wait"       builtin-wait)
-
-    ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "history"
-                      "kill" "pwd" "set" "status" "true" "unalias" "unset")))
-      (let ((builtin (hashtable-ref bt name #f)))
-        (when builtin
-          (hashtable-set! ft builtin #t)))))
+    (hashtable-set! bt "wait"       builtin-wait))
 
 
   (let ((t (sh-builtins-help)))

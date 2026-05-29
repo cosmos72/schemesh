@@ -132,6 +132,7 @@
 ;; Reader helpers
 
 (define (skip-ws in)
+  ;; (debugf "json-reader skip-ws")
   (let ((b (lookahead-u8 in)))
     (when (whitespace? b)
       (get-u8 in)
