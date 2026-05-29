@@ -539,13 +539,11 @@ B=2})                                                  ,@"#<void>"
     (sh-start j)
     (sh-bg j)
     (sh-wait j))                                       ,(failed 1)
-  ;; (sh-start) of a builtin, or a multijob containing (recursively) only builtins,
-  ;; directly returns their exit status, as (sh-run) would do.
-  ;; Reason: there is no spawned external process to wait for.
-  (sh-start {true && false})                           ,(failed 1)
+  ;; (sh-start) spawns job in background, even it's a builtin, a multijob or a sh-expr
+  (sh-start {true && false})                           ,(running 1)
   (let ((j {sleep 1}))
     (sh-start j)
-    (sh-bg j))                                         ,(running 1)
+    (sh-bg j))                                         ,(running 2)
   (sh-run {[true
             false]})                                   ,(failed 1)
   (sh-run $(sh-run

@@ -101,7 +101,8 @@
         (bytespan-insert-right/u8! wbuf 65)))))    ; A
 
 ;; send escape sequence "move to begin-of-line". Moves at beginning of prompt!
-(define (lineterm-move-to-bol ctx)
+(define (lineterm-move-to-bol caller ctx)
+  ;; (debugf "lineterm-move-to-bol ~s" caller)
   (lineterm-write/u8 ctx 13)) ; CTRL+M i.e. '\r'
 
 ;; send escape sequence "clear from cursor to end-of-line"
@@ -125,7 +126,7 @@
          (to-y   (fxmax 0 (fxmin to-y   ymax))))
     (lineterm-move-dy ctx (fx- to-y from-y))
     (if (and (fxzero? to-x) (not (fxzero? from-x)))
-      (lineterm-move-to-bol ctx)
+      (lineterm-move-to-bol 'lineterm-move ctx)
       (lineterm-move-dx ctx (fx- to-x from-x)))))
 
 ;; move tty cursor from its current tty position at from-x, from-y

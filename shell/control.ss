@@ -125,7 +125,13 @@
 
 
 ;; Internal functions called by (sh-start)
-;; returns job status
+;; start a job, and return its status
+;;
+;; if job is a command, it is always started in a subprocess.
+;; if instead it's a shell builtin, a sh-expr or a sh-multijob,
+;;   it may be either executed directly or started in a subprocess:
+;;   if options contain 'spawn #t, then it is started in a subprocess
+;;   otherwise it is executed directly in the main shell process
 (define (job-start caller job options)
   (unless (main-thread?)
     (raise-threaded-message-condition
@@ -223,7 +229,7 @@
 (define sh-start
   (case-lambda
     ((job options)
-      (job-start 'sh-start job options)
+      (job-start 'sh-start job (options-add-bg options))
       (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
     ((job)
       (sh-start job '()))))
@@ -614,7 +620,7 @@
 (define sh-run/i
   (case-lambda
     ((job options)
-      (job-start 'sh-run/i job options)
+      (job-start 'sh-run/i job (options-add-fg options))
       (sh-fg job))
     ((job)
       (sh-run/i job '()))))
@@ -629,7 +635,7 @@
 (define sh-run
   (case-lambda
     ((job options)
-      (job-start 'sh-run job options)
+      (job-start 'sh-run job (options-add-fg options))
       (sh-wait job))
     ((job)
       (sh-run job '()))))

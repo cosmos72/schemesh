@@ -36,6 +36,18 @@
     (option-validate caller key value)))
 
 
+(define (options-add-fg options)
+  (if (null? options)
+    '(spawn? #f)
+    (cons 'spawn? (cons #f options))))
+
+
+(define (options-add-bg options)
+  (if (null? options)
+    '(spawn? #t)
+    (cons 'spawn? (cons #t options))))
+
+
 ;; create and return property list usable for (sh-start) job options.
 ;;
 ;; options must be a plist containing zero or more:
@@ -89,7 +101,7 @@
 ;; if options contain 'catch? flag, return such flag.
 ;; otherwise return #f
 (define (options->catch? options)
-  (let ((val (plist-ref options 'catch?)))
+  (let ((val (plist-ref options 'catch? #f)))
     (assert* 'options->catch? (boolean? val))
     val))
 
@@ -97,7 +109,7 @@
 ;; if options contain 'spawn? flag, return such flag.
 ;; otherwise return #f
 (define (options->spawn? options)
-  (let ((val (plist-ref options 'spawn?)))
+  (let ((val (plist-ref options 'spawn? #f)))
     (assert* 'options->spawn? (boolean? val))
     val))
 
@@ -106,7 +118,7 @@
 ;; otherwise return #f
 (define (options->process-group-id options)
   (if (sh-job-control?)
-    (let ((val (plist-ref options 'process-group-id)))
+    (let ((val (plist-ref options 'process-group-id #f)))
       (if val
         (let ((caller 'options->process-group-id))
           (assert* caller (integer? val))

@@ -293,7 +293,8 @@
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))
 
-(define options-catch '(catch? #t))
+(define options-catch-fg '(spawn? #f catch? #t))
+(define options-catch-bg '(spawn? #t catch? #t))
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
@@ -305,7 +306,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-and child options-catch)))
+        (let ((child-status (job-start 'sh-and child options-catch-fg)))
           (when (finished? child-status)
             ; child job already finished, iterate
             (mj-and-step mj child-status))))
@@ -326,7 +327,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-or child options-catch)))
+        (let ((child-status (job-start 'sh-or child options-catch-fg)))
           (when (finished? child-status)
             ; child job already finished, iterate
             (mj-or-step mj child-status))))
@@ -348,7 +349,7 @@
       (begin
         ; start child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-not child options-catch)))
+        (let ((child-status (job-start 'sh-not child options-catch-fg)))
           (when (finished? child-status)
             ; child job already finished, iterate
             (mj-not-step mj child-status))))
@@ -379,7 +380,7 @@
         (when (sh-job? child)
           ;; start next child job
           (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
-                 (child-status (job-start 'sh-list child options-catch))
+                 (child-status (job-start 'sh-list child (if child-async? options-catch-bg options-catch-fg)))
                  (child-started? (started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&
