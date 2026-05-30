@@ -117,7 +117,7 @@
 ;; if job control is active and options contain 'process-group-id id, return such id.
 ;; otherwise return #f
 (define (options->process-group-id options)
-  (if (sh-job-control?)
+  (if (tty-job-control?)
     (let ((val (plist-ref options 'process-group-id #f)))
       (if val
         (let ((caller 'options->process-group-id))

@@ -48,51 +48,53 @@
 ;; Description:
 ;; Start a sh-expr job.
 ;;
-;; Options are ignored.
+;; If options plist contains 'spawn? #t, sh-expr is started in a subprocess.
+;; Otherwise sh-expr is executed directly in main process.
 ;;
 ;; Returns unspecified value.
 (define (jexpr-start job options)
   (assert* 'sh-expr (eq? 'running (job-last-status->kind job)))
-  (call-or-spawn-job-procedure job options
-    (lambda (job options)
-    ;; jexpr-proc may want to use (sh-fd N)
-    (job-remap-fds! job)
+  (if (options->spawn? options)
+    ;; execute the sh-expr in a subprocess
+    (spawn-job-procedure job options jexpr-call-proc)
+    ;; execute the sh-expr directly
+    (begin
+      (call/cc
+        ;; Capture the continuation representing THIS call to (jexpr-start)
+        (lambda (susp)
+          (job-resume-proc-set!  job #f)
+          (job-suspend-proc-set! job susp)
+          (jexpr-call-proc job options)))
+      (let ((status (job-last-status job)))
+        ;c (debugf "jexpr-start ~s, pid ~s, status ~s" job (job-pid job) status)
+        (cond
+          ((or (job-pid job) (not (running? status)))
+            status)
+          ((job-resume-proc job)
+            (job-status-set! 'jexpr-start job (stopped 'sigtstp)))
+          (else
+            status))))))
+  
 
-    (job-resume-proc-set! job (jexpr-prepare-resume-proc job))
+;; call jexpr-proc and store its results into job-status
+;; returns job status
+(define (jexpr-call-proc job options)
+  ;; jexpr-proc may want to use (sh-fd N)
+  (job-remap-fds! job)
+  (job-env/apply-lazy! job 'export)
 
-    ;; jobs are started non-blockingly,
-    ;; but running a jexpr job always blocks
-    ;; => stop the job and let caller decide whether to wait for it
-    (job-status-set! 'sh-expr job (stopped 'sigtstp)))))
-
-
-;; prepare and return a closure for running jexpr-proc
-(define (jexpr-prepare-resume-proc job)
-  (let ((jexpr-initial-resume-proc
-    (lambda (unused)
-      ;; (debugf "jexpr-prepare-resume-proc job=~s remapping fd1 ~s -> ~s" job (sh-fd 1) (job-remap-find-fd job 1))
-      (dynamic-wind
+  (job-status-set! 'sh-expr job
+    (try
+      (call-with-values
         (lambda ()
-          (when (job-stopped? job)
-            (job-status-set/running! job)))
-        (lambda ()
-          (parameterize ((sh-current-job job))
-            (job-status-set! 'sh-expr job
-              (try
-                (call-with-values
-                  (lambda ()
-                    (let ((proc (jexpr-proc job)))
-                      (if (logbit? 1 (procedure-arity-mask proc))
-                        (proc job)
-                        (proc))))
-                  ok)
-                (catch (ex)
-                  (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
-                  (exception ex))))))
-        (lambda ()
-          (when (job-running? job)
-            (job-status-set! 'sh-expr job (stopped 'sigtstp))))))))
-    jexpr-initial-resume-proc))
+          (let ((proc (jexpr-proc job)))
+            (if (logbit? 1 (procedure-arity-mask proc))
+              (proc job)
+              (proc))))
+        ok)
+      (catch (ex)
+        (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
+        (exception ex)))))
 
 
 ;; React to a SIGCHLD: if job is an sh-expr,
@@ -125,15 +127,38 @@
     #f))
 
 
-;; continue a job via its resume-proc
+;; continue a job via its resume-proc.
+;; returns unspecified value
 (define (proc-advance caller job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
   ;; continue only if caller asked to continue job and wait for it to finish or stop.
   ; (debugf "proc-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
-  (when (and (sh-wait-flag-wait? wait-flags)
-             (sh-wait-flag-continue-if-stopped? wait-flags))
-    (when (job-resume-proc job)
-      (job-call-resume-proc job))))
+  (let ((resume-proc (job-resume-proc job)))
+    (when (and resume-proc
+               (or (sh-wait-flag-continue-if-stopped? wait-flags)
+                   (job-running? job)))
+      (cond
+        ((sh-wait-flag-background? wait-flags)
+          ;; TRICKY: spawn a subprocess, and resume the stopped shell builtin or sh-expr in it
+          ;; (debugf "> proc-advance ~s background" job)
+          (let ((status (spawn-job-procedure job '()
+                          (lambda (job options)
+                            ;; executed in subprocess
+                            (job-resume-proc-set! job #f)
+                            (set! job-start-exit-from-spawned-subprocess? #t)
+                            (resume-proc (void))))))
+            ;; (debugf "< proc-advance ~s background, status ~s" job status)
+            (job-resume-proc-set! job #f)
+            (when (running? status)
+              ; (job-id-update! job) ; verbose
+              ; we can cleanup job's file descriptor, as it's running in a subprocess
+              (job-unmap-fds! job)
+              (job-unredirect/temp/all! job))
+            (job-status-set! 'proc-advance job status)))
+
+        ((sh-wait-flag-wait? wait-flags)
+          ;; directly resume the stopped shell builtin or sh-expr
+          (job-call-resume-proc job))))))
 
 
 

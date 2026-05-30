@@ -39,7 +39,7 @@
 (define foreground-pgid-get
   (let ((c-foreground-pgid-get (foreign-procedure "c_pgid_foreground_get" () int)))
     (lambda ()
-      (if (sh-job-control?)
+      (if (tty-job-control?)
         (c-foreground-pgid-get)
         -1))))
 
@@ -47,7 +47,8 @@
 (define foreground-pgid-set!
   (let ((c-foreground-pgid-set! (foreign-procedure "c_pgid_foreground_set" (int) int)))
     (lambda (pgid)
-      (if (and pgid (sh-job-control?))
+      ;; (debugf "foreground-pgid-set! pgid ~s, tty-job-control? ~s" pgid (tty-job-control?))
+      (if (and pgid (tty-job-control?))
         (c-foreground-pgid-set! pgid)
         -1))))
 
@@ -57,8 +58,8 @@
 
 (define (global-pgid-if-fg wait-flags pgid)
    (and pgid
-        (sh-wait-flag-foreground-pgid? wait-flags)
-        (sh-job-control?)
+        (sh-wait-flag-foreground? wait-flags)
+        (tty-job-control?)
         (job-pgid (sh-globals))))
 
 

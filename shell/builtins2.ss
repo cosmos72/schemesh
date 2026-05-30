@@ -456,7 +456,7 @@
             (job-status-set! 'builtin-start job
               (builtin job args options)))))
     (if (options->spawn? options)
-      ;; spawn a subprocess execute run builtin inside it
+      ;; execute the builtin in a subprocess
       (spawn-job-procedure job options %builtin-start-impl)
       ;; execute the builtin directly
       (begin

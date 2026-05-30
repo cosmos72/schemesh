@@ -32,7 +32,7 @@
     sh-current-job-kill sh-current-job-suspend sh-preferred-job-id sh-inside-interrupt?
     sh-start sh-bg sh-fg sh-kill sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
-    ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
+    ; sh-wait-flag-foreground? sh-wait-flag-background? sh-wait-flag-continue-if-stopped?
     ; sh-wait-flag-wait? sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?
 
     ;; dir.ss
@@ -71,7 +71,7 @@
 
 
     ;; params.ss
-    sh-job-control-available? sh-job-control?
+    tty-job-control-available? tty-job-control?
 
     ;; parse.ss
     sh sh-parse-datum sh-cmd* sh-list*
@@ -144,6 +144,10 @@
 
 ;; functions to operate on job status
 (include "shell/status.ss")
+
+
+;; set to #t in subprocesses spawned by (proc-advance)
+(define job-start-exit-from-spawned-subprocess? #f)
 
 
 ;; call (proc job) on given job and each of its parents.
@@ -444,9 +448,8 @@
       (or (sh-current-job) (sh-globals)))
     ((fixnum? job-or-id)
       (let ((all-jobs (multijob-children (sh-globals))))
-        (if (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
-          (span-ref all-jobs job-or-id)
-           #f)))
+        (and (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
+             (span-ref all-jobs job-or-id))))
     ((sh-job? job-or-id)
       job-or-id)
     (else
@@ -469,9 +472,8 @@
       (or (sh-current-job) (sh-globals)))
     ((fixnum? job-or-id)
       (let* ((all-jobs (multijob-children (sh-globals)))
-             (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
-                             (fx<? job-or-id (span-length all-jobs)))
-                    (span-ref all-jobs job-or-id))))
+             (job (and (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
+                       (span-ref all-jobs job-or-id))))
         (unless (sh-job? job)
           (raise-errorf 'sh-job "job not found: ~s" job-or-id))
         job))

@@ -345,9 +345,9 @@
   ;; c. restore most signals to default handler
   ;;
   ;; note that commands executed by the subprocess CAN reactivate job control:
-  ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
+  ;; in such case, (tty-job-control? #t) will self-suspend the subshell with SIGTTIN
   ;; until the user resumes it in the foreground.
-  (sh-job-control? #f)
+  (tty-job-control? #f)
 
   ;; no longer intercept SIGINT
   (signal-setdefault 'sigint)
@@ -388,7 +388,7 @@
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created subprocess.
 ;;
-;; Note: does not call (job-env/apply-lazy! job).
+;; Note: does not call (job-env/apply-lazy! job), does not call (job-status-set!)
 ;;
 ;; Options is an association list, see (sh-options) for allowed keys and values.
 ;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
@@ -430,7 +430,8 @@
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "< [child] spawn-job-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
-                  (exit-with-status status)))))
+                  (unless job-start-exit-from-spawned-subprocess?
+                    (exit-with-status status))))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
@@ -490,7 +491,8 @@
                     (set! status (call-with-values proc ok)))
                   (lambda () ; run after body, even if it raised a condition
                     ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
-                    (exit-with-status status)))))
+                    (unless job-start-exit-from-spawned-subprocess?
+                      (exit-with-status status))))))
             ((> ret 0) ; parent
               (job-pid-set! job ret)
               (job-pgid-set! job pgid)

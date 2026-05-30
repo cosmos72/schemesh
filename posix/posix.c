@@ -358,7 +358,7 @@ static int c_create_foreground_pgid(int pgid) {
  * if enable <= 0, return 0 if successful,
  * otherwise error code < 0
  */
-static int c_job_control_change(int enable) {
+static int c_job_control_set(int enable) {
   int err;
   if (enable > 0) {
     pid_t pgid;
@@ -809,7 +809,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
   Sregister_symbol("c_job_control_available", &c_job_control_available);
-  Sregister_symbol("c_job_control_change", &c_job_control_change);
+  Sregister_symbol("c_job_control_set", &c_job_control_set);
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);

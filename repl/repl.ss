@@ -33,7 +33,7 @@
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                           logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            ==> assert* catch define-macro first-value-or-void nop raise-errorf values->list while try)
+    (only (scheme2k bootstrap)            ==> assert* catch debugf define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-clear! bytespan-insert-right/u8! bytespan-length
@@ -75,7 +75,7 @@
             sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
             sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
-            sh-job-control? sh-job-control-available? sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
+            sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
             with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
@@ -398,7 +398,7 @@
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((override-parser (and initial-parser
                               (to-parser (linectx-parsers lctx) initial-parser 'repl)))
-        (old-job-control (sh-job-control?))
+        (old-job-control (tty-job-control?))
         (new-job-control #f))
     (assert* 'repl (linectx? lctx))
     (dynamic-wind
@@ -409,18 +409,16 @@
         ;; init file may change (repl-initial-parser)
         (try-eval-file init-file-path)
         ;; enable job control if available
-        (set! new-job-control (sh-job-control? (sh-job-control-available?)))
-        (when new-job-control
-          (tty-setraw!)))
+        (set! new-job-control (tty-job-control? (tty-job-control-available?)))
+        (tty-setraw!))
       (lambda ()
         (let ((parser (or override-parser
                           (to-parser (linectx-parsers lctx) (repl-initial-parser) 'repl))))
           (repl-loop parser print-func lctx)))
       (lambda ()
-        (when new-job-control
-          (tty-restore!))
+        (tty-restore!)
         ; restore job control to previous value
-        (sh-job-control? old-job-control)
+        (tty-job-control? old-job-control)
         (try-eval-file quit-file-path)
         (signal-restore-sigwinch)
         (lineedit-flush lctx)

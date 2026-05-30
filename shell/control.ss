@@ -131,7 +131,7 @@
 ;; if instead it's a shell builtin, a sh-expr or a sh-multijob,
 ;;   it may be either executed directly or started in a subprocess:
 ;;   if options contain 'spawn #t, then it is started in a subprocess
-;;   otherwise it is executed directly in the main shell process
+;;   otherwise it is executed directly in the main process
 (define (job-start caller job options)
   (unless (main-thread?)
     (raise-threaded-message-condition
@@ -147,6 +147,9 @@
           (job-start/on-exception caller job options k-continue ex))
         (lambda ()
           (job-start/may-throw caller job k-continue options)))))
+  (when job-start-exit-from-spawned-subprocess?
+    (exit-with-status (job-last-status job)))
+
   (when (and (job-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
@@ -343,8 +346,8 @@
 (meta begin
   ;; helper function used by macros (sh-wait-flag) and (sh-wait-flags)
   (define name->sh-wait-flag
-    (let ((alist '((foreground-pgid . 1) (continue-if-stopped . 2)
-                   (wait-until-stopped-or-finished . 4) (wait-until-finished . 8))))
+    (let ((alist '((foreground . 1) (background . 2) (continue-if-stopped . 4)
+                   (wait-until-stopped-or-finished . 8) (wait-until-finished . 16))))
       (lambda (name)
         (let ((pair (assq name alist)))
           (unless pair
@@ -365,7 +368,8 @@
 ;;   which subsumes (sh-bg) (sh-fg) (sh-wait) (sh-job-status).
 ;;
 ;; this macro converts zero or more symbols among
-;;   foreground-pgid
+;;   foreground
+;;   background
 ;;   continue-if-stopped
 ;;   wait-until-finished
 ;;   wait-until-stopped-or-finished
@@ -396,20 +400,23 @@
                  wait-flags)))))
 
 
-(define (sh-wait-flag-foreground-pgid? wait-flags)
+(define (sh-wait-flag-foreground? wait-flags)
   (not (fxzero? (fxand wait-flags 1))))
 
-(define (sh-wait-flag-continue-if-stopped? wait-flags)
+(define (sh-wait-flag-background? wait-flags)
   (not (fxzero? (fxand wait-flags 2))))
 
-(define (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)
+(define (sh-wait-flag-continue-if-stopped? wait-flags)
   (not (fxzero? (fxand wait-flags 4))))
 
-(define (sh-wait-flag-wait-until-finished? wait-flags)
+(define (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)
   (not (fxzero? (fxand wait-flags 8))))
 
+(define (sh-wait-flag-wait-until-finished? wait-flags)
+  (not (fxzero? (fxand wait-flags 16))))
+
 (define (sh-wait-flag-wait? wait-flags)
-  (not (fxzero? (fxand wait-flags 12))))
+  (not (fxzero? (fxand wait-flags 24))))
 
 (define (notrace-call arg)
   arg)
@@ -445,7 +452,7 @@
 (define (job-break job)
    ;; subshells should not directly perform I/O,
    ;; they cannot write the "break> " prompt then read commands
-   (when (sh-job-control?)
+   (when (tty-job-control?)
      (let ((current-job-swap (parameter-swapper sh-current-job job))
            (break-returned-normally? #f))
       (dynamic-wind
@@ -517,7 +524,7 @@
     (let* ((status (job-id-update! job))
            (id     (or id (job-id job))))
       (cond
-        ((and (started? status) (sh-wait-flag-foreground-pgid? wait-flags))
+        ((and (started? status) (sh-wait-flag-foreground? wait-flags))
           (sh-preferred-job-id-set! id))
         ((and (finished? status) (eqv? id (sh-preferred-job-id)))
           (sh-preferred-job-id-update!)))
@@ -539,18 +546,17 @@
 (define (sh-preferred-job-id-update!)
   (let* ((g      (sh-globals))
          (old-id (multijob-current-child-index g))
-         (jobs   (multijob-children g))
-         (n      (span-length jobs)))
+         (jobs   (multijob-children g)))
     (multijob-current-child-index-set! g -1)
     (let %loop-right ((id (fxmax 1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))))
-      (when (fx<? id n)
+      (when (fx<? 0 id (span-length jobs))
         (let ((job (span-ref jobs id)))
           (if (and (sh-job? job) (job-started? job))
             (multijob-current-child-index-set! g id)
             (%loop-right (fx1+ id))))))
     (when (eqv? -1 (multijob-current-child-index g))
       (let %loop-left ((id (if (and old-id (fx>? old-id 0)) (fx1- old-id) 0)))
-        (when (fx>? id 0)
+        (when (fx<? 0 id (span-length jobs))
           (let ((job (span-ref jobs id)))
             (if (and (sh-job? job) (job-started? job))
               (multijob-current-child-index-set! g id)
@@ -576,7 +582,7 @@
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (job-wait/id+raise 'sh-bg job-or-id (sh-wait-flags continue-if-stopped)))
+  (job-wait/id+raise 'sh-bg job-or-id (sh-wait-flags background continue-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -587,7 +593,7 @@
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
    (job-wait/id+raise 'sh-fg job-or-id
-     (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
+     (sh-wait-flags foreground continue-if-stopped wait-until-stopped-or-finished)))
 
 
 ;; General function to resume and optionally wait for a job.
@@ -609,7 +615,7 @@
       (job-wait/id+raise 'sh-wait job-or-id wait-flags))
     ((job-or-id)
       (sh-wait job-or-id
-               (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))))
+               (sh-wait-flags foreground continue-if-stopped wait-until-finished)))))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -620,8 +626,9 @@
 (define sh-run/i
   (case-lambda
     ((job options)
-      (job-start 'sh-run/i job (options-add-fg options))
-      (sh-fg job))
+      (if (stopped? (job-start 'sh-run/i job (options-add-fg options)))
+        (job-id-set! job) ; returns updated job status
+        (sh-fg job)))     ; same
     ((job)
       (sh-run/i job '()))))
 

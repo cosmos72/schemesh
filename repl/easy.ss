@@ -733,7 +733,7 @@
       (to-stdout (from-stdin options) options)
       (write-builtin-error "all" "too many arguments"))))
 
-      
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: dir

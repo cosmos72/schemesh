@@ -113,8 +113,8 @@
          ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
          (spawn?   redirect-out?)
          (options  (sh-options (list
-                     (if spawn? 'spawn? #f)           spawn?
-                     (if pgid   'process-group-id #f) pgid
+                     (and spawn? 'spawn?)           spawn?
+                     (and pgid   'process-group-id) pgid
                      'catch? #t))))
 
 
@@ -149,12 +149,6 @@
       (fd-close in-pipe-fd))
     (when (fx>=? out-pipe-fd/write 0)
       (fd-close out-pipe-fd/write))
-
-    (when spawn?
-      ; we can cleanup job's file descriptor, as it's running in a subprocess
-      (job-unmap-fds! job)
-      (job-unredirect/temp/all! job))
-
 
     out-pipe-fd/read))
 

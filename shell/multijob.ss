@@ -271,10 +271,10 @@
         (job-status-set! 'mj-advance mj child-status)
         child-status)
       ((finished? child-status)
-        ;; child failed: advance multijob by calling (job-step-proc)
+        ;; child finished: advance multijob by calling (job-step-proc)
         ;; then call (mj-advance) again multijob if job is still running.
         ;; (debugf "... mj-advance > step-proc ~s status=~s" mj (job-last-status mj))
-        (step-proc mj child-status)
+        (step-proc mj child-status) ;; FIXME: pass wait-flags
         ;; (debugf "... mj-advance < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-running? mj)
           (mj-advance caller mj wait-flags)

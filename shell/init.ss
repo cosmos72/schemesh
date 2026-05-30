@@ -113,7 +113,11 @@
              (assert* 'cd (text? new-dir))
              (sh-cd new-dir))))
 
+  ;; install more complete procedure for enabling/disabling job-control 
+  ;; (debugf "calling tty-job-control-proc")
+  (tty-job-control-proc sh-job-control-set!)
 
+  ;; register known builtins
   (let ((bt (sh-builtins)))
 
     ; additional builtins
