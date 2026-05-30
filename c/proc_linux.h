@@ -160,16 +160,21 @@ static void fd_stat_uid_gid(int fd, int64_t* uid, int64_t* gid) {
 }
 
 static chars read_file_at(int dir_fd, const char path[], charspan dst, int64_t* uid, int64_t* gid) {
-  ssize_t n;
-  size_t  end;
+  size_t  n, end;
+  ssize_t ni;
   int     fd = openat(dir_fd, path, O_RDONLY);
   if (fd < 0) {
     return make_chars(NULL, 0);
   }
   fd_stat_uid_gid(fd, uid, gid);
-  n = read(fd, dst.data, dst.size);
+  n = 0;
+  while (n < dst.size - 1 && (ni = read(fd, dst.data + n, dst.size - n - 1)) > 0) {
+    n += ni;
+  }
   close(fd);
-  end = n < 0 ? 0 : (size_t)n < dst.size ? (size_t)n : dst.size;
+  end = n < dst.size ? n : dst.size;
+
+  dst.data[end] = '\0';
   return make_chars(dst.data, end);
 }
 

@@ -123,7 +123,7 @@ static unsigned char* read_file_at(
   }
   fd_stat_uid_gid(fd, uid, gid);
   n = 0;
-  while (n < dstlen - 1 && (ni = read(fd, dst + n, dstlen - 1 - n)) > 0) {
+  while (n < dstlen - 1 && (ni = read(fd, dst + n, dstlen - n - 1)) > 0) {
     n += ni;
   }
   close(fd);
