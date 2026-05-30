@@ -159,7 +159,7 @@ CTRL+Z
 (stopped sigtstp)
 
 > fg 1
-; job  1+            (running 1)        $(begin (repeat 1000000000 (void)) "done!\n")
+; job  1+ pid   1234 (running 1)        $(begin (repeat 1000000000 (void)) "done!\n")
 ; job  1+            (ok "done!\n")     $(begin (repeat 1000000000 (void)) "done!\n")
 (ok "done!\n")
 ```
@@ -193,7 +193,9 @@ CTRL+Z
 
 The examples above also show an additional feature of Scheme jobs:
 they can exit with a status containing an arbitrary Scheme value
-or even multiple values, not just an 8-bit exit status.
+or even multiple values, not just an 8-bit exit status
+(limitation: if they are executed in background, they are moved to a new subprocess
+and thus they can only return an 8-bit exit status as all POSIX processes).
 
 To inspect a job status, use `(status->kind)` and `(status->value)`, as for example:
 ```lisp
