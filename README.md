@@ -15,6 +15,9 @@ and manage foreground/background jobs.
 From version 1.0.0 it also support structured pipelines inspired by nushell,
 but with shell and Scheme semantics - no need to learn a new language.
 
+From version 1.0.1, all shell builtins and [Scheme jobs](#scheme-jobs) can also run in background:
+they are transparently moved to a new subprocess when needed.
+
 For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
 Schemesh can be used as:
@@ -173,11 +176,8 @@ Example:
 (ok "done too!\n")
 ```
 
-By default, Scheme jobs cannot run in background - they stop themselves if you try.
-
-If you need to run a Scheme job in background, place it inside a subshell
-or inside a pipeline (exception: if the last job in a pipeline is a Scheme job,
-it cannot run in background).
+From version 1.0.1, Scheme jobs can also run in background:
+they are transparently moved to a new subprocess when needed.
 
 Example:
 ```shell
@@ -337,15 +337,16 @@ This feature is inspired by nushell, but the implementation is completely indepe
 it seamlessly integrates with standard POSIX pipelines and with Scheme objects,
 without the need to learn a new language with custom semantics.
 
-At high level, Structured Pipelines consist in three mechanisms:
-- external commands, shell builtins and Scheme functions can serialize structured data and write it to their standard output,
-  in one of several supported formats (at the moment, JSON, NDJSON or WIRE - also see below).
-- new shell builtins and Scheme functions exist, that read from their standard input, autodetect the serialized format,
-  and recreate the structured data as Scheme objects,
-  ready to be managed from the shell builtin or Scheme function itself.
-- the new shell builtins and Scheme functions also write structured data (possibly after transforming it)
-  to their standard output, automatically choosing the most appropriate output format:
-  ascii-art table for terminals, WIRE for sockets, NDJSON in all other cases.
+At high level, Structured Pipelines consist of three mechanisms:
+- input: new shell builtins and Scheme functions exist, that read from their standard input,
+  autodetect the serialized format among CSV, JSON, NDJSON or a binary WIRE protocol,
+  and recreate the structured data as a sequence of Scheme objects
+- process: such shell builtins and Scheme functions process one Scheme object at time in streaming mode,
+  filtering or transforming it as they see fit.
+- output: the shell builtins and Scheme functions serialize each transformed Scheme object
+  and write it to their standard output, automatically choosing the most appropriate output format:
+  ascii-art table for terminals, WIRE for sockets, NDJSON in all other cases
+  (CSV is supported too, but never selected automatically).
 
 If desired, input and/or output format autodetection can also be disabled,
 by passing options to the shell builtin or Scheme function that indicate which format(s) to use.

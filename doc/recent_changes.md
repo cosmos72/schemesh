@@ -2,9 +2,6 @@
 
 ### TO DO
 
-* finish implementing job control on shell builtins and sh-expr.
-  Note: starting or resuming them in background means "move them to a subprocess"
-
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
 * fix fs-related functions to honor current job's current directory
 * add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
@@ -17,6 +14,8 @@
 * fix issue #49: flush `(current-error-port)` and `(current-output-port)` after evaluating an expression or a file
 * fix most filesystem-related functions to honor current job's current directory
 * better document how to mix shell and Scheme syntax.
+* implement full job control on shell builtins and scheme jobs:
+  they can now also run in background, and they are transparently moved to a new subprocess when needed.
 * add shell builtin `kill`
 * add type `disk-reader`, its convenience function `(disk)` and shell builtin `disk`
 * add type `fs-reader` and its convenience function `(search)`
