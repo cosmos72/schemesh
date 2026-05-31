@@ -13,10 +13,11 @@
 ;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
 (library (scheme2k ipc wire (1 0 0))
-  (export wire-pipe-pair wire-socketpair-pair)
+  (export wire-pipe-pair wire-socketpair-pair wire-shm-init wire-shm-insert wire-shm-remove)
   (import
     (rnrs)
-    (only (chezscheme)                 box)
+    (only (chezscheme)                 box foreign-procedure)
+    (only (scheme2k posix base)        raise-c-errno)
     (only (scheme2k posix fd)          pipe-fds)
     (only (scheme2k posix socket)      socketpair-fds)
     (only (scheme2k io wire)           make-wire-reader make-wire-writer))
@@ -57,5 +58,23 @@
               (make-wire-reader box2 #t)
               (make-wire-writer box2 #t)))))
 
+
+(define wire-shm-init
+  (let ((c-shm-init (foreign-procedure "c_shm_init" (int) int)))
+    (lambda ()
+      (let ((err (c-shm-init 1022))) ;; FIXME: allocate a reserved s-fd
+        (unless (eqv? 0 err)
+          (raise-c-errno 'wire-shm-init 'c_shm_init err))))))
+
+(define wire-shm-insert (foreign-procedure "c_shm_insert" (unsigned-64 ptr) int))
+    
+(define wire-shm-remove
+  (let ((c-shm-remove (foreign-procedure "c_shm_remove" () ptr)))
+    (lambda ()
+      (let ((datum (c-shm-remove)))
+        (unless (or (pair? datum) (null? datum))
+          (raise-c-errno 'wire-shm-remove 'c_shm_remove datum))
+        datum))))
+  
 
 ) ; close library

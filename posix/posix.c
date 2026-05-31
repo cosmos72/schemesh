@@ -834,7 +834,8 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_type", &c_file_type);
 
   Sregister_symbol("c_shm_init", &c_shm_init);
-  Sregister_symbol("c_shm_write", &c_shm_write);
+  Sregister_symbol("c_shm_insert", &c_shm_insert);
+  Sregister_symbol("c_shm_remove", &c_shm_remove);
 
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
