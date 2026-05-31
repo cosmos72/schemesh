@@ -61,8 +61,8 @@
 
 (define wire-shm-init
   (let ((c-shm-init (foreign-procedure "c_shm_init" (int) int)))
-    (lambda ()
-      (let ((err (c-shm-init 1022))) ;; FIXME: allocate a reserved s-fd
+    (lambda (fd-to-use)
+      (let ((err (c-shm-init fd-to-use)))
         (unless (eqv? 0 err)
           (raise-c-errno 'wire-shm-init 'c_shm_init err))))))
 
