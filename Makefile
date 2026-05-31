@@ -117,7 +117,7 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
-posix.o: posix/posix.c containers/containers.h eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/signal.h posix/socket.h posix/tty.h os/os.h
+posix.o: posix/posix.c containers/containers.h eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/fs.h posix/shm.h posix/signal.h posix/socket.h posix/tty.h os/os.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 os.o: os/os.c os/os.h os/process.h os/process_linux.h os/process_unsupported.h

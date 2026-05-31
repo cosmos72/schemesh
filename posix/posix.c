@@ -19,20 +19,19 @@
 
 #include "../containers/containers.h" /* scheme2k_Sbytevector(), scheme2k_Sstring_utf8b() */
 #include "../eval.h"                  /* eval() */
-#include "../os/os.h"                 /* scheme2k_register_c_functions_os() */
+#include "../os/os.h" /* scheme2k_register_c_functions_os(), scheme2k_os_pagesize() */
 
-#include <arpa/inet.h> /* inet_pton(), ntohs() */
-#include <dirent.h>    /* opendir(), readdir(), closedir() */
-#include <dirent.h>
-#include <errno.h> /* EINVAL, EIO, ESRCH, errno */
-#include <fcntl.h> /* AT_SYMLINK_NOFOLLOW */
-#include <grp.h>
-#include <limits.h> /* INT_MAX, INT_MIN, PATH_MAX, PIPE_BUF */
-#include <netdb.h>
-#include <netinet/in.h> /* struct sockaddr_in ,,, */
-#include <poll.h>
-#include <pthread.h> /* pthread_kill(), pthread_self() */
-#include <pwd.h>
+#include <arpa/inet.h>    /* inet_pton(), ntohs() */
+#include <dirent.h>       /* opendir(), readdir(), closedir() */
+#include <errno.h>        /* EINVAL, EIO, ESRCH, errno */
+#include <fcntl.h>        /* AT_SYMLINK_NOFOLLOW, O_RDONLY... */
+#include <grp.h>          /* getgrgid_r() */
+#include <inttypes.h>     /* PRIx64 */
+#include <limits.h>       /* INT_MAX, INT_MIN, PATH_MAX, PIPE_BUF */
+#include <netdb.h>        /* getaddrinfo() */
+#include <netinet/in.h>   /* struct sockaddr_in ,,, */
+#include <poll.h>         /* poll() */
+#include <pthread.h>      /* pthread_kill(), pthread_mutex*(), pthread_self() */
 #include <pwd.h>          /* getpwnam_r(), getpwuid_r() */
 #include <sched.h>        /* sched_yield() */
 #include <signal.h>       /* kill(), sigaction(), SIG... */
@@ -43,16 +42,15 @@
 #include <stdlib.h>       /* getenv(), strtoul() */
 #include <string.h>       /* strlen(), strerror_r() */
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
+#include <sys/mman.h>     /* mmap(), mremap(), shm_open(), shm_unlink() */
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
 #include <sys/socket.h>   /* getaddrinfo(), socket(), socketpair(), AF_*, SOCK_* */
-#include <sys/stat.h>
-#include <sys/stat.h>  /* fstatat() */
-#include <sys/types.h> /* fstatat() */
-#include <sys/un.h>    /* struct sockaddr_un */
-#include <sys/wait.h>  /* waitpid(), W... */
-#include <time.h>
-#include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
-#include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
+#include <sys/stat.h>     /* fstatat() */
+#include <sys/types.h>    /* fstatat() */
+#include <sys/un.h>       /* struct sockaddr_un */
+#include <sys/wait.h>     /* waitpid(), W... */
+#include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep(), time() */
+#include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
@@ -284,6 +282,7 @@ static int write_command_not_found(const char path[]) {
 #include "fd.h"
 #include "fs.h"
 #include "pid.h"
+#include "shm.h"
 #include "signal.h"
 #include "socket.h"
 #include "tty.h"
@@ -833,6 +832,9 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_stat", &c_file_stat);
   Sregister_symbol("c_file_type", &c_file_type);
+
+  Sregister_symbol("c_shm_init", &c_shm_init);
+  Sregister_symbol("c_shm_write", &c_shm_write);
 
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);

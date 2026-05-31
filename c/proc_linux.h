@@ -436,7 +436,7 @@ print_process(DIR* dir, const struct dirent* entry, writer* w, e_proc_flags flag
   put_uint64(w, flags & e_proc_flag_mem_virt, mem_virt, CHARS(",\"mem-virt\":"));
   put_uint64(w,
              flags & e_proc_flag_mem_rss,
-             mem_rss * get_os_pagesize(), /* convert mem_rss from pages to bytes */
+             mem_rss * c_pagesize(), /* convert mem_rss from pages to bytes */
              CHARS(",\"mem-rss\":"));
 
   tick_per_s = get_os_tick_per_s();

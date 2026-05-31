@@ -102,7 +102,7 @@ static void print_process(const struct kinfo_proc* kp, writer* w, e_proc_flags f
   put_int64(w, flags & e_proc_flag_ppid, kp->ki_ppid, CHARS(",\"ppid\":"));
   put_int64(w, flags & e_proc_flag_pgid, kp->ki_pgid, CHARS(",\"pgid\":"));
   put_int64(w, flags & e_proc_flag_sid, kp->ki_sid, CHARS(",\"sid\":"));
-  mem_rss = (uint64_t)kp->ki_rssize * get_os_pagesize();
+  mem_rss = (uint64_t)kp->ki_rssize * c_pagesize();
   put_uint64(w, flags & e_proc_flag_mem_rss, mem_rss, CHARS(",\"mem-rss\":"));
   put_uint64(w, flags & e_proc_flag_mem_virt, kp->ki_size, CHARS(",\"mem-virt\":"));
 
