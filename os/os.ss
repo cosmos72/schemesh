@@ -32,8 +32,8 @@
 (include "os/disk.ss")
 (include "os/process.ss")
 
-(include "os/disk-init.ss")
-(include "os/process-init.ss")
+(include "os/disk_init.ss")
+(include "os/process_init.ss")
 
 
 
