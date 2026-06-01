@@ -33,7 +33,7 @@ enum {
   e_proc_byte_n      = e_proc_state * 8 + 1,
 };
 
-static size_t get_os_pagesize(void) {
+size_t scheme2k_os_pagesize(void) {
   static size_t os_pagesize = 0; /* OS page size, in bytes */
 
   size_t n = os_pagesize;

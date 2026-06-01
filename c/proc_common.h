@@ -133,7 +133,7 @@ static void put_uint64(writer* w, e_proc_flags flags, uint64_t num, chars prefix
   w_put_uint64(w, num);
 }
 
-static size_t get_os_pagesize(void) {
+static size_t c_pagesize(void) {
   static size_t os_pagesize = 0; /* OS page size, in bytes */
 
   size_t n = os_pagesize;

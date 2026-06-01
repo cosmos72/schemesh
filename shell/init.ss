@@ -10,8 +10,6 @@
 ;; this file should be included only by file shell/job.ss
 
 (begin
-  (s-fd-allocate) ; mark highest fd as reserved: used by tty_fd
-
   ;; set the parameter (sh-globals) to the global job.
   ;; Jobs started with (sh-start) will be children of sh-globals.
   ;;
@@ -113,7 +111,7 @@
              (assert* 'cd (text? new-dir))
              (sh-cd new-dir))))
 
-  ;; install more complete procedure for enabling/disabling job-control 
+  ;; install more complete procedure for enabling/disabling job-control
   ;; (debugf "calling tty-job-control-proc")
   (tty-job-control-proc sh-job-control-set!)
 

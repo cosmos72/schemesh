@@ -86,7 +86,7 @@
   (let ((pgid (options->process-group-id options))
         (n    (span-length (multijob-children mj)))
         (pipe-fd -1))
-    (job-pgid-set! mj pgid)
+    (job-pgid-set! mj pgid) ; can be #f
 
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
@@ -109,9 +109,9 @@
          (redirect-out? (fx<? i (fx1- n)))
          (redirect-err? (and redirect-out?
                              (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i)))))
-         ; optimization: no need to run the last job in a subprocess
-         ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
-         (spawn?   redirect-out?)
+         ;; run all jobs as subprocesses, including the last one.
+         ;; reason: they must all have the same pgid, for suspending/resuming them simultaneously
+         (spawn?   #t)
          (options  (sh-options (list
                      (and spawn? 'spawn?)           spawn?
                      (and pgid   'process-group-id) pgid

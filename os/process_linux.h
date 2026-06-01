@@ -437,7 +437,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
     set_int64(vec, e_proc_gid, gid);
 
     /* convert mem_resident from pages to bytes */
-    uint64_multiply(vec, e_proc_mem_rss, get_os_pagesize());
+    uint64_multiply(vec, e_proc_mem_rss, scheme2k_os_pagesize());
 
     tick_per_s = get_os_tick_per_s();
 

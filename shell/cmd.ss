@@ -431,7 +431,7 @@
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "< [child] spawn-job-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
                   (unless job-start-exit-from-spawned-subprocess?
-                    (exit-with-status status))))))
+                    (sh-exit status))))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
@@ -492,7 +492,7 @@
                   (lambda () ; run after body, even if it raised a condition
                     ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
                     (unless job-start-exit-from-spawned-subprocess?
-                      (exit-with-status status))))))
+                      (sh-exit status))))))
             ((> ret 0) ; parent
               (job-pid-set! job ret)
               (job-pgid-set! job pgid)
