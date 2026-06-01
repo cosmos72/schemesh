@@ -349,6 +349,13 @@
   (datum->wire
     (ordered-hash string-hash string=? "a" 1 "b" 2))   #vu8(12 54 81 79 2 41 1 97 1 41 1 98 2)
 
+  (values->list (wire->datum  #vu8()))                 (#f -1)  ;; need at least 1 more byte
+  (values->list (wire->datum  #vu8(0)))                ,@"(#<void> 1)"
+
+  (values->list (wire->datum  #vu8(1)))                (#f -1)   ;; need at least 1 more byte: the message
+  (values->list (wire->datum  #vu8(2)))                (#f -2)   ;; need at least 2 more bytes: the message
+  (values->list (wire->datum  #vu8(127)))              (#f -127) ;; need at least 127 more bytes: the message
+  (values->list (wire->datum  #vu8(128)))              (#f -3)   ;; need at least 3 more bytes: vlen high bytes
 
   (values->list (wire->datum  #vu8(4 247 6 36 27)))    ,((ok ()) 5)
   (values->list (wire->datum  #vu8(3 248 1 25)))       ,((span #f) 4)

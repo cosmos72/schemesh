@@ -45,17 +45,20 @@
     ((fx<=? vlen (fx- end pos))
       (values vlen pos))
     (else
-      ;; vlen exceeds remaining message length
-      (values vlen #f))))
+      ;; vlen exceeds remaining message length, return #f -NNN indicating the number of missing bytes
+      (values (fx- (fx- end pos) vlen) #f))))
 
 
 ;; read unsigned fixnum vlen from bytevector starting at position pos.
-;; return two values: vlen and updated position, or #f #f on errors.
+;; return two values:
+;;   vlen and updated position,
+;;   or -NNN #f if not enough bytes are available and at least NNN bytes should be added after end,
+;;   or #f #f on errors.
 (define (get/vlen bv pos end)
   (let ((lo (and pos (fx<? pos end) (%get/u8 bv pos))))
     (cond
       ((not lo)
-        (values #f #f))
+        (values -1 #f)) ; need at least one more byte
       ((fx<=? lo #x7f)
         (vlen-values lo (fx1+ pos) end))
       ((fx<=? pos (fx- end max-len-vlen))
@@ -70,7 +73,8 @@
                     (hi (bitwise-arithmetic-shift-right (bitwise-and u32 #xffffff00) 1)))
                 (vlen-values (bitwise-ior lo hi) (fx+ pos max-len-vlen) end))))))
       (else
-        (values #f #f)))))
+        ;; need some more bytes, return -NNN
+        (values (fx- (fx- end max-len-vlen) pos) #f)))))
 
 
 ;; also reads tag, unlike most other (get/...) functions
@@ -465,12 +469,9 @@
                             (values #t (fx- len))))))))
                 ;; not enough bytes to deserialize message: tell how many more bytes are needed
                 (values #f (fx- available len)))))
-          ((fx>=? start end)
-            ;; zero bytes provided, need at least min-len-vlen
-            (values #f (fx- min-len-vlen)))
           (len
-            ;; not enough bytes to deserialize message: tell how many more bytes are needed
-            (values #f (fx- (fx- end start) (vlen+ len len))))
+            ;; not enough bytes to deserialize vlen: tell how many more bytes are needed
+            (values #f len))
           (else
             ;; could not deserialize vlen
             (values #f #f)))))
