@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure inspect logbit? procedure-arity-mask)
-    (only (scheme2k bootstrap) assert* debugf raise-errorf))
+    (only (scheme2k bootstrap) assert* raise-errorf))
 
 
 ;; analogous to Chez Scheme (make-parameter), with two differences - see below

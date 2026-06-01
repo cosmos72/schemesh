@@ -63,9 +63,10 @@
 ;; return #f if not found
 (define (child-wire-status-consume pid)
   ;; NOT reentrant, and also called from interrupts
-  (when (box-cas! child-wire-status-mutex #f #t)
+  (and
+    (box-cas! child-wire-status-mutex #f #t)
     (dynamic-wind
-      void
+      disable-interrupts
       (lambda ()
         (let ((ht child-wire-status-table))
           (child-wire-status-locked-collect child-wire-status-shm ht)
@@ -74,5 +75,6 @@
               (hashtable-delete! ht pid))
             status)))
       (lambda ()
+        (enable-interrupts)
         (box-cas! child-wire-status-mutex #t #f)))))
   
