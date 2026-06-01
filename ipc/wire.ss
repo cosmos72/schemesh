@@ -13,11 +13,12 @@
 ;;; data is serialized/deserialized with library (scheme2k io wire)
 ;;;
 (library (scheme2k ipc wire (1 0 0))
-  (export wire-pipe-pair wire-socketpair-pair wire-shm-init wire-shm-insert wire-shm-remove)
+  (export wire-pipe-pair wire-socketpair-pair
+          wire-shm-open wire-shm-close wire-shm-insert! wire-shm-delete!)
   (import
     (rnrs)
     (only (chezscheme)                 box foreign-procedure)
-    (only (scheme2k posix base)        raise-c-errno)
+    (only (scheme2k posix base)        c-errno-einval raise-c-errno)
     (only (scheme2k posix fd)          pipe-fds)
     (only (scheme2k posix socket)      socketpair-fds)
     (only (scheme2k io wire)           make-wire-reader make-wire-writer))
@@ -59,22 +60,98 @@
               (make-wire-writer box2 #t)))))
 
 
-(define wire-shm-init
-  (let ((c-shm-init (foreign-procedure "c_shm_init" (int) int)))
-    (lambda (fd-to-use)
-      (let ((err (c-shm-init fd-to-use)))
-        (unless (eqv? 0 err)
-          (raise-c-errno 'wire-shm-init 'c_shm_init err))))))
+(define-record-type wire-shm
+  (fields
+    (mutable c-handle))
+  (nongenerative wire-shm-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
-(define wire-shm-insert (foreign-procedure "c_shm_insert" (unsigned-64 ptr) int))
-    
-(define wire-shm-remove
-  (let ((c-shm-remove (foreign-procedure "c_shm_remove" () ptr)))
-    (lambda ()
-      (let ((datum (c-shm-remove)))
-        (unless (or (pair? datum) (null? datum))
-          (raise-c-errno 'wire-shm-remove 'c_shm_remove datum))
-        datum))))
-  
+
+;; arguments:
+;;   fd-to-use: an unused file descriptor number
+;;
+;; return a "wire-shm" object suitable for calling other (wire-shm...) functions,
+;; throws on error (all other wire-shm... functions do NOT throw)
+(define wire-shm-open
+  (let ((c-shm-open (foreign-procedure "c_shm_open" (int) ptr)))
+    (lambda (fd-to-use)
+      (let ((ret (c-shm-open fd-to-use)))
+        (unless (and (integer? ret) (> ret 0))
+          (raise-c-errno 'wire-shm-open 'c_shm_open ret))
+        (make-wire-shm ret)))))
+
+
+;; arguments:
+;;   wire-shm: obtained with (wire-shm-open)
+;;
+;; return 0 on success, or < 0 on error
+;; never throws
+(define wire-shm-close
+  (let ((c-shm-close (foreign-procedure "c_shm_close" (void*) int)))
+    (lambda (shm)
+      (if (wire-shm? shm)
+        (let ((handle (wire-shm-c-handle shm)))
+          (wire-shm-c-handle-set! shm 0)
+          (if (zero? handle)
+            0
+            (c-shm-close handle)))
+        c-errno-einval))))
+
+
+;; arguments:
+;;   wire-shm: obtained with (wire-shm-open)
+;;   key:      unsigned exact integer, maximum is 2^64 - 1
+;;   value:    bytevector
+;;
+;; return 0 on success, or < 0 on error
+;; never throws
+(define wire-shm-insert!
+  (let ((c-shm-insert! (foreign-procedure "c_shm_insert" (void* unsigned-64 ptr) int)))
+    (lambda (shm key value)
+      (if (and (wire-shm? shm) (integer? key) (exact? key) (<= 0 key #xffffffffffffffff) (bytevector? value))
+        (c-shm-insert! (wire-shm-c-handle shm) key value)
+        c-errno-einval))))
+
+
+
+;; arguments:
+;;   wire-shm: obtained with (wire-shm-open)
+;;
+;; returns two values:
+;;   either one of the previously inserted key and value,
+;;   or #f and unspecified if no entries are currently available
+;;   or < 0 and unspecified on errors
+;; never throws
+(define wire-shm-delete!
+  (let ((c-shm-lock          (foreign-procedure "c_shm_lock" (void*) int))
+        (c-shm-unlock        (foreign-procedure "c_shm_unlock" (void*) int))
+        (c-shm-locked-delete (foreign-procedure "c_shm_locked_delete" (void*) ptr)))
+    (lambda (shm)
+      (if (wire-shm? shm)
+        (let ((c-handle (wire-shm-c-handle shm))
+              (ret '())
+              (locked? #f))
+          (dynamic-wind
+            (lambda ()
+              (let ((err (c-shm-lock c-handle)))
+                (set! locked? (eqv? 0 err))
+                (set! ret err)))
+            (lambda ()
+              (when locked?
+                (set! ret (c-shm-locked-delete c-handle))))
+            (lambda ()
+              (when locked?
+                (c-shm-unlock c-handle))))
+          (cond
+            ((pair? ret)
+              (values (car ret) (cdr ret)))
+            ((null? ret)
+              (values #f #f))
+            ((and (integer? ret) (exact? ret) (< ret 0))
+              (values ret #f))
+            (else
+              (values c-errno-einval #f))))
+        (values c-errno-einval #f)))))
+
+
 
 ) ; close library

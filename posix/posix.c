@@ -833,9 +833,12 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_stat", &c_file_stat);
   Sregister_symbol("c_file_type", &c_file_type);
 
-  Sregister_symbol("c_shm_init", &c_shm_init);
+  Sregister_symbol("c_shm_open", &c_shm_open);
+  Sregister_symbol("c_shm_close", &c_shm_close);
   Sregister_symbol("c_shm_insert", &c_shm_insert);
-  Sregister_symbol("c_shm_remove", &c_shm_remove);
+  Sregister_symbol("c_shm_lock", &c_shm_lock);
+  Sregister_symbol("c_shm_unlock", &c_shm_unlock);
+  Sregister_symbol("c_shm_locked_delete", &c_shm_locked_delete);
 
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
