@@ -62,9 +62,10 @@
 ;; consume and return deserialized wire status for specified pid.
 ;; return #f if not found
 (define (child-wire-status-consume pid)
-  ;; NOT reentrant, and also called from interrupts
+  ;; NOT reentrant, and often called from interrupts
   (and
-    (box-cas! child-wire-status-mutex #f #t)
+    (box-cas-strong! child-wire-status-mutex #f #t)
+    (begin (memory-order-acquire) #t)
     (dynamic-wind
       disable-interrupts
       (lambda ()
@@ -76,5 +77,6 @@
             status)))
       (lambda ()
         (enable-interrupts)
-        (box-cas! child-wire-status-mutex #t #f)))))
+        (memory-order-release)
+        (box-cas-strong! child-wire-status-mutex #t #f)))))
   

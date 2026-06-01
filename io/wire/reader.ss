@@ -79,7 +79,7 @@
   (let ((obj (unbox obj-box)))
     ;; store #f in box, instead of fd or port.
     ;; close fd or port only if wire-reader or wire-writer own them
-    (when (and obj (box-cas! obj-box obj #f) close?)
+    (when (and obj (box-cas-strong! obj-box obj #f) close?)
       (if (fixnum? obj)
         (fd-close obj)
         (close-port obj)))))

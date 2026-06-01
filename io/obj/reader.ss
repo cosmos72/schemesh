@@ -86,7 +86,7 @@
   (assert* 'reader-close (reader? rx))
   (let* ((close-box  (reader-close-box rx))
          (close-proc (unbox close-box)))
-    (when (and close-proc (box-cas! close-box close-proc #f))
+    (when (and close-proc (box-cas-strong! close-box close-proc #f))
       (close-proc rx))))
 
 

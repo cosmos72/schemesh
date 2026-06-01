@@ -15,7 +15,7 @@
 
 (library (scheme2k bootstrap functions (1 0 0))
   (export
-      bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
+      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -29,13 +29,28 @@
       void1 void^)
   (import
     (rnrs)
-    (only (chezscheme) $primitive console-error-port eval format gensym import include
-                       make-continuation-condition make-format-condition meta-cond interaction-environment
-                       library-exports string->immutable-string
-                       top-level-bound? top-level-value void))
+    (only (chezscheme) $primitive box-cas! console-error-port eval format gensym import include
+                       interaction-environment make-continuation-condition make-format-condition meta-cond
+                       library-exports string->immutable-string top-level-bound? top-level-value unbox void))
 
 
 (include "bootstrap/bwp.ss")
+
+
+;; box must be mutable.
+;; If the content of box is eq? to old-obj, atomically change the content to new-obj and return #t.
+;; Otherwise leave box unchanged and return #f.
+;;
+;; Loops calling (box-cas!) which can spuriously fail.
+(define (box-cas-strong! box old-obj new-obj)
+  (cond
+    ((box-cas! box old-obj new-obj)
+      #t) ; success
+    ((eq? old-obj (unbox box))
+      (box-cas-strong! box old-obj new-obj)) ; retry
+    (else
+      #f))) ; fail
+
 
 ;; immediately check if an event occurred:
 ;; * an interrupt from the keyboard

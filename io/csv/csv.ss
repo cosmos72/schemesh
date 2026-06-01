@@ -14,9 +14,9 @@
           make-csv-writer csv-writer csv-writer?)
   (import
     (rnrs)
-    (only (chezscheme)                   box box-cas! format fx1+ include record-writer reverse!
+    (only (chezscheme)                   box format fx1+ include record-writer reverse!
                                          time? time-nanosecond time-second unbox void)
-    (only (scheme2k bootstrap)           assert* raise-errorf while)
+    (only (scheme2k bootstrap)           assert* box-cas-strong! raise-errorf while)
     (only (scheme2k containers bytespan) bytespan bytespan-clear! bytespan-delete-left! bytespan-delete-right!
                                          bytespan-display-right/integer! bytespan-display-right/unsigned-k-digits!
                                          bytespan-empty? bytespan-insert-right/u8! bytespan-length

@@ -104,7 +104,7 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme)       box box? box-cas! bwp-object? bytevector bytevector->immutable-bytevector
+    (only (chezscheme)       box box? bwp-object? bytevector bytevector->immutable-bytevector
                              bytevector-ieee-double-ref bytevector-ieee-double-set!
                              bytevector-s24-ref         bytevector-s24-set!
                              bytevector-u24-ref         bytevector-u24-set!
@@ -119,7 +119,7 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (scheme2k bootstrap)               assert* bwp-object check-interrupts fx<=?* raise-assertf raise-errorf)
+    (only (scheme2k bootstrap)               assert* box-cas-strong! bwp-object check-interrupts fx<=?* raise-assertf raise-errorf)
     (only (scheme2k containers bytespan)     bytespan bytespan? bytespan->bytevector*! bytespan-clear! bytespan-delete-left!
                                              bytespan-insert-right/bytevector! bytespan-length
                                              bytespan-peek-beg bytespan-peek-data bytespan-peek-end

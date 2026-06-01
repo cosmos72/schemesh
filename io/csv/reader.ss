@@ -172,5 +172,5 @@
          (in     (unbox in-box)))
     ;; store #f in box, instead of fd or port.
     ;; close fd or port only if wire-reader or wire-writer own them
-    (when (and in (box-cas! in-box in #f) (csv-reader-close-in? rx))
+    (when (and in (box-cas-strong! in-box in #f) (csv-reader-close-in? rx))
       (close-port in))))

@@ -476,22 +476,24 @@
       (sh-wait job)
       ret))                                            "_xyz_\n"
 
+  ;; run builtin directly: status is returned as Scheme object
+  (sh-run {status 1000})                               ,(failed 1000)
+
+  ;; run builtin in a subshell:
+  ;; if exit status is not (void) or (failed 0...255),
+  ;; then it is propagated via wire-serialized data in shared memory 
+  (sh-run {[status 3456]})                             ,(failed 3456)
+
+  ;; run Scheme jobs in a subprocess: same mechanism as above
+  (let ((j $(ok 'foo 'bar)))
+    (sh-start j)
+    (sh-fg j))                                         ,(ok foo bar)
   (sh-run {
      $(display "hello") | cat |
      $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
   (sh-run {
      $(display "greet") | cat |
      $(get-string-all)})                               ,(ok "greet")
-
-  (sh-run {status 1000})                               ,(failed 1000)
-  ;; run builtin in a subshell: status is propagated
-  ;; via wire-serialized data in shared memory
-  (sh-run {[status 1001]})                             ,(failed 1001)
-  ;; run Scheme job in a subprocess: status is propagated
-  ;; via wire-serialized data in shared memory
-  (let ((j $(ok 'foo 'bar)))
-    (sh-start j)
-    (sh-fg j))                                         ,(ok foo bar)
 
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? #t))               ,(failed 1)
@@ -550,10 +552,14 @@ B=2})                                                  ,@"#<void>"
     (sh-bg j)
     (sh-wait j))                                       ,(failed 1)
   ;; (sh-start) spawns job in background, even it's a builtin, a multijob or a sh-expr
-  (sh-start {true && false})                           ,(running 1)
-  (let ((j {sleep 1}))
-    (sh-start j)
-    (sh-bg j))                                         ,(running 2)
+  (let* ((j {true && false})
+         (st0 (sh-start j))
+         (st1 (sh-wait j)))
+    (list st0 st1))                                    ,((running 1) (failed 1))
+  (let* ((j {sleep 1})
+         (st0 (sh-start j))
+         (st1 (sh-bg j)))
+    (list st0 st1))                                    ,((running 1) (running 1))
   (sh-run {[true
             false]})                                   ,(failed 1)
   (sh-run $(sh-run

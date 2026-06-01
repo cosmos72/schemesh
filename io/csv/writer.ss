@@ -163,5 +163,5 @@
          (out     (unbox out-box)))
     ;; store #f out box, instead of fd or port.
     ;; close fd or port only if wire-writer or wire-writer own them
-    (when (and out (box-cas! out-box out #f) (csv-writer-close-out? tx))
+    (when (and out (box-cas-strong! out-box out #f) (csv-writer-close-out? tx))
       (close-port out))))

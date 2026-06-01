@@ -95,19 +95,20 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! binary-port-output-index box box-cas! break break-handler
+    (only (chezscheme) append! binary-port-output-index box break break-handler
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception disable-interrupts display-condition
                        enable-interrupts foreign-procedure format fx1+ fx1- fxarithmetic-shift-right get-thread-id
                        hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
-                       make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
-                       parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
-                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void
-                       with-interrupts-disabled)
-    (only (scheme2k bootstrap)    assert* assert-not* catch check-interrupts nop parameter-swapper raise-assert1 raise-assertf raise-errorf
-                                  second-value sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version-number
-                                  try until warnf while)
+                       make-continuation-condition make-format-condition memory-order-acquire memory-order-release
+                       meta meta-cond open-fd-output-port parameterize port-closed? procedure-arity-mask
+                       record-writer register-signal-handler reverse! set-box! sort! string-copy! string-truncate!
+                       textual-port-output-index threaded? void with-interrupts-disabled)
+    (only (scheme2k bootstrap)             assert* assert-not* box-cas-strong! catch check-interrupts nop
+                                           parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
+                                           sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
+                                           sh-version-number try until warnf while)
     (only (scheme2k containers bytespan)   bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!
                                            bytespan-display-right/fixnum! bytespan-display-right/integer!
                                            bytespan-empty? bytespan-insert-right/bytevector! bytespan-insert-right/u8!

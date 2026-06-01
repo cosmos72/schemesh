@@ -90,7 +90,7 @@
   (assert* 'writer-close (writer? tx))
   (let* ((close-box  (writer-close-box tx))
          (close-proc (unbox close-box)))
-    (when (and close-proc (box-cas! close-box close-proc #f))
+    (when (and close-proc (box-cas-strong! close-box close-proc #f))
       (writer-result-set! tx (close-proc tx))))
   (writer-result tx))
 

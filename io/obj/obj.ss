@@ -54,10 +54,11 @@
     discard-writer full-writer list-writer vector-writer)
   (import
     (rnrs)
-    (only (chezscheme)          box box-cas! collect-request-handler fx1+ fx1- include logbit? meta-cond procedure-arity-mask
+    (only (chezscheme)          box collect-request-handler fx1+ fx1- include logbit? meta-cond procedure-arity-mask
                                 record-type-descriptor record-writer reverse! scheme-version-number unbox void)
     (prefix (only (chezscheme)  make-guardian) chez:)
-    (only (scheme2k bootstrap)  assert* begin0 forever fx<=?* generate-pretty-temporaries raise-errorf void1 with-while-until))
+    (only (scheme2k bootstrap)  assert* begin0 box-cas-strong! forever fx<=?* generate-pretty-temporaries
+                                raise-errorf void1 with-while-until))
 
 
 ;; private reimplementation of (list-reverse->vector)
