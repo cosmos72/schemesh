@@ -102,9 +102,10 @@
       (json-writer-epilogue?-set! tx #f)
       (json-writer-prologue?-set! tx #t))
     ;; close out only if json-writer constructor was called with truish close-out?
-    (if (json-writer-close-out? tx)
-      (close-port out)
-      (flush-output-port out))))
+    (unless (port-closed? out)
+      (if (json-writer-close-out? tx)
+        (close-port out)
+        (flush-output-port out)))))
 
 
 (define (put-bytespan out wbuf)

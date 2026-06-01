@@ -796,15 +796,16 @@
     ;; current-...-port has nothing to flush, only flush per-job ports
     (let* ((job       (or (sh-current-job) (sh-globals)))
            (bin-port  (job-remap-find-binary-port job fd)))
-      (when (and bin-port (output-port? bin-port))
+      (when (and bin-port (output-port? bin-port) (not (port-closed? bin-port)))
         (let ((txt-port (job-remap-find-textual-port job fd)))
           (cond
-            ((and txt-port (not (fxzero? (textual-port-output-index txt-port))))
+            ((and txt-port (not (port-closed? txt-port)) (not (fxzero? (textual-port-output-index txt-port))))
               (flush-output-port txt-port))
             ((not (fxzero? (binary-port-output-index bin-port)))
               (flush-output-port bin-port))))))
     ;; current-...-port has something to flush, flushing it will create per-job binary and textual ports if needed
-    (flush-output-port current-port)))
+    (unless (port-closed? current-port)
+      (flush-output-port current-port))))
 
 
 (define (sh-stdio-flush)

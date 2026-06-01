@@ -599,10 +599,11 @@
       (delete-empty-columns tx)
       (choose-column-widths tx)
       (display-all tx)
-      (if (table-writer-close-out? tx)
-        ;; close out only if table-writer constructor was called with truish close-out?
-        (close-port out)
-        ;; otherwise only flush it
-        (flush-output-port out)))))
+      (unless (port-closed? out)
+        (if (table-writer-close-out? tx)
+          ;; close out only if table-writer constructor was called with truish close-out?
+          (close-port out)
+          ;; otherwise only flush it
+          (flush-output-port out))))))
 
 ) ; close library

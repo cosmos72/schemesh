@@ -15,7 +15,7 @@
        new? started? running? stopped? finished? ok?)
   (import
     (rnrs)
-    (only (chezscheme)                console-output-port console-error-port fx1+ include record-writer void)
+    (only (chezscheme)                console-output-port console-error-port fx1+ include port-closed? record-writer void)
     (only (scheme2k bootstrap)        assert* sh-make-parameter)
     (only (scheme2k containers hashtable) for-hash plist->eq-hashtable)
     (only (scheme2k containers list)  plist-ref)
@@ -232,8 +232,12 @@
     (dynamic-wind
       void       ; before body
       (lambda () ; body
-        (flush-output-port (current-output-port))
-        (flush-output-port (current-error-port))
+        (let ((out (current-output-port)))
+          (unless (port-closed? out)
+            (flush-output-port out)))
+        (let ((out (current-error-port)))
+          (unless (port-closed? out)
+            (flush-output-port out)))
         (when (eq? 'killed (status->kind status))
           (let ((signal-name (%status->val status)))
             (unless (memq signal-name '(sigstop sigtstp sigcont sigttin sigttou))
