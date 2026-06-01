@@ -52,6 +52,9 @@
     ;; expr.ss
     sh-expr
 
+    ;; exit.ss
+    sh-exit
+
     ;; job.ss
     sh-consume-signals sh-cwd
     sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception sh-job-on-finish
@@ -92,7 +95,7 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! binary-port-output-index break break-handler
+    (only (chezscheme) append! binary-port-output-index box box-cas! break break-handler
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
@@ -100,7 +103,8 @@
                        hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
-                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
+                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void
+                       with-interrupts-disabled)
     (only (scheme2k bootstrap)    assert* assert-not* catch check-interrupts debugf nop parameter-swapper raise-assert1 raise-assertf raise-errorf
                                   second-value sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version-number
                                   try until warnf while)
@@ -131,6 +135,8 @@
     (only (scheme2k io obj)                readers-writers-collect)
           (scheme2k io redir)
           (scheme2k io stdio)
+    (only (scheme2k io wire)               datum->wire wire->datum)
+    (only (scheme2k ipc wire)              wire-shm? wire-shm-open wire-shm-insert! wire-shm-delete!)
     (only (scheme2k vscreen)               vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
     (only (scheme2k lineedit lineedit)     linectx? linectx-history linectx-save-history linectx-wbuf
                                            lineedit-display-table lineedit-flush lineedit-undraw)
@@ -563,6 +569,7 @@
       (job-oid-set! job #f)))) ; no longer needed, clear it
 
 
+(include "shell/exit.ss")
 (include "shell/options.ss")
 (include "shell/params.ss")
 (include "shell/redirect.ss")

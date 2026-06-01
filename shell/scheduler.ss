@@ -167,9 +167,11 @@
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
         (if (pair? wait-result)
-          (let* ((job        (pid->job (car wait-result)))
+          (let* ((pid        (car wait-result))
+                 (job        (pid->job pid))
                  (old-status (if job (job-last-status job) (void)))
-                 (new-status (pid-wait-result->status (cdr wait-result))))
+                 (new-status (or (child-wire-status-consume pid)
+                                 (pid-wait-result->status (cdr wait-result)))))
 
             ;; (debugf "... scheduler-wait job=~s\told-status=~s\tnew-status=~s\twait-result=~s\tpreferred-job=~s\tcurrent-job=~s" job old-status new-status wait-result preferred-job current-job)
 

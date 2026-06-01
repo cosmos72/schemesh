@@ -39,7 +39,7 @@
                     ; For multijobs, will be called when a child job changes status.
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
-                    ; For cmds, its return value is passed to (exit-with-status)
+                    ; For cmds, its return value is passed to (posix-exit)
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -87,20 +87,23 @@
 
 ;; Convert pid to job, return #f if job not found
 (define (pid->job pid)
-  (assert* 'pid->job (fixnum? pid))
+  (assert* 'pid->job (integer? pid))
+  (assert* 'pid->job (exact? pid))
   (hashtable-ref (sh-pid-table) pid #f))
 
 ;; Adds an entry to the global hashtable pid -> job
 (define (pid->job-set! pid job)
   (when pid
-    (assert* 'pid->job-set! (fixnum? pid))
+    (assert* 'pid->job-set! (integer? pid))
+    (assert* 'pid->job-set! (exact? pid))
     (assert* 'pid->job-set! (sh-job? job))
     (hashtable-set! (sh-pid-table) pid job)))
 
 ;; Removes an entry from the global hashtable pid -> job
 (define (pid->job-delete! pid)
   (when pid
-    (assert* 'pid->job-delete! (fixnum? pid))
+    (assert* 'pid->job-delete! (integer? pid))
+    (assert* 'pid->job-delete! (exact? pid))
     (hashtable-delete! (sh-pid-table) pid)))
 
 

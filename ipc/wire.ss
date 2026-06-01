@@ -14,10 +14,10 @@
 ;;;
 (library (scheme2k ipc wire (1 0 0))
   (export wire-pipe-pair wire-socketpair-pair
-          wire-shm-open wire-shm-close wire-shm-insert! wire-shm-delete!)
+          wire-shm? wire-shm-open wire-shm-close wire-shm-insert! wire-shm-delete!)
   (import
     (rnrs)
-    (only (chezscheme)                 box foreign-procedure)
+    (only (chezscheme)                 box foreign-procedure record-writer)
     (only (scheme2k posix base)        c-errno-einval raise-c-errno)
     (only (scheme2k posix fd)          pipe-fds)
     (only (scheme2k posix socket)      socketpair-fds)
@@ -70,14 +70,23 @@
 ;;   fd-to-use: an unused file descriptor number
 ;;
 ;; return a "wire-shm" object suitable for calling other (wire-shm...) functions,
-;; throws on error (all other wire-shm... functions do NOT throw)
+;; or < 0 on error.
+;; never throws
 (define wire-shm-open
   (let ((c-shm-open (foreign-procedure "c_shm_open" (int) ptr)))
     (lambda (fd-to-use)
-      (let ((ret (c-shm-open fd-to-use)))
-        (unless (and (integer? ret) (> ret 0))
-          (raise-c-errno 'wire-shm-open 'c_shm_open ret))
-        (make-wire-shm ret)))))
+      (if (and (fixnum? fd-to-use) (fx>=? fd-to-use 0))
+        (let ((ret (c-shm-open fd-to-use)))
+          (cond
+            ((not (and (integer? ret) (exact? ret)))
+               c-errno-einval)
+            ((> ret 0)
+              (make-wire-shm ret))
+            ((< ret 0)
+              ret)
+            (else
+              c-errno-einval)))
+        c-errno-einval))))
 
 
 ;; arguments:
@@ -100,14 +109,14 @@
 ;; arguments:
 ;;   wire-shm: obtained with (wire-shm-open)
 ;;   key:      unsigned exact integer, maximum is 2^64 - 1
-;;   value:    bytevector
+;;   value:    bytevector, usually created with (datum->wire obj)
 ;;
 ;; return 0 on success, or < 0 on error
 ;; never throws
 (define wire-shm-insert!
   (let ((c-shm-insert! (foreign-procedure "c_shm_insert" (void* unsigned-64 ptr) int)))
     (lambda (shm key value)
-      (if (and (wire-shm? shm) (integer? key) (exact? key) (<= 0 key #xffffffffffffffff) (bytevector? value))
+      (if (and (wire-shm? shm) (integer? key) (exact? key) (<= 0 key #xffffffffffffffff))
         (c-shm-insert! (wire-shm-c-handle shm) key value)
         c-errno-einval))))
 
@@ -118,8 +127,8 @@
 ;;
 ;; returns two values:
 ;;   either one of the previously inserted key and value,
-;;   or #f and unspecified if no entries are currently available
-;;   or < 0 and unspecified on errors
+;;   or #f and #f if no entries are currently available
+;;   or #f and < 0 on errors
 ;; never throws
 (define wire-shm-delete!
   (let ((c-shm-lock          (foreign-procedure "c_shm_lock" (void*) int))
@@ -147,11 +156,17 @@
             ((null? ret)
               (values #f #f))
             ((and (integer? ret) (exact? ret) (< ret 0))
-              (values ret #f))
+              (values #f ret))
             (else
-              (values c-errno-einval #f))))
-        (values c-errno-einval #f)))))
+              (values #f c-errno-einval))))
+        (values #f c-errno-einval)))))
 
+
+(record-writer (record-type-descriptor wire-shm)
+  (lambda (shm port writer)
+    (put-string port "#<wire-shm #x")
+    (put-string port (number->string (wire-shm-c-handle shm) 16))
+    (put-string port ">")))
 
 
 ) ; close library

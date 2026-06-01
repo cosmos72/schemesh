@@ -9,7 +9,7 @@
 
 (library (scheme2k posix status (1 0 0))
   (export
-       exit-with-status status-display-color?
+       posix-exit status-display-color?
        new running stopped exception failed killed ok
        status? status->kind status->value list->ok ok->list ok->values
        new? started? running? stopped? finished? ok?)
@@ -206,27 +206,29 @@
   (eq? 'ok (status->kind status)))
 
 
-;; Extract the first value of a status, convert it to a fixnum, and return it.
+;; Extract the first value of a status, convert it to an 8-bit fixnum in 0 ... 255,
+;; and return it.
 (define (status->c-exit-value status)
   (if (ok? status)
     0
-    (let* ((val    (%status->val status))
-           (value  (if (fixnum? val) (fxand 255 val) 255)))
-      (if (fxzero? value) 1 value))))
+    (let ((val (%status->val status)))
+      (if (and (fixnum? val) (fx<=? 1 val 255))
+        val
+        255))))
 
 
 ;; Call C functions kill() or exit() to terminate current process with job-status,
 ;; which can be one of:
-;;   (void)                       ; will call C function exit(0)
-;;   (failed  exit-status)  ; will call C function exit(exit_status)
+;;   (void)                 ; will call C function exit(0)
+;;   (failed  1 ... 255)    ; will call C function exit(n)
 ;;   (killed  signal-name)  ; will call C function kill(getpid(), signal_number)
 ;;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
 ;;               ; if kill() returns, will call C function exit(128 + signal_number)
 ;;   ... any other value ... ;  will call C function exit(255)
-(define (exit-with-status status)
-  ;; (debugf "exit-with-status ~s" status)
+(define (posix-exit status)
+  ;; (debugf "posix-exit ~s" status)
   (let ((c-exit-value (status->c-exit-value status)))
-    ;x (debugf "exit-with-status status=~s" status)
+    ;x (debugf "posix-exit status=~s" status)
     (dynamic-wind
       void       ; before body
       (lambda () ; body

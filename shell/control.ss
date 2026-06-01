@@ -148,7 +148,7 @@
         (lambda ()
           (job-start/may-throw caller job k-continue options)))))
   (when job-start-exit-from-spawned-subprocess?
-    (exit-with-status (job-last-status job)))
+    (sh-exit (job-last-status job)))
 
   (when (and (job-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
