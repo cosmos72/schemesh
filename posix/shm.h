@@ -88,7 +88,7 @@ static int c_shm_fd_open(void) {
     goto fail;
   }
   err = snprintf(
-      path, sizeof(path), "/schemesh_%08" PRIx64 "_08%" PRIx64, (uint64_t)getpid(), (uint64_t)t);
+      path, sizeof(path), "/schemesh_%08" PRIx64 "_%08" PRIx64, (uint64_t)getpid(), (uint64_t)t);
   if (err < 0) {
     goto fail;
   }
