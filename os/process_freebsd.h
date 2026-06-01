@@ -138,7 +138,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_int64(vec, e_proc_ppid, kp->ki_ppid);
   set_int64(vec, e_proc_pgid, kp->ki_pgid);
   set_int64(vec, e_proc_sid, kp->ki_sid);
-  set_uint64(vec, e_proc_mem_rss, (uint64_t)kp->ki_rssize * c_pagesize());
+  set_uint64(vec, e_proc_mem_rss, (uint64_t)kp->ki_rssize * scheme2k_os_pagesize());
   set_uint64(vec, e_proc_mem_virt, (uint64_t)kp->ki_size);
   set_timeval(vec, e_proc_start_time, kp->ki_start);
   set_timeval(vec, e_proc_user_time, kp->ki_rusage.ru_utime);
