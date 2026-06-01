@@ -101,10 +101,10 @@
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- fxarithmetic-shift-right get-thread-id
                        hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
-                       make-continuation-condition make-format-condition memory-order-acquire memory-order-release
-                       meta meta-cond open-fd-output-port parameterize port-closed? procedure-arity-mask
-                       record-writer register-signal-handler reverse! sort! string-copy! string-truncate!
-                       textual-port-output-index threaded? void with-interrupts-disabled)
+                       make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
+                       parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
+                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded?
+                       void with-interrupts-disabled)
     (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop
                                            parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
