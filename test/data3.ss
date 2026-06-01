@@ -483,6 +483,16 @@
      $(display "greet") | cat |
      $(get-string-all)})                               ,(ok "greet")
 
+  (sh-run {status 1000})                               ,(failed 1000)
+  ;; run builtin in a subshell: status is propagated
+  ;; via wire-serialized data in shared memory
+  (sh-run {[status 1001]})                             ,(failed 1001)
+  ;; run Scheme job in a subprocess: status is propagated
+  ;; via wire-serialized data in shared memory
+  (let ((j $(ok 'foo 'bar)))
+    (sh-start j)
+    (sh-fg j))                                         ,(ok foo bar)
+
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? #t))               ,(failed 1)
   (let ((j (sh-cmd "false")))
