@@ -78,7 +78,7 @@ static int c_shm_mmap_init(shm_ctx* ctx) {
 }
 
 static int c_shm_fd_open(void) {
-  char   path[32]; /* 28 would suffice too */
+  char   path[48];
   time_t t;
   int    err;
   int    fd = -1;
@@ -158,11 +158,16 @@ static ptr c_shm_open(int fd_to_use) {
   ctx->head = NULL;
   ctx->fd   = fd_to_use;
   if (c_shm_mmap_init(ctx) == 0) {
+#if 1
+    /* fd_to_use is only needed to resize shared memory, which we don't do yet */
+    (void)close(ctx->fd);
+    ctx->fd = -1;
+#endif
     return Sunsigned64((uintptr_t)(void*)ctx);
   }
 cerrno_close_and_fail:
   err = c_errno();
-  close(fd_to_use);
+  (void)close(fd_to_use);
 fail:
   if (ctx) {
     free(ctx);
@@ -195,7 +200,7 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
   size_t    cap, pos, len, slen;
   iptr      ilen;
   int       err;
-  if (ctx == NULL || ctx->head == NULL || ctx->fd < 0 || /**/
+  if (ctx == NULL || ctx->head == NULL || /* ctx->fd < 0 || */
       !Sbytevectorp(value) || (ilen = Sbytevector_length(value)) < 0) {
     return -EINVAL;
   }
