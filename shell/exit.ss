@@ -44,11 +44,9 @@
 ;; and retrieved by main shell process via (wire-shm-delete!)
 (define child-wire-status-table (make-eqv-hashtable))
 
-(define child-wire-status-mutex (box #f))
-
 
 ;; receive from shared memory and deserialize all available entries pid -> status
-;; must be called with child-wire-status-mutex already locked
+;; must be called with interrupts disabled
 (define (child-wire-status-locked-collect shm ht)
   (let-values (((key value) (wire-shm-delete! shm)))
     ;; (debugf "child-wire-status-locked-collect ~s ~s ~s" shm key value)
@@ -63,20 +61,10 @@
 ;; return #f if not found
 (define (child-wire-status-consume pid)
   ;; NOT reentrant, and often called from interrupts
-  (and
-    (box-cas-strong! child-wire-status-mutex #f #t)
-    (begin (memory-order-acquire) #t)
-    (dynamic-wind
-      disable-interrupts
-      (lambda ()
-        (let ((ht child-wire-status-table))
-          (child-wire-status-locked-collect child-wire-status-shm ht)
-          (let ((status (hashtable-ref ht pid #f)))
-            (when status
-              (hashtable-delete! ht pid))
-            status)))
-      (lambda ()
-        (enable-interrupts)
-        (memory-order-release)
-        (box-cas-strong! child-wire-status-mutex #t #f)))))
-  
+  (with-interrupts-disabled
+    (let ((ht child-wire-status-table))
+      (child-wire-status-locked-collect child-wire-status-shm ht)
+      (let ((status (hashtable-ref ht pid #f)))
+        (when status
+          (hashtable-delete! ht pid))
+        status))))
