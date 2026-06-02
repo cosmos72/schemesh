@@ -52,27 +52,35 @@ static char* c_shm_align_up(char* addr, uintptr_t power_of_2) {
 #endif /* 0 */
 
 static int c_shm_mmap_init(shm_ctx* ctx) {
+  void*  addr;
   size_t pagesz = scheme2k_os_pagesize();
   size_t sz     = ((1 << 18) + pagesz - 1) & ~(pagesz - 1);
-  void*  addr;
   int    fd = ctx->fd;
   if (ftruncate(fd, sz) >= 0 &&
       (addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) != MAP_FAILED) {
 
-    shm_head* head = ctx->head = (shm_head*)addr;
-
     pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&head->mutex, &attr); /* documented to always return 0 */
-    pthread_mutexattr_destroy(&attr);
 
-    head->entry_n     = 0;
-    head->free_pos    = sizeof(shm_head);
-    head->capacity    = sz;
-    ctx->mmapped_size = sz;
+    shm_head* head = ctx->head = (shm_head*)addr;
+    int       err;
+    if ((err = pthread_mutexattr_init(&attr)) != 0) {
+      return -err;
+    }
+    if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+#ifdef PTHREAD_MUTEX_ROBUST
+	&& (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
+#endif
+	) {
+      
+      pthread_mutex_init(&head->mutex, &attr); /* documented to always return 0 */
 
-    return 0;
+      head->entry_n     = 0;
+      head->free_pos    = sizeof(shm_head);
+      head->capacity    = sz;
+      ctx->mmapped_size = sz;
+    }
+    (void)pthread_mutexattr_destroy(&attr);
+    return -err;
   }
   return c_errno();
 }
@@ -190,6 +198,30 @@ static int c_shm_close(shm_ctx* ctx) {
   return c_errno();
 }
 
+static int c_shm_lock(shm_ctx* ctx) {
+  int err;
+  if (ctx == NULL || ctx->head == NULL) {
+    return -EINVAL;
+  }
+  err = pthread_mutex_lock(&ctx->head->mutex);
+#ifdef PTHREAD_MUTEX_ROBUST
+  if (err == EOWNERDEAD) {
+    err = pthread_mutex_consistent(&ctx->head->mutex);
+    if (err != 0) {
+      (void)pthread_mutex_unlock(&ctx->head->mutex);
+    }
+  }
+#endif
+  return -err;
+}
+
+static int c_shm_unlock(shm_ctx* ctx) {
+  if (ctx == NULL || ctx->head == NULL) {
+    return -EINVAL;
+  }
+  return -pthread_mutex_unlock(&ctx->head->mutex);
+}
+
 /*
  * insert key, value into shared memory. value must be a bytevector
  * return 0 on success, or < 0 on error
@@ -200,18 +232,16 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
   size_t    cap, pos, len, slen;
   iptr      ilen;
   int       err;
-  if (ctx == NULL || ctx->head == NULL || /* ctx->fd < 0 || */
-      !Sbytevectorp(value) || (ilen = Sbytevector_length(value)) < 0) {
+  if (!Sbytevectorp(value) || (ilen = Sbytevector_length(value)) < 0) {
     return -EINVAL;
   }
   if ((size_t)ilen > (size_t)-1 - sizeof(uint64_t) + sizeof(size_t)) {
     return -ENOSPC;
   }
-  head = ctx->head;
-  if ((err = pthread_mutex_lock(&head->mutex)) != 0) {
+  if ((err = c_shm_lock(ctx)) != 0) {
     return -err;
   }
-
+  head = ctx->head;
   len  = (size_t)ilen;
   slen = len + sizeof(uint64_t) + sizeof(size_t);
   pos  = head->free_pos;
@@ -222,13 +252,13 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
     return -ENOSPC; /* FIXME: implement shm resizing */
   }
 
-  head->entry_n++;
-  head->free_pos = pos + slen;
-
   dst = (char*)head + pos;
   memcpy(dst, Sbytevector_data(value), len);
   memcpy(dst + len, &len, sizeof(size_t));
   memcpy(dst + len + sizeof(size_t), &key, sizeof(uint64_t));
+
+  head->entry_n++;
+  head->free_pos = pos + slen;
 
 #if 0 /* unneeded */
   {
@@ -243,22 +273,8 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
     }
   }
 #endif
-  (void)pthread_mutex_unlock(&head->mutex);
+  (void)c_shm_unlock(ctx);
   return 0;
-}
-
-static int c_shm_lock(shm_ctx* ctx) {
-  if (ctx == NULL || ctx->head == NULL) {
-    return -EINVAL;
-  }
-  return -pthread_mutex_lock(&ctx->head->mutex);
-}
-
-static int c_shm_unlock(shm_ctx* ctx) {
-  if (ctx == NULL || ctx->head == NULL) {
-    return -EINVAL;
-  }
-  return -pthread_mutex_unlock(&ctx->head->mutex);
 }
 
 /*
@@ -270,7 +286,6 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
   shm_head* head;
   char*     addr;
   ptr       value;
-  size_t    entry_n;
   size_t    free_pos;
   size_t    len;
   int       err;
@@ -282,11 +297,9 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
     (void)pthread_mutex_unlock(&head->mutex);
     return Sinteger(-err);
   }
-  if ((entry_n = head->entry_n) == 0) {
+  if (head->entry_n == 0) {
     return Snil;
   }
-  head->entry_n = entry_n - 1;
-
   value    = Sfalse;
   free_pos = head->free_pos;
   if (free_pos <= ctx->mmapped_size &&
@@ -306,6 +319,8 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
     }
     head->free_pos = addr - (char*)head;
   }
+  head->entry_n--;
+
 #if 0  /* unneeded */
   {
     const size_t pagesz = scheme2k_os_pagesize();
