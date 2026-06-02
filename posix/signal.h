@@ -45,6 +45,8 @@ static const int signals_tohandle[] = {
 #endif
 };
 
+static char signals_initialized = 0;
+
 static int c_signals_init(void) {
   struct sigaction         action   = {};
   static const char* const labels[] = {
@@ -77,19 +79,23 @@ static int c_signals_init(void) {
       return scheme2k_init_failed(labels[i]);
     }
   }
+  signals_initialized = 1;
   return 0;
 }
 
 static int c_signals_setdefault(void) {
-  struct sigaction action = {};
-  size_t           i      = 0;
-  action.sa_handler       = SIG_DFL;
+  if (signals_initialized != 0) {
+    struct sigaction action = {};
+    size_t           i      = 0;
+    action.sa_handler       = SIG_DFL;
 
-  /* keep current SIGCHLD handler, subshells need it */
-  for (i = 1; i < N_OF(signals_tohandle); i++) {
-    if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
-      return c_errno();
+    /* keep current SIGCHLD handler, subshells need it */
+    for (i = 1; i < N_OF(signals_tohandle); i++) {
+      if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
+        return c_errno();
+      }
     }
+    signals_initialized = 0;
   }
   return 0;
 }
