@@ -9,12 +9,16 @@
 
 ;; this file should be included only by file shell/job.ss
 
-(define child-wire-status-shm
-  (begin
-    (s-fd-allocate) ; mark highest fd as reserved: used by tty_fd
-    (let ((shm (wire-shm-open (s-fd->int (s-fd-allocate)))))
-      (and (wire-shm? shm) shm))))
 
+;; shm for receiving arbitrary exit status
+;; from subprocesses
+(define shm-from-children
+  (let ((shm (wire-shm-open)))
+    (and (wire-shm? shm) shm)))
+
+;; shm for sending arbitrary exit status
+;; to parent process. Only set in subprocesses
+(define shm-to-parent #f)
 
 (define (posix-exit-is-exact? status)
   ;; POSIX exit() is limited to 8-bit value 0 ... 255
@@ -33,8 +37,9 @@
       (dynamic-wind
         void
         (lambda ()
-          (unless (posix-exit-is-exact? status)
-            (wire-shm-insert! child-wire-status-shm (c-pid-get) (datum->wire status))))
+          (when (and shm-to-parent
+		     (not (posix-exit-is-exact? status)))
+            (wire-shm-insert! shm-to-parent (c-pid-get) (datum->wire status))))
         (lambda ()
           (posix-exit status))))))
 
@@ -61,10 +66,11 @@
 ;; return #f if not found
 (define (child-wire-status-consume pid)
   ;; NOT reentrant, and often called from interrupts
-  (with-interrupts-disabled
-    (let ((ht child-wire-status-table))
-      (child-wire-status-locked-collect child-wire-status-shm ht)
-      (let ((status (hashtable-ref ht pid #f)))
-        (when status
-          (hashtable-delete! ht pid))
-        status))))
+  (and shm-from-children
+       (with-interrupts-disabled
+	(let ((ht child-wire-status-table))
+	  (child-wire-status-locked-collect shm-from-children ht)
+	  (let ((status (hashtable-ref ht pid #f)))
+            (when status
+              (hashtable-delete! ht pid))
+            status)))))

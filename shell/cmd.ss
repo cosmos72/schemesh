@@ -355,6 +355,14 @@
   ;; in child process, suppress messages about started/completed jobs
   (sh-job-display-summary? #f)
 
+  ;; forget running jobs: they are now our siblings,
+  ;; no longer our children
+  (span-resize-right! (multijob-children (sh-globals)) 1)
+
+  ;; update the shm received from parent: we are now in the child process
+  (set! shm-to-parent shm-from-children)
+  (set! shm-from-children #f)
+
   (let ((pid  (pid-get))
         (pgid (pgid-get 0)))
     ;; this process now "is" the job => update (sh-globals)' pid and pgid
@@ -407,6 +415,13 @@
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (plist? options))
+
+      ;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
+      ;; it may be missing if this is a subprocess of the main shell
+      (unless shm-from-children
+	(set! shm-from-children (let ((shm (wire-shm-open)))
+				  (and (wire-shm? shm) shm))))
+
       (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid
                                  (job-make-c-redirect-vector job)
@@ -473,6 +488,13 @@
         (assert* 'fork-process (procedure? proc))
         (assert* 'fork-process (logbit? 0 (procedure-arity-mask proc)))
         (assert* 'fork-process (plist? options))
+
+	;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
+	;; it may be missing if this is a subprocess of the main shell
+	(unless shm-from-children
+	  (set! shm-from-children (let ((shm (wire-shm-open)))
+				    (and (wire-shm? shm) shm))))
+
         (let* ((job  (sh-expr void (format #f "~s" proc)))
                (pgid (options->process-group-id options))
                (ret  (c-fork-pid '#() (or pgid -1))))

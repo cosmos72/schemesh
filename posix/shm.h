@@ -137,14 +137,10 @@ fail:
   return c_errno();
 }
 
-static ptr c_shm_open(int fd_to_use) {
+static ptr c_shm_open(void) {
   shm_ctx* ctx = NULL;
   int      fd;
   int      err;
-  if (fd_to_use < 0) {
-    err = -EBADF;
-    goto fail;
-  }
   if ((ctx = (shm_ctx*)malloc(sizeof(shm_ctx))) == NULL) {
     err = -ENOMEM;
     goto fail;
@@ -153,29 +149,22 @@ static ptr c_shm_open(int fd_to_use) {
     err = fd;
     goto fail;
   }
-  if (fd != fd_to_use) {
-    if (dup2(fd, fd_to_use) < 0) {
-      fd_to_use = fd;
-      goto cerrno_close_and_fail;
-    }
-    (void)close(fd);
-  }
-  if (fcntl(fd_to_use, F_SETFD, FD_CLOEXEC) < 0) {
+  if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
     goto cerrno_close_and_fail;
   }
   ctx->head = NULL;
-  ctx->fd   = fd_to_use;
+  ctx->fd = fd;
   if (c_shm_mmap_init(ctx) == 0) {
 #if 1
-    /* fd_to_use is only needed to resize shared memory, which we don't do yet */
-    (void)close(ctx->fd);
+    /* fd is only needed to resize shared memory, which we don't do yet */
     ctx->fd = -1;
+    (void)close(fd);
 #endif
     return Sunsigned64((uintptr_t)(void*)ctx);
   }
 cerrno_close_and_fail:
   err = c_errno();
-  (void)close(fd_to_use);
+  (void)close(fd);
 fail:
   if (ctx) {
     free(ctx);

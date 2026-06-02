@@ -10,6 +10,9 @@
 ;; this file should be included only by file shell/job.ss
 
 (begin
+  (s-fd-allocate) ; mark highest fd as reserved: used by tty_fd
+
+
   ;; set the parameter (sh-globals) to the global job.
   ;; Jobs started with (sh-start) will be children of sh-globals.
   ;;

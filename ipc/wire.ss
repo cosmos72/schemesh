@@ -73,20 +73,18 @@
 ;; or < 0 on error.
 ;; never throws
 (define wire-shm-open
-  (let ((c-shm-open (foreign-procedure "c_shm_open" (int) ptr)))
-    (lambda (fd-to-use)
-      (if (and (fixnum? fd-to-use) (fx>=? fd-to-use 0))
-        (let ((ret (c-shm-open fd-to-use)))
-          (cond
-            ((not (and (integer? ret) (exact? ret)))
-               c-errno-einval)
-            ((> ret 0)
-              (make-wire-shm ret))
-            ((< ret 0)
-              ret)
-            (else
-              c-errno-einval)))
-        c-errno-einval))))
+  (let ((c-shm-open (foreign-procedure "c_shm_open" () ptr)))
+    (lambda ()
+      (let ((ret (c-shm-open)))
+        (cond
+          ((not (and (integer? ret) (exact? ret)))
+             c-errno-einval)
+          ((> ret 0)
+             (make-wire-shm ret))
+          ((< ret 0)
+             ret)
+          (else
+             c-errno-einval))))))
 
 
 ;; arguments:
