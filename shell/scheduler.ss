@@ -69,7 +69,7 @@
     (if our-pgid
       (dynamic-wind
         (lambda () ; before body
-          ;; (debugf "call-dynamic-wind setting fg job pgid=~s" new-pgid)
+          ;;53 (debugf "> call-with-foreground-job setting fg job pgid=~s" new-pgid)
           (%foreground-pgid-cas our-pgid new-pgid))
         proc       ; run   body
         (lambda () ; after body
@@ -77,7 +77,7 @@
           ;; detect it and save inside job, in case user wants to resume it later
           (%job-pgid-fg-set! job (foreground-pgid-get))
           ;; try really hard to restore (sh-globals) as the foreground process group
-          ;; (debugf "call-dynamic-wind restoring main pgid=~s" our-pgid)
+          ;;53 (debugf "< call-with-foreground-job restoring main pgid=~s" our-pgid)
           (%foreground-pgid-cas -1 our-pgid)))
       (proc))))
 
@@ -99,28 +99,32 @@
       (raise-errorf caller "job not started yet: ~s" job))
     (else
       (with-foreground-job wait-flags job
-        (pid-advance-wait caller job wait-flags (job-pid job) (job-pgid-fg job) 'sigcont)))))
+        (let ((pid  (job-pid job))
+              (pgid (job-pgid-fg job)))
+          (pid-advance-sigcont caller job wait-flags pid pgid)
+          (pid-advance-wait    caller job wait-flags pid pgid))))))
+
 
 
 ;; Internal function called by (pid-advance)
-(define (pid-advance-signal caller job wait-flags pid pgid signal-name)
+(define (pid-advance-sigcont caller job wait-flags pid pgid)
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
-  (when (sh-wait-flag-continue-if-stopped? wait-flags)
+  (when (and (sh-wait-flag-continue-if-stopped? wait-flags) (job-stopped? job))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "pid-advance/sigcont wait-flags=~s job=~s" job wait-flags)
+    ;; (debugf "pid-advance-sigcont caller ~s, job ~s" caller job)
+    ;;53 (debugf "pid-advance-sigcont caller ~s, job=~s, pid ~s, pgid ~s," caller job pid pgid)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid)
-              signal-name)
+              'sigcont)
     ;; assume job is now running
     (job-status-set/running! job)))
 
 
 ;; Internal function called by (pid-advance)
-(define (pid-advance-wait caller job wait-flags pid pgid signal-name)
-  (when signal-name
-    (pid-advance-signal caller job wait-flags pid pgid signal-name))
+(define (pid-advance-wait caller job wait-flags pid pgid)
+  ;;53 (debugf "> pid-advance-wait caller ~s, job=~s, pid ~s, pgid ~s, wait-flags ~s" caller job pid pgid wait-flags)
 
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (sh-wait-flag-wait? wait-flags))
@@ -129,13 +133,19 @@
                        old-status
                        (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
-    ;; (debugf "pid-advance-wait old-status=~s new-status=~s pid=~s job=~s" old-status new-status (job-pid job) job)
+
+    ;;53 (debugf "< pid-advance-wait caller ~s, job=~s, old-status ~s, new-status ~s" caller job old-status new-status)
+
     ;; (sleep (make-time 'time-duration 0 1))
 
     ;; if blocking? is #f, new-status may be 'running
     ;; indicating job status did not change i.e. it's (expected to be) still running
     (case (status->kind new-status)
-      ((running stopped ok exception failed killed)
+      ((running)
+        (if blocking?
+          (pid-advance-wait caller job wait-flags pid pgid)
+          new-status))
+      ((stopped ok exception failed killed)
         new-status)
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))

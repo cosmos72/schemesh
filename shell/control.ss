@@ -476,6 +476,7 @@
          ;; otherwise send signals to job's process id.
          (target-pid (if (and pgid (> pgid 0)) (- pgid) (job-pid job))))
     (when target-pid
+      ;; (debugf "pgid-continue pid ~s, signal ~s" target-pid 'sigcont)
       (pid-kill target-pid 'sigcont))))
 
 
