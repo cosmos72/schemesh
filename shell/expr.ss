@@ -46,18 +46,32 @@
 ;; into global (sh-pid-table) nor into global job-id table.
 ;;
 ;; Description:
-;; Start a sh-expr job.
-;;
-;; If options plist contains 'spawn? #t, sh-expr is started in a subprocess.
-;; Otherwise sh-expr is executed directly in main process.
+;; Start a sh-expr job in a subprocess.
 ;;
 ;; Returns unspecified value.
 (define (jexpr-start job options)
   (assert* 'sh-expr (eq? 'running (job-last-status->kind job)))
-  (if (options->spawn? options)
+  ;; always start the sh-expr in a subprocess, because it may launch jobs:
+  ;;
+  ;; if the sh-expr is executed directly, launches some job(s),
+  ;; then the sh-expr is suspended and resumed in background,
+  ;; it gets moved to a new subprocess:
+  ;; it loses the parent/child relationship with the jobs it already launched
+  ;; and can no longer wait for them and receive their exit status.
+  ;;
+  ;; Solution: always execute the sh-expr in a subprocess. Slow but correct.
+  ;;
+  ;; An alternative solution - currently *not* implemented - is to move the sh-expr
+  ;; to a new subprocess immediately *before* it launches its first job.
+  ;; That's faster, but it has less clear semantics:
+  ;; global side effects caused by the sh-expr, such as changing a parameter,
+  ;; should propagate to the main shell or not?
+  ;;
+  (if #t ; was: (if (options->spawn? options)
     ;; execute the sh-expr in a subprocess
     (spawn-job-procedure job options jexpr-call-proc)
     ;; execute the sh-expr directly
+    #;   ; commented out
     (begin
       (call/cc
         ;; Capture the continuation representing THIS call to (jexpr-start)
@@ -130,8 +144,9 @@
 ;; continue a job via its resume-proc.
 ;; returns unspecified value
 (define (proc-advance caller job wait-flags)
-  ;; jexpr jobs execute Scheme code, which always blocks:
-  ;; continue only if caller asked to continue job and wait for it to finish or stop.
+  ;; shell builtins and sh-expr jobs execute arbitrary Scheme code, which usually blocks:
+  ;; if caller asked to resume job in background, we must spawn a subprocess
+  ;; and resume the shell builtin or sh-expr there
   ; (debugf "proc-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
   (let ((resume-proc (job-resume-proc job)))
     (when (and resume-proc

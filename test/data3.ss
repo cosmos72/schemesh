@@ -481,7 +481,7 @@
 
   ;; run builtin in a subshell:
   ;; if exit status is not (void) or (failed 0...255),
-  ;; then it is propagated via wire-serialized data in shared memory 
+  ;; then it is propagated via wire-serialized data in shared memory
   (sh-run {[status 3456]})                             ,(failed 3456)
 
   ;; run Scheme jobs in a subprocess: same mechanism as above

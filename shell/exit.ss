@@ -10,14 +10,13 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; shm for receiving arbitrary exit status
-;; from subprocesses
+;; shared memory for receiving arbitrary exit status from subprocesses
 (define shm-from-children
   (let ((shm (wire-shm-open)))
     (and (wire-shm? shm) shm)))
 
-;; shm for sending arbitrary exit status
-;; to parent process. Only set in subprocesses
+;; shared memory for sending arbitrary exit status to parent process.
+;; Only set in subprocesses
 (define shm-to-parent #f)
 
 (define (posix-exit-is-exact? status)
@@ -38,7 +37,7 @@
         void
         (lambda ()
           (when (and shm-to-parent
-		     (not (posix-exit-is-exact? status)))
+                     (not (posix-exit-is-exact? status)))
             (wire-shm-insert! shm-to-parent (c-pid-get) (datum->wire status))))
         (lambda ()
           (posix-exit status))))))
@@ -68,9 +67,9 @@
   ;; NOT reentrant, and often called from interrupts
   (and shm-from-children
        (with-interrupts-disabled
-	(let ((ht child-wire-status-table))
-	  (child-wire-status-locked-collect shm-from-children ht)
-	  (let ((status (hashtable-ref ht pid #f)))
-            (when status
-              (hashtable-delete! ht pid))
-            status)))))
+         (let ((ht child-wire-status-table))
+           (child-wire-status-locked-collect shm-from-children ht)
+           (let ((status (hashtable-ref ht pid #f)))
+             (when status
+               (hashtable-delete! ht pid))
+             status)))))

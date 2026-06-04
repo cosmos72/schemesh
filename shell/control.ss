@@ -140,6 +140,7 @@
   ;b (debugf "job-start ~a ~s" job options)
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
+
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
@@ -150,7 +151,7 @@
   (when job-start-exit-from-spawned-subprocess?
     (sh-exit (job-last-status job)))
 
-  (when (and (job-started? job) (options->spawn? options))
+  (when (and (job-started? job) (job-pid job))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))

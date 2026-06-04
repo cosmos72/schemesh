@@ -389,7 +389,7 @@
       (fds-close-on-fork fds))))
 
 
-;; Fork a new subprocess, and in the child subprocess
+;; Fork a new subprocess, and in the *child* subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
 ;;
@@ -419,8 +419,8 @@
       ;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
       ;; it may be missing if this is a subprocess of the main shell
       (unless shm-from-children
-	(set! shm-from-children (let ((shm (wire-shm-open)))
-				  (and (wire-shm? shm) shm))))
+        (set! shm-from-children (let ((shm (wire-shm-open)))
+                                  (and (wire-shm? shm) shm))))
 
       (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid
@@ -489,11 +489,11 @@
         (assert* 'fork-process (logbit? 0 (procedure-arity-mask proc)))
         (assert* 'fork-process (plist? options))
 
-	;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
-	;; it may be missing if this is a subprocess of the main shell
-	(unless shm-from-children
-	  (set! shm-from-children (let ((shm (wire-shm-open)))
-				    (and (wire-shm? shm) shm))))
+        ;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
+        ;; it may be missing if this is a subprocess of the main shell
+        (unless shm-from-children
+          (set! shm-from-children (let ((shm (wire-shm-open)))
+                                    (and (wire-shm? shm) shm))))
 
         (let* ((job  (sh-expr void (format #f "~s" proc)))
                (pgid (options->process-group-id options))
