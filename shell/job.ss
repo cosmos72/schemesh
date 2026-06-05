@@ -105,7 +105,7 @@
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded?
                        void with-interrupts-disabled)
-    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop
+    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts debugf nop
                                            parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
                                            sh-version-number try until warnf while)
@@ -140,7 +140,7 @@
     (only (scheme2k ipc wire)              wire-shm? wire-shm-open wire-shm-insert! wire-shm-delete!)
     (only (scheme2k vscreen)               vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
     (only (scheme2k lineedit lineedit)     linectx? linectx-history linectx-save-history linectx-wbuf
-                                           lineedit-display-table lineedit-flush lineedit-undraw)
+                                           lineedit-display-table lineedit-flush lineedit-soft-undraw)
           (schemesh shell fds)
     (only (schemesh shell parameters)      sh-eval sh-globals sh-pid-table)
     (only (schemesh shell paths)           sh-path->subpath sh-path-append sh-path-absolute? text->sh-path*))
@@ -547,7 +547,7 @@
         (job-list     (queue-job-display-summary)))
     (unless (and (null? thread-alist) (null? job-list))
       (when (sh-job-display-summary?)
-        (lineedit-undraw lctx 'flush)
+        (lineedit-soft-undraw lctx 'flush)
         (let ((port (console-error-port)))
           (for-alist ((id status.name (list-remove-consecutive-duplicates! (sort! car<? thread-alist) car-eqv?)))
             (thread-display-summary id (car status.name) (cdr status.name) port))

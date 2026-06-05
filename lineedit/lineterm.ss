@@ -9,6 +9,11 @@
 
 ;; this file should be included only by file lineedit/lineedit.ss
 
+
+(define spaces-len 256)
+(define spaces (make-bytevector spaces-len 32))
+
+
 ;; write a byte to wbuf
 (define (lineterm-write/u8 ctx u8)
   (bytespan-insert-right/u8! (linectx-wbuf ctx) u8))
@@ -44,13 +49,11 @@
 
 
 ;; write n spaces to wbuf
-(define lineterm-write/spaces
-  (let ((spaces (make-bytevector 256 32)))
-    (lambda (ctx n)
-      (let ((write-n (fxmin n 256)))
-        (when (fx>? write-n 0)
-          (bytespan-insert-right/bytevector! (linectx-wbuf ctx) spaces 0 write-n)
-          (lineterm-write/spaces ctx (fx- n write-n)))))))
+(define (lineterm-write/spaces ctx n)
+  (let ((write-n (fxmin n spaces-len)))
+    (when (fx>? write-n 0)
+      (bytespan-insert-right/bytevector! (linectx-wbuf ctx) spaces 0 write-n)
+      (lineterm-write/spaces ctx (fx- n write-n)))))
 
 
 ;; Move tty cursor horizontally.
@@ -101,8 +104,7 @@
         (bytespan-insert-right/u8! wbuf 65)))))    ; A
 
 ;; send escape sequence "move to begin-of-line". Moves at beginning of prompt!
-(define (lineterm-move-to-bol caller ctx)
-  ;; (debugf "lineterm-move-to-bol ~s" caller)
+(define (lineterm-move-to-bol ctx)
   (lineterm-write/u8 ctx 13)) ; CTRL+M i.e. '\r'
 
 ;; send escape sequence "clear from cursor to end-of-line"
@@ -126,7 +128,7 @@
          (to-y   (fxmax 0 (fxmin to-y   ymax))))
     (lineterm-move-dy ctx (fx- to-y from-y))
     (if (and (fxzero? to-x) (not (fxzero? from-x)))
-      (lineterm-move-to-bol 'lineterm-move ctx)
+      (lineterm-move-to-bol ctx)
       (lineterm-move-dx ctx (fx- to-x from-x)))))
 
 ;; move tty cursor from its current tty position at from-x, from-y
@@ -140,17 +142,23 @@
 (define (lineterm-move-to ctx to-x to-y)
   (lineterm-move ctx (linectx-term-x ctx) (linectx-term-y ctx) to-x to-y))
 
+
+;; if cursor is at position > x, write a highlighted space to show that last command
+;; did not write a newline, then move to next line.
+;;
+;; if cursor is at position <= x, write some useless spaces that will be erased by #\return or similar
+(define (lineterm-soft-nl-unless-at-x ctx x)
+  (let* ((wbuf  (linectx-wbuf ctx))
+         (width (linectx-width ctx))
+         (write-n (fx- width x)))
+    (bytespan-insert-right/bytevector! wbuf #vu8(27 91 55 109 32 27 91 109)) ; ESC [ 7 m SPACE ESC [ m
+    (do ((write-n (fx1- write-n) (fx- write-n spaces-len)))
+        ((fx<=? write-n 0))
+      (bytespan-insert-right/bytevector! wbuf spaces 0 (fxmin write-n spaces-len)))))
+
 ;; if cursor is not at beginning of line, write a highlighted space to show that last command
 ;; did not write a newline, then move to next line.
 ;;
-;; if cursor is at beginning of line, writes some useless spaces that will be erased by prompt and input.
-(define lineterm-write-not-bol-marker
-  (let* ((space-n 256)
-         (spaces (make-bytevector space-n 32)))
-    (lambda (ctx)
-      (let ((wbuf  (linectx-wbuf ctx))
-            (width (linectx-width ctx)))
-        (bytespan-insert-right/bytevector! wbuf #vu8(27 91 55 109 32 27 91 109)) ; ESC [ 7 m SPACE ESC [ m
-        (do ((write-n (fx1- width) (fx- write-n space-n)))
-            ((fx<=? write-n 0))
-          (bytespan-insert-right/bytevector! wbuf spaces 0 (fxmin write-n space-n)))))))
+;; if cursor is at beginning of line, write some useless spaces that will be erased by prompt and input.
+(define (lineterm-soft-nl-unless-at-bol ctx)
+  (lineterm-soft-nl-unless-at-x ctx 0))

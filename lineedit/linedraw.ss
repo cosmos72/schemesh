@@ -129,26 +129,48 @@
 ;; erase everything, then set flag "redraw prompt and lines"
 (define lineedit-undraw
   (case-lambda
-    ((lctx)
-      (lineedit-undraw lctx #f))
     ((lctx flush?)
       (unless (linectx-redraw? lctx)
         (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
-        (lineterm-move-to-bol 'lineedit-undraw lctx)
+        (lineterm-move-to-bol lctx)
         (lineterm-clear-to-eos lctx)
         (linectx-term-xy-set! lctx 0 0)
         (linectx-redraw-set! lctx #t)
         (when flush?
-          (lineedit-flush lctx))))))
+          (lineedit-flush lctx))))
+    ((lctx)
+      (lineedit-undraw lctx #f))))
+
+
+;; if redraw? is #f, print a soft newline for preserving
+;; anything written after prompt by background jobs,
+;; then set redraw? to #t
+(define lineedit-soft-undraw
+  (case-lambda
+    ((lctx flush?)
+      (unless (linectx-redraw? lctx)
+        (cond
+          ((fxzero? (linectx-term-y lctx))
+            (lineterm-soft-nl-unless-at-x lctx (linectx-prompt-end-x lctx))
+            (lineterm-write/u8 lctx 13))
+          (else
+            (lineterm-write/u8 lctx 10)))
+        (lineterm-clear-to-eos lctx)
+        (linectx-term-xy-set! lctx 0 0)
+        (linectx-redraw-set! lctx #t)
+        (when flush?
+          (lineedit-flush lctx))))
+    ((lctx)
+      (lineedit-soft-undraw lctx #f))))
 
 
 ;; redraw everything
 (define (linectx-redraw-all lctx)
   (when (linectx-mark-not-bol? lctx)
     (linectx-mark-not-bol-set! lctx #f)
-    (lineterm-write-not-bol-marker lctx))
+    (lineterm-soft-nl-unless-at-bol lctx))
   (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
-  (lineterm-move-to-bol 'lineedit-redraw-all lctx)
+  (lineterm-move-to-bol lctx)
   (linectx-update-prompt lctx)
   (linectx-draw-prompt0 lctx)
   (linectx-draw-prompt lctx)
