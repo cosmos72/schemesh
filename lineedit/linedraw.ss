@@ -151,7 +151,7 @@
       (unless (linectx-redraw? lctx)
         (cond
           ((fxzero? (linectx-term-y lctx))
-            (lineterm-soft-nl-unless-at-x lctx (linectx-prompt-end-x lctx))
+            (lineterm-soft-nl-unless-at-x lctx (linectx-term-x lctx))
             (lineterm-write/u8 lctx 13))
           (else
             (lineterm-write/u8 lctx 10)))
