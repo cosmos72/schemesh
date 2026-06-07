@@ -624,11 +624,20 @@ B=2})                                                  ,@"#<void>"
         => to-json1))                                   "[{\"<type>\":\"date\",\"value\":\"2001-02-03T00:00:00-24:00\"},\n{\"<type>\":\"date\",\"value\":\"2012-03-04T00:00:00+24:00\"}]\n"
 
 
+  ;; test shell builtin 'get0'
+  (sh-run/string
+    {echo "{\"name\":\"main.c\"}
+           {\"name\":\"test.c\"}" | get0 name})         "main.c\x0;test.c\x0;"
+
   ;; test shell builtin 'to'
   (sh-run/bytevector
     {$(==> datum-reader
         (date 2026 03 16  12 13 14  999 +3600)
          => to-json) | to wire})                        #vu8(7 255 119 105 114 101 0 0 15 245 17 234 7 3 16 12 13 14 17 231 3 17 16 14)
+
+  (sh-run/string
+    {$(==> datum-reader '(foo "bar")
+         => to-json) | to text0})                       "bar\x0;"
 
 
   ;; test shell builtin `where`

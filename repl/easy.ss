@@ -411,6 +411,17 @@
       (to-table rx (sh-port #f 1 'textual) (and (pair? sz) (car sz)) 'default (and tty? (tty-colors)))))))
 
 
+;; easy wrapper for (make-text0-writer)
+(define to-text0
+  (case-lambda
+    ((rx out close-out?)
+      (copy-all/close rx (make-text0-writer out close-out?)))
+    ((rx out)
+      (to-text0 rx out #f))
+    ((rx)
+      (to-text0 rx (sh-port #f 1 'binary)))))
+
+
 ;; easy wrapper for (all/vector)
 (define (to-vector rx)
   (with-sh-closable ((rx rx))
@@ -492,6 +503,7 @@
         ((some-string-is? options "--to-json")  (to-json   rx))
         ((some-string-is? options "--to-json1") (to-json1  rx))
         ((some-string-is? options "--to-table") (to-table  rx))
+        ((some-string-is? options "--to-text0") (to-text0  rx))
         ((some-string-is? options "--to-wire")  (to-wire   rx))
         (else                                   (to-stdout rx)))) ;; autodetect stdout fd type
     ((rx)
@@ -868,6 +880,29 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: get0
+
+
+;; the "get0" builtin:
+;; parse elements from stdin autodetecting input format, or with specified --from-FORMAT,
+;; select only the single field specified in command line,
+;; and write each element to standard output with format text0
+;;
+;; As all builtins do, must return job status.
+(define (builtin-get0 job prog-and-args options)
+  (let-values (((args options) (split-args-and-options prog-and-args)))
+    (cond
+      ((null? args)
+        (write-builtin-error "get0" "too few arguments"))
+      ((not (null? (cdr args)))
+        (write-builtin-error "get0" "too many arguments"))
+      (else
+        (let* ((rx (from-stdin options))
+               (rx (make-field-reader rx (map string->symbol args))))
+          (to-text0 rx))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: jobs
 
 
@@ -1075,6 +1110,7 @@
                          ((string=? arg "json")   to-json)
                          ((string=? arg "json1")  to-json1)
                          ((string=? arg "table")  to-table)
+                         ((string=? arg "text0")  to-text0)
                          ((string=? arg "wire")   to-wire)
                          (else                    to-stdout))))
           (to (from-stdin options))))

@@ -16,7 +16,7 @@
           proc search select skip skip-first sort-by tty-colors where where@ with-sh-closable sh-start/reader1
 
           from-stdin from-csv from-json from-name0 from-list from-queue from-vector from-wire from-port
-            to-stdout  to-csv   to-json   to-json1   to-list   to-queue   to-vector   to-wire   to-table
+            to-stdout  to-csv   to-json   to-json1   to-list   to-queue   to-vector   to-wire   to-table  to-text0
 
           ;; repl/repl.ss
           repl repl* repl-current-eval repl-current-parse repl-initial-parser
@@ -56,6 +56,7 @@
           (scheme2k io obj)
     (only (scheme2k io sort)         make-sort-reader)
     (only (scheme2k io table)        make-table-writer)
+    (only (scheme2k io text0)        make-text0-writer)
     (only (scheme2k io wire)         make-wire-reader  make-wire-writer)
     (only (scheme2k ipc queue)       make-queue-reader make-queue-writer)
     (only (scheme2k os)              make-disk-reader make-process-reader)
@@ -574,6 +575,7 @@ Type ? or help for this help.
     (hashtable-set! t "first"      builtin-first)
     (hashtable-set! t "from"       builtin-from)
     (hashtable-set! t "jobs"       builtin-jobs)
+    (hashtable-set! t "get0"       builtin-get0)
     (hashtable-set! t "last"       builtin-last)
     (hashtable-set! t "parse"      builtin-parse)
     (hashtable-set! t "proc"       builtin-proc)
@@ -640,6 +642,13 @@ Type ? or help for this help.
     display jobs and their status.
     Options:
       --to-FORMAT   display answers in given FORMAT\n"))
+
+    (hashtable-set! t "get0" (string->utf8 " [OPTIONS] FIELD-NAME
+    parse data from standard input, autodetecting input format.
+    extract only specified FIELD-NAME from parsed elements,
+    and write them to standard output in text0 output format, i.e. NUL-terminated text.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT, instead of autodetecting it\n"))
 
     (hashtable-set! t "last"  (string->utf8 " [OPTIONS] [N]
     parse data from stdin, autodetecting input format,

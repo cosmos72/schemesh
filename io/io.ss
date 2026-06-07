@@ -23,4 +23,5 @@
     (scheme2k io redir)
     (scheme2k io sort)
     (scheme2k io stdio)
+    (scheme2k io text0)
     (scheme2k io wire)))

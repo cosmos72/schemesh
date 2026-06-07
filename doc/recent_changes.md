@@ -13,12 +13,14 @@
 * fix issue #44: always correctly redirect external commands executed in a pipeline
 * fix issue #49: flush `(current-error-port)` and `(current-output-port)` after evaluating an expression or a file
 * fix most filesystem-related functions to honor current job's current directory
+* fix suspending shell builtins inside composite commands `!` `&&` `||` `;`
 * better document how to mix shell and Scheme syntax.
 * implement full job control on shell builtins and scheme jobs:
   they can now also run in background, and they are transparently moved to a new subprocess when needed.
-* add shell builtin `kill`
+* add shell builtins `disk` `get0` `kill`
 * add type `disk-reader`, its convenience function `(disk)` and shell builtin `disk`
 * add type `fs-reader` and its convenience function `(search)`
+* add type `text0-writer`, its convenience function `(to-text0)` and shell builtin `get0`
 * add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with `#\return`.
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
 * add function `(bytevector-append)`

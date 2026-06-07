@@ -25,6 +25,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`fg`](#fg) resume a job, move it to the foreground, and wait for it to finish or stop
 * [`first`](#first) copy only the first N structured data from stdin to stdout, or 1 datum by default
 * [`from`](#from) parse structured data from stdin with specified format, and write such data to stdout
+* [`get`](#get) select only the specified field of structured data from stdin, and write it to stdout as NUL-terminated text
 * [`global`](#global) execute a builtin, making it affect global environment variables or global current directory
 * [`help`](#help) display help about a builtin, or display all builtins by default
 * [`history`](#history) display history
@@ -462,6 +463,17 @@ Arguments:
 * `csv`  assume input format is CSV
 * `json` assume input format is JSON or NDJSON
 * `wire` assume input format is WIRE
+
+Return success, or failure if `FORMAT` is not supported.
+
+#### get0
+Syntax: `get0 [OPTIONS] FIELD_NAME`
+<br/>Added in 1.0.1
+
+Read structured data from standard input,
+then write only the specified field of each element to standard output in NUL-terminated text.<br/>
+Options:
+* `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
 
 Return success, or failure if `FORMAT` is not supported.
 
