@@ -237,7 +237,7 @@
         ;; (sh-or) with zero children -> job fails with (failed 256)
         (job-status-set! 'mj-or-start job (failed 256))
         ;; Do not yet assign a job-id.
-        (mj-or-step job (failed 256))))))
+        (mj-or-step job (failed #f))))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -319,20 +319,20 @@
 (define (mj-or-step mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
-    (if (and (not (ok? prev-child-status))
-             (not (status-ends-multijob? prev-child-status))
-             (sh-job? child))
-      (begin
-        ; start next child job
+    (cond
+      ((and (sh-job? child)
+            (finished? prev-child-status)
+            (not (ok? prev-child-status))
+            (not (stopped? prev-child-status))
+            (not (status-ends-multijob? prev-child-status)))
+        ; start next child job and iterate
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-or child options-catch-fg)))
-          (when (finished? child-status)
-            ; child job already finished, iterate
-            (mj-or-step mj child-status))))
-      (begin
-        ; previous child successful, or interrupted, or end of children
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'mj-or-step mj prev-child-status)))))
+        (mj-or-step mj (job-start 'sh-or child options-catch-fg)))
+      (else
+        ; previous child successful, or interrupted, or suspended, or end of children
+        (job-status-set! 'mj-or-step mj prev-child-status)
+        (when (and (finished? prev-child-status) (not (sh-job? child)))
+          (multijob-current-child-index-set! mj -1))))))
 
 
 ;; Run the child job in a multijob containing a "not" and one child job,
@@ -343,22 +343,24 @@
 
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
-    (if (sh-job? child)
-      (begin
-        ; start child job
+    (cond
+      ((and (sh-job? child)
+            (finished? prev-child-status))
+        ; start child job and iterate
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-not child options-catch-fg)))
-          (when (finished? child-status)
-            ; child job already finished, iterate
-            (mj-not-step mj child-status))))
-      (begin
-        ; child job failed, negate its exit status
-        (multijob-current-child-index-set! mj -1)
+        (mj-not-step mj (job-start 'sh-not child options-catch-fg)))
+      (else
+        ; previous child finished, or interrupted, or suspended, or end of children
         (job-status-set! 'mj-not-step mj
           (cond
-            ((ok? prev-child-status) (failed 1))
-            ((status-ends-multijob? prev-child-status) prev-child-status)
-            (else (void))))))))
+            ((ok? prev-child-status)
+              (failed 1))
+            ((or (stopped? prev-child-status) (status-ends-multijob? prev-child-status))
+              prev-child-status)
+            (else
+              (void))))
+        (when (and (finished? prev-child-status) (not (sh-job? child)))
+          (multijob-current-child-index-set! mj -1))))))
 
 
 ;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
