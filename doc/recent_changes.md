@@ -12,6 +12,7 @@
 
 * fix issue #44: always correctly redirect external commands executed in a pipeline
 * fix issue #49: flush `(current-error-port)` and `(current-output-port)` after evaluating an expression or a file
+* fix issue #53: send SIGCONT only once when resuming a suspended subprocess
 * fix most filesystem-related functions to honor current job's current directory
 * fix suspending shell builtins inside composite commands `!` `&&` `||` `;`
 * better document how to mix shell and Scheme syntax.
