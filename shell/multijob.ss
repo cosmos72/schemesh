@@ -368,13 +368,12 @@
 (define (mj-list-step mj prev-child-status)
   (let* ((idx      (fx1+ (multijob-current-child-index mj)))
          (child-n  (span-length (multijob-children mj)))
-         (iterate? #t)
-         (interrupted? #f))
-    ; (debugf "mj-list-step > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
+         (iterate?  #t))
+    ;; (debugf "mj-list-step > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
     (assert* 'mj-list-step (finished? prev-child-status))
-    ; idx = 0 if called by (mj-list-start)
+    ;; idx = 0 if called by (mj-list-start)
     (assert* 'mj-list-step (fx>=? idx 0))
-    (while (and iterate? (not interrupted?) (fx<=? idx child-n))
+    (while (and iterate? (fx<=? idx child-n))
       (multijob-current-child-index-set! mj idx)
       (let ((child (sh-multijob-child-ref mj idx)))
         (when (sh-job? child)
@@ -382,10 +381,11 @@
           (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
                  (child-status (job-start 'sh-list child (if child-async? options-catch-bg options-catch-fg)))
                  (child-started? (started? child-status)))
-            ; iterate on subsequent child jobs in two cases:
-            ; if child job is followed by '&
-            ; if child job has already finished
-            ; (debugf "mj-list-step~a started child ~s" (if child-async? " async" "") child)
+            ;;0 (debugf ". mj-list-step\tchild ~a,\tstatus ~s" child child-status)
+            ;; iterate on subsequent child jobs in two cases:
+            ;; if child job is followed by '&
+            ;; if child job has already finished
+            ;; (debugf "mj-list-step~a started child ~s" (if child-async? " async" "") child)
             (if child-async?
               ; run child job asynchronously
               (when child-started?
@@ -393,21 +393,22 @@
                 (job-id-set! child))
               ; run child job synchronously:
               (begin
-                (set! interrupted? (status-ends-multijob? child-status))
-                (if child-started?
-                  ; stop iterating if child job is still running or is stopped
-                  (set! iterate? #f)
-                  ; remember exit status of last sync child, and keep iterating
-                  (set! prev-child-status child-status)))))))
-      ; in any case, advance idx after each iteration
+                ;; remember exit status of last sync child
+                (set! prev-child-status child-status)
+                ;; stop iterating if child job is running or is stopped
+                (when (or child-started? (status-stops-or-ends-multijob? child-status))
+                  (set! iterate? #f))))
+            ;;0 (debugf ". mj-list-step\tchild ~a,\tchild-status ~s,\tlist-status ~s" child child-status prev-child-status)
+            )))
+      ;; in any case, advance idx after each iteration
       (set! idx (fx1+ idx)))
-    (when (or interrupted?
-              (and (fx>? idx child-n)
-                   (finished? prev-child-status)))
-      ; end of children reached, or sync child interrupted.
-      ; propagate status of last sync child
-      (multijob-current-child-index-set! mj -1)
-      (job-status-set! 'mj-list-step mj prev-child-status))))
+    (when (and (fx>? idx child-n) (finished? prev-child-status))
+      ;; end of children reached
+      (multijob-current-child-index-set! mj -1))
+    ;; propagate status of last sync child
+    (job-status-set! 'mj-list-step mj prev-child-status)))
+
+
 
 
 ;; recursively kill a multijob and all its children jobs.

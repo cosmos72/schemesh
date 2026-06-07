@@ -137,7 +137,7 @@
     (raise-threaded-message-condition
       "starting jobs from secondary thread is not supported. consider using a subprocess instead"))
 
-  ;b (debugf "job-start ~a ~s" job options)
+  ;;0 (debugf "> job-start ~a ~s" job options)
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
 
@@ -155,7 +155,8 @@
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))
-  (job-last-status job)) ; returns job status. also checks if job finished
+  ;;0 (debugf "< job-start ~a ~s status ~s" job options (job-last-status job))
+  (job-last-status job))
 
 
 ;; raise an exception if a job or one of it recursive children is already started
@@ -419,11 +420,8 @@
 (define (sh-wait-flag-wait? wait-flags)
   (not (fxzero? (fxand wait-flags 24))))
 
-(define (notrace-call arg)
-  arg)
-
 (define (job-wait-once caller job wait-flags)
-  ;; (debugf "job-wait-once\tcaller=~s\twait-flags=~s\tjob=~a\tid=~s\tpid=~s\tstatus=~s" caller wait-flags job (job-id job) (job-pid job) (job-last-status job))
+  ;;0 (debugf "> job-wait-once\tcaller ~s,\twait-flags ~s,\tjob=~a,\tid=~s,\tpid=~s,\tstatus=~s" caller wait-flags job (job-id job) (job-pid job) (job-last-status job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
       (void)) ; job finished
@@ -432,14 +430,14 @@
         ((job-pid job)
           ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
           ;; in all cases, we have a pid to wait on.
-          (notrace-call (pid-advance     caller job wait-flags)))
+          (pid-advance     caller job wait-flags))
         ((job-resume-proc job)
-          (notrace-call (proc-advance    caller job wait-flags)))
+          (proc-advance    caller job wait-flags))
         ((sh-multijob-pipe? job)
-          (notrace-call (mj-pipe-advance caller job wait-flags)))
+          (mj-pipe-advance caller job wait-flags))
         ((sh-multijob? job)
-          (notrace-call (mj-advance      caller job wait-flags))))
-      ;x (debugf "...job-wait-once job=~s\tstatus=~s" job (job-last-status job))
+          (mj-advance      caller job wait-flags)))
+      ;;0 (debugf "< job-wait-once\tcaller ~s,\tjob=~a,\tstatus=~s" caller job (job-last-status job))
       (job-last-status job))
     (else
       (raise-errorf caller "job not started yet: ~s" job))))

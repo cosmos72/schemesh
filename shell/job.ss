@@ -105,7 +105,7 @@
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded?
                        void with-interrupts-disabled)
-    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts debugf nop
+    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop
                                            parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
                                            sh-version-number try until warnf while)
