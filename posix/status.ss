@@ -97,10 +97,11 @@
 
 ;; create a status 'failed with value val
 (define (failed val)
-  (case val
-    ((#f)  s-failed-f)
-    ((1)   s-failed-1)
-    (else  (%make-status 'failed val))))
+  (cond
+    ((not val)                          s-failed-f)
+    ((eqv? 1 val)                       s-failed-1)
+    ((and (status? val) (failed? val))  val)      ;; unwrap (failed (failed ...))
+    (else                               (%make-status 'failed val))))
 
 
 ;; create a status 'ok with zero or more values,
@@ -116,9 +117,9 @@
       s-ok-empty)
     ((and (pair? vals) (null? (cdr vals)))
       (let ((val (car vals)))
-        (cond ((not val)      s-failed-f)
-              ((status? val)  val) ;; also catches (void)
-              (else           (%make-status 'ok vals)))))
+        (cond ((not val)                      s-failed-f) ;; SPECIAL CASE: (ok #f) returns (failed #f)
+              ((and (status? val) (ok? val))  val)        ;; simplify (ok (void)) -> (void) and unwrap (ok (ok ...)) -> (ok ...)
+              (else                           (%make-status 'ok vals)))))
     (else
       (%make-status 'ok vals))))
 
@@ -200,10 +201,17 @@
     #f))
 
 
+;; Return #t if status represents a failed job, i.e. its kind is 'failed 'killed.
+;; otherwise return #f
+(define (failed? status)
+  (eq? 'failed (status->kind status)))
+
+
 ;; return #t if status kind is 'ok, i.e. if job finished successfully.
 ;; otherwise return #f
 (define (ok? status)
   (eq? 'ok (status->kind status)))
+
 
 
 ;; Extract the first value of a status, convert it to an 8-bit fixnum in 0 ... 255,
