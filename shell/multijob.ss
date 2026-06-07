@@ -354,11 +354,12 @@
         (job-status-set! 'mj-not-step mj
           (cond
             ((ok? prev-child-status)
-              (failed 1))
+              (failed (status->value prev-child-status)))
             ((or (stopped? prev-child-status) (status-ends-multijob? prev-child-status))
               prev-child-status)
             (else
-              (void))))
+              ;; (ok #f) returns (failed #f) -> replace it with (ok (void)) that returns (void)
+              (ok (or (status->value prev-child-status) (void))))))
         (when (and (finished? prev-child-status) (not (sh-job? child)))
           (multijob-current-child-index-set! mj -1))))))
 

@@ -539,10 +539,12 @@ B=2})                                                  ,@"#<void>"
   (sh-run/i {true || false})                           ,@"#<void>"
   (sh-run   {true || false})                           ,@"#<void>"
   (sh-run   {false || false})                          ,(failed 1)
-  (sh-run/i {! true})                                  ,(failed 1)
-  (sh-run   {! true})                                  ,(failed 1)
-  (sh-run/i {! false})                                 ,@"#<void>"
-  (sh-run   {! false})                                 ,@"#<void>"
+  (sh-run/i {! true})                                  ,@"(failed #<void>)"
+  (sh-run   {! true})                                  ,@"(failed #<void>)"
+  (sh-run   {!! true})                                 ,@"#<void>"
+  (sh-run/i {! false})                                 ,(ok 1)
+  (sh-run   {! false})                                 ,(ok 1)
+  (sh-run   {! status 87})                             ,(ok 87)
   (let ((j {true && command false}))
     (sh-start j)
     (sh-bg j)
