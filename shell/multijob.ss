@@ -302,18 +302,16 @@
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
     ;; (debugf "mj-and-step idx=~s child=~s prev-child-status=~s" idx child prev-child-status)
-    (if (and (ok? prev-child-status) (sh-job? child))
-      (begin
-        ; start next child job
+    (cond
+      ((and (ok? prev-child-status) (sh-job? child))
+        ; start next child job and iterate
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-and child options-catch-fg)))
-          (when (finished? child-status)
-            ; child job already finished, iterate
-            (mj-and-step mj child-status))))
-      (begin
-        ; previous child failed, or interrupted, or end of children
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'mj-and-step mj prev-child-status)))))
+        (mj-and-step mj (job-start 'sh-and child options-catch-fg)))
+      (else
+        ; previous child failed, or interrupted, or suspended, or end of children
+        (job-status-set! 'mj-and-step mj prev-child-status)
+        (when (and (finished? prev-child-status) (not (sh-job? child)))
+          (multijob-current-child-index-set! mj -1))))))
 
 
 ;; Run next child job in a multijob containing an "or" of children jobs.
