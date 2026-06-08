@@ -65,19 +65,19 @@
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
   (job-status-set! 'cmd-start c
     (let ((prog-and-args (cmd-arg-list c)))
-      (if (string-list? prog-and-args)
 
+      ;; some command line argument may be a procedure or sh-expr:
+      ;; setup fds remapping before calling them, because they may want to use (sh-fd N)
+      (job-remap-fds! c)
+
+      (if (string-list? prog-and-args)
         ;; all command line arguments are strings, proceed
         (start-command-or-builtin-or-alias c prog-and-args options)
-
-        ;; some command line argument is a procedure or sh-expr:
-        ;; setup fds remapping before calling them, because they may want to use (sh-fd N)
-        (begin
-          (job-remap-fds! c)
-          (let ((l (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)))
-            (if (or (pair? l) (null? l))
-              (start-command-or-builtin-or-alias c l options)
-              l)))))))
+        ;; some command line argument is a procedure or sh-expr: call them
+        (let ((l (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)))
+          (if (or (pair? l) (null? l))
+            (start-command-or-builtin-or-alias c l options)
+            l))))))
 
 
 ;; internal function called by (cmd-start):

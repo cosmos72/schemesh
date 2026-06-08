@@ -440,9 +440,8 @@
 ;;   and the returned status can only be one of (void) (ok ...) (failed ...) (killed ...) or (exception ...)
 (define (builtin-start builtin c args options)
   (assert* 'builtin-start (not (job-step-proc c)))
-  (unless (job-fds-to-remap c)
-    ;; perform fd remapping before starting the builtin
-    (job-remap-fds! c))
+  ;; (job-remap-fds! c)              ;; already called by (cmd-start)
+  ;; (job-env/apply-lazy! c 'export) ;; already called by (start-command-or-builtin-or-alias)
   ;; fd remapping performed, proceed
   (%builtin-start-already-redirected builtin c args options))
 
