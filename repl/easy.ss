@@ -746,6 +746,53 @@
       (write-builtin-error "all" "too many arguments"))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; read all elements from reader rx and collect their field values, removing field omit-field-name.
+;; return list of elements, where each element is itself a list of values
+(define (all-values-except rx omit-field-name)
+  (let %all-values-except ((cache (make-eq-hashtable))
+                           (pred (lambda (name) (not (eq? omit-field-name name))))
+                           (ret '()))
+    (let-values (((elem ok?) (reader-get rx)))
+      (if ok?
+        (%all-values-except cache pred (cons (field-values-if elem pred cache) ret))
+        (reverse! ret)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shell builtin: args
+
+
+;; the "args" builtin:
+;; parse elements from standard input autodetecting input format, or with specified --from-FORMAT.
+;; Each element will contain zero or more fields:
+;; pass the fields as arguments to the specified command, alias or builtin.
+;;
+;; As all builtins do, must return job status.
+;;
+;; Added in 1.0.1
+(define (builtin-args job prog-and-args options)
+  (let ((args-and-opts (cdr prog-and-args)))
+    (if (null? args-and-opts)
+      (write-builtin-error "args" "too few arguments")
+      (let-values (((args opts)
+                      (let %split-initial-opts ((args args-and-opts) (opts '()))
+                        (let ((arg (if (null? args) #f (car args))))
+                          (cond
+                            ((null? args)
+                              (values args (reverse! opts)))
+                            ((string=? arg "--")
+                              (values (cdr args) (reverse! opts)))
+                            ((string-prefix? arg "--")
+                              (%split-initial-opts (cdr args) (cons arg opts)))
+                            (else
+                              (values args (reverse! opts))))))))
+          (let* ((values-lists (all-values-except (from-stdin opts) '<type>))
+                 (args-and-values (apply append args values-lists)))
+            (sh-job-internal-start-helper job args-and-values options))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; shell builtin: dir

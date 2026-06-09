@@ -70,7 +70,7 @@
     (only (scheme2k posix status)    failed ok status?)
     (only (scheme2k posix thread)    threads-status)
           (scheme2k posix tty)
-    (only (scheme2k reflect)         equiv? field)
+    (only (scheme2k reflect)         equiv? field field-values-if)
     (only (schemesh shell)
             c-username repl-args repl-args-linectx repl-history repl-restart repl-restart? sh-builtins sh-builtins-help
             sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
@@ -79,6 +79,7 @@
             sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
             sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
             with-sh-resource xdg-cache-home/ xdg-config-home/)
+    (only (schemesh shell job)       sh-job-internal-start-helper)
     (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
 
 
@@ -570,6 +571,7 @@ Type ? or help for this help.
     ;; additional builtins
     (hashtable-set! t "all"        builtin-all)
     (hashtable-set! t "answers"    builtin-answers)
+    (hashtable-set! t "args"       builtin-args)
     (hashtable-set! t "dir"        builtin-dir)
     (hashtable-set! t "disk"       builtin-disk)
     (hashtable-set! t "first"      builtin-first)
@@ -600,6 +602,13 @@ Type ? or help for this help.
     display values returned by recent expressions evaluated at repl.
     Options:
       --to-FORMAT   display answers in given FORMAT\n"))
+
+    (hashtable-set! t "args"  (string->utf8 " [OPTIONS] alias-or-builtin-or-cmd [arg ...]
+    parse data from stdin, autodetecting input format,
+    append parsed field values to [arg ...],
+    and execute alias-or-builtin-or-cmd with such concatenated arguments.
+    Options:
+      --from-FORMAT read elements from stdin in given FORMAT\n"))
 
     (hashtable-set! t "dir"  (string->utf8 " [OPTIONS] [PATH]...
     display specified files and directories, or current directory by default.

@@ -13,7 +13,7 @@
     (schemesh shell autocomplete)
     (schemesh shell eval)
     (schemesh shell fds)
-    (schemesh shell job)
+    (except (schemesh shell job) sh-job-internal-start-helper)
     (schemesh shell macros)
     (schemesh shell parameters)
     (schemesh shell paths)

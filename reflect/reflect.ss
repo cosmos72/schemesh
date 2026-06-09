@@ -13,7 +13,7 @@
 (library (scheme2k reflect (1 0 0))
   (export array? array-accessor array-length chararray? chararray-accessor chararray-length htable? htable-size in-htable
           compare compare-type-and-value equiv? greater-equiv? greater? less? less-equiv? unordered? reflect-compare-functions-set!
-          field field-names fields->plist in-fields
+          field field-names field-values field-values-if fields->plist in-fields
           make-reflect-info make-reflect-info-autodetect make-reflect-deserializer
           reflect-info reflect-info? reflect-info-deserializer reflect-info-fill! reflect-info-set! reflect-info-set-autodetect! reflect-infos)
   (import
@@ -876,6 +876,43 @@
           '#())))
     ((obj)
       (field-names obj #f))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; field-values
+
+;; return a freshly allocated list containing the same field values as elem.
+;;
+(define field-values
+  (case-lambda
+    ((obj cache)
+      (let %field-values-loop ((iter (in-fields obj cache)) (ret '()))
+        (let-values (((name value ok?) (iter)))
+          (if ok?
+            (%field-values-loop iter (cons value ret))
+            (reverse! ret)))))
+    ((obj)
+      (field-values obj #f))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; field-values-if
+
+;; return a freshly allocated list containing only the field values of elem
+;; for which (pred field-name) returns truish.
+;;
+(define field-values-if
+  (case-lambda
+    ((obj pred cache)
+      (assert* 'field-values-if (procedure? pred))
+      (assert* 'field-values-if (logbit? 1 (procedure-arity-mask pred)))
+      (let %field-values-if ((iter (in-fields obj cache)) (ret '()))
+        (let-values (((name value ok?) (iter)))
+          (if ok?
+            (%field-values-if iter (if (pred name) (cons value ret) ret))
+            (reverse! ret)))))
+    ((obj pred)
+      (field-values-if obj pred #f))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

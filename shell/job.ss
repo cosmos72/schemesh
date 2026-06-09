@@ -26,7 +26,8 @@
 
 
     ;; cmd.ss
-    fork-process make-sh-cmd sh-cmd
+    fork-process make-sh-cmd sh-cmd (rename (start-command-or-builtin-or-alias-from-another-builtin
+                                             sh-job-internal-start-helper))
 
     ;; control.ss
     sh-current-job-kill sh-current-job-suspend sh-preferred-job-id sh-inside-interrupt?
