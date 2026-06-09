@@ -24,7 +24,7 @@
                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan->real)
     (only (scheme2k containers string)   string-index string-index-right)
     (only (scheme2k containers vector)   for-vector)
-    (only (scheme2k containers utf8b)    bytespan-insert-right/string! utf8b-bytespan->string)
+    (only (scheme2k containers utf8b)    bytespan-display-right/datum! bytespan-insert-right/string! utf8b-bytespan->string)
     (only (scheme2k io obj)              reader reader-eof? writer writer-eof?)
     (only (scheme2k reflect)             field field-names))
 

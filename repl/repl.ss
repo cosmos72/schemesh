@@ -42,7 +42,7 @@
     (only (scheme2k containers span)      make-span span-clear! span-delete-left! span-fill! span-index span-insert-right! span-length
                                           span-reader span-ref span-set!)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
-    (only (scheme2k containers utf8b)     bytespan-insert-right/string!)
+    (only (scheme2k containers utf8b)     bytespan-display-right/datum! bytespan-insert-right/string! utf8b-bytespan->string)
     (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name-set! linectx-parsers linectx-parsers-set!
                                           linectx-prompt-end-x linectx-save-history linectx-width
                                           lineedit-clear! lineedit-flush lineedit-read

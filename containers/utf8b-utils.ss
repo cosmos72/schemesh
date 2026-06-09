@@ -267,6 +267,66 @@
       (bytespan-insert-right/charspan! bsp csp 0 (charspan-length csp)))))
 
 
+(define (write/ratio sp num)
+  (let* ((neg? (< num 0))
+         (num  (if neg? (- num) num)))
+    (when neg?
+      (bytespan-insert-right/u8! sp 45)) ; #\-
+    (let-values (((integer fraction) (div-and-mod num 1)))
+      (bytespan-display-right/integer! sp integer)
+      (unless (zero? fraction)
+        (let ((fraction*1e16 (div (* fraction 10000000000000000) 1)))
+          (unless (zero? fraction*1e16)
+            (bytespan-insert-right/u8! sp 46) ; #\.
+            (bytespan-display-right/unsigned-k-digits! sp fraction*1e16 16)
+            ;; remove least significant zeroes
+            (do ()
+                ((not (fx=? 48 (bytespan-ref-right/u8 sp 0))))
+              (bytespan-delete-right! sp 1))))))))
+
+
+(define (write/real sp num)
+  (let ((str (number->string num 10)))
+    (bytespan-insert-right/string! sp str)
+    (unless (string-index-right str #\e)
+      (bytespan-insert-right/u8! sp 101)   ; #\e
+      (bytespan-insert-right/u8! sp 48)))) ; #\0
+
+
+(define (write/number sp num)
+  (cond
+    ((not (real? num))
+      (bytespan-insert-right/string! sp (number->string num 10)))
+    ((not (exact? num))
+      (write/real sp num))
+    ((not (integer? num))
+      (write/ratio sp num))
+    (else
+      (bytespan-display-right/integer! sp num))))
+
+
+(define (write/time sp obj)
+  (write/ratio sp
+    (+ (time-second obj) (/ (time-nanosecond obj) 1000000000))))
+
+
+(define (bytespan-display-right/datum! sp value)
+  (cond
+    ((eq? (void) value)
+      (void))
+    ((and (integer? value) (exact? value))
+      (bytespan-display-right/integer! sp value))
+    ((number? value)
+      (write/number sp value))
+    ((string? value)
+      (bytespan-insert-right/string! sp value))
+    ((charspan? value)
+      (bytespan-insert-right/charspan! sp value))
+    ((time? value)
+      (write/time sp value))
+    (else
+      (bytespan-insert-right/string! sp (format #f "~s" value)))))
+
 ;; convert a charspan to UTF-8b bytespan.
 (define charspan->utf8b
   (case-lambda

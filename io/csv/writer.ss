@@ -40,10 +40,6 @@
   (bytespan-insert-right/u8! wbuf 13 10)) ; #\return #\newline
 
 
-(define (write/unquoted-string wbuf str)
-  (bytespan-insert-right/string! wbuf str))
-
-
 (define (write/quoted-string wbuf str)
   (bytespan-insert-right/u8! wbuf 34) ; #\"
   ;; replicate each #\" in string
@@ -56,62 +52,16 @@
   (bytespan-insert-right/u8! wbuf 34)) ; #\"
 
 
-;; copy-pasted from io/json/writer.ss
-(define (write/ratio wbuf num)
-  (let* ((neg? (< num 0))
-         (num  (if neg? (- num) num)))
-    (when neg?
-      (bytespan-insert-right/u8! wbuf 45)) ; #\-
-    (let-values (((integer fraction) (div-and-mod num 1)))
-      (bytespan-display-right/integer! wbuf integer)
-      (unless (zero? fraction)
-        (let ((fraction*1e16 (div (* fraction 10000000000000000) 1)))
-          (unless (zero? fraction*1e16)
-            (bytespan-insert-right/u8! wbuf 46) ; #\.
-            (bytespan-display-right/unsigned-k-digits! wbuf fraction*1e16 16)
-            ;; remove least significant zeroes
-            (do ()
-                ((not (fx=? 48 (bytespan-ref-right/u8 wbuf 0))))
-              (bytespan-delete-right! wbuf 1))))))))
-
-
-(define (write/real wbuf num)
-  (let ((str (number->string num 10)))
-    (write/unquoted-string wbuf str)
-    (unless (string-index-right str #\e)
-      (bytespan-insert-right/u8! wbuf 101)   ; #\e
-      (bytespan-insert-right/u8! wbuf 48)))) ; #\0
-
-
-(define (write/number wbuf num)
-  (cond
-    ((not (real? num))
-      (write/unquoted-string wbuf (number->string num 10)))
-    ((not (exact? num))
-      (write/real wbuf num))
-    ((not (integer? num))
-      (write/ratio wbuf num))
-    (else
-      (bytespan-display-right/integer! wbuf num))))
-
-
-(define (write/time wbuf obj)
-  (write/ratio wbuf
-    (+ (time-second obj) (/ (time-nanosecond obj) 1000000000))))
-
-
 (define (write/field wbuf value)
   (cond
     ((eq? (void) value)
       (void))
-    ((and (integer? value) (exact? value))
-      (bytespan-display-right/integer! wbuf value))
     ((number? value)
-      (write/number wbuf value))
+      (bytespan-display-right/datum! wbuf value))
     ((string? value)
       (write/quoted-string wbuf value))
     ((time? value)
-      (write/time wbuf value))
+      (bytespan-display-right/datum! wbuf value))
     (else
       (write/quoted-string wbuf (format #f "~s" value)))))
 

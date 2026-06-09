@@ -789,9 +789,17 @@
                               (%split-initial-opts (cdr args) (cons arg opts)))
                             (else
                               (values args (reverse! opts))))))))
-          (let* ((values-lists (all-values-except (from-stdin opts) '<type>))
-                 (args-and-values (apply append args values-lists)))
-            (sh-job-internal-start-helper job args-and-values options))))))
+          (let* ((val-lists (all-values-except (from-stdin opts) '<type>))
+                 (val-list  (apply append val-lists))
+                 (wbuf      (make-bytespan 0)))
+            (do ((l val-list (cdr l)))
+                ((null? l))
+              (let ((val (car l)))
+                (unless (string? val)
+                  (bytespan-clear! wbuf)
+                  (bytespan-display-right/datum! wbuf val)
+                  (set-car! l (utf8b-bytespan->string wbuf)))))
+            (sh-job-internal-start-helper job (append args val-list) options))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

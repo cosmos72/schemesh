@@ -15,8 +15,9 @@
 
     ;; utf8b-utils.ss
     bytevector-char-ref bytevector-char-set! char->utf8b-length
-    bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
-    bytespan-insert-right/charspan! bytespan-insert-right/string!
+    bytespan-ref/char bytespan-set/char! bytespan-display-right/datum!
+    bytespan-insert-left/char! bytespan-insert-right/char!
+    bytespan-insert-right/charspan!  bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
 
   (import
@@ -24,11 +25,13 @@
                                            (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate! void)
+    (only (chezscheme)                     bytevector foreign-procedure format fx1+ fx1- include string-truncate!
+                                           time? time-second time-nanosecond void)
     (only (scheme2k bootstrap)             assert* fx<=?* raise-assertf)
     (only (scheme2k containers bytevector) subbytevector-fill!)
-    (scheme2k containers bytespan)
-    (scheme2k containers charspan))
+          (scheme2k containers bytespan)
+          (scheme2k containers charspan)
+    (only (scheme2k containers string)     string-index-right))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

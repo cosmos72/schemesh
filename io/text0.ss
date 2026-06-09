@@ -23,7 +23,7 @@
                                          bytespan-ref/u8 bytespan-ref-right/u8 bytespan->real)
     (only (scheme2k containers string)   string-index string-index-right)
     (only (scheme2k containers vector)   for-vector)
-    (only (scheme2k containers utf8b)    bytespan-insert-right/string! utf8b-bytespan->string)
+    (only (scheme2k containers utf8b)    bytespan-display-right/datum! utf8b-bytespan->string)
     (only (scheme2k io obj)              reader reader-eof? writer writer-eof?)
     (only (scheme2k reflect)             field field-names))
 
@@ -56,71 +56,7 @@
       (make-text0-writer out #f))))
 
 
-(define (write/unquoted-string wbuf str)
-  (bytespan-insert-right/string! wbuf str))
-
-
-;; copy-pasted from io/json/writer.ss
-(define (write/ratio wbuf num)
-  (let* ((neg? (< num 0))
-         (num  (if neg? (- num) num)))
-    (when neg?
-      (bytespan-insert-right/u8! wbuf 45)) ; #\-
-    (let-values (((integer fraction) (div-and-mod num 1)))
-      (bytespan-display-right/integer! wbuf integer)
-      (unless (zero? fraction)
-        (let ((fraction*1e16 (div (* fraction 10000000000000000) 1)))
-          (unless (zero? fraction*1e16)
-            (bytespan-insert-right/u8! wbuf 46) ; #\.
-            (bytespan-display-right/unsigned-k-digits! wbuf fraction*1e16 16)
-            ;; remove least significant zeroes
-            (do ()
-                ((not (fx=? 48 (bytespan-ref-right/u8 wbuf 0))))
-              (bytespan-delete-right! wbuf 1))))))))
-
-
-(define (write/real wbuf num)
-  (let ((str (number->string num 10)))
-    (write/unquoted-string wbuf str)
-    (unless (string-index-right str #\e)
-      (bytespan-insert-right/u8! wbuf 101)   ; #\e
-      (bytespan-insert-right/u8! wbuf 48)))) ; #\0
-
-
-(define (write/number wbuf num)
-  (cond
-    ((not (real? num))
-      (write/unquoted-string wbuf (number->string num 10)))
-    ((not (exact? num))
-      (write/real wbuf num))
-    ((not (integer? num))
-      (write/ratio wbuf num))
-    (else
-      (bytespan-display-right/integer! wbuf num))))
-
-
-(define (write/time wbuf obj)
-  (write/ratio wbuf
-    (+ (time-second obj) (/ (time-nanosecond obj) 1000000000))))
-
-
-(define (write/field wbuf value)
-  (cond
-    ((eq? (void) value)
-      (void))
-    ((and (integer? value) (exact? value))
-      (bytespan-display-right/integer! wbuf value))
-    ((number? value)
-      (write/number wbuf value))
-    ((string? value)
-      (write/unquoted-string wbuf value))
-    ((time? value)
-      (write/time wbuf value))
-    (else
-      (write/unquoted-string wbuf (format #f "~s" value)))))
-
-
-(define (write/flush tx wbuf)
+(define (text0-flush tx wbuf)
   (let ((out (unbox (text0-writer-out-box tx))))
     (unless out
       (raise-errorf 'text0-writer-put "not permitted on closed writer ~s" tx))
@@ -149,9 +85,9 @@
     (bytespan-clear! wbuf)
     (for-vector ((col cols))
       (unless (eq? '<type> col)
-        (write/field wbuf (field obj col cache))
+        (bytespan-display-right/datum! wbuf (field obj col cache))
         (bytespan-insert-right/u8! wbuf 0)))
-    (write/flush tx wbuf)))
+    (text0-flush tx wbuf)))
 
 
 (define (text0-writer-close tx)
