@@ -494,7 +494,7 @@ Syntax: `get0 [OPTIONS] FIELD_NAME`
 <br/>Added in 1.0.1
 
 Read structured data from standard input,
-then write only the specified field of each element to standard output in NUL-terminated text.<br/>
+then write only the specified `FIELD_NAME` of each element to standard output as NUL-terminated text.<br/>
 Options:
 * `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
 
@@ -696,6 +696,7 @@ Arguments:
 * `json` write data using NDJSON format
 * `json1` write data using JSON format
 * `table` write data as ascii-art table
+* `text0` write data as NUL-terminated text
 * `wire` write data using WIRE format
 
 Return success, or failure if `FORMAT` is not supported.
