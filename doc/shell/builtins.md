@@ -9,6 +9,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`all`](#all) copy all structured data elements from stdin to stdout
 * [`alias`](#alias) define or display aliases
 * [`answers`](#answers) display as structured data the values returned by recent expressions or commands executed at repl
+* [`args`](#args) parse structured data from stdin, and execute alias, builtin or command with arguments set to parsed fields
 * [`bg`](bg) resume a job and move a job to the background
 * [`builtin`](#builtin) execute a builtin, even if shadowed by an alias
 * [`cd`](#cd) change the current directory
@@ -378,6 +379,28 @@ possible output:
 │  2│1073741824       │
 │  3│#(foo bar)       │
 └───┴─────────────────┘
+```
+
+#### args
+Syntax: `args [OPTIONS] ALIAS_OR_BUILTIN_OR_COMMAND [ARG ...]`
+<br/>Added in 1.0.1
+
+Read structured data from standard input, append the field values of parsed data to `[ARG ...]`,
+and execute `ALIAS_OR_BUILTIN_OR_COMMAND` with such concatenated arguments.
+
+Options:
+* `--from-FORMAT` read structured data using specified `FORMAT` instead of autodetecting it
+
+Return exit status of executed alias, builtin or command,
+or failure if no such alias, builtin or command is found.
+
+Example:
+```shell
+dir *.c | select name modified | args echo found:
+```
+possible output:
+```
+found: eval.c 1780166778.066044354 main.c 1780166778.069126644
 ```
 
 #### dir
