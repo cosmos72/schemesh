@@ -26,7 +26,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`fg`](#fg) resume a job, move it to the foreground, and wait for it to finish or stop
 * [`first`](#first) copy only the first N structured data from stdin to stdout, or 1 datum by default
 * [`from`](#from) parse structured data from stdin with specified format, and write such data to stdout
-* [`get`](#get) select only the specified field of structured data from stdin, and write it to stdout as NUL-terminated text
+* [`get0`](#get0) select only the specified field of structured data from stdin, and write it to stdout as NUL-terminated text
 * [`global`](#global) execute a builtin, making it affect global environment variables or global current directory
 * [`help`](#help) display help about a builtin, or display all builtins by default
 * [`history`](#history) display history
