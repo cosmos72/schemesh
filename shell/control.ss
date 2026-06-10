@@ -521,13 +521,10 @@
   (let* ((job (sh-job job-or-id))
          (id  (job-id job)))
     (job-wait caller job wait-flags)
-    (let* ((status (job-id-update! job))
+    (let* ((status (job-last-status job))
            (id     (or id (job-id job))))
-      (cond
-        ((and (started? status) (sh-wait-flag-foreground? wait-flags))
-          (sh-preferred-job-id-set! id))
-        ((and (finished? status) (eqv? id (sh-preferred-job-id)))
-          (sh-preferred-job-id-update!)))
+      (when (and (started? status) (sh-wait-flag-foreground? wait-flags))
+        (sh-preferred-job-id-set! id))
       (if (eq? 'exception (status->kind status))
         (raise (status->value status))
         status))))
@@ -542,25 +539,41 @@
   (when (and id (fx>? id 0))
     (multijob-current-child-index-set! (sh-globals) id)))
 
-;; update preferred job-id to the id of a started job
+;; update preferred job-id to the id of a started job if present,
+;; otherwise to the id of a finished job if present,
+;; otherwise to -1
 (define (sh-preferred-job-id-update!)
-  (let* ((g      (sh-globals))
-         (old-id (multijob-current-child-index g))
-         (jobs   (multijob-children g)))
+  (letrec* ((g        (sh-globals))
+            (old-id   (multijob-current-child-index g))
+            (old-id+1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))
+            (old-id-1 (if (and old-id (fx>? old-id 0)) (fx1- old-id) 0))
+            (jobs     (multijob-children g))
+            (%loop-right
+              (lambda (id pred)
+                (and (fx<? 0 id (span-length jobs))
+                     (let ((job (span-ref jobs id)))
+                       (if (and (sh-job? job) (pred job))
+                         (begin
+                           (multijob-current-child-index-set! g id)
+                           #t)
+                         (%loop-right (fx1+ id) pred))))))
+            (%loop-left
+              (lambda (id pred)
+                (and (fx<? 0 id (span-length jobs))
+                     (let ((job (span-ref jobs id)))
+                       (if (and (sh-job? job) (pred job))
+                         (begin
+                           (multijob-current-child-index-set! g id)
+                           #t)
+                         (%loop-left (fx1- id) pred))))))
+            (always-true (lambda (job) #t)))
+
     (multijob-current-child-index-set! g -1)
-    (let %loop-right ((id (fxmax 1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))))
-      (when (fx<? 0 id (span-length jobs))
-        (let ((job (span-ref jobs id)))
-          (if (and (sh-job? job) (job-started? job))
-            (multijob-current-child-index-set! g id)
-            (%loop-right (fx1+ id))))))
-    (when (eqv? -1 (multijob-current-child-index g))
-      (let %loop-left ((id (if (and old-id (fx>? old-id 0)) (fx1- old-id) 0)))
-        (when (fx<? 0 id (span-length jobs))
-          (let ((job (span-ref jobs id)))
-            (if (and (sh-job? job) (job-started? job))
-              (multijob-current-child-index-set! g id)
-              (%loop-left (fx1- id)))))))))
+    (or (%loop-right old-id+1 job-started?)  ;; search for a started job-id > old-id
+        (%loop-left  old-id+1 job-started?)  ;; search for a started job-id < old-id
+        (%loop-right old-id+1 always-true)   ;; search for a finished job-id > old-id
+        (%loop-left  old-id+1 always-true))  ;; search for a finished job-id < old-id
+    (void)))
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:

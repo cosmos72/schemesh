@@ -327,6 +327,7 @@
           (queue-job-ports-flush-close-forget job)
           (job-ports-flush-close-forget job))
 
+        (job-id-unset! job)    ; also updates (sh-preferred-job-id)
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
         (%job-pgid-fg-set! job #f)
@@ -373,13 +374,15 @@
     (when id
       (let* ((jobs (multijob-children (sh-globals)))
              (n    (span-length jobs)))
-        (when (fx<? -1 id n)
+        (when (and (fx<? 0 id n) (eq? job (span-ref jobs id)))
           (span-set! jobs id #f)
           (until (or (span-empty? jobs) (span-ref-right jobs 0))
-            (span-delete-right! jobs 1)))
+            (span-delete-right! jobs 1))))
       (%job-id-set! job #f)
       (job-oid-set! job id) ;; needed for later displaying it
-      (queue-job-display-summary job))))
+      (when (eqv? id (sh-preferred-job-id))
+        (sh-preferred-job-id-update!))
+      (queue-job-display-summary job)))
   (job-last-status job))
 
 
