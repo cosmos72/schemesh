@@ -518,13 +518,9 @@
 ;;
 ;; Returns updated job status.
 (define (job-wait/id+raise caller job-or-id wait-flags)
-  (let* ((job (sh-job job-or-id))
-         (id  (job-id job)))
+  (let ((job (sh-job job-or-id)))
     (job-wait caller job wait-flags)
-    (let* ((status (job-last-status job))
-           (id     (or id (job-id job))))
-      (when (and (started? status) (sh-wait-flag-foreground? wait-flags))
-        (sh-preferred-job-id-set! id))
+    (let ((status (job-last-status job)))
       (if (eq? 'exception (status->kind status))
         (raise (status->value status))
         status))))

@@ -391,22 +391,23 @@
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
-  ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
-  ;; the parent (sh-pipe) job always starts/stops all of them collectively.
-  ;; thus assigning a job-id to such children usually just adds noise.
-  (unless (sh-multijob-pipe? (job-default-parent job))
-    (let* ((old-id (job-id job))
-           (id     (or old-id (%job-id-assign! job)))
-           (status (job-last-status job))
-           (kind   (status->kind status)))
-      (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
-        ;; replace job status (running) -> (running job-id)
-        (job-status-set! 'job-id-set! job (running id)))
-      (when (fx<? (sh-preferred-job-id) 0)
-        ;; no preferred job id, set it to this job id
-        (sh-preferred-job-id-set! id))
-      (unless (eqv? id old-id)
-        (queue-job-display-summary job))))
+  ;; the only jobs supposed to have a job-id are:
+  ;; * the direct children of (sh-globals)
+  ;; * the direct children of a (sh-list) that are started in background
+  (let ((parent (job-default-parent job)))
+    (when (or (eq? parent (sh-globals))
+              (and (sh-multijob? parent) (eq? 'sh-list (multijob-kind parent))))
+      (let* ((old-id (job-id job))
+             (id     (or old-id (%job-id-assign! job)))
+             (status (job-last-status job))
+             (kind   (status->kind status)))
+        (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
+          ;; replace job status (running) -> (running job-id)
+          (job-status-set! 'job-id-set! job (running id)))
+        ;; set preferred job-id to this job id
+        (unless (eqv? id old-id)
+          (sh-preferred-job-id-set! id)
+          (queue-job-display-summary job)))))
   ;; (debugf "job-id-set! job=~s\tid=~s" job (job-id job))
   (job-last-status job))
 
