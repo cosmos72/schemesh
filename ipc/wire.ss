@@ -66,25 +66,35 @@
   (nongenerative wire-shm-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; arguments:
-;;   fd-to-use: an unused file descriptor number
+;; return #t if obj is an exact integer representable by a C size_t
+;; otherwise return #f
+(define (c-size-t? obj)
+  (and (integer? obj) (exact? obj)
+       (<= 0 obj (if (fixnum? #xffffffff) #xffffffffffffffff #xffffffff))))
+
+
+;; optional arguments:
+;;   length: the number of shared-memory bytes to allocate. Default is 262144
 ;;
 ;; return a "wire-shm" object suitable for calling other (wire-shm...) functions,
 ;; or < 0 on error.
 ;; never throws
 (define wire-shm-open
-  (let ((c-shm-open (foreign-procedure "c_shm_open" () ptr)))
-    (lambda ()
-      (let ((ret (c-shm-open)))
-        (cond
-          ((not (and (integer? ret) (exact? ret)))
-             c-errno-einval)
-          ((> ret 0)
-             (make-wire-shm ret))
-          ((< ret 0)
-             ret)
-          (else
-             c-errno-einval))))))
+  (let ((c-shm-open (foreign-procedure "c_shm_open" (size_t) ptr)))
+    (case-lambda
+      ((length)
+        (let ((ret (and (c-size-t? length) (c-shm-open length))))
+          (cond
+            ((not (and (integer? ret) (exact? ret)))
+               c-errno-einval)
+            ((> ret 0)
+               (make-wire-shm ret))
+            ((< ret 0)
+               ret)
+            (else
+               c-errno-einval))))
+      (()
+        (wire-shm-open 262144)))))
 
 
 ;; arguments:

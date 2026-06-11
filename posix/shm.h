@@ -36,136 +36,53 @@ typedef struct {
 typedef struct {
   shm_head* head;
   size_t    mmapped_size;
-  int       fd;
 } shm_ctx;
 
-#if 0  /* not used yet */
-/* align addr down to a multiple of power_of_2 */
-static char* c_shm_align_down(char* addr, uintptr_t power_of_2) {
-  return (char*)((uintptr_t)addr & ~(uintptr_t)(power_of_2 - 1));
-}
-
-/* align addr up to a multiple of power_of_2 */
-static char* c_shm_align_up(char* addr, uintptr_t power_of_2) {
-  return (char*)((uintptr_t)(addr + power_of_2 - 1) & ~(uintptr_t)(power_of_2 - 1));
-}
-#endif /* 0 */
-
-static int c_shm_mmap_init(shm_ctx* ctx) {
+static int c_shm_mmap_init(shm_ctx* ctx, size_t length) {
   void*  addr;
   size_t pagesz = scheme2k_os_pagesize();
-  size_t sz     = ((1 << 18) + pagesz - 1) & ~(pagesz - 1);
-  int    fd = ctx->fd;
-  if (ftruncate(fd, sz) >= 0 &&
-      (addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) != MAP_FAILED) {
+  size_t sz     = (length + pagesz - 1) & ~(pagesz - 1);
+  int    err;
 
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+  if ((addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) !=
+      MAP_FAILED) {
     pthread_mutexattr_t attr;
 
     shm_head* head = ctx->head = (shm_head*)addr;
-    int       err;
-    if ((err = pthread_mutexattr_init(&attr)) != 0) {
-      return -err;
-    }
-    if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+    ctx->mmapped_size          = sz;
+    if ((err = pthread_mutexattr_init(&attr)) == 0) {
+      if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
 #ifdef PTHREAD_MUTEX_ROBUST
-	&& (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
+          && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
 #endif
-	) {
-      
-      pthread_mutex_init(&head->mutex, &attr); /* documented to always return 0 */
+      ) {
+        head->entry_n  = 0;
+        head->free_pos = sizeof(shm_head);
+        head->capacity = sz;
 
-      head->entry_n     = 0;
-      head->free_pos    = sizeof(shm_head);
-      head->capacity    = sz;
-      ctx->mmapped_size = sz;
+        err = pthread_mutex_init(&head->mutex, &attr);
+      }
+      (void)pthread_mutexattr_destroy(&attr);
     }
-    (void)pthread_mutexattr_destroy(&attr);
-    return -err;
+  } else {
+    err = c_errno();
   }
-  return c_errno();
+  return -err;
 }
 
-static int c_shm_fd_open(void) {
-  char   path[48];
-  time_t t;
-  int    err;
-  int    fd = -1;
-  errno     = 0;
-  t         = time(NULL);
-  if (t == (time_t)-1 && errno != 0) {
-    goto fail;
-  }
-  err = snprintf(
-      path, sizeof(path), "/schemesh_%08" PRIx64 "_%08" PRIx64, (uint64_t)getpid(), (uint64_t)t);
-  if (err < 0) {
-    goto fail;
-  }
-  if ((size_t)err >= sizeof(path)) {
-    return -ENAMETOOLONG;
-  }
-#if defined(__linux__)
-  /**
-   * memfd_create() gives better privacy:
-   * we only share fd with child processes that don't exec()
-   *
-   * memfd_create() declaration requires #define _GNU_SOURCE,
-   * which also replaces POSIX strerror_r() with GNU variant, that we do not want.
-   */
-  int memfd_create(const char* name, unsigned int flags);
-  fd = memfd_create(path + 1, 0);
-#endif /* __linux__ */
-
-#if !defined(__ANDROID__)
-  if (fd < 0) {
-    /* shm_open() is not available on Android */
-    fd = shm_open(path, O_RDWR | O_CREAT | O_EXCL, (mode_t)0600);
-    if (fd >= 0) {
-      /*
-       * cannot do much if shm_unlink() fails: exiting is worse,
-       * as it's a denial of service and users will retry,
-       * accumulating stale shm objects.
-       */
-      (void)shm_unlink(path);
-    }
-  }
-#endif /* !__ANDROID__ */
-
-  if (fd >= 0) {
-    return fd;
-  }
-fail:
-  return c_errno();
-}
-
-static ptr c_shm_open(void) {
+static ptr c_shm_open(size_t length) {
   shm_ctx* ctx = NULL;
-  int      fd;
   int      err;
-  if ((ctx = (shm_ctx*)malloc(sizeof(shm_ctx))) == NULL) {
+  if ((ctx = (shm_ctx*)calloc(1, sizeof(shm_ctx))) != NULL) {
+    if ((err = c_shm_mmap_init(ctx, length)) == 0) {
+      return Sunsigned64((uintptr_t)(void*)ctx);
+    }
+  } else {
     err = -ENOMEM;
-    goto fail;
   }
-  if ((fd = c_shm_fd_open()) < 0) {
-    err = fd;
-    goto fail;
-  }
-  if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
-    goto cerrno_close_and_fail;
-  }
-  ctx->head = NULL;
-  ctx->fd = fd;
-  if (c_shm_mmap_init(ctx) == 0) {
-#if 1
-    /* fd is only needed to resize shared memory, which we don't do yet */
-    ctx->fd = -1;
-    (void)close(fd);
-#endif
-    return Sunsigned64((uintptr_t)(void*)ctx);
-  }
-cerrno_close_and_fail:
-  err = c_errno();
-  (void)close(fd);
-fail:
   if (ctx) {
     free(ctx);
   }
@@ -179,10 +96,6 @@ static int c_shm_close(shm_ctx* ctx) {
   errno = 0;
   if (ctx->head) {
     munmap(ctx->head, ctx->mmapped_size);
-  }
-  if (ctx->fd >= 0) {
-    close(ctx->fd);
-    ctx->fd = -1;
   }
   return c_errno();
 }
