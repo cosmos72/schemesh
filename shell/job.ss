@@ -106,8 +106,8 @@
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded?
                        void with-interrupts-disabled)
-    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop
-                                           parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
+    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop parameter-swapper
+                                           raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
                                            sh-version-number try until warnf while)
     (only (scheme2k containers bytespan)   bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!
@@ -391,24 +391,23 @@
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
-  ;; the only jobs supposed to have a job-id are:
-  ;; * the direct children of (sh-globals)
-  ;; * the direct children of a (sh-list) that are started in background
-  (let ((parent (job-default-parent job)))
-    (when (or (eq? parent (sh-globals))
-              (and (sh-multijob? parent) (eq? 'sh-list (multijob-kind parent))))
-      (let* ((old-id (job-id job))
-             (id     (or old-id (%job-id-assign! job)))
-             (status (job-last-status job))
-             (kind   (status->kind status)))
-        (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
-          ;; replace job status (running) -> (running job-id)
-          (job-status-set! 'job-id-set! job (running id)))
-        ;; set preferred job-id to this job id
-        (unless (eqv? id old-id)
-          (sh-preferred-job-id-set! id)
-          (queue-job-display-summary job)))))
-  ;; (debugf "job-id-set! job=~s\tid=~s" job (job-id job))
+  (when (job-started? job)
+    (let ((parent (job-default-parent job)))
+      ;; the children jobs of a (sh-pipe) are managed as a single unit,
+      ;; and assigning a job-id to them is not useful
+      (unless (and (sh-multijob? parent) (eq? 'sh-pipe (multijob-kind parent)))
+        (let* ((old-id (job-id job))
+               (id     (or old-id (%job-id-assign! job)))
+               (status (job-last-status job))
+               (kind   (status->kind status)))
+          (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
+            ;; replace job status (running) -> (running job-id)
+            (job-status-set! 'job-id-set! job (running id)))
+          ;; set preferred job-id to this job id
+          (unless (eqv? id old-id)
+            (sh-preferred-job-id-set! id)
+            (queue-job-display-summary job))))))
+  ;;(debugf "job-id-set! job=~s\tid=~s" job (job-id job))
   (job-last-status job))
 
 

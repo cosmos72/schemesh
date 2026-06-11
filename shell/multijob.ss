@@ -257,6 +257,7 @@
 
 
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; waits on children jobs of a multijob and calls multijob's step-proc when a child job changes status
 (define (mj-advance caller mj wait-flags)
   ; (debugf ">  mj-advance wait-flags=~s job=~s id=~s status=~s" wait-flags mj (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
@@ -298,6 +299,7 @@
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
+;; Called to start (sh-and), and called again every time a child job changes status
 (define (mj-and-step mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
@@ -315,7 +317,8 @@
 
 
 ;; Run next child job in a multijob containing an "or" of children jobs.
-;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
+;; Used by (sh-or), implements runtime behavior of shell syntax foo || bar || baz
+;; Called to start (sh-or), and called again every time a child job changes status
 (define (mj-or-step mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
@@ -338,6 +341,7 @@
 ;; Run the child job in a multijob containing a "not" and one child job,
 ;; or collect the exit status of the child job after it failed.
 ;; Used by (sh-not), implements runtime behavior of shell syntax ! foo
+;; Called to start (sh-not), and called again every time a child job changes status
 (define (mj-not-step mj prev-child-status)
   (assert* 'sh-not (fx=? 1 (sh-multijob-child-length mj)))
 
@@ -366,6 +370,7 @@
 
 ;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
+;; Called to start (sh-list), and called again every time a child job changes status
 (define (mj-list-step mj prev-child-status)
   (let* ((idx      (fx1+ (multijob-current-child-index mj)))
          (child-n  (span-length (multijob-children mj)))

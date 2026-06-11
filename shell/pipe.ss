@@ -153,10 +153,11 @@
     out-pipe-fd/read))
 
 
+;; Wait on children jobs of a (sh-pipe)
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-pipe-advance caller mj wait-flags)
   ;; (debugf "->  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tstatus=~s" caller mj wait-flags (job-last-status mj))
-  ;; we must run children in foreground,
+  ;; we must bring children to foreground,
   ;; otherwise they will not receive SIGTSTP when user types CTRL+Z
   (with-foreground-job wait-flags mj
     ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" mj (job-last-status mj))
@@ -174,8 +175,8 @@
   )
 
 
+;; Send SIGCONT to (sh-pipe) job's process group, if present.
 (define (mj-pipe-advance-sigcont mj wait-flags pgid)
-  ;; send SIGCONT to job's process group, if present.
   ;; (debugf "mj-pipe-advance-sigcont job=~s\twait-flags=~s" mj wait-flags)
   (when (and pgid (sh-wait-flag-continue-if-stopped? wait-flags))
     ;;

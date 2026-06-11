@@ -517,13 +517,12 @@
 ;; Sets or unsets job's id as needed.
 ;;
 ;; Returns updated job status.
-(define (job-wait/id+raise caller job-or-id wait-flags)
-  (let ((job (sh-job job-or-id)))
-    (job-wait caller job wait-flags)
-    (let ((status (job-last-status job)))
-      (if (eq? 'exception (status->kind status))
-        (raise (status->value status))
-        status))))
+(define (job-wait/raise caller job wait-flags)
+  (job-wait caller job wait-flags)
+  (let ((status (job-last-status job)))
+    (if (eq? 'exception (status->kind status))
+      (raise (status->value status))
+      status)))
 
 
 ;; get preferred job-id, or -1
@@ -591,7 +590,9 @@
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (job-wait/id+raise 'sh-bg job-or-id (sh-wait-flags background continue-if-stopped)))
+  (let ((job (sh-job job-or-id)))
+    (job-wait/raise 'sh-bg job (sh-wait-flags background continue-if-stopped))
+    (job-id-update! job)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -601,8 +602,10 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-   (job-wait/id+raise 'sh-fg job-or-id
-     (sh-wait-flags foreground continue-if-stopped wait-until-stopped-or-finished)))
+  (let ((job (sh-job job-or-id)))
+    (job-wait/raise 'sh-fg job
+      (sh-wait-flags foreground continue-if-stopped wait-until-stopped-or-finished))
+    (job-id-update! job)))
 
 
 ;; General function to resume and optionally wait for a job.
@@ -621,7 +624,8 @@
 (define sh-wait
   (case-lambda
     ((job-or-id wait-flags)
-      (job-wait/id+raise 'sh-wait job-or-id wait-flags))
+      (let ((job (sh-job job-or-id)))
+        (job-wait/raise 'sh-wait job wait-flags)))
     ((job-or-id)
       (sh-wait job-or-id
                (sh-wait-flags foreground continue-if-stopped wait-until-finished)))))

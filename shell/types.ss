@@ -12,7 +12,7 @@
 
 (define-record-type (job %make-job sh-job?)
   (fields
-    (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
+    (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals), or -1 for never assigning a job-id to this job
     (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
     (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
