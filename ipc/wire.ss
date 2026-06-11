@@ -80,7 +80,7 @@
 ;; or < 0 on error.
 ;; never throws
 (define wire-shm-open
-  (let ((c-shm-open (foreign-procedure "c_shm_open" (size_t) ptr)))
+  (let ((c-shm-open (foreign-procedure __collect_safe "c_shm_open" (size_t) ptr)))
     (case-lambda
       ((length)
         (let ((ret (and (c-size-t? length) (c-shm-open length))))
@@ -103,7 +103,7 @@
 ;; return 0 on success, or < 0 on error
 ;; never throws
 (define wire-shm-close
-  (let ((c-shm-close (foreign-procedure "c_shm_close" (void*) int)))
+  (let ((c-shm-close (foreign-procedure __collect_safe "c_shm_close" (void*) int)))
     (lambda (shm)
       (if (wire-shm? shm)
         (let ((handle (wire-shm-c-handle shm)))
