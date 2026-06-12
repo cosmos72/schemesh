@@ -117,9 +117,9 @@
       s-ok-empty)
     ((and (pair? vals) (null? (cdr vals)))
       (let ((val (car vals)))
-        (cond ((not val)                      s-failed-f) ;; SPECIAL CASE: (ok #f) returns (failed #f)
-              ((and (status? val) (ok? val))  val)        ;; simplify (ok (void)) -> (void) and unwrap (ok (ok ...)) -> (ok ...)
-              (else                           (%make-status 'ok vals)))))
+        (if (and (status? val) (ok? val))
+          val ;; simplify (ok (void)) -> (void) and unwrap (ok (ok ...)) -> (ok ...)
+          (%make-status 'ok vals))))
     (else
       (%make-status 'ok vals))))
 
