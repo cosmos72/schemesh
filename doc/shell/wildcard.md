@@ -154,15 +154,19 @@ First argument `job-or-id` is the job to use, containing the current directory w
 Usual values are `#f` which means "whatever is the current job", or `#t` which means "the top-level job i.e. the shell itself".
 
 Each subsequent argument must be one of:
-* a string - matches literally, including any `/` or `.`
-* the symbol `'*` - means the wildcard pattern `*` i.e. matches zero or more arbitrary characters excluding `/` and initial `.`
-* the symbol `'?` - means the wildcard pattern `?` i.e. matches a single arbitrary character excluding `/` and initial `.`
-* the symbol `'%` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character among the listed ones
-  (`/` is not allowed, and `.` is ignored if it's the first character of a file name).
+* a string - matched literally, including any `/` or `.`
+* a closure accepting zero or one arguments (the current job) and returning a string or a list of strings -
+  the closure is invoked and the returned string(s) are concatenated and matched literally, including any `/` or `.`
+* the symbol `'*` - means the wildcard pattern `*` i.e. matches zero or more arbitrary characters excluding `/`
+* the symbol `'?` - means the wildcard pattern `?` i.e. matches a single arbitrary character excluding `/`
+* the symbol `'%` followed by a string - means the wildcard pattern `[...]`
+  i.e. matches a single character among the listed ones (`/` is not allowed).
   It also allows ranges, as for example `c-h` or `"fop-xbar"`
-* the symbol `'%!` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character **not** among the listed ones
-  (again, `/` is not allowed, and `.` is ignored if it's the first character of a file name).
+* the symbol `'%!` followed by a string - means the wildcard pattern `[...]`
+  i.e. matches a single character **not** among the listed ones (again, `/` is not allowed).
   It also allows ranges, as for example `c-h` or `"fop-xbar"`
+
+In all wildcard patterns, the character `.` is matches only in some cases, see [Wildcard patterns](#wildcard-patterns) above.
 
 It returns a list of strings: the file system entries that match the pattern, sorted lexicographically.
 
@@ -194,10 +198,10 @@ Since `(wildcard)` returns a list of strings, it's also suitable for inserting i
 Example:
 ```shell
 (define temp-dir "/tmp/dir/")
-(sh-run {rm -fr (wildcard #f temp-dir '*)})
+(sh-run {rm -fr -- (wildcard #f temp-dir '*)})
 ```
-this has the advantage that `(wildcard)` arguments can also be computed at run-time,
+this has the advantage that `(wildcard)` arguments can also be computed at runtime,
 because `(wildcard)` is a function rather than a macro.
 
-Note: such command is equivalent to `rm -fr /tmp/dir/*` and does **not** remove all files from `/tmp/dir/`:
+Note: such command is equivalent to `rm -fr -- /tmp/dir/*` and does **not** remove all files from `/tmp/dir/`:
 it skips hidden files, i.e file names starting with `.`

@@ -48,17 +48,25 @@
 ;; convert bytevector, bytespan, string or charspan path
 ;; to bytevector0 C path.
 ;;
+;; returned bytevector must NOT be modified,
+;; and it can share data with original argument.
+;;
 ;; does NOT assume that OS's idea of current directory matches our own:
 ;; each job may have its own current directory
 (define (path->c-path0 text)
-  (let ((c-path0 (text->bytevector0 text)))
-    (assert* 'path->c-path0 (fx>=? (bytevector-length c-path0) 1))
-    (if (fx=? 47 (bytevector-u8-ref c-path0 0)) ; #\/
-      c-path0 ; path is absolute, do not qualify it with job's current directory
-      (let ((c-prefix (string->utf8 (cd))))
-        (if (fx=? 47 (bytevector-u8-ref c-prefix (fx1- (bytevector-length c-prefix))))
-          (bytevector-append c-prefix c-path0)
-          (bytevector-append c-prefix #vu8(47) c-path0))))))
+  (let* ((c-path0     (text->bytevector0 text))
+         (c-path0-len (bytevector-length c-path0)))
+    (assert* 'path->c-path0 (fx>=? c-path0-len 1))
+    (cond
+      ((fx=? c-path0-len 1)
+        c-path0) ; path is empty, do not qualify it with job's current directory
+      ((fx=? 47 (bytevector-u8-ref c-path0 0)) ; #\/
+        c-path0) ; path is absolute, do not qualify it with job's current directory
+      (else
+        (let ((c-prefix (string->utf8 (cd))))
+          (if (fx=? 47 (bytevector-u8-ref c-prefix (fx1- (bytevector-length c-prefix))))
+            (bytevector-append c-prefix c-path0)
+            (bytevector-append c-prefix #vu8(47) c-path0)))))))
 
 
 (define (%find-and-convert-fixnum-option caller options key default)

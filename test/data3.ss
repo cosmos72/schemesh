@@ -394,10 +394,10 @@
                '(if-no-match? string))                 "_does_not_exist_"
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
-  ;; currently bugged
-  ;(wildcard* #t '(""))                                ()
+  ;; was bugged in commits d49db2b87f4099cd6b68ea74ca3c5f60a0d35bb3 ... 0c33b091e36526bbbb6f54d384169f9abdc91d72
+  (wildcard* #t '(""))                                 ()
   ;; idem
-  ;(wildcard #t "")                                    ()
+  (wildcard #t "")                                     ()
 
   ;; was bugged up to commit c683bae3f0520dccb58f9fc9f2482851004171f4
   ;; fixed in commit 067bc0cf5f76b04483f2c0989d3d955868fb554f before releasing v0.9.2

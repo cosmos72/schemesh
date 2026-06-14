@@ -16,7 +16,8 @@ From version 1.0.0 it also support structured pipelines inspired by nushell,
 but with shell and Scheme semantics - no need to learn a new language.
 
 From version 1.0.1, all shell builtins and [Scheme jobs](#scheme-jobs) can also run in background:
-they are transparently moved to a new subprocess when needed.
+shell builtins are transparently moved to a new subprocess when needed,
+and Scheme jobs are always started in a new subprocess.
 
 For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
@@ -176,8 +177,7 @@ Example:
 (ok "done too!\n")
 ```
 
-From version 1.0.1, Scheme jobs can also run in background:
-they are transparently moved to a new subprocess when needed.
+From version 1.0.1, Scheme jobs can also run in background: they are always started in a subprocess.
 
 Example:
 ```shell

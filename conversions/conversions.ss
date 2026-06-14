@@ -167,8 +167,8 @@
 ;; convert a bytevector, bytespan, string or charspan to bytevector, then appends a byte 0.
 ;; uses UTF-8b to convert characters to bytes.
 ;;
-;; returned bytevector can be modified,
-;; but note that it can share data with original bytevector.
+;; returned bytevector must NOT be modified,
+;; and it can share data with original bytevector.
 (define (text->bytevector0 x)
   (cond
     ((bytevector? x)
