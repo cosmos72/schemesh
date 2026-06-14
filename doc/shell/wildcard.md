@@ -157,10 +157,10 @@ Each subsequent argument must be one of:
 * a string - matches literally, including any `/` or `.`
 * the symbol `'*` - means the wildcard pattern `*` i.e. matches zero or more arbitrary characters excluding `/` and initial `.`
 * the symbol `'?` - means the wildcard pattern `?` i.e. matches a single arbitrary character excluding `/` and initial `.`
-* the symbol `%` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character among the listed ones
+* the symbol `'%` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character among the listed ones
   (`/` is not allowed, and `.` is ignored if it's the first character of a file name).
   It also allows ranges, as for example `c-h` or `"fop-xbar"`
-* the symbol `%!` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character **not** among the listed ones
+* the symbol `'%!` followed by a string - means the wildcard pattern `[...]` i.e. matches a single character **not** among the listed ones
   (again, `/` is not allowed, and `.` is ignored if it's the first character of a file name).
   It also allows ranges, as for example `c-h` or `"fop-xbar"`
 
