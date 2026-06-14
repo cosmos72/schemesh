@@ -297,8 +297,17 @@ with faster Scheme-based iteration that is immune to classic shell scripting pit
 spaces or newlines in file names, paths starting with `-`, misconfigured environment variable `$IFS`,
 accidental program execution etc.
 
-Note: if you need command substitution inside the arguments of `(shell-glob)` and `(shell-string)`,
+If the wildcard pattern is known only at runtime, you need a function rather than a macro:
+see [Shell wildcard](doc/shell/wildcard.md#wildcard).
+
+Note: if you also need command substitution inside the arguments of `(shell-glob)` and `(shell-string)`,
 use `(shell-glob*)` and `(shell-string*)` instead.
+
+Note: shell syntax has an ambiguity parsing `[` at the beginning of a command,
+because it may indicate either a subshell or a wildcard pattern.
+Currently `[` in such position is parsed as a subshell - to parse it as a wildcard pattern,
+insert a quoted empty string before the `[`.
+Examples: `(shell-glob {''[a-z]*})` `(shell-glob {""[bar]*})`
 
 
 ## Full Scheme REPL
@@ -798,6 +807,8 @@ The documentation currently include:
 * Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
 
 * Shell builtins, see [doc/shell/builtins.md](doc/shell/builtins.md)
+
+* Shell wildcards, see [doc/shell/wildcard.md](doc/shell/wildcard.md)
 
 * Mixing shell and Scheme syntax, see [doc/shell/mixed_syntax.md](doc/shell/mixed_syntax.md)
   there are a few limitations worth knowing
