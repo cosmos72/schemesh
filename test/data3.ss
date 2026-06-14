@@ -395,6 +395,7 @@
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
   ;; was bugged in commits d49db2b87f4099cd6b68ea74ca3c5f60a0d35bb3 ... 0c33b091e36526bbbb6f54d384169f9abdc91d72
+  ;; fixed in commit 2ea5bc67ea78a6d752b312b70fe41d3310910dd3 before releasing v1.0.1
   (wildcard* #t '(""))                                 ()
   ;; idem
   (wildcard #t "")                                     ()
