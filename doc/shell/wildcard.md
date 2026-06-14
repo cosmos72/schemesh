@@ -9,9 +9,9 @@ The supported wildcard patterns are equivalent to the ones found in most shells:
 * `*` matches zero or more arbitrary characters excluding `/`
 * `?` matches a single arbitrary character excluding `/`
 * `[...]` matches a single character among the listed ones.
-  It also allows ranges, as for example `c-h` or `"fop-xbar"`, and `/` is not allowed among the listed characters.
+  It also allows ranges, as for example `c-h` or `fop-xbar`, and `/` is not allowed among the listed characters.
 * `[!...]` matches a single character **not** among the listed ones.
-  It also allows ranges, as for example `c-h` or `"fop-xbar"`, and `/` is not allowed among the listed characters
+  It also allows ranges, as for example `c-h` or `fop-xbar`, and `/` is not allowed among the listed characters
   (it is also never matched).
 
 Note that as in most other shells, file system entries whose name starts with `.` are treated specially:
@@ -32,7 +32,7 @@ see each function or macro's documentation below for details.
 ##### (shell-glob)
 Macro `(shell-glob {...})` accepts a subset of shell syntax as argument `{...}`:
 
-only a single argument is allowed, i.e. a possibly partially quoted string, containing:
+only a single argument is allowed. It must be shell word, optionally partially quoted, containing:
 * zero or more wildcard patterns `*` `?` `[...]` `[!...]`
 * zero or more environment variables `$NAME`
 
@@ -54,8 +54,13 @@ Examples:
 
 ```scheme
 FOO=me
-(shell-glob {*"$FOO"*[ch]})
+(shell-glob {*$FOO*[ch]})
 ("chezscheme.h" "schemesh")
+```
+
+```scheme
+(shell-glob {_does_"not"_exist_*})
+() ;; no matches
 ```
 
 ```scheme
@@ -81,7 +86,7 @@ Examples:
 ##### <span id="shell-glob-star">(shell-glob*)</span>
 Macro `(shell-glob* {...})` accepts a larger subset of shell syntax as argument `{...}`:
 
-only a single argument is allowed, i.e. a possibly partially quoted string, containing:
+only a single argument is allowed. It must be shell word, optionally partially quoted, containing:
 * zero or more wildcard patterns `*` `?` `[...]` `[!...]`
 * zero or more environment variables `$NAME`
 * zero or more command substitutions ``` `cmd args ...` ``` or `$(cmd args ...)`
@@ -94,7 +99,7 @@ It expands to a list of strings: the file system entries that match the pattern,
 ##### (shell-string)
 Macro `(shell-string {...})` accepts a subset of shell syntax as argument `{...}`:
 
-only a single argument is allowed, i.e. a possibly partially quoted string, containing:
+only a single argument is allowed. It must be shell word, optionally partially quoted, containing:
 * zero or more wildcard patterns `*` `?` `[...]` `[!...]`
 * zero or more environment variables `$NAME`
 
@@ -134,7 +139,7 @@ Examples:
 ##### <span id="shell-string-star">(shell-string*)</span>
 Macro `(shell-string* {...})` accepts a larger subset of shell syntax as argument `{...}`:
 
-only a single argument is allowed, i.e. a possibly partially quoted string, containing:
+only a single argument is allowed. It must be shell word, optionally partially quoted, containing:
 * zero or more wildcard patterns `*` `?` `[...]` `[!...]`
 * zero or more environment variables `$NAME`
 * zero or more command substitutions ``` `cmd args ...` ``` or `$(cmd args ...)`
@@ -154,24 +159,24 @@ First argument `job-or-id` is the job to use, containing the current directory w
 Usual values are `#f` which means "whatever is the current job", or `#t` which means "the top-level job i.e. the shell itself".
 
 Each subsequent argument must be one of:
-* a string - matched literally, including any `/` or `.`
+* a string - matches literally, including any `/` or `.`
 * a closure accepting zero or one arguments (the current job) and returning a string or a list of strings -
   the closure is invoked and the returned string(s) are concatenated and matched literally, including any `/` or `.`
 * the symbol `'*` - means the wildcard pattern `*` i.e. matches zero or more arbitrary characters excluding `/`
 * the symbol `'?` - means the wildcard pattern `?` i.e. matches a single arbitrary character excluding `/`
 * the symbol `'%` followed by a string - means the wildcard pattern `[...]`
   i.e. matches a single character among the listed ones (`/` is not allowed).
-  It also allows ranges, as for example `c-h` or `"fop-xbar"`
+  It also allows ranges, as for example `c-h` or `fop-xbar`
 * the symbol `'%!` followed by a string - means the wildcard pattern `[...]`
   i.e. matches a single character **not** among the listed ones (again, `/` is not allowed).
-  It also allows ranges, as for example `c-h` or `"fop-xbar"`
+  It also allows ranges, as for example `c-h` or `fop-xbar`
 
 In all wildcard patterns, the character `.` is matches only in some cases, see [Wildcard patterns](#wildcard-patterns) above.
 
 It returns a list of strings: the file system entries that match the pattern, sorted lexicographically.
 
 This function is useful when the wildcard pattern to match is known only at runtime,
-because the equivalent `shell-glob` is a macro and its arguments are parsed at compile time.
+because the equivalent [(shell-glob)](#shell-glob) is a macro and its arguments are parsed at compile time.
 
 Examples:
 ```scheme
@@ -196,11 +201,11 @@ Examples:
 
 Since `(wildcard)` returns a list of strings, it's also suitable for inserting it inside shell syntax.
 Example:
-```shell
+```scheme
 (define temp-dir "/tmp/dir/")
 (sh-run {rm -fr -- (wildcard #f temp-dir '*)})
 ```
-this has the advantage that `(wildcard)` arguments can also be computed at runtime,
+as stated above, this has the advantage that `(wildcard)` arguments can also be computed at runtime,
 because `(wildcard)` is a function rather than a macro.
 
 Note: such command is equivalent to `rm -fr -- /tmp/dir/*` and does **not** remove all files from `/tmp/dir/`:
