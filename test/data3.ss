@@ -20,6 +20,17 @@
   ;; ------------------------- posix -------------------------------------------
   (fx<=? (c-errno) 0)                                   #t
 
+  (ok)                                                  ,(ok)
+  (ok 1 2 3)                                            ,(ok 1 2 3)
+  (ok (ok #f))                                          ,(ok (ok #f))
+  (ok (ok (ok (void))))                                 ,@"#<void>"
+
+  (failed #t)                                           ,(failed #t)
+  (failed (failed 0))                                   ,(failed (failed 0))
+
+  (ok (failed 0))                                       ,(ok (failed 0))
+  (failed (ok #t))                                      ,(failed (ok #t))
+
   (countdown 0)                                         0
   (countdown 0.0)                                       0
   (countdown '(0 . 0))                                  0
@@ -383,6 +394,11 @@
                '(if-no-match? string))                 "_does_not_exist_"
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
+  ;; currently bugged
+  ;(wildcard* #t '(""))                                ()
+  ;; idem
+  ;(wildcard #t "")                                    ()
+
   ;; was bugged up to commit c683bae3f0520dccb58f9fc9f2482851004171f4
   ;; fixed in commit 067bc0cf5f76b04483f2c0989d3d955868fb554f before releasing v0.9.2
   ;;

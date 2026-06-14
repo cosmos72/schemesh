@@ -100,12 +100,10 @@
   (cond
     ((not val)                          s-failed-f)
     ((eqv? 1 val)                       s-failed-1)
-    ((and (status? val) (failed? val))  val)      ;; unwrap (failed (failed ...))
     (else                               (%make-status 'failed val))))
 
 
-;; create a status 'ok with zero or more values,
-;; or (failed #f) if the only value is #f
+;; create a status 'ok with zero or more values
 (define (ok . vals)
   (list->ok vals))
 
@@ -117,9 +115,9 @@
       s-ok-empty)
     ((and (pair? vals) (null? (cdr vals)))
       (let ((val (car vals)))
-        (if (and (status? val) (ok? val))
-          val ;; simplify (ok (void)) -> (void) and unwrap (ok (ok ...)) -> (ok ...)
-          (%make-status 'ok vals))))
+        (if (eq? (void) val)
+          val ;; simplify (ok (void)) -> (void)
+	  (%make-status 'ok vals))))
     (else
       (%make-status 'ok vals))))
 
