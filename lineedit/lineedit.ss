@@ -415,9 +415,9 @@
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 '(27 127))
   ; sequences starting with ESC
-  (%add t lineedit-key-word-left      '(27 66) '(27 98))  ; ALT+B, ALT+b
+  (%add t lineedit-key-word-left      '(27 66) '(27 98) '(27 91 49 59 53 68))  ; ALT+B, ALT+b CTRL+Left
   (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
-  (%add t lineedit-key-word-right     '(27 70) '(27 102)) ; ALT+F, ALT+f
+  (%add t lineedit-key-word-right     '(27 70) '(27 102) '(27 91 49 59 53 67)) ; ALT+F, ALT+f CTRL+Right
   ; sequences starting with ESC O
   (%add t lineedit-key-up    '(27 79 65))          ; UP    \eOA
   (%add t lineedit-key-down  '(27 79 66))          ; DOWN  \eOB
@@ -452,8 +452,8 @@
   (%add t lineedit-key-toggle-insert '(27 91 50 126)) ; INSERT \e[2~
   (%add t lineedit-key-del-right     '(27 91 51 126)) ; DELETE \e[3~
   (%add t lineedit-key-eol           '(27 91 52 126)) ; END    \e[4~
-  (%add t lineedit-key-history-prev  '(27 91 53 126)) ; PGUP   \e[5~
-  (%add t lineedit-key-history-next  '(27 91 54 126)) ; PGDWN  \e[6~
+  (%add t lineedit-key-history-prev  '(27 91 53 126) '(27 91 49 59 53 65)) ; PGUP   \e[5~  CTRL+Up   \e[1;5A
+  (%add t lineedit-key-history-next  '(27 91 54 126) '(27 91 49 59 53 66)) ; PGDWN  \e[6~  CTRL+Dpwn \e[1;5B
 
   (%add t lineedit-key-nop '(27 91 91 65) '(27 91 91 66)      ; F1..F2
     '(27 91 91 67)     '(27 91 91 68)     '(27 91 91 69)      ; F3..F4
