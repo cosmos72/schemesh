@@ -31,6 +31,10 @@
 #else
 #define SYM_(a,b) a##b
 #define SYM(a,b)  SYM_(a,b)
+#ifdef __GNUC__
+/* mark stack as non-executable */
+.section .note.GNU-stack, "", @progbits
+#endif
 .section .rodata
 #endif
 
@@ -42,7 +46,7 @@
   .incbin filepath             ;  \
   .global SYM(sym, _end)       ;  \
   SYM(sym, _end):              ;  \
-  .balign 4096		       ;
+  .balign 4096		             ;
 /* clang-format on */
 
 

@@ -413,53 +413,53 @@
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
   (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
-  (%add t lineedit-key-del-word-left 23 31 '(27 127))
+  (%add t lineedit-key-del-word-left 23 31 #vu8(27 127))
   ; sequences starting with ESC
-  (%add t lineedit-key-word-left      '(27 66) '(27 98) '(27 91 49 59 53 68))  ; ALT+B, ALT+b CTRL+Left
-  (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
-  (%add t lineedit-key-word-right     '(27 70) '(27 102) '(27 91 49 59 53 67)) ; ALT+F, ALT+f CTRL+Right
+  (%add t lineedit-key-word-left      #vu8(27 66) #vu8(27 98) #vu8(27 91 49 59 53 68))  ; ALT+B, ALT+b CTRL+Left  \e[1;5D
+  (%add t lineedit-key-del-word-right #vu8(27 68) #vu8(27 100)) ; ALT+D, ALT+d
+  (%add t lineedit-key-word-right     #vu8(27 70) #vu8(27 102) #vu8(27 91 49 59 53 67)) ; ALT+F, ALT+f CTRL+Right \e[1;5C
   ; sequences starting with ESC O
-  (%add t lineedit-key-up    '(27 79 65))          ; UP    \eOA
-  (%add t lineedit-key-down  '(27 79 66))          ; DOWN  \eOB
-  (%add t lineedit-key-right '(27 79 67))          ; RIGHT \eOC
-  (%add t lineedit-key-left  '(27 79 68))          ; LEFT  \eOD
-  (%add t lineedit-key-eol   '(27 79 70))          ; END   \eOF
-  (%add t lineedit-key-bol   '(27 79 72))          ; HOME  \eOH
-  (%add t lineedit-key-newline-left   '(27 79 77)) ; KPRET \eOM
-  (%add t lineedit-key-nop            '(27 79 80)) ; NUMLOCK \eOP ; F1 on xterm
-  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on xterm
-  (%add t lineedit-key-cmd-dir        '(27 79 82)) ; KP*   \eOR   ; F3 on xterm
-  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on xterm
-  (%add t lineedit-key-cmd-dir        '(27 79 106)); KP*   \eOj   ; xterm
-  (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
-  (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
-  (%add t lineedit-key-cmd-cd-parent  '(27 79 111)); KP/   \eOo   ; xterm
+  (%add t lineedit-key-up    #vu8(27 79 65))          ; UP    \eOA
+  (%add t lineedit-key-down  #vu8(27 79 66))          ; DOWN  \eOB
+  (%add t lineedit-key-right #vu8(27 79 67))          ; RIGHT \eOC
+  (%add t lineedit-key-left  #vu8(27 79 68))          ; LEFT  \eOD
+  (%add t lineedit-key-eol   #vu8(27 79 70))          ; END   \eOF
+  (%add t lineedit-key-bol   #vu8(27 79 72))          ; HOME  \eOH
+  (%add t lineedit-key-newline-left   #vu8(27 79 77)) ; KPRET \eOM
+  (%add t lineedit-key-nop            #vu8(27 79 80)) ; NUMLOCK \eOP ; F1 on xterm
+  (%add t lineedit-key-cmd-cd-parent  #vu8(27 79 81)) ; KP/   \eOQ   ; F2 on xterm
+  (%add t lineedit-key-cmd-dir        #vu8(27 79 82)) ; KP*   \eOR   ; F3 on xterm
+  (%add t lineedit-key-cmd-cd-old-dir #vu8(27 79 83)) ; KP-   \eOS   ; F4 on xterm
+  (%add t lineedit-key-cmd-dir        #vu8(27 79 106)); KP*   \eOj   ; xterm
+  (%add t lineedit-key-nop            #vu8(27 79 108)); KP+   \eOl
+  (%add t lineedit-key-cmd-cd-old-dir #vu8(27 79 109)); KP-   \eOm
+  (%add t lineedit-key-cmd-cd-parent  #vu8(27 79 111)); KP/   \eOo   ; xterm
 
   (%add t lineedit-key-nop
-    '(27 79  78) '(27 79 110) '(27 79 112)         ; NUMLOCK on twterm,  KP.  KP0
-    '(27 79 113) '(27 79 114) '(27 79 115)         ; KP1  KP2  KP3
-    '(27 79 116) '(27 79 117) '(27 79 118)         ; KP4  KP5  KP6
-    '(27 79 119) '(27 79 120) '(27 79 121))        ; KP7  KP8  KP9
+    #vu8(27 79  78) #vu8(27 79 110) #vu8(27 79 112)         ; NUMLOCK on twterm,  KP.  KP0
+    #vu8(27 79 113) #vu8(27 79 114) #vu8(27 79 115)         ; KP1  KP2  KP3
+    #vu8(27 79 116) #vu8(27 79 117) #vu8(27 79 118)         ; KP4  KP5  KP6
+    #vu8(27 79 119) #vu8(27 79 120) #vu8(27 79 121))        ; KP7  KP8  KP9
 
-  ; sequences starting with ESC [                  ;
-  (%add t lineedit-key-up    '(27 91 65))          ; UP    \e[A
-  (%add t lineedit-key-down  '(27 91 66))          ; DOWN  \e[B
-  (%add t lineedit-key-right '(27 91 67))          ; RIGHT \e[C
-  (%add t lineedit-key-left  '(27 91 68))          ; LEFT  \e[D
-  (%add t lineedit-key-eol   '(27 91 70))          ; END   \e[F
-  (%add t lineedit-key-bol   '(27 91 72)           ; HOME  \e[H
-                                     '(27 91 49 126)) ; HOME   \e[1~
-  (%add t lineedit-key-toggle-insert '(27 91 50 126)) ; INSERT \e[2~
-  (%add t lineedit-key-del-right     '(27 91 51 126)) ; DELETE \e[3~
-  (%add t lineedit-key-eol           '(27 91 52 126)) ; END    \e[4~
-  (%add t lineedit-key-history-prev  '(27 91 53 126) '(27 91 49 59 53 65)) ; PGUP   \e[5~  CTRL+Up   \e[1;5A
-  (%add t lineedit-key-history-next  '(27 91 54 126) '(27 91 49 59 53 66)) ; PGDWN  \e[6~  CTRL+Dpwn \e[1;5B
+  ; sequences starting with ESC [
+  (%add t lineedit-key-up    #vu8(27 91 65))          ; UP    \e[A
+  (%add t lineedit-key-down  #vu8(27 91 66))          ; DOWN  \e[B
+  (%add t lineedit-key-right #vu8(27 91 67))          ; RIGHT \e[C
+  (%add t lineedit-key-left  #vu8(27 91 68))          ; LEFT  \e[D
+  (%add t lineedit-key-eol   #vu8(27 91 70))          ; END   \e[F
+  (%add t lineedit-key-bol   #vu8(27 91 72)           ; HOME  \e[H
+                                     #vu8(27 91 49 126)) ; HOME   \e[1~
+  (%add t lineedit-key-toggle-insert #vu8(27 91 50 126)) ; INSERT \e[2~
+  (%add t lineedit-key-del-right     #vu8(27 91 51 126)) ; DELETE \e[3~
+  (%add t lineedit-key-eol           #vu8(27 91 52 126)) ; END    \e[4~
+  (%add t lineedit-key-history-prev  #vu8(27 91 53 126) #vu8(27 91 49 59 53 65)) ; PGUP   \e[5~  CTRL+Up   \e[1;5A
+  (%add t lineedit-key-history-next  #vu8(27 91 54 126) #vu8(27 91 49 59 53 66)) ; PGDWN  \e[6~  CTRL+Dpwn \e[1;5B
 
-  (%add t lineedit-key-nop '(27 91 91 65) '(27 91 91 66)      ; F1..F2
-    '(27 91 91 67)     '(27 91 91 68)     '(27 91 91 69)      ; F3..F4
-    '(27 91 49 53 126) '(27 91 49 55 126) '(27 91 49 56 126)  ; F4..F7
-    '(27 91 49 57 126) '(27 91 50 48 126) '(27 91 50 49 126)  ; F8..F10
-    '(27 91 50 50 126) '(27 91 50 51 126) '(27 91 50 52 126)) ; F?..F12
+  (%add t lineedit-key-nop #vu8(27 91 91 65)     #vu8(27 91 91 66)      ; F1..F2
+    #vu8(27 91 91 67)      #vu8(27 91 91 68)     #vu8(27 91 91 69)      ; F3..F4
+    #vu8(27 91 49 53 126)  #vu8(27 91 49 55 126) #vu8(27 91 49 56 126)  ; F4..F7
+    #vu8(27 91 49 57 126)  #vu8(27 91 50 48 126) #vu8(27 91 50 49 126)  ; F8..F10
+    #vu8(27 91 50 50 126)  #vu8(27 91 50 51 126) #vu8(27 91 50 52 126)) ; F?..F12
 
 ) ; close let
 
