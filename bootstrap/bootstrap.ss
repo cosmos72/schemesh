@@ -15,7 +15,7 @@
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void let-macro
-      iterate iterate-any iterate-fold iterator? iterators-get iterators-map raise-assert* reverse-macro
+      iterate iterate-any iterator-fold iterator? iterators-get iterators-map raise-assert* reverse-macro
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
       ;; functions.ss
@@ -307,20 +307,20 @@
 ;; iter must be an iterator, i.e. a procedure that returns two values:
 ;;   the next generated element
 ;;   truish to indicate that next generated element is valid, or #f to indicate that elements are exhausted.
-;; on the first call to (proc val elem), val is the value passed to iterate-fold
+;; on the first call to (proc val elem), val is the value passed to iterator-fold
 ;; on subsequent calls, val is the value returned by the previous call to (proc val elem)
 ;;
 ;; Return value returned by the last call to (proc ...), or val if (proc ...) was never invoked
 ;;
 ;; Added 1.0.1
-(define (iterate-fold val iter proc)
-  (assert* 'iterate-fold (iterator? iter))
-  (assert* 'iterate-fold (procedure? proc))
-  (assert* 'iterate-fold (logbit? 1 (procedure-arity-mask proc)))
-  (let %iterate-fold ((val val) (iter iter) (proc proc))
+(define (iterator-fold val iter proc)
+  (assert* 'iterator-fold (iterator? iter))
+  (assert* 'iterator-fold (procedure? proc))
+  (assert* 'iterator-fold (logbit? 1 (procedure-arity-mask proc)))
+  (let %iterator-fold ((val val) (iter iter) (proc proc))
     (let-values (((elem ok?) (iter)))
       (if ok?
-        (%iterate-fold (proc val elem) iter proc)
+        (%iterator-fold  (proc val elem) iter proc)
         val))))
 
 
