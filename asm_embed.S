@@ -31,10 +31,6 @@
 #else
 #define SYM_(a,b) a##b
 #define SYM(a,b)  SYM_(a,b)
-#ifdef __GNUC__
-/* mark stack as non-executable */
-.section .note.GNU-stack, "", @progbits
-#endif
 .section .rodata
 #endif
 
@@ -55,3 +51,8 @@ EMBED_FILE(petite_boot, STR(CAT(CHEZ_SCHEME_DIR,/petite.boot)))
 EMBED_FILE(scheme_boot, STR(CAT(CHEZ_SCHEME_DIR,/scheme.boot)))
 
 EMBED_FILE(libschemesh_so, STR(CAT(./,LIBSCHEMESH_SO)))
+
+#if defined(__GNUC__) && !defined(__APPLE__) && !defined(__ARMEL__)
+/* mark stack as non-executable */
+.section .note.GNU-stack,"",@progbits
+#endif
