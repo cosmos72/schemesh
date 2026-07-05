@@ -20,7 +20,7 @@
           (scheme2k containers flvector)
           (scheme2k containers fxspan)
           (scheme2k containers fxvector)
-          (scheme2k containers in)
+          (scheme2k containers iterator)
           (scheme2k containers gbuffer)
           (scheme2k containers list)
           (scheme2k containers hashtable)

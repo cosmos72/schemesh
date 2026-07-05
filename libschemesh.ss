@@ -19,7 +19,7 @@
   (include "containers/circular-buffer.ss")
   (include "containers/flvector.ss")
   (include "containers/fxvector.ss")
-  (include "containers/in.ss")
+  (include "containers/iterator.ss")
   (include "containers/list.ss")
   (include "containers/string.ss")
   (include "containers/vector.ss")

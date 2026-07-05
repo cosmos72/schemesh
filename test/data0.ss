@@ -26,12 +26,6 @@
      (plus 3 4 5))                                 12
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
-  (let ((iter1 (in-list   '(1 2 3)))
-        (iter2 (in-vector '#(4 5 6)))
-        (l '()))
-    (for i (iterators-map + iter1 iter2)
-      (set! l (cons i l)))
-    (reverse! l))                                  (5 7 9)
 
   ;; arrows
   (==> + 1 2 => / 4)                               3/4
@@ -161,6 +155,12 @@
              (two   (circular-buffer-delete-left! c)))
         (circular-buffer-insert-right! c 5)
         (list one full? two c))))                       ,(1 #t 2 (vector->circular-buffer* (vector 3 4 5) 0 3))
+
+
+  ;; ----------------- containers iterator -------------------------------------
+  (let ((iter1 (in-list   '(1 2 3)))
+        (iter2 (in-vector '#(4 5 6))))
+    (iterator->list (in-iterators-map + iter1 iter2)))  (5 7 9)
 
 
   ;; ----------------- containers sort -----------------------------------------
