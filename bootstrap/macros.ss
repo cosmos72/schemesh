@@ -90,12 +90,20 @@
 ;;; Loop in parallel on elements returned by zero or more iterators,
 ;;; and execute body ... at each iteration, with vars bound to elements returned by iterators.
 ;;;
-;;; If body ... evaluates to #f, the loop finishes and returns #f
+;;; If body ... evaluates to #f, the loop finishes immediately and returns #f
 ;;; Otherwise the loop finishes when some iterator is exhausted,
-;;     and returns the value of last body ... evaluation (or #t if body ... was never evaluated).
+;;;   and returns the value of last body ... evaluation (or #t if body ... was never evaluated).
 ;;; In such case, the remaining iterators are not called again.
 ;;;
 ;;; If no iterators are specified, the loop finishes when body ... evaluates to #f, and returns #f
+;;;
+;;; Forms directly inside (for ...) can also contain
+;;;   while expr
+;;; if expr evaluates to #f, loop finishes immediately and returns #f
+;;;
+;;; Forms directly inside (for ...) can also contain
+;;;   until expr
+;;; if expr evaluates to truish, loop finishes immediately and returns #f
 ;;;
 ;;; Typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
 (define-syntax for
