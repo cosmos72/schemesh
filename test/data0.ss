@@ -41,6 +41,13 @@
   (let ((x 10))
     (forever (set! x (fx1- x)) until (fxzero? x))
     x)                                             0
+  (for i (in-list '(1 2 3))
+    while (fx<? i 3)
+    i)                                             #f
+  (for i (in-list '(1 2 3))
+    while (fx<? i 4)
+    i)                                             3
+
 
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
