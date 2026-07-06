@@ -52,7 +52,7 @@ EMBED_FILE(scheme_boot, STR(CAT(CHEZ_SCHEME_DIR,/scheme.boot)))
 
 EMBED_FILE(libschemesh_so, STR(CAT(./,LIBSCHEMESH_SO)))
 
-#if defined(__GNUC__) && !defined(__APPLE__) && !defined(__ARMEL__)
+#if defined(__ELF__) && defined(__GNUC__) && !defined(__ARMEL__) && (defined(__linux__) || defined(__FreeBSD__))
 /* mark stack as non-executable */
 .section .note.GNU-stack,"",@progbits
 #endif
