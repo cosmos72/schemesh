@@ -302,16 +302,17 @@
 
 
 ;; return status for a thread.
-;; if thread was not found, return (void) if thread exited otherwise return (running)
+;; if thread exited, return (void)
 ;;
 ;; must be called with locked $tc-mutex.
 (define ($thread-status thread)
-  (let* ((tc ($thread-tc thread))
+  (let* ((tc      ($thread-tc thread))
 	 (xthread ($tc-xthread-nocreate tc)))
     (cond
-      (xthread (xthread-status xthread))
-      (tc      s-running)
-      (else    (void)))))
+      (xthread     (xthread-status xthread))
+      ((eqv? 0 tc) (void))
+      (else        s-running))))
+
 
 
 ;; set status for a thread.
