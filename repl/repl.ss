@@ -224,7 +224,7 @@
 ;; 1. when using shell parser, top-level commands will be executed immediately.
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form env)
-  ; (debugf "repl-eval: ~s" form)
+  ;; (debugf "repl-eval: ~s" form)
   (let ((uform (ast-unwrap form)))
     (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
       (list (sh-run/i (sh-eval form env)))

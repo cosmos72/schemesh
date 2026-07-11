@@ -332,6 +332,11 @@
   (sh-job-find #t)                                     ,@(sh-globals)
 
   ;; ------------------------- shell form parser -------------------------------
+  (sh-parse-datum '(shell))                            (sh-cmd)
+  (sh-parse-datum '(shell \x3B;
+                    ))                                 (sh-list (quote \x3B;))
+  (sh-parse-datum '(shell &))                          (sh-list (quote &))
+  (sh-parse-datum '(shell "foo"))                      (sh-cmd "foo")
   (sh-parse-datum
     '(shell "wc" "-l" "myfile" > "mylog" \x3B;
             "echo" "done"))                            (sh-list (sh-cmd* "wc" "-l" "myfile" 1 '> "mylog") '\x3B;
@@ -347,7 +352,7 @@
   ;; relaxed syntax: sh-parse-datum converts non-operator symbols to strings also after redirections
   (sh-parse-datum '(shell ls -l & > /dev/null))        (sh-list (sh-cmd "ls" "-l") '&
                                                                 (sh-cmd* 1 '> "/dev/null"))
-  ;; (sh-parse) does not alter nested (shell "foo") and returns it verbatim
+  ;; (sh-parse-datum) does not alter nested (shell "foo") and returns it verbatim
   (sh-parse-datum '(shell (shell "foo") \x3B;
                           "bar"))                      (sh-list (shell "foo") '\x3B; (sh-cmd "bar"))
   (sh-parse-datum '(shell ! "foo" && "bar"))           (sh-and (sh-not (sh-cmd "foo")) (sh-cmd "bar"))

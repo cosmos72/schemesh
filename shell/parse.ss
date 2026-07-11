@@ -42,9 +42,9 @@
 ;; Current implementation is (sh-eval (sh-parse-datum (cons 'shell args))), which uses (sh-parse-datum)
 ;; for converting shell commands to Scheme source forms, then (sh-eval) such forms.
 ;;
-;; See (sh-parse) for allowed args.
+;; See (sh-parse-datum) for allowed args.
 (define (sh . args)
-  ; implementation: use (sh-parse) for converting shell commands to Scheme forms,
+  ; implementation: use (sh-parse-datum) for converting shell commands to Scheme forms,
   ; then (sh-eval) such forms
   (sh-eval (sh-parse-datum (cons 'shell args))))
 
@@ -76,7 +76,7 @@
              (else
                (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
-    ; (debugf ">   sh-parse-datum args = ~s" saved-args)
+    ;; (debugf ">   sh-parse-datum args ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args 'parse-list)))
         (unless (null? parsed)
@@ -84,7 +84,7 @@
         (set! args tail)
         (set! job-n (fx1+ job-n))
         (let %again ()
-          ;; (debugf "... sh-parse-datum ret = ~s, args = ~s" (reverse ret) args)
+          ;; (debugf "... sh-parse-datum ret ~s, args ~s" (reverse ret) args)
           (let ((arg (if (null? args) #f (car args))))
             (cond
               ((job-terminator? arg)
@@ -106,29 +106,30 @@
               (else
                 (syntax-violation 'sh-parse-datum "syntax error, unexpected shell DSL token:"
                   saved-args arg)))))))
-    ; (debugf "<   sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
         (set! ret-prefix 'sh-redirect)
         (set! ret-prefix 'sh-list*)))
+    ;; (debugf "<   sh-parse-datum ret ~s, prefix ~s, args ~s, job-n ~s, redirections? ~s, terminators? ~s" (reverse ret) ret-prefix args job-n redirections? terminators?)
     (cond
       ((null? ret)
         '(sh-cmd))
-      ((null? (cdr ret))
-        ;; when prefix is 'sh-list, unwrap single-element ret,
+      ((and (null? (cdr ret)) (pair? (car ret)) (eq? 'sh-list ret-prefix))
+        ;; when prefix is 'sh-list and ret contains a single form (a cons, not an atom),
+        ;; only return such form without wrapping it in (sh-list ...)
         ;;
         ;; this has the annoying side effect that "{ cd PATH }" becomes "cd PATH"
-        ;;   and the latter changes the current directory of (sh-globals), not of the enclosing "{ ... }",
+        ;;   and the latter changes the current directory of (sh-globals), not only of the enclosing "{ ... }"
         ;;
         ;; the alternative is worse: if we do *not* unwrap single-element ret,
         ;;   then a plain "cd PATH" is returned as "{ cd PATH }" which has no effect,
         ;;   because it only changes the current directory of the enclosing "{ ... }"
-        (if (eq? 'sh-list ret-prefix)
-          (car ret)
-          (cons ret-prefix ret)))
+        (car ret))
       (else
-       (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
-                                                  ) ret)))))))
+        ;; wrap ret list in (sh-list ...) or (sh-redirect ...)
+        ;; and also quote any top-level & ; in ret list
+        (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
+                                                   ) ret)))))))
 
 
 ;; Parse a list starting with one redirection. Used only for redirections after a group
