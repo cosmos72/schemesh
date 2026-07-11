@@ -20,7 +20,7 @@
 ;;
 ;; plus some useful extra functions
 ;;  (thread) (thread-alive?) (thread-count) (thread-find) (thread-id) (thread-initial-bindings)
-;;  (thread-stop!) (threads) (threads-status) (threads-status-changes)
+;;  (thread-stop!) (threads) (threads-status-changes)
 
 
 (library (scheme2k posix thread (1 0 1))

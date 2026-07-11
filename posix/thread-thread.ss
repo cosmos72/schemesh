@@ -16,8 +16,9 @@
     (mutable specific)   ; thread-specific, defined by SRFI 18
     (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
     (mutable signal)     ; one of: #f 'sigint 'sigtstp 'sigcont
+    (mutable status)     ; current status
     changed)             ; condition
-  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be45))
+  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be46))
 
 
 (define c-signal-send-thread (foreign-procedure "c_signal_send_thread" (int uptr) int))
@@ -230,7 +231,7 @@
     ;; call pthread_self() only if xthread is for current thread
     (make-xthread thread id (void) (void)
                   (if (eqv? tc ($tc)) (c-thread-self) #f)
-                  #f (make-condition name))))
+                  #f s-running (make-condition name))))
 
 
 (define xthread-parameter-index (($primitive $allocate-thread-parameter) #f))
@@ -300,37 +301,29 @@
               (xthread-signal-set! xthread initial-signal-name))))))))
 
 
-;; hashtable thread -> (id status . name)
-(define status-map (make-ephemeron-eq-hashtable))
-
 ;; return status for a thread.
 ;; if thread was not found, return (void) if thread exited otherwise return (running)
 ;;
 ;; must be called with locked $tc-mutex.
 (define ($thread-status thread)
-  (let ((pair (hashtable-ref status-map thread #f)))
+  (let* ((tc ($thread-tc thread))
+	 (xthread ($tc-xthread-nocreate tc)))
     (cond
-      (pair
-        (cadr pair))
-      ((eqv? 0 ($thread-tc thread)) ; thread exited
-        (void))
-      (else
-        (running)))))
+      (xthread (xthread-status xthread))
+      (tc      s-running)
+      (else    (void)))))
 
 
 ;; set status for a thread.
 ;; must be called with locked $tc-mutex.
-(define ($thread-status-set! thread tc new-status)
-  (let* ((old-pair     (hashtable-ref status-map thread #f))
-         (thread-id    ($tc-id tc))
+(define ($thread-status-set! thread tc xthread new-status)
+  (let* ((thread-id    ($tc-id tc))
          (thread-name  ($thread-name thread))
-         (same-status? (cond ((pair? old-pair) (eq? (cadr old-pair) new-status))
-                             (else             (eq? s-running       new-status)))))
-    (if old-pair
-      (set-car! (cdr old-pair) new-status)
-      (hashtable-set! status-map thread (cons thread-id (cons new-status thread-name))))
-
+	 (old-status   (if xthread (xthread-status xthread) s-running))
+         (same-status? (eq? old-status new-status)))
     (unless same-status?
+      (when xthread
+	(xthread-status-set! xthread new-status))
       ;; queue thread status change notification.
       ;; Also sends SIGCHLD to main thread, for waking it up
       ;; and displaying the thread status change notification
@@ -376,12 +369,9 @@
 (define (threads-status)
   (let ((ret (make-eqv-hashtable)))
     (with-tc-mutex
-      (for-hash ((t id.status.name status-map))
-        (hashtable-set! ret (car id.status.name)
-                            (vector t (cadr id.status.name) (cddr id.status.name))))
       (for-list ((t ($threads)))
-        (let ((id ($thread-id t)))
-          (when (and id (not (hashtable-ref ret id #f)))
+	(let ((id ($thread-id t)))
+          (when id
             (hashtable-set! ret id (vector t ($thread-status t) ($thread-name t)))))))
     ret))
 
@@ -443,7 +433,7 @@
                     ;; race condition: may be executed before set! ret above
                     (thread (or ret (current-thread))))
                 (with-tc-mutex
-                  ($thread-status-set! thread ($tc) status))))))
+                  ($thread-status-set! thread ($tc) ($tc-xthread-nocreate ($tc)) status))))))
     ret))
 
 
@@ -544,15 +534,15 @@
   (let ((signal-name (xthread-signal xthread)))
     (case signal-name
       ((sigint)
-        ($thread-status-set! thread tc s-running)
+        ($thread-status-set! thread tc xthread s-running)
         (xthread-signal-set! xthread 'sigcont) ; consume signal
         (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
-        ($thread-status-set! thread tc s-stopped)
+        ($thread-status-set! thread tc xthread s-stopped)
         (condition-wait (xthread-changed xthread) $tc-mutex)
         ($thread-signal-handle thread tc xthread))
       (else ; #f or sigcont
-        ($thread-status-set! thread tc s-running)))))
+        ($thread-status-set! thread tc xthread s-running)))))
 
 
 (define (raise-thread-interrupted caller thread-id signal-name)

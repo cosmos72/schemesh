@@ -133,7 +133,7 @@
     (only (scheme2k containers vector)     for-vector vector-iterate)
     (only (scheme2k conversions)           bytevector->bytevector0 list->argv string-hashtable->argv text? text->bytevector0)
           (scheme2k posix)                 ;; produces smaller libschemesh than listing each imported symbol
-    (only (scheme2k posix thread)          thread-count thread-id thread-signal-handle threads-status threads-status-changes)
+    (only (scheme2k posix thread)          thread-count thread-id thread-signal-handle threads-status-changes)
     (only (scheme2k io obj)                readers-writers-collect)
           (scheme2k io redir)
           (scheme2k io stdio)
