@@ -215,7 +215,7 @@
 
 ;; thread parameter containing an alist ((param . thunk) ...) where each param and thunk are procedures.
 ;;
-;; each time (fork-thread thunk) or (make-thread thunk [name]) are invoked,
+;; each time (fork-thread thunk [name]) or (make-thread thunk [name]) are invoked,
 ;; the new thread will iterate on such alist and call (param (thunk)) on each element,
 ;; allowing for example to establish initial values for other thread parameters.
 ;;

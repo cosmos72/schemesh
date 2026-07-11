@@ -80,21 +80,25 @@
       ret)))
 
 
+;; only keep track and notify status changed of named threads:
+;; unnamed threads are silent
+;;
 ;; must be called with with locked $tc-mutex.
 (define ($threads-status-changes-insert! id status name)
-  (set! status-changes (cons (cons id (cons status name)) status-changes))
+  (unless (eq? (void) name)
+    (set! status-changes (cons (cons id (cons status name)) status-changes))
 
-  ;; wake up main thread, to let it display thread status changes
-  (let* ((t  (get-initial-thread))
-         (tc ($thread-tc t)))
-    (unless (eqv? 0 tc)
-      ; ($tc-field 'signal-interrupt-pending tc #t)
-      ; ($tc-field 'something-pending tc #t)
-      (let ((xthread ($thread-xthread t tc)))
-        (when xthread
-          (let ((pthread-id (xthread-pthread-id xthread)))
-            (when pthread-id
-              (c-signal-send-thread n-sigchld pthread-id))))))))
+    ;; wake up main thread, to let it display thread status changes
+    (let* ((t  (get-initial-thread))
+           (tc ($thread-tc t)))
+      (unless (eqv? 0 tc)
+	;; ($tc-field 'signal-interrupt-pending tc #t)
+	;; ($tc-field 'something-pending tc #t)
+	(let ((xthread ($thread-xthread t tc)))
+          (when xthread
+            (let ((pthread-id (xthread-pthread-id xthread)))
+              (when pthread-id
+		(c-signal-send-thread n-sigchld pthread-id)))))))))
 
 
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.

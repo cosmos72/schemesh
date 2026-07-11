@@ -41,7 +41,7 @@
                               (reader-close reader)
                               (writer-close tx))))))
 
-              (fork-thread %thread-fifo-reader 'thread-fifo-reader))
+              (fork-thread %thread-fifo-reader))
               rx))
         (else
           reader)))
