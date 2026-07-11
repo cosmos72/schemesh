@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh test (1 0 0))
+(library (schemesh test (1 0 1))
   (export
       run-tests)
   (import

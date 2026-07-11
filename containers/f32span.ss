@@ -11,7 +11,7 @@
 ;;;; define Scheme type "f32span", a resizeable vector of float-32 ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (scheme2k containers f32span (1 0 0))
+(library (scheme2k containers f32span (1 0 1))
   (export
     list->f32span bytevector->f32span bytevector->f32span* make-f32span
     f32span->bytevector f32span->bytevector*!

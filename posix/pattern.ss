@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix pattern (1 0 0))
+(library (scheme2k posix pattern (1 0 1))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-ref/string sh-pattern-ref-right/string

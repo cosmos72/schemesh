@@ -24,7 +24,7 @@
 #undef SCHEME_OPTIMIZE
 #endif
 
-#define LIBSCHEME2K_SO "libscheme2k_1.0.0.so"
+#define LIBSCHEME2K_SO "libscheme2k_1.0.1.so"
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 

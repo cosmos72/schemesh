@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (scheme2k lineedit) as a library that exports all imported bindings
-(library-reexport (scheme2k lineedit (1 0 0))
+(library-reexport (scheme2k lineedit (1 0 1))
   (import
     (scheme2k lineedit ansi)
     (scheme2k lineedit lineedit)

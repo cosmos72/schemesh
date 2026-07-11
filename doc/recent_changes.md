@@ -3,18 +3,19 @@
 ### TO DO
 
 * debug deadlocks in `(repeat 1000 (thread==> proc => to-table))`
-* fix fs-related functions to honor current job's current directory
+* autocomplete partial usernames after ~
 * add type `wildcard-reader`, and macro `shell-glob-reader` to create it, and macro `for-glob-reader` to iterate on it.
-
+* implement function `(string->sh-patterns)`
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
-### git main branch
+### release v1.0.1, 2026-07-11
 
 * fix issue #44: always correctly redirect external commands executed in a pipeline
 * fix issue #49: flush `(current-error-port)` and `(current-output-port)` after evaluating an expression or a file
 * fix issue #53: send SIGCONT only once when resuming a suspended subprocess
 * fix most filesystem-related functions to honor current job's current directory
 * fix suspending shell builtins inside composite commands `!` `&&` `||` `;`
+* fix parsing a lone `;` in shell syntax
 * better document how to mix shell and Scheme syntax.
 * implement full job control on shell builtins and scheme jobs:
   they can now also run in background, and they are transparently moved to a new subprocess when needed.
@@ -22,7 +23,7 @@
 * add type `disk-reader`, its convenience function `(disk)` and shell builtin `disk`
 * add type `fs-reader` and its convenience function `(search)`
 * add type `text0-writer`, its convenience function `(to-text0)` and shell builtin `get0`
-* add prompt0 and functions to customize it. Displayed on the right by default, or on the left if it starts with `#\return`.
+* add prompt0 and functions to customize it. It is displayed on the right by default, or on the left if it starts with `#\return`.
 * add REPL customization functions `(repl-current-eval)` `(repl-current-parse)` and document them.
 * add function `(bytevector-append)`
 * add function `(sh-compile-file)` and merge functions `(sh-include)` `(sh-include*)` into new function `(sh-include-file)`

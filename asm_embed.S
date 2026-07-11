@@ -22,7 +22,7 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 
-#define LIBSCHEMESH_SO libschemesh_1.0.0.so
+#define LIBSCHEMESH_SO libschemesh_1.0.1.so
 
 #ifdef __APPLE__
 #define SYM_(a,b) _##a##b

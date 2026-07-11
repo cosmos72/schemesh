@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (scheme2k posix) as a library that exports all its imported bindings
-(library-reexport (scheme2k posix (1 0 0))
+(library-reexport (scheme2k posix (1 0 1))
   (import
     (scheme2k posix base)
     (scheme2k posix fd)

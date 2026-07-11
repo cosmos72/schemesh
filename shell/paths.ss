@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell paths (1 0 0))
+(library (schemesh shell paths (1 0 1))
   (export sh-path sh-path? sh-path-absolute? sh-path-relative?
           sh-path-append sh-path-append! sh-path-iterate
           sh-subpath sh-subpath? sh-path->subpath text->sh-path*)

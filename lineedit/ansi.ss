@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k lineedit ansi (1 0 0))
+(library (scheme2k lineedit ansi (1 0 1))
   (export
     ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length make-ansi-text
     string+ color

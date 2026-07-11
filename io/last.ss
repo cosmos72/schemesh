@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k io last (1 0 0))
+(library (scheme2k io last (1 0 1))
   (export
     make-last-reader last-reader last-reader?)
   (import

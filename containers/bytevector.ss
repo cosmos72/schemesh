@@ -6,7 +6,7 @@
 ;;; version 2 of the License, or (at your option) any later version.
 
 
-(library (scheme2k containers bytevector (1 0 0))
+(library (scheme2k containers bytevector (1 0 1))
   (export
     bytevector-append bytevector-compare bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>?

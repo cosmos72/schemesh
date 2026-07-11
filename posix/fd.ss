@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix fd (1 0 0))
+(library (scheme2k posix fd (1 0 1))
   (export
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-redirect fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers hashtable (1 0 0))
+(library (scheme2k containers hashtable (1 0 1))
   (export
     hash-cursor hash-cursor? hash-cursor-copy hash-cursor-cell hash-cursor-next!
 

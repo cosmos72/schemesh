@@ -8,7 +8,7 @@
 
 #!r6rs
 
-(library (scheme2k containers date (1 0 0))
+(library (scheme2k containers date (1 0 1))
   (export date date<? date<=? date=? date>=? date>? date-compare (rename (date=? date-equiv?))
           date-or-false date-systz date->string string->date)
   (import

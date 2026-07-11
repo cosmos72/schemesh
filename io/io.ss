@@ -10,7 +10,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library-reexport (scheme2k io (1 0 0))
+(library-reexport (scheme2k io (1 0 1))
   (import
     (scheme2k io auto)
     (scheme2k io base64)

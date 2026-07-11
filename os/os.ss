@@ -8,7 +8,7 @@
 
 ;;; collect information about system processes
 ;;;
-(library (scheme2k os (1 0 0))
+(library (scheme2k os (1 0 1))
   (export make-disk-reader    disk-reader    disk-reader?    make-disk-entry    disk-entry    disk-entry?
           make-process-reader process-reader process-reader? make-process-entry process-entry process-entry?)
   (import

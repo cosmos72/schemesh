@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell eval (1 0 0))
+(library (schemesh shell eval (1 0 1))
   (export
     sh-compile-file
     sh-eval-file sh-eval-fd sh-eval-port sh-eval-parsectx sh-eval-string

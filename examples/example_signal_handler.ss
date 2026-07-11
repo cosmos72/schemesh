@@ -1,4 +1,4 @@
-(library (scheme2k example signal handler (1 0 0))
+(library (scheme2k example signal handler (1 0 1))
   (export check-interrupts init-signal-handlers)
   (import
     (rnrs)

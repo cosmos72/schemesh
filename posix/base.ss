@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix base (1 0 0))
+(library (scheme2k posix base (1 0 1))
   (export
     c-errno c-errno-einval c-errno->string c-exit c-hostname raise-c-errno warn-c-errno)
   (import

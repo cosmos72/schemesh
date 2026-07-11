@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers iterator (1 0 0))
+(library (scheme2k containers iterator (1 0 1))
   (export
     constant in-value in-values in-numbers in-range in-roundrobin in-list-roundrobin in-iterators in-iterators-map
     iterator-fold iterators-get iterator->list iterator->vector number->cflonum)

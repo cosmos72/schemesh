@@ -8,7 +8,7 @@
 #!r6rs
 
 ;;; This file loads and compiles the subset of schemesh sources
-;;; that are licensed as LGPLv2+ into Scheme library libscheme2k_1.0.0.so
+;;; that are licensed as LGPLv2+ into Scheme library libscheme2k_1.0.1.so
 
 (begin
   (include "bootstrap/arrow.ss")
@@ -104,7 +104,7 @@
   ;;   get-char get-datum get-line get-string-all get-string-n get-u8
   ;;   put-bytevector put-char put-datum put-string put-u8
   ;;
-  (library-reexport (scheme2k rnrs (1 0 0))
+  (library-reexport (scheme2k rnrs (1 0 1))
     (import
       (except (rnrs) bytevector-sint-ref bytevector-sint-set!
                      bytevector-uint-ref bytevector-uint-set!
@@ -118,7 +118,7 @@
   ;; library (scheme2k) collects and exports *all* bindings defined by all LGPLv2+ libschemesh sub-libraries,
   ;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
   ;; because they are intended as replacements
-  (library-reexport (scheme2k (1 0 0))
+  (library-reexport (scheme2k (1 0 1))
     (import
       (scheme2k bootstrap)
       (scheme2k containers)

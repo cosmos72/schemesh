@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers list (1 0 0))
+(library (scheme2k containers list (1 0 1))
   (export
     any count every for-alist for-list for-plist map* in-alist in-list in-plist on-list
     alist-iterate list-iterate plist-iterate

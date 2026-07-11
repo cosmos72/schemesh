@@ -11,7 +11,7 @@
 ;;;; define Scheme type "fxspan", a resizeable vector of fixnum ;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (scheme2k containers fxspan (1 0 0))
+(library (scheme2k containers fxspan (1 0 1))
   (export
     list->fxspan fxvector->fxspan fxvector->fxspan* make-fxspan
     fxspan->fxvector fxspan->fxvector*!

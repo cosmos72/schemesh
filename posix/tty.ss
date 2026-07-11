@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix tty (1 0 0))
+(library (scheme2k posix tty (1 0 1))
   (export tty-job-control? tty-job-control-available? tty-job-control-proc tty-setraw! tty-restore!
           tty-inspect tty-size with-cooked-tty with-raw-tty)
   (import

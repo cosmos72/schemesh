@@ -13,7 +13,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;;             (shell) and (shell-...) are macros
 
-(library (schemesh shell job (1 0 0))
+(library (schemesh shell job (1 0 1))
   (export
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand

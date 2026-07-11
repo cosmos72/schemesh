@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k conversions (1 0 0))
+(library (scheme2k conversions (1 0 1))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector text->string

@@ -9,7 +9,7 @@
 
 ;;; CSV reader and writer
 ;;;
-(library (scheme2k io text0 (1 0 0))
+(library (scheme2k io text0 (1 0 1))
   (export make-text0-writer text0-writer text0-writer?)
   (import
     (rnrs)

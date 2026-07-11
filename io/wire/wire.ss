@@ -90,7 +90,7 @@
 ;;;     255         => datum is magic string: #\w #\i #\r #\e VERSION-HI VERSION-LO
 
 
-(library (scheme2k io wire (1 0 0))
+(library (scheme2k io wire (1 0 1))
   (export make-wire-reader wire-reader wire-reader?
           make-wire-writer wire-writer wire-writer?
 
