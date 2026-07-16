@@ -192,10 +192,10 @@ CTRL+Z
 ```
 
 The examples above also show an additional feature of Scheme jobs:
-they can exit with a status containing an arbitrary Scheme value
+they can exit with a status containing an (almost) arbitrary Scheme value
 or even multiple values, not just an 8-bit exit status
-(limitation: if they are executed in background, they are moved to a new subprocess
-and thus they can only return an 8-bit exit status as all POSIX processes).
+(limitation: since they run in a subprocess, the scheme values must be serializable for sending them to the parent process.
+This matters mostly if a Scheme job tries to return a closure or self-referencing data such as a circular list - neither is supported).
 
 To inspect a job status, use `(status->kind)` and `(status->value)`, as for example:
 ```lisp
