@@ -95,10 +95,10 @@ static ptr c_endpoint_to_vector(const struct sockaddr* saddr, const socklen_t le
   ptr         empty_string = Smake_string(0, 0);
   ptr         address      = empty_string;
   uint16_t    port         = 0;
-  if (len >= sizeof(struct sockaddr)) {
+  if (len > 0 && (size_t)len >= sizeof(struct sockaddr)) {
     switch ((family = saddr->sa_family)) {
       case AF_INET:
-        if (len >= sizeof(struct sockaddr_in)) {
+        if ((size_t)len >= sizeof(struct sockaddr_in)) {
           const struct sockaddr_in* saddr4 = (const struct sockaddr_in*)saddr;
 
           address = c_endpoint_inet_to_ipaddr(saddr4, empty_string);
@@ -106,7 +106,7 @@ static ptr c_endpoint_to_vector(const struct sockaddr* saddr, const socklen_t le
         }
         break;
       case AF_INET6:
-        if (len >= sizeof(struct sockaddr_in6)) {
+        if ((size_t)len >= sizeof(struct sockaddr_in6)) {
           const struct sockaddr_in6* saddr6 = (const struct sockaddr_in6*)saddr;
 
           address = c_endpoint_inet6_to_ipaddr(saddr6, empty_string);
@@ -114,7 +114,7 @@ static ptr c_endpoint_to_vector(const struct sockaddr* saddr, const socklen_t le
         }
         break;
       case AF_UNIX:
-        if (len >= sizeof(struct sockaddr_un)) {
+        if ((size_t)len >= sizeof(struct sockaddr_un)) {
           address = c_endpoint_unix_to_path((const struct sockaddr_un*)saddr, empty_string);
         }
         break;

@@ -92,13 +92,13 @@
     (let* ((t  (get-initial-thread))
            (tc ($thread-tc t)))
       (unless (eqv? 0 tc)
-	;; ($tc-field 'signal-interrupt-pending tc #t)
-	;; ($tc-field 'something-pending tc #t)
-	(let ((xthread ($thread-xthread t tc)))
+        ;; ($tc-field 'signal-interrupt-pending tc #t)
+        ;; ($tc-field 'something-pending tc #t)
+        (let ((xthread ($thread-xthread t tc)))
           (when xthread
             (let ((pthread-id (xthread-pthread-id xthread)))
               (when pthread-id
-		(c-signal-send-thread n-sigchld pthread-id)))))))))
+                (c-signal-send-thread n-sigchld pthread-id)))))))))
 
 
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.
@@ -311,7 +311,7 @@
 ;; must be called with locked $tc-mutex.
 (define ($thread-status thread)
   (let* ((tc      ($thread-tc thread))
-	 (xthread ($tc-xthread-nocreate tc)))
+         (xthread ($tc-xthread-nocreate tc)))
     (cond
       (xthread     (xthread-status xthread))
       ((eqv? 0 tc) (void))
@@ -324,11 +324,11 @@
 (define ($thread-status-set! thread tc xthread new-status)
   (let* ((thread-id    ($tc-id tc))
          (thread-name  ($thread-name thread))
-	 (old-status   (if xthread (xthread-status xthread) s-running))
+         (old-status   (if xthread (xthread-status xthread) s-running))
          (same-status? (eq? old-status new-status)))
     (unless same-status?
       (when xthread
-	(xthread-status-set! xthread new-status))
+        (xthread-status-set! xthread new-status))
       ;; queue thread status change notification.
       ;; Also sends SIGCHLD to main thread, for waking it up
       ;; and displaying the thread status change notification
@@ -375,7 +375,7 @@
   (let ((ret (make-eqv-hashtable)))
     (with-tc-mutex
       (for-list ((t ($threads)))
-	(let ((id ($thread-id t)))
+        (let ((id ($thread-id t)))
           (when id
             (hashtable-set! ret id (vector t ($thread-status t) ($thread-name t)))))))
     ret))
@@ -526,12 +526,15 @@
   ;; this is for secondary threads only
   (unless (eqv? 0 (get-thread-id))
     (with-tc-mutex
-      (let* ((thread  ($current-thread))
-             (tc      ($tc))
-             (xthread ($thread-xthread thread tc)))
-        (when xthread
-          ($thread-signal-handle thread tc xthread))))))
+      (with-interrupts-disabled
+        (let* ((thread  ($current-thread))
+               (tc      ($tc))
+               (xthread ($thread-xthread thread tc)))
+          (when xthread
+            ($thread-signal-handle thread tc xthread)))))))
 
+
+(define c-mutex-locked-count (foreign-procedure "c_mutex_locked_count" () ptr))
 
 ;; implementation of (thread-signal-handle)
 (define ($thread-signal-handle thread tc xthread)
@@ -543,9 +546,20 @@
         (xthread-signal-set! xthread 'sigcont) ; consume signal
         (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
-        ($thread-status-set! thread tc xthread s-stopped)
-        (condition-wait (xthread-changed xthread) $tc-mutex)
-        ($thread-signal-handle thread tc xthread))
+        ;; (debugf "suspend thread ~s: locked-count ~s" ($tc-id tc) (c-mutex-locked-count))
+       (cond
+         ((fx<=? (c-mutex-locked-count) 1)
+           ;; only tc-mutex is locked, release it and suspend thread
+           ($thread-status-set! thread tc xthread s-stopped)
+           (condition-wait (xthread-changed xthread) $tc-mutex)
+           ($thread-signal-handle thread tc xthread))
+         (#f ;; DISABLED, causes infinite loop
+           ;; cannot suspend this thread, it has locked some mutex (in addition to tc-mutex)
+           ;;
+           ;; set again the flag "call signal handler for this thread"
+           ;; for trying again later: hopefully it will release its mutexes in the meantime
+           ($tc-field 'keyboard-interrupt-pending tc #t)
+           ($tc-field 'something-pending tc #t))))
       (else ; #f or sigcont
         ($thread-status-set! thread tc xthread s-running)))))
 

@@ -536,20 +536,6 @@ static void c_sched_yield(void) {
   (void)sched_yield();
 }
 
-static uptr c_thread_count(void) {
-#ifdef FEATURE_PTHREADS
-  extern volatile uptr S_nthreads;
-  return S_nthreads;
-#else
-  return 1;
-#endif
-}
-
-/** must be called with locked $tc-mutex */
-static ptr c_threads(void) {
-  extern volatile ptr S_threads;
-  return S_threads;
-}
 
 #define NOKEY INT_MIN
 
@@ -737,10 +723,8 @@ static ptr c_environ_ref(uptr i) {
 
 int scheme2k_register_c_functions(void) {
   int err;
-  if ((err = c_tty_init()) < 0) {
-    return err;
-  }
-  if ((err = c_register_c_functions_posix_signals()) < 0) {
+  if ((err = c_tty_init()) < 0 ||
+      (err = c_register_c_functions_posix_signals()) < 0) {
     return err;
   }
 
@@ -840,14 +824,15 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_shm_unlock", &c_shm_unlock);
   Sregister_symbol("c_shm_locked_delete", &c_shm_locked_delete);
 
-  Sregister_symbol("c_thread_count", &c_thread_count);
-  Sregister_symbol("c_threads", &c_threads);
   Sregister_symbol("c_sched_yield", &c_sched_yield);
   Sregister_symbol("c_rlimit_keys", &c_rlimit_keys);
   Sregister_symbol("c_rlimit_get", &c_rlimit_get);
   Sregister_symbol("c_rlimit_set", &c_rlimit_set);
 
-  return 0;
+  {
+    extern int scheme2k_thread_init(void);
+    return scheme2k_thread_init();
+  }
 }
 
 void scheme2k_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {

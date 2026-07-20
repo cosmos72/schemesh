@@ -380,13 +380,13 @@
 
   ;; ------------------------- wildcard expansion -------------------------
   (wildcard1+ #t "a" "bcd" "" "ef")                    ("abcdef")
-  (wildcard1+ #t '* "f" '*)                            ("Makefile" "default.nix" "reflect" "srfi")
+  (wildcard1+ #t '* "f" '* "l" '*)                     ("Makefile" "default.nix" "reflect")
   (wildcard->sh-patterns '(*))                       ,@(span (sh-pattern '*))
   (wildcard->sh-patterns '("/" * ".so"))             ,@(span "/" (sh-pattern '* ".so"))
   (wildcard->sh-patterns '("//abc//" "//def//"))     ,@(span "/" "abc/" "def/")
   (wildcard->sh-patterns '("/foo/" * "/" "/bar"))    ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (wildcard #t '* "/" '* ".c")                         ("c/countdown.c" "c/dir.c" "c/http.c" "c/parse_sqlite.c" "c/proc.c" "containers/containers.c"
-                                                        "os/os.c" "posix/posix.c" "test/test.c" "utils/benchmark_async_signal_handler.c")
+  (wildcard #t '* "/" '* ".c")                         ("c/countdown.c" "c/dir.c" "c/http.c" "c/parse_sqlite.c" "c/proc.c" "containers/containers.c" "os/os.c"
+                                                        "posix/posix.c" "posix/thread_elf.c" "posix/thread_wrap.c" "test/test.c" "utils/benchmark_async_signal_handler.c")
   (wildcard1+ #t "Makefile")                           ("Makefile")
   (wildcard1+ #t "_does_not_exist_")                   ("_does_not_exist_")
   (wildcard* #t '("_does_not_exist_"))                 ()

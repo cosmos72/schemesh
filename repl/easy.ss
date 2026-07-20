@@ -199,6 +199,7 @@
 
 ;; iterate (get from) then (put to) until from is exhausted
 (define (copy-all from to)
+  (check-interrupts)
   (let-values (((datum ok?) (get from)))
     (when ok?
       (put to datum)

@@ -108,7 +108,8 @@ uninstall_all: uninstall_schemesh uninstall_scheme2k uninstall_utils
 SCHEMESH_SO=libschemesh_$(VERSION_STR).so
 
 SRCS=containers/containers.c eval.c posix/posix.c
-OBJS=containers.o eval.o os.o posix.o
+OBJS=containers.o eval.o os.o posix.o thread_elf.o
+OBJS_WRAP=containers.o eval.o os.o posix.o thread_wrap.o
 
 
 containers.o: containers/containers.c containers/containers.h eval.h
@@ -120,6 +121,13 @@ eval.o: eval.c eval.h
 posix.o: posix/posix.c containers/containers.h eval.h posix/endpoint.h posix/fd.h posix/fs.h posix/pid.h posix/posix.h posix/fs.h posix/shm.h posix/signal.h posix/socket.h posix/tty.h os/os.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
+thread_elf.o: posix/thread_elf.c posix/thread.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
+
+thread_wrap.o: posix/thread_wrap.c posix/thread.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
+
+
 os.o: os/os.c os/os.h os/disk.h os/disk_freebsd.h os/disk_linux.h os/disk_macos.h os/disk_unsupported.h os/process.h os/process_freebsd.h os/process_linux.h os/process_macos.h os/process_openbsd.h os/process_unsupported.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
@@ -128,7 +136,6 @@ main.o: main.c containers/containers.h eval.h load.h posix/posix.h
 
 test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
-
 
 schemesh: main.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
@@ -177,8 +184,8 @@ schemesh_embed: main_embed.o asm_embed.o $(OBJS)
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 #   also links against system-wide static libraries where feasible
 ifeq ($(OS), FreeBSD)
-  schemesh_static: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS)
+  schemesh_static: main_embed.o asm_embed.o $(OBJS_WRAP)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS) -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=pthread_mutex_timedlock -Wl,--wrap=pthread_mutex_trylock -Wl,--wrap=pthread_mutex_unlock
 else # Android, GNU/Linux
   schemesh_static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
@@ -191,10 +198,10 @@ install_schemesh_static: schemesh_static installdirs
 	$(INSTALL_PROGRAM) schemesh_static '$(DESTDIR)$(bindir)'
 
 uninstall_schemesh_embed:
-	rm -f '$(DESTDIR)$(bindir)/schemesh_embed
+	rm -f '$(DESTDIR)$(bindir)/schemesh_embed'
 
 uninstall_schemesh_static:
-	rm -f '$(DESTDIR)$(bindir)/schemesh_static
+	rm -f '$(DESTDIR)$(bindir)/schemesh_static'
 
 
 ################################################################################
@@ -214,7 +221,7 @@ uninstall_utils: uninstall_countdown uninstall_dir uninstall_http uninstall_pars
 ################################################################################
 
 countdown: c/countdown.c
-	$(CC) -o $@ $< $(CFLAGS)  $(LDFLAGS)
+	$(CC) -o $@ $< $(CFLAGS) $(LDFLAGS)
 
 clean_countdown:
 	rm -f countdown
