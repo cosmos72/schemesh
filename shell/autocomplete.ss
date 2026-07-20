@@ -25,7 +25,7 @@
     (scheme2k lineedit paren)
     (only (scheme2k lineedit lineedit)    linectx-completion-stem linectx-vscreen)
     (only (schemesh shell parameters)     sh-current-environment)
-    (only (schemesh shell job)            sh-aliases sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
+    (only (schemesh shell job)            sh-alias sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
 
 ;; each sh-autocomplete-... procedure accepts a prefix charspan and a span of charspans,
 ;; and fills the span with possible completions of prefix:
@@ -497,7 +497,7 @@
 
 ;; find shell aliases starting with prefix, cons them onto list l, and return l
 (define (%list-shell-aliases prefix l)
-  (%list-htable-keys (sh-aliases) prefix l))
+  (%list-htable-keys (sh-alias) prefix l))
 
 
 ;; find shell builtins starting with prefix, cons them onto list l, and return l

@@ -15,8 +15,8 @@
 
 (library (schemesh shell job (1 0 1))
   (export
-    ;; aliases.ss
-    sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
+    ;; alias.ss
+    sh-alias sh-alias-expand
 
     ;; builtins.ss
     sh-builtins sh-builtins-help sh-builtin-find sh-exception-handler
@@ -589,7 +589,7 @@
 (include "shell/parse.ss")
 (include "shell/scheduler.ss")
 (include "shell/builtins2.ss")
-(include "shell/aliases.ss")
+(include "shell/alias.ss")
 (include "shell/wildcard.ss")
 (include "shell/display.ss") ; must be next-to-last one, contains (record-writer ...)
 

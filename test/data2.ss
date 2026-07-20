@@ -290,8 +290,8 @@
 
   ;; ------------------------- shell aliases ------------------------------
   (begin
-    (sh-alias-set! "test-alias-foo" '("bar" "baz"))
-    (sh-aliases-expand '("test-alias-foo" "123" "456")))
+    (sh-alias "test-alias-foo" '("bar" "baz"))
+    (sh-alias-expand '("test-alias-foo" "123" "456")))
                                                       ("bar" "baz" "123" "456")
 
   ;; ------------------------- shell job ---------------------------------

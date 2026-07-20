@@ -157,8 +157,8 @@
   (assert* 'sh-cmd (sh-cmd? c))
 
   ;; expand aliases in args
-  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
-  (let ((prog-and-args (sh-aliases-expand program-and-args)))
+  ;; sanity: (sh-alias-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-alias-expand program-and-args)))
 
     ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
@@ -184,8 +184,8 @@
   (assert* 'sh-cmd (sh-cmd? c))
 
   ;; expand aliases in args
-  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
-  (let ((prog-and-args (sh-aliases-expand program-and-args)))
+  ;; sanity: (sh-alias-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-alias-expand program-and-args)))
     ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
       ;; save expanded cmd-arg-list for more accurate pretty-printing
