@@ -45,6 +45,7 @@
         ;; return the global hashtable name -> alias
         ;; Each alias is either a list of strings or a procedure args -> prog-and-args
         ;; i.e. it must accept a list of strings and return a list of strings
+        ;; The procedure must NOT modify args.
         ht)
       ((name)
         ;; find and return the definition of specified alias name,
@@ -55,7 +56,8 @@
           ;; add an alias to (sh-alias) table.
           ;; name must be a string;
           ;; alias must be a list of strings or a procedure args -> prog-and-args
-          ;; i.e. it must accept a list of strings and return a list of strings
+          ;; i.e. it must accept a list of strings and return a list of strings.
+          ;; The procedure must NOT modify args.
           ;;
           ;; do NOT modify alias argument after calling this function.
           (begin

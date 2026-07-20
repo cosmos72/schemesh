@@ -290,9 +290,16 @@
 
   ;; ------------------------- shell aliases ------------------------------
   (begin
-    (sh-alias "test-alias-foo" '("bar" "baz"))
-    (sh-alias-expand '("test-alias-foo" "123" "456")))
-                                                      ("bar" "baz" "123" "456")
+    (sh-alias "test-alias-barbaz" '("bar" "baz"))
+    (sh-alias-expand
+      '("test-alias-barbaz" "123" "456")))            ("bar" "baz" "123" "456")
+
+  (begin
+    (sh-alias "test-alias-reverse"
+      (lambda (args)
+        (reverse args)))
+    (sh-alias-expand
+      '("test-alias-reverse" "abc" "345")))           ("345" "abc")
 
   ;; ------------------------- shell job ---------------------------------
   (begin
