@@ -85,15 +85,18 @@
     ;; if type = 'quote, value can be one of:
     ;;    'quote  'quasiquote  'unquote  'unquote-splicing
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
-    ;;    'datum-comment 'shell-expr
+    ;;    'datum-comment 'shell-expr 'shell-backquote
     ((quote)
-      (let ((next (parse-lisp ctx flavor)))
-        (if (eq? 'datum-comment (ast-unwrap value))
-          ; skip the whole lisp form read above,
-          ; then call (parse-lisp again) and return its value
-          (parse-lisp ctx flavor)
-          ; quote the whole lisp form read above and return it
-          (ast-wrap-list2 ctx value next))))
+      (case (ast-unwrap value)
+        ((shell-backquote) ; found ${
+          (parse-lisp-shell-backquote ctx flavor))
+        ((datum-comment)   ; found #;
+          (parse-lisp ctx flavor)  ; read next lisp form and discard it
+          (parse-lisp ctx flavor)) ; then call (parse-lisp) again and return its value
+        (else
+          ;; read the next lisp form, then quote it
+          (let ((form (parse-lisp ctx flavor)))
+            (ast-wrap-list2 ctx value form)))))
     ((lparen lbrack)
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
@@ -101,7 +104,7 @@
       (when (eq? flavor 'r6rs)
         (syntax-errorf ctx (caller-for flavor)
           "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax" #\{))
-      ; switch to shell parser until corresponding }
+      ;; found { so switch to shell parser until corresponding }
       (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
         (let-values (((other-forms _) (other-parse-forms ctx type)))
           other-forms)))
@@ -117,6 +120,19 @@
     ;; TODO implement types: record-brack fasl insert mark
     (else
       (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type))))
+
+
+(define (parse-lisp-shell-backquote ctx flavor)
+  (when (eq? flavor 'r6rs)
+    (syntax-errorf ctx (caller-for flavor)
+      "token ~a is not allowed in #!r6rs syntax, requires #!scheme syntax" '$\x7B;))
+  ;; found and consumed ${ so switch to shell parser until corresponding }
+  (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
+    (let-values (((other-forms _) (other-parse-forms ctx 'lbrace)))
+      (unless (eq? 'shell (ast-car other-forms))
+        (syntax-errorf ctx (caller-for flavor)
+          "invalid shell form ~s inside scheme syntax ${...}" other-forms))
+      (ast-wrap-list2 ctx 'sh-run/string-rtrim-newlines other-forms))))
 
 
 ;; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching

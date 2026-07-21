@@ -62,15 +62,15 @@
   (values (make-parsectx-annotation ctx (ast-unwrap1 value) (ast-unwrap value) x y beg) type))
 
 
-;; create and return an annotation wrapping (list value1 value2)
-(define (ast-wrap-list2 ctx value1 value2)
-  (let ((l (list value1 value2)))
+;; create and return an annotation wrapping (list datum1 datum2)
+(define (ast-wrap-list2 ctx datum1 datum2)
+  (let ((l (list datum1 datum2)))
     (if (parsectx-annotations? ctx)
-      (let ((src (ast-source value1)))
+      (let ((src (ast-source datum1)))
         (make-parsectx-annotation
           ctx
-          (list value1 value2)
-          (list (ast-unwrap value1) (ast-unwrap value2))
+          l
+          (list (ast-unwrap datum1) (ast-unwrap datum2))
           (if src (source-object-column src) 1)
           (if src (source-object-line   src) 1)
           (if src (source-object-bfp    src) 0)))

@@ -33,6 +33,10 @@
        '#(a 1.0 2/3) '#2(d) #vu8(1 2 3)
         #4vu8(9) '#vfx(-1 0 2) '#3vfx(4))              (#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))
 
+  (list '$(display "hello") #| Scheme job      |#
+        '${echo hi})        #| shell backquote |#      ((shell-expr (display "hello"))
+                                                        (sh-run/string-rtrim-newlines (shell "echo" "hi")))
+
   ;; ------------------------ parser shell -------------------------------
   ;; invariant: {#!scheme ...} is always equivalent to (...)
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
