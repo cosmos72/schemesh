@@ -41,7 +41,7 @@ it can be a job object, or the numeric ID of a job, or one of the special values
 * `#f` shortcut for the current scheme job, i.e. (sh-current-job)
 
 ##### (sh-env-ref)
-`(sh-env-ref job-or-id name)` returns the string value of environment variable `name` for specified job or job-id.
+`(sh-env-ref job-or-id name)` returns the immutable string value of environment variable `name` for specified job or job-id.
 Argument `name` must be a string. Returns the empty string if environment variable `name` is not found.
 
 ##### (sh-env-set!)
@@ -55,7 +55,7 @@ and `visibility` not specified or equal to `'maintain` indicates to preserve the
 `(sh-env-visibility-ref job-or-id name)` returns the value and visibility of environment variable `name` for specified job or job-id.
 
 If the environment variable `name` is found, returns `(value str vis)`
-where `str` is the the string value of environment variable,
+where `str` is the the immutable string value of environment variable,
 and `vis` is one of the symbols `'export` `'private`.
 
 If the environment variable `name` is not found, returns `(values #f #f)`.

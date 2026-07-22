@@ -10,6 +10,9 @@
 ;; this file should be included only by file shell/job.ss
 
 
+(define empty-string (string->immutable-string ""))
+
+
 ;; Return a string obtained by concatenating args:
 ;; each arg must be either:
 ;;   a string
@@ -30,6 +33,12 @@
                 (%sh-string-append job (cdr args) (cons str ret))))))))))
 
 
+;; synthetize and return the value of environment variable PWD,
+;; which always contains job's current directory
+(define (sh-env-pwd job-or-id)
+  (string->immutable-string (charspan->string*! (sh-cwd job-or-id))))
+
+
 ;; Return string value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
@@ -38,10 +47,10 @@
 ;; To retrieve an environment variable *and* its visibility, use (sh-env-visibility-ref)
 ;;
 ;; If name is not found, return default if specified - otherwise return ""
-;; Returned value is always a string or the specified default
+;; Returned value is always an immutable string or the specified default
 (define sh-env-ref
   (case-lambda
-    ((job-or-id name)         (sh-env-ref* job-or-id name ""))
+    ((job-or-id name)         (sh-env-ref* job-or-id name empty-string))
     ((job-or-id name default) (sh-env-ref* job-or-id name default))))
 
 
@@ -53,45 +62,44 @@
 ;; To retrieve an environment variable *and* its visibility, use (sh-env-visibility-ref)
 ;;
 ;; If name is not found, return default
-;; Returned value is always a string or the specified default.
+;; Returned value is always an immutable string or the specified default.
 (define (sh-env-ref* job-or-id name default)
-  (job-parents-iterate job-or-id
-    (lambda (job)
-      (let* ((vars (job-env job))
-             (elem (if vars (hashtable-ref vars name #f) #f)))
-        (when (pair? elem)
-          (unless (eq? 'delete (car elem))
-            (set! default (cdr elem)))
-          #f)))) ; name found, stop iterating
-  default)
+  (if (string=? name "PWD")
+    (sh-env-pwd job-or-id)
+    (or
+      (job-parents-iterate-any job-or-id
+        (lambda (job)
+          (let* ((vars (job-env job))
+                 (elem (and vars (hashtable-ref vars name #f))))
+            (and (pair? elem)
+                 (not (eq? 'delete (car elem)))
+                 (cdr elem)))))
+      default)))
 
 
 ;; Return the value and visibility of an environment variable for specified job.
-;; First returned value is a string or #f: the value of environment variable,
+;; First returned value is an immutable string or #f: the value of environment variable,
 ;;   or #f if not found or has been deleted.
 ;; Second returned value is one of: 'export 'private #f
 ;;   where #f means the variable was not found or has been deleted.
 (define (sh-env-visibility-ref job-or-id name)
-  (let ((ret-val #f)
-        (ret-visibility #f))
-    (job-parents-iterate job-or-id
-      (lambda (job)
-        (let* ((vars (job-env job))
-               (elem (if vars (hashtable-ref vars name #f) #f)))
-          (when (pair? elem)
-            (let ((visibility (car elem)))
-              (unless (eq? 'delete visibility)
-                (set! ret-visibility visibility)
-                (set! ret-val        (cdr elem))))
-            #f)))) ; name found, possibly deleted. stop iterating
-    (values ret-val ret-visibility)))
+  (if (string=? name "PWD")
+    (values (sh-env-pwd job-or-id) 'export)
+    (let ((ret (job-parents-iterate-any job-or-id
+                 (lambda (job)
+                   (let* ((vars (job-env job))
+                          (elem (and vars (hashtable-ref vars name #f))))
+                     (and (pair? elem)
+                          (not (eq? 'delete (car elem)))
+                          elem))))))
+      (values (and ret (cdr ret)) (and ret (car ret))))))
 
 
 ;; Set ONLY the visibility of an environment variable for specified job to 'export or 'private
 ;; Return #t if successful, or #f if the variable was not found or has been deleted.
 (define (sh-env-visibility-set! job-or-id name visibility)
-  (assert* 'sh-env-visibility! (string? name))
-  (assert* 'sh-env-visibility! (memq visibility '(export private)))
+  (assert* 'sh-env-visibility-set! (string? name))
+  (assert* 'sh-env-visibility-set! (memq visibility '(export private)))
   (let* ((job (sh-job job-or-id))
          ;; variable may be in a parent environment
          (val (sh-env-ref* job name #f)))
@@ -124,7 +132,8 @@
   ;; (job-direct-env job) creates job environment if not yet present
   (let* ((job  (sh-job job-or-id))
          (vars (job-direct-env job))
-         (elem (hashtable-ref vars name #f)))
+         (elem (hashtable-ref vars name #f))
+         (val  (string->immutable-string val))) ;; returns val if it's already immutable
     (cond
       ((and (pair? elem) (not (eq? 'delete (car elem))))
         ;; env variable already exist in job, overwrite it
@@ -145,9 +154,9 @@
 ;; in order to override any parent job's environment variable
 ;; with the same name.
 (define (sh-env-delete! job-or-id name)
-  (assert* 'sh-env-delete! (string? name))
   (let ((vars (job-direct-env job-or-id)))
-    (hashtable-set! vars name (cons 'delete ""))))
+    (assert* 'sh-env-delete! (string? name))
+    (hashtable-set! vars name (cons 'delete empty-string))))
 
 
 ;; Iterate on environment variables for specified job,
@@ -159,12 +168,17 @@
 ;; Returns #t if all calls to (proc ...) returned truish,
 ;; otherwise returns #f.
 (define (sh-env-iterate/direct job-or-id proc)
-  (assert* 'sh-env-iterate/direct (procedure? proc))
-  (assert* 'sh-env-iterate/direct (logbit? 3 (procedure-arity-mask proc)))
   (let ((vars (job-env (sh-job job-or-id))))
+    (assert* 'sh-env-iterate/direct (procedure? proc))
+    (assert* 'sh-env-iterate/direct (logbit? 3 (procedure-arity-mask proc)))
     (if vars
-      (for-hash ((key val vars))
-        (proc key (cdr val) (car val)))
+      (and
+        ;; always synthetize PWD environment variable
+        (proc "PWD" (sh-env-pwd job-or-id) 'export)
+        (for-hash ((key val vars))
+          (if (string=? key "PWD")
+            #t ; ignore any PWD environment variable present in hashtable
+            (proc key (cdr val) (car val)))))
       #t)))
 
 
@@ -229,7 +243,7 @@
     (cond
       ((not     val) val)
       ((string? val) val)
-      ((null?   val) "")
+      ((null?   val) empty-string)
       (else
         (assert* 'job-env/apply-lazy (pair? val))
         (assert* 'job-env/apply-lazy (null? (cdr val)))
@@ -254,13 +268,16 @@
 ;;
 ;; This function is usually only called once, during initialization of Scheme library
 ;; (schemesh shell) below.
+;;
+;; Implementation note: does not copy environment variable PWD, because it's always synthetized
 (define c-environ->sh-global-env
   (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) ptr)))
     (lambda ()
       (do ((i 1 (fx+ i 1))
            (entry (c-environ-ref 0) (c-environ-ref i)))
           ((not (pair? entry)))
-        (sh-env-set*! #t (car entry) (cdr entry) 'export)))))
+        (unless (string=? "PWD" (car entry))
+          (sh-env-set*! #t (car entry) (cdr entry) 'export))))))
 
 
 ;; Return a hashtable containing a copy of job's environment variables,
@@ -270,6 +287,8 @@
 ;;   'all : private variables are returned too.
 ;;
 ;; In both cases, job-env-lazy is included too.
+;;
+;; Implementation note: always synthetizes environment variable PWD.
 (define (sh-env-copy job-or-id which)
   (assert* 'sh-env-copy (memq which '(export all)))
   (let* ((vars           (make-hashtable string-hash string=?))
@@ -286,6 +305,7 @@
             ((or (eq? 'export visibility)
                  (and also-private? (eq? 'private visibility)))
               (hashtable-set! vars name val))))))
+    (hashtable-set! vars "PWD" (sh-env-pwd job-or-id))
     vars))
 
 

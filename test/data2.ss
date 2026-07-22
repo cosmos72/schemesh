@@ -306,6 +306,16 @@
       '("test-alias-reverse" "abc" "345")))           ("345" "abc")
 
   ;; ------------------------- shell job ---------------------------------
+  (immutable-string? (sh-env-ref #t "PWD"))           #t
+  (string-ref (sh-env-ref #t "PWD") 0)                #\/
+
+  ;; check that (sh-env-set!) makes a copy of value argument
+  (let ((str (make-string 1 #\x)))
+    (sh-env-set! #t "foo" str 'private)
+    (string-set! str 0 #\a)
+    (sh-env-ref #t "foo"))                            "x"
+
+
   (begin
     (sh-env-set! #t "foo" "dummy" 'export)
     (sh-env-delete! #t "foo")

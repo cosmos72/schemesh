@@ -104,8 +104,8 @@
                        hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
-                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded?
-                       void with-interrupts-disabled)
+                       reverse! sort! string-copy! string->immutable-string string-truncate!
+                       textual-port-output-index threaded? void with-interrupts-disabled)
     (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts nop parameter-swapper
                                            raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
@@ -159,14 +159,26 @@
 
 
 ;; call (proc job) on given job and each of its parents.
-;; Stops iterating if (proc ...) returns #f.
+;; Stops iterating if (proc ...) returns truish.
 ;;
-;; Returns #t if all calls to (proc job) returned truish,
+;; return the value of last call to (proc ...), or #f if it was never caller
 ;; otherwise returns #f.
-(define (job-parents-iterate job-or-id proc)
-  (do ((parent (sh-job job-or-id) (job-parent parent)))
-      ((not (and (sh-job? parent) (proc parent)))
-       (not (sh-job? parent)))))
+(define (job-parents-iterate-any job-or-id proc)
+  (let %any ((job (sh-job job-or-id)) (proc proc))
+    (and (sh-job? job)
+         (or (proc job)
+             (%any (job-parent job) proc)))))
+
+
+;; call (proc job) on given job and each of its default parents.
+;; Stops iterating if (proc ...) returns truish.
+;;
+;; Returns value of last (proc ...) call.
+(define (job-default-parents-iterate-any job proc)
+  (let %any ((job job) (proc proc))
+    (and (sh-job? job)
+         (or (proc job)
+             (%any (job-default-parent job) proc)))))
 
 
 ;; call (proc job) on given job and each of its default parents.
@@ -175,21 +187,10 @@
 ;; Returns #t if all calls to (proc job) returned truish,
 ;; otherwise returns #f.
 (define (job-default-parents-iterate job proc)
-  (let %loop ((job job))
+  (let %loop ((job job) (proc proc))
     (and (sh-job? job)
          (proc job)
-         (%loop (job-default-parent job)))))
-
-
-;; call (proc job) on given job and each of its default parents.
-;; Stops iterating if (proc ...) returns truish.
-;;
-;; Returns value of last (proc ...) call.
-(define (job-default-parents-iterate-any job proc)
-  (let %any ((job job))
-    (and (sh-job? job)
-         (or (proc job)
-             (%any (job-default-parent job))))))
+         (%loop (job-default-parent job) proc))))
 
 
 ;; Return #t if job or one if its default parents are eq? other-job,
@@ -206,9 +207,10 @@
 ;; starting from (sh-globals), until job itself.
 (define (job-parents-revlist job-or-id)
   (let ((jlist '()))
-    (job-parents-iterate job-or-id
+    (job-parents-iterate-any job-or-id
       (lambda (job)
-        (set! jlist (cons job jlist))))
+        (set! jlist (cons job jlist))
+        #f))
     jlist))
 
 
