@@ -43,8 +43,8 @@
                                           span-reader span-ref span-set!)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
     (only (scheme2k containers utf8b)     bytespan-display-right/datum! bytespan-insert-right/string! utf8b-bytespan->string)
-    (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name-set! linectx-parsers linectx-parsers-set!
-                                          linectx-prompt-end-x linectx-save-history linectx-width
+    (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name linectx-parser-name-set!
+                                          linectx-parsers linectx-parsers-set! linectx-prompt-end-x linectx-save-history linectx-width
                                           lineedit-clear! lineedit-flush lineedit-read
                                           lineterm-write/u8)
     (only (scheme2k io auto)         make-auto-reader)
@@ -312,16 +312,18 @@
 ;;
 ;;   For these reasons, the loop evaluating each form
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-once initial-parser print-func lctx)
-  (linectx-parser-name-set! lctx (parser-name initial-parser))
+(define (repl-once parser print-func lctx)
+  (linectx-parser-name-set! lctx (parser-name parser))
   ;; (debugf "repl-once ready")
-  (let ((obj (repl-lineedit lctx)))
+  (let* ((obj    (repl-lineedit lctx))
+         ;; reload parser from linectx in case it changed
+         (parser (to-parser (linectx-parsers lctx) (linectx-parser-name lctx) 'repl)))
     (case obj
-      ((#f) #f)             ; got end-of-file
-      ((#t) initial-parser) ; nothing to execute: waiting for more user input
+      ((#f) #f)     ; got end-of-file
+      ((#t) parser) ; nothing to execute: waiting for more user input
       (else
-        (let-values (((forms updated-parser)
-                        ((repl-current-parse) lctx initial-parser obj)))
+        (let-values (((forms parser)
+                        ((repl-current-parse) lctx parser obj)))
           ;; (debugf "repl-once parsed ~s" forms)
           (let ((forms (ast-unwrap1 forms)))
             (when (pair? forms)
@@ -333,7 +335,7 @@
                     (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
                   (sh-stdio-flush))
                 tty-setraw!)))
-          updated-parser)))))
+          parser)))))
 
 
 
@@ -434,9 +436,9 @@
         (print           #f) (print?           #f)
         (initial-parser  #f) (initial-parser?  #f)
         (enabled-parsers #f) (enabled-parsers? #f)
-        (lctx #f)            (lctx? #f)
-        (init-file-path #f)  (init-file-path? #f)
-        (quit-file-path #f)  (quit-file-path? #f))
+        (lctx            #f) (lctx?            #f)
+        (init-file-path  #f) (init-file-path?  #f)
+        (quit-file-path  #f) (quit-file-path?  #f))
     (do ((tail options (cddr tail)))
         ((null? tail))
       (assert* 'repl (pair? (cdr tail)))
