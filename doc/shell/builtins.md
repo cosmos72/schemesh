@@ -81,6 +81,10 @@ Define or display aliases.
 * with two or more arguments, `alias NAME EXPANSION ...` defines an alias `NAME` such that,
   when `NAME ARGS ...` executed, it is substituted with `EXPANSION ... ARGS ...`
 
+By design, defining an alias intentionally shadows any command or builtin with the same name.
+
+Exception: for sanity, any alias named "builtin" or "command" is ignored.
+
 Return success, or failure if `alias NAME` is executed and no such alias is defined.
 
 #### bg

@@ -128,6 +128,7 @@
     (hashtable-set! bt "cd"         builtin-cd)
     (hashtable-set! bt "cd-"        builtin-cd-)
     (hashtable-set! bt "command"    builtin-command)
+    (hashtable-set! bt "edit-text"  builtin-edit-text)
     (hashtable-set! bt "exec"       builtin-exec)
     (hashtable-set! bt "exit"       builtin-exit)
     (hashtable-set! bt "export"     builtin-export)
@@ -146,7 +147,7 @@
 
 
   (let ((t (sh-builtins-help)))
-
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "alias"   (string->utf8 " [name [expansion ...]]
     define or display aliases.
 
@@ -157,11 +158,13 @@
 
     return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "bg"      (string->utf8 " [job-id]
     move a job to the background.
 
     return updated job status, or failure if job-id was not found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with specified arguments.
 
@@ -169,6 +172,7 @@
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "cd"      (string->utf8 " [dir]
     change the current directory of parent job.
 
@@ -182,6 +186,7 @@
     initially it is inherited from parent job, but can be changed independently.
     To change the current directory of the whole shell, use 'global cd [DIR]'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "cd-"      (string->utf8 "
     change the current directory of parent job, setting it to previous working directory.
 
@@ -191,6 +196,7 @@
     initially it is inherited from parent job, but can be changed independently.
     To change the current directory of the whole shell, use 'global cd-'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]
     execute a command with specified arguments.
 
@@ -198,6 +204,16 @@
 
     return exit status of executed command, or failure if no such command was found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    (hashtable-set! t "edit-text" (string->utf8 " [arg ...]
+    start an editor with arguments ARG ...
+
+    Launches the first available editor among, in order:
+      $VISUAL $EDITOR sensible-editor editor nano emacs vi
+
+    return editor's exit status, or failure if no editor could be launched.\n"))
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]
     replace the current shell with the command CMD ARG ...
 
@@ -206,11 +222,13 @@
     if CMD is not specified, return success.
     if CMD is specified, on success does not return. On failure, returns failure error code.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "exit" (string->utf8 " [int ...]
     exit the shell with C exit status INT, or 0 if not specified.
 
     does not return.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "export" (string->utf8 " [var ...]
     show or export environment variables
 
@@ -225,11 +243,13 @@
     initially they are inherited from parent job, but can be changed independently.
     To export environment variables of the whole shell, use 'global export [VAR ...]'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "fg"      (string->utf8 " [job-id]
     move a job to the foreground.
 
     return updated job status, or failure if job-id was not found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "global"     (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with its parent temporarily set to the shell itself.
 
@@ -238,6 +258,7 @@
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "kill"     (string->utf8 " [OPTIONS] jobspec-or-pid [...]
     send a signal to one or more jobs, processes or process groups.
     Options:
@@ -255,6 +276,7 @@
     return success, or raise condition if an invalid option is specified,
     or if a job-id, pid or pgid is specified but not found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "parent"     (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with its parent temporarily set to its grandparent.
     if used multiple times, as for example \"parent parent cd ..\", the effects are cumulative.
@@ -264,6 +286,7 @@
 
     return exit status of executed builtin, or failure if no such builtin was found.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "pwd"        (string->utf8 " [job-id]
     write the current directory of specified job to standard output.
     if job is not specified, defaults to parent job.
@@ -274,6 +297,7 @@
     initially it is inherited from parent job, but can be changed independently.
     To display the current directory of the whole shell, use 'global pwd'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "set"        (string->utf8 " [var [value]]'
     show or set environment variables of parent job.
 
@@ -289,6 +313,7 @@
     initially they are inherited from parent job, but can be changed independently.
     To set an environment variable for the whole shell, use 'global set [VAR [VALUE]]'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "split-at-0" (string->utf8 " alias-or-builtin-or-cmd [arg ...]
     split each ARG ... after each NUL character i.e. Unicode codepoint U+0000,
     and execute the specified alias, builtin or command
@@ -299,14 +324,17 @@
 
     return exit status of executed alias, builtin or command.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "status"   (string->utf8 " [ARG ...]
     return ARG value specified as first argument, or success if no arguments.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "unalias"    (string->utf8 " [name ...]
     remove each NAME ... from the list of defined aliases.
 
     return success.\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "unexport"   (string->utf8 " [var ...]
     mark each VAR ... environment variable as private in parent job.
 
@@ -316,6 +344,7 @@
     initially they are inherited from parent job, but can be changed independently.
     To unexport environment variables from the whole shell, use 'global unexport [VAR ...]'"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "unset"      (string->utf8 " [var ...]
     remove each VAR ... environment variable from parent job.
 
@@ -325,12 +354,12 @@
     initially they are inherited from parent job, but can be changed independently.
     To unset environment variables for the whole shell, use 'global unset [VAR ...]'\n"))
 
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "wait"      (string->utf8 " [job-id]
     move a job to the foreground and wait for it to finish.
     does NOT return if job is stopped.
 
     return job exit status, or failure if job was not found.\n"))
-
   )
 
 ) ; close begin

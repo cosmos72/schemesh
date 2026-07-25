@@ -67,7 +67,9 @@
             (when (hashtable-ref (sh-builtins) name #f)
               (write-builtin-warning
                 (string-append "\"" name
-                  "\" is a builtin. defining an alias with the same name is allowed, but probably confusing")))
+                  (if (string=? name "builtin")
+                    "\" cannot be aliased. defining an alias with the same name is intentionally ignored"
+                    "\" is a builtin. defining an alias with the same name shadows it - that's allowed, but probably confusing"))))
             (hashtable-set! ht name alias))
           ;; remove an alias from (sh-alias) table.
           (hashtable-delete! ht name))))))
@@ -85,7 +87,7 @@
 ;; Note: for sanity, (sh-alias-expand) ignores aliases for "builtin"
 (define (sh-alias-expand prog-and-args)
   (assert-string-list? 'sh-alias-expand prog-and-args)
-  (let ((expansion (alias-expand prog-and-args '("builtin")))) ; suppress alias expansion for "builtin"
+  (let ((expansion (alias-expand prog-and-args '("builtin" "command")))) ; suppress alias expansion for "builtin" and "command"
     (assert-string-list? 'sh-alias-expand expansion)
     expansion))
 

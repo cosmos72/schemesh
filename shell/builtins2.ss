@@ -69,7 +69,15 @@
 ;; As all builtins do, must return job status.
 (define (builtin-command job prog-and-args options)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (cmd-spawn job (cdr prog-and-args) options)) ; returns job status
+  (cmd-spawn job (cdr prog-and-args) options)) ; skip "command", returns job status
+
+
+;; the "edit-text" builtin: spawn an editor and return immediately
+;;
+;; As all builtins do, must return job status.
+(define (builtin-edit-text job prog-and-args options)
+  (assert* 'builtin-edit-text (string=? "edit-text" (car prog-and-args)))
+  (cmd-spawn-editor job prog-and-args options)) ; "edit-text" is ignored cmd-spawn-editor. returns job status
 
 
 ;; the "exec" builtin: replace the current process with specified command.

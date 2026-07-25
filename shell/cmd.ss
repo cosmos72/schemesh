@@ -201,28 +201,6 @@
           (cmd-spawn c prog-and-args options)))))) ; returns job status
 
 
-;; internal function called by (cmd-start) to spawn a subprocess.
-;; returns job status.
-(define cmd-spawn
-  (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
-    (lambda (c prog-and-args options)
-      (let* ((process-group-id (options->process-group-id options))
-             (job-dir (job-cwd-if-set c))
-             (ret (c-cmd-spawn
-                    (list->argv prog-and-args)
-                    (if job-dir (text->bytevector0 job-dir) #f)
-                    (job-make-c-redirect-vector c)
-                    (sh-env->argv c 'export)
-                    (or process-group-id -1))))
-        ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~s " ret prog-and-args c)
-        (when (< ret 0)
-          (job-status-set! 'cmd-spawn c (failed ret))
-          (raise-c-errno 'sh-start 'fork ret))
-        (job-pid-set! c ret)
-        (job-pgid-set! c process-group-id)
-        (job-status-set/running! c)))))
-
-
 ;; internal function called by (builtin-exec) to exec a subprocess.
 ;; if C exec() fails, returns job status.
 (define cmd-exec
@@ -236,6 +214,41 @@
                     (sh-env->argv c 'export))))
         ; (c-cmd-exec) returns only if it failed
         (failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
+
+
+;; internal function called by (cmd-start) and (builtin-edit-text) to spawn a subprocess.
+;; returns job status.
+(define cmd-spawn*
+  (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int int) int)))
+    (lambda (c prog-and-args options editor?)
+      (let* ((process-group-id (options->process-group-id options))
+             (job-dir     (job-cwd-if-set c))
+             (ret (c-cmd-spawn
+                    (list->argv prog-and-args)
+                    (if job-dir (text->bytevector0 job-dir) #f)
+                    (job-make-c-redirect-vector c)
+                    (sh-env->argv c 'export)
+                    (or process-group-id -1)
+                    (if editor? 1 0))))
+        ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~s " ret prog-and-args c)
+        (when (< ret 0)
+          (job-status-set! 'cmd-spawn c (failed ret))
+          (raise-c-errno 'sh-start 'fork ret))
+        (job-pid-set! c ret)
+        (job-pgid-set! c process-group-id)
+        (job-status-set/running! c)))))
+
+
+;; internal function called by (cmd-start) to spawn a subprocess.
+;; returns job status.
+(define (cmd-spawn c prog-and-args options)
+  (cmd-spawn* c prog-and-args options #f))
+
+
+;; internal function called by (builtin-edit-text) to spawn an editor subprocess.
+;; returns job status.
+(define (cmd-spawn-editor c prog-and-args options)
+  (cmd-spawn* c prog-and-args options #t))
 
 
 ;; internal function called by (cmd-spawn)

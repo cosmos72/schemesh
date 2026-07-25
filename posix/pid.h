@@ -125,6 +125,62 @@ static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
   }
 }
 
+static char* c_simple_getenv(const char* name) {
+  char** env = environ;
+  if (env != NULL) {
+    size_t namelen = strlen(name);
+    char*  pair;
+    for (; (pair = env[0]) != NULL; ++env) {
+      if (!strncmp(name, pair, namelen) && pair[namelen] == '=') {
+        return pair + namelen + 1;
+      }
+    }
+  }
+  return NULL;
+}
+
+/**
+ * try to execute, in order:
+ *   $VISUAL argv
+ *   $EDITOR argv
+ *   sensible-editor argv
+ *   editor  argv
+ *   nano    argv
+ *   emacs   argv
+ *   vi      argv
+ *
+ * implementation note: can only use async-safe functions, which excludes getenv()
+ */
+static int c_exec_editor(char* argv[]) {
+  char* saved_arg0 = argv[0];
+  char* paths[]    = {
+      c_simple_getenv("VISUAL"),
+      c_simple_getenv("EDITOR"),
+      "sensible-editor",
+      "editor",
+      "nano",
+      "emacs",
+      "vi",
+  };
+  size_t i;
+  c_errno_set(ENOENT);
+  for (i = 0; i < N_OF(paths); i++) {
+    char* path = paths[i];
+    if (path && path[0]) {
+      argv[0] = path;
+      (void)execvp(path, argv);
+    }
+  }
+  argv[0] = saved_arg0;
+  return -1;
+}
+
+typedef enum {
+  is_exec      = 0,
+  is_spawn     = 1,
+  start_editor = 2,
+} spawn_opts;
+
 /**
  * optionally fork(), then exec() an external program.
  * if forked, return pid in parent process.
@@ -132,12 +188,12 @@ static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
  * if existing_pgid == 0 create a new process id (numerically equal to the process id)
  *                       and move process into it
  */
-static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
-                               ptr bytevector0_chdir_or_false,
-                               ptr vector_fds_redirect,
-                               ptr vector_of_bytevector0_environ,
-                               int existing_pgid,
-                               int is_spawn) {
+static int c_cmd_spawn_or_exec(ptr        vector_of_bytevector0_cmdline,
+                               ptr        bytevector0_chdir_or_false,
+                               ptr        vector_fds_redirect,
+                               ptr        vector_of_bytevector0_environ,
+                               int        existing_pgid,
+                               spawn_opts options) {
 
   char** argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
   char** envp = vector_to_c_argz(vector_of_bytevector0_environ);
@@ -170,7 +226,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
   fflush(stdout);
 #endif
 
-  if (is_spawn) {
+  if (options & is_spawn) {
     /**
      * issue #26: no need to call fflush(NULL) here,
      * the child will immediately execv() or _exit(),
@@ -202,7 +258,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
        */
       char** saved_environ = environ;
 
-      if (is_spawn) {
+      if (options & is_spawn) {
         if ((err = c_pgid_set(0, existing_pgid) < 0) ||
             /* keep SICHLD handler, will be resetted by execv...() */
             (err = c_signals_setdefault()) < 0) {
@@ -217,7 +273,9 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       if (envp) {
         environ = envp;
       }
-      if (strchr(argv[0], '/')) {
+      if (options & start_editor) {
+        (void)c_exec_editor(argv);
+      } else if (strchr(argv[0], '/')) {
         (void)execv(argv[0], argv);
       } else {
         (void)execvp(argv[0], argv);
@@ -230,7 +288,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
         (void)write_path_c_errno(argv[0], strlen(argv[0]), err, ". Type 'help' for help.\n");
       }
     child_out:
-      if (is_spawn) {
+      if (options & is_spawn) {
         /** not exit(), because it would flush a fork()ed copy of open FILE* streams */
         _exit(err < 0 ? 1 : 127);
       }
@@ -261,28 +319,39 @@ static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
                              bytevector0_chdir_or_false,
                              vector_fds_redirect,
                              vector_of_bytevector0_environ,
-                             -2, /* do not set pgid */
-                             0); /* !is_spawn */
+                             -1, /* do not set pgid */
+                             is_exec);
 }
 
 /**
- * fork() and exec() an external program, return pid.
+ * fork() and exec() an external program, return pid or < 0 on error.
  * if existing_pgid > 0, add process to given pgid i.e. process group
  * if existing_pgid == 0, create a new process group id == process id, and move process into it.
  * if existing_pgid < 0, process inherits the process group id from current process
+ *
+ * if is_editor != 0, ignores vector_of_bytevector0_cmdline[0]
+ * and starts the first available among:
+ *   $VISUAL
+ *   $EDITOR
+ *   sensible-editor
+ *   editor
+ *   nano
+ *   emacs
+ *   vi
  */
 static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
                        ptr bytevector0_chdir_or_false,
                        ptr vector_fds_redirect,
                        ptr vector_of_bytevector0_environ,
-                       int existing_pgid) {
+                       int existing_pgid,
+                       int is_editor) {
 
   return c_cmd_spawn_or_exec(vector_of_bytevector0_cmdline,
                              bytevector0_chdir_or_false,
                              vector_fds_redirect,
                              vector_of_bytevector0_environ,
                              existing_pgid,
-                             1); /* is_spawn */
+                             is_spawn | (is_editor ? start_editor : 0));
 }
 
 /**

@@ -536,7 +536,6 @@ static void c_sched_yield(void) {
   (void)sched_yield();
 }
 
-
 #define NOKEY INT_MIN
 
 /* try to avoid collisions with RLIMIT_* values */
@@ -723,8 +722,7 @@ static ptr c_environ_ref(uptr i) {
 
 int scheme2k_register_c_functions(void) {
   int err;
-  if ((err = c_tty_init()) < 0 ||
-      (err = c_register_c_functions_posix_signals()) < 0) {
+  if ((err = c_tty_init()) < 0 || (err = c_register_c_functions_posix_signals()) < 0) {
     return err;
   }
 

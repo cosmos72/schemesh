@@ -8,6 +8,17 @@
 * implement function `(string->sh-patterns)`
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
+### main branch
+
+* fix issue #62: update `(sh-env-ref)` and shell syntax "$PWD" to always synthetize the value of environment variable PWD
+  from relevant job's current directory.
+* on ELF systems, install wrappers for C functions `pthread_mutex_lock()` `pthread_mutex_timedlock()` `pthread_mutex_unlock()`
+  and keep a per-thread count of how many mutexes are locked. Used to never suspend a thread as long as it owns some locked mutex.
+* add function `(sh-alias)` that accepts alias definition as either a list of strings or as a single-argument procedure.
+  This allows defining aliases that execute arbitrary code.
+* no longer keep track of exited threads id, status and name.
+
+
 ### release v1.0.1, 2026-07-11
 
 * fix issue #44: always correctly redirect external commands executed in a pipeline
