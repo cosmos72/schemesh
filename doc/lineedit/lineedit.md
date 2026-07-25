@@ -45,6 +45,23 @@ Added in 0.9.2
 ##### (linectx-load-history!)
 `(linectx-load-history! lctx)` loads history from file. Returns `#t` if successful, otherwise returns `#f`.
 
+##### (linectx-parser-name)
+`(linectx-parser-name lctx)` returns a symbol representing the current syntax parser,
+usually one of `'shell` `'scheme` `'r6rs`
+
+Note that more parsers can be defined, either by the user or by future versions.
+
+##### (linectx-parser-name-set!)
+`(linectx-parser-name-set! lctx name)` changes the current syntax parser.
+
+This function is effective only if called from a key binding, i.e. from a procedure installed with `(linectx-keytable-insert! ...)`
+because the REPL overwrites it before waiting for the next lines to evaluate.
+
+Name must be a symbol among the currently enable parsers, usually one of `'shell` `'scheme` `'r6rs`
+
+Note that more parsers can be defined, either by the user or by future versions,
+and that it's possible to create a `linectx` object with **fewer** enabled parsers.
+
 ##### (linectx-save-history)
 `(linectx-save-history lctx)` saves history to file. Returns `#t` if successful, otherwise returns `#f`.
 
