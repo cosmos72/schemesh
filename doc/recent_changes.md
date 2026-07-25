@@ -8,6 +8,7 @@
 * implement function `(string->sh-patterns)`
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
+
 ### main branch
 
 * fix issue #62: update `(sh-env-ref)` and shell syntax "$PWD" to always synthetize the value of environment variable PWD
@@ -17,6 +18,9 @@
 * add function `(sh-alias)` that accepts alias definition as either a list of strings or as a single-argument procedure.
   This allows defining aliases that execute arbitrary code.
 * no longer keep track of exited threads id, status and name.
+* intentionally ignore aliases for `command`
+* add shell builtin `edit-text`, it launches the first available program among:
+  `$VISUAL` `$EDITOR` `sensible-editor` `editor` `nano` `emacs` `vi`
 
 
 ### release v1.0.1, 2026-07-11
