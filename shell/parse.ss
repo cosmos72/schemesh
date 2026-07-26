@@ -391,7 +391,7 @@
 (define (%cmd-subform? form)
   (and (pair? form)
        ;; fragile, recognizes known macros by name and treats them specially
-       (memq (car form) '(shell-backquote shell-wildcard))))
+       (memq (car form) '(shell-backquote shell-env shell-wildcard))))
 
 
 ;; Parse a single shell command starting with a cons, as for example ( ... ) or $( ... )

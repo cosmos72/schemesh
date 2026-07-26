@@ -43,6 +43,7 @@
   (parse-shell-form1 (string->parsectx ""))            ,@"#<void>"
   '{}                                                  (shell)
   '{{}}                                                (shell (shell))
+  '{$EDITOR}                                           (shell (shell-env "EDITOR"))
   '{ls -l>/dev/null&}                                  (shell "ls" "-l" > "/dev/null" &)
   '{{;foo} <log 2>&1 && bar<>baz|wc -l;;}
                                                        (shell (shell \x3B;
@@ -138,8 +139,6 @@
     "{}" (parsers)) 'shell)                            ((shell))
   (parse-forms1 (string->parsectx
     "{{}}" (parsers)) 'shell)                          ((shell (shell)))
-  '{}                                                  (shell)
-  '{{}}                                                (shell (shell))
   (parse-forms1 (string->parsectx
     "foo && bar || baz &"
     (parsers)) 'shell)                                 ((shell "foo" && "bar" \x7C;\x7C;
@@ -430,6 +429,9 @@
   (caddr (expand '(shell \x3B;
      (shell "foo") \x3B;
      "bar")))                                          (sh-list '\x3B; (sh-cmd "foo") '\x3B; (sh-cmd "bar"))
+  (caddr (expand '{$EDITOR}))                          ,@(sh-cmd* (lambda (job) (sh-env-ref job "EDITOR")))
+  (caddr (expand '{$EDITOR *}))                        ,@(sh-cmd* (lambda (job) (sh-env-ref job "EDITOR"))
+                                                                  (lambda (job) (wildcard1+ job '*)))
   {
      (shell "foo")
      "bar"}                                            ,@"(sh-list (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"
