@@ -332,6 +332,18 @@
         ""
         "3.45e3 . #\\m\n)")))                           (urehg* (a quote b) 123450.0 . #\m)
 
+  ;; ------------------------- posix path ---------------------------------
+  (sh-path-absolute? (string->charspan* "/foo"))       #t
+  (sh-path-absolute? (string->charspan* "bar/"))       #f
+  (sh-path "//foo///bar////")                          ,(string->charspan* "//foo///bar////")
+  (sh-subpath "//foo///bar////")                       ,(string->charspan* "/foo/bar")
+  (sh-subpath "/foo/bar/" "/aaa/" "../baz/bbbb/")      ,(string->charspan* "/foo/bar/baz/bbbb")
+  (sh-path? (string->charspan* "../a//b/"))            #t
+  (sh-path? (string->charspan* "\x0;"))                #f
+  (sh-subpath? (string->charspan* "../a//b/"))         #f
+  (sh-subpath? (string->charspan* "a//b"))             #f
+  (sh-subpath? (string->charspan* "a/b/"))             #t
+
   ;; ------------------------- posix patterns -----------------------------
   (sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")  ,@(sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")
   (sh-pattern '* '% "ch")                               ,@(sh-pattern '* '% "ch")

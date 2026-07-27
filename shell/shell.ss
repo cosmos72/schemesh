@@ -16,5 +16,4 @@
     (except (schemesh shell job) sh-job-internal-start-helper)
     (schemesh shell macros)
     (schemesh shell parameters)
-    (schemesh shell paths)
     (schemesh shell utils)))

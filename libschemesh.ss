@@ -56,6 +56,7 @@
   (include "posix/tty.ss")
   (include "posix/rlimit.ss")
   (include "posix/replacements.ss") ; requires posix/thread.ss
+  (include "posix/path.ss")
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
@@ -101,7 +102,6 @@
   (include "shell/parameter1.ss")
   (include "shell/parameters.ss")
   (include "shell/fds.ss")
-  (include "shell/paths.ss")
   (include "shell/job.ss")
   (include "shell/eval.ss")
   (include "shell/macros.ss")

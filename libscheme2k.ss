@@ -59,6 +59,7 @@
   (include "posix/tty.ss")
   (include "posix/rlimit.ss")
   (include "posix/replacements.ss") ; requires posix/thread.ss
+  (include "posix/path.ss")
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 

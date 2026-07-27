@@ -1,13 +1,15 @@
 ;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi
 ;;;
-;;; This program is free software; you can redistribute it and/or modify
-;;; it under the terms of the GNU General Public License as published by
-;;; the Free Software Foundation; either version 2 of the License, or
-;;; (at your option) any later version.
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
 
 #!r6rs
 
-(library (schemesh shell paths (1 0 1))
+;; TODO: remove "sh-" prefix
+;; TODO: accept bytevector, bytespan, string or charspan in all functions
+(library (scheme2k posix path (1 0 1))
   (export sh-path sh-path? sh-path-absolute? sh-path-relative?
           sh-path-append sh-path-append! sh-path-iterate
           sh-subpath sh-subpath? sh-path->subpath text->sh-path*)

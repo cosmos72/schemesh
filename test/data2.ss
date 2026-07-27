@@ -279,17 +279,6 @@
     'scheme
     6 0))                                              (shell #\{ 2 0 #f 8 0)
 
-  ;; ------------------------- shell paths --------------------------------
-  (sh-path-absolute? (string->charspan* "/foo"))       #t
-  (sh-path-absolute? (string->charspan* "bar/"))       #f
-  (sh-path "//foo///bar////")                          ,(string->charspan* "//foo///bar////")
-  (sh-subpath "//foo///bar////")                       ,(string->charspan* "/foo/bar")
-  (sh-subpath "/foo/bar/" "/aaa/" "../baz/bbbb/")      ,(string->charspan* "/foo/bar/baz/bbbb")
-  (sh-path? (string->charspan* "../a//b/"))            #t
-  (sh-path? (string->charspan* "\x0;"))                #f
-  (sh-subpath? (string->charspan* "../a//b/"))         #f
-  (sh-subpath? (string->charspan* "a//b"))             #f
-  (sh-subpath? (string->charspan* "a/b/"))             #t
 
   ;; ------------------------- shell aliases ------------------------------
   (begin

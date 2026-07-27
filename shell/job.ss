@@ -143,8 +143,7 @@
     (only (scheme2k lineedit lineedit)     linectx? linectx-history linectx-save-history linectx-wbuf
                                            lineedit-display-table lineedit-flush lineedit-soft-undraw)
           (schemesh shell fds)
-    (only (schemesh shell parameters)      sh-eval sh-globals sh-pid-table)
-    (only (schemesh shell paths)           sh-path->subpath sh-path-append sh-path-absolute? text->sh-path*))
+    (only (schemesh shell parameters)      sh-eval sh-globals sh-pid-table))
 
 
 ;; record types "job" "cmd" "multijob" and their accessors

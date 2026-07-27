@@ -15,6 +15,7 @@
     (scheme2k posix fs)
     (scheme2k posix io)
     (scheme2k posix pattern)
+    (scheme2k posix path)
     (scheme2k posix pid)
 
     ;; by default, do not re-export bindings from (scheme2k posix replacements) or (scheme2k posix thread)
