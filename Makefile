@@ -17,12 +17,16 @@ LDFLAGS=-s
 CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
-# required libraries
-OS:=$(strip $(shell uname -o))
+OS:=$(strip $(shell uname))
+ifeq ($(OS), Linux)
+  # detect Termux on Android: `uname -o` is not portable
+  OS:=$(strip $(shell uname -o))
+endif
 
+# required libraries
 LIBS_TERMINFO:=-ltinfo
 ifeq ($(OS), Android)
-  LIBS_UTIL:=
+  LIBS_UTIL:=-liconv
 else ifeq ($(OS), Darwin)
   LIBS_TERMINFO:=-lncurses
   LIBS_UTIL:=-liconv
