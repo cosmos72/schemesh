@@ -396,7 +396,9 @@
     (begin
       (parsectx-read-char ctx) ; skip #\#
       (parsectx-read-char ctx) ; skip #\!
-      (parsectx-read-directive ctx))
+      (or (parsectx-read-directive ctx)
+          ;; try again on next line, in case it's a directive - fixes #68
+          (parsectx-try-read-directive ctx)))
     #f))
 
 
