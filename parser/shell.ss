@@ -186,7 +186,6 @@
 ;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
 (define (lex-shell ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
-  (parsectx-skip-whitespace ctx #f)
   (let ((value (parsectx-try-read-directive ctx shell-skip-whitespace-and-comments)))
     (if (symbol? value)
       (if (eq? 'eof value)
