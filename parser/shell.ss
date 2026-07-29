@@ -166,14 +166,28 @@
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
 
+;; fix issue #69: (parsectx-try-read-directive) may find
+;; a sequence of whitespace and/or comments before a directive.
+;; Skip them all.
+(define (shell-skip-whitespace-and-comments ctx)
+  (parsectx-skip-whitespace ctx #f) ; don't skip newlines
+  (when (eqv? #\# (parsectx-peek-char ctx))
+    (let ((ch2 (parsectx-peek-char2 ctx)))
+      (when (and (char? ch2) (not (eqv? #\! ch2)))
+        ;; #\# not followed by #\! is a comment line, skip it
+        (parsectx-skip-line ctx)
+        ;; continue skipping more whitespace and/or comments
+        (shell-skip-whitespace-and-comments ctx)))))
+
+
 ;; Read a single shell token from textual input port 'in'.
 ;; Return two values: token value and its type.
 ;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
 ;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
 (define (lex-shell ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
-  (parsectx-skip-whitespace ctx #f) ; don't skip newlines
-  (let ((value (parsectx-try-read-directive ctx)))
+  (parsectx-skip-whitespace ctx #f)
+  (let ((value (parsectx-try-read-directive ctx shell-skip-whitespace-and-comments)))
     (if (symbol? value)
       (if (eq? 'eof value)
         ; yes, #!eof is an allowed directive:

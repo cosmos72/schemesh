@@ -390,7 +390,8 @@
 ;; i.e. all characters up to the first "\n" and including it, and return #f
 ;;
 ;; Otherwise do nothing and return #f i.e. do not consume any character.
-(define (parsectx-try-read-directive ctx)
+(define (parsectx-try-read-directive ctx skip-whitespace-and-comments-proc)
+  (skip-whitespace-and-comments-proc ctx)
   (if (and (eqv? #\# (parsectx-peek-char ctx))
            (eqv? #\! (parsectx-peek-char2 ctx)))
     (begin
@@ -398,7 +399,7 @@
       (parsectx-read-char ctx) ; skip #\!
       (or (parsectx-read-directive ctx)
           ;; try again on next line, in case it's a directive - fixes #68
-          (parsectx-try-read-directive ctx)))
+          (parsectx-try-read-directive ctx skip-whitespace-and-comments-proc)))
     #f))
 
 
