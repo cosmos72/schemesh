@@ -332,27 +332,35 @@
 
 
 ;; read and discard all characters in textual input port (parsectx-in ctx)
-;; until the first occurrence of find-ch, which is discarded too and returned.
+;; until the first occurrence of find-ch.
+;; If skip-ch? is truish, also skip find-ch.
 ;;
 ;; if find-ch is found before end-of-file, return #t
 ;; otherwise return #f
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (parsectx-skip-until-char ctx find-ch)
-  (let ((ret #f))
-    (until ret
+(define (parsectx-skip-until-char ctx find-ch skip-ch?)
+  (if skip-ch?
+    (let %loop1 ((ctx ctx) (find-ch find-ch))
       (let ((ch (parsectx-read-char ctx)))
-        (when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
-          (set! ret ch))))
-    (char? ret)))
+        (cond
+          ((eqv? ch find-ch) #t)
+          ((char? ch)        (%loop1 ctx find-ch))
+          (else              #f))))
+    (let %loop2 ((ctx ctx) (find-ch find-ch))
+      (let ((ch (parsectx-peek-char ctx)))
+        (cond
+          ((eqv? ch find-ch) #t)
+          ((char? ch)        (parsectx-read-char ctx) (%loop2 ctx find-ch))
+          (else              #f))))))
 
 
 ;; read and discard all characters in textual input port (parsectx-in ctx)
-;; until the first #\newline, which is discarded too
+;; until the first #\newline. If skip-nl? is truish, #\newline is discarded too
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (parsectx-skip-line ctx)
-  (parsectx-skip-until-char ctx #\newline)
+(define (parsectx-skip-line ctx skip-nl?)
+  (parsectx-skip-until-char ctx #\newline skip-nl?)
   (void))
 
 
@@ -411,14 +419,14 @@
 ;; then read a simple-identifier and return it converted to a symbol.
 ;;
 ;; Otherwise ignore and consume a whole line
-;; i.e. all characters up to the first "\n" and including it, and return #f
+;; i.e. all characters up to the first #\newline (not including it), and return #f
 (define (parsectx-read-directive ctx)
   (let ((ch (parsectx-peek-char ctx)))
     ; (debugf "parsectx-read-directive ch=~s" ch)
     (if (parsectx-is-simple-identifier-char? ch)
       (string->symbol (parsectx-read-simple-identifier ctx))
       (begin
-        (parsectx-skip-line ctx)
+        (parsectx-skip-line ctx #f)
         #f))))
 
 

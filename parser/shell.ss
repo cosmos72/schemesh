@@ -140,7 +140,7 @@
             (parsectx-read-char ctx)
             (values ch type))
           ((eqv? ch #\#) ; consume comment until end of line, then call again (lex-shell-impl)
-            (parsectx-skip-line ctx)
+            (parsectx-skip-line ctx #f)
             (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
           (else ;; convert operator character to symbol
             (values (op->symbol ctx ch) type))))
@@ -174,10 +174,8 @@
   (when (eqv? #\# (parsectx-peek-char ctx))
     (let ((ch2 (parsectx-peek-char2 ctx)))
       (when (and (char? ch2) (not (eqv? #\! ch2)))
-        ;; #\# not followed by #\! is a comment line, skip it
-        (parsectx-skip-line ctx)
-        ;; continue skipping more whitespace and/or comments
-        (shell-skip-whitespace-and-comments ctx)))))
+        ;; #\# not followed by #\! is a comment line, skip it - do NOT skip final #\newline
+        (parsectx-skip-line ctx #f)))))
 
 
 ;; Read a single shell token from textual input port 'in'.
@@ -458,7 +456,7 @@
               (if (eqv? #\! (parsectx-read-char ctx))
                 (set! ret (parsectx-read-directive ctx))
                 ; #\# not followed by #\! is a comment line, skip it
-                (parsectx-skip-line ctx))))
+                (parsectx-skip-line ctx #f))))
 
           (else
             (when (eof-object? ch)
@@ -539,7 +537,7 @@
                (let ((inner (make-paren 'shell token)))
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
                    (paren-start-xy-set! inner x y))
-                 (when (parsectx-skip-until-char ctx #\')
+                 (when (parsectx-skip-until-char ctx #\' #t)
                    (paren-fill-end! ctx inner #\'))
                  (paren-inner-append! paren inner))))
 

@@ -41,14 +41,24 @@
   ;; invariant: {#!scheme ...} is always equivalent to (...)
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
   (parse-shell-form1 (string->parsectx ""))            ,@"#<void>"
+
   ;; test issue #68
   (parse-shell-form1 (string->parsectx
-    "#!/usr/bin/env schemesh\n#!scheme foo"
-    (parsers)))                                        foo
+      "#!/usr/bin/env schemesh\n#!scheme foo"
+      (parsers)))                                      foo
   ;; test issue #69
   (parse-shell-form1 (string->parsectx
-    "#!/usr/bin/env schemesh\n#!shell# comment1\n#!scheme;comment2\nbar"
-    (parsers)))                                        bar
+      "#!/usr/bin/env schemesh\n#!shell# comment1\n#!scheme;comment2\nbar"
+      (parsers)))                                      bar
+  ;; test issue #71
+  (let-values (((forms parser)
+    (parse-shell-forms (string->parsectx
+        "#!/usr/bin/env schemesh\n#!shell\necho abc#def\n#!scheme ghi"
+        (parsers))
+      'eof)))
+    (list forms (parser-name parser)))                 (((shell "echo" "abc" \x3B;
+                                                           ) ghi) scheme)
+
   '{}                                                  (shell)
   '{{}}                                                (shell (shell))
   '{$EDITOR}                                           (shell (shell-env "EDITOR"))

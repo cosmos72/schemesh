@@ -278,7 +278,7 @@
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (lex-paren-sharp ctx)))
           ((#\\)  (lex-paren-backslash ctx))
-          ((#\;)  (parsectx-skip-line ctx))
+          ((#\;)  (parsectx-skip-line ctx #t))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
 
@@ -433,7 +433,7 @@
         ((eqv? token #\")               ; parse "some string"
            (and (skip-lisp-double-quotes ctx) #\"))
         ((eqv? token #\|)               ; parse |identifier|
-           (and (parsectx-skip-until-char ctx #\|) #\|))
+           (and (parsectx-skip-until-char ctx #\| #t) #\|))
         (else                           ; parse #| block comment |#
            (and (skip-lisp-block-comment ctx flavor paren) #\#))))
     paren))

@@ -79,7 +79,7 @@
       ((#\;)
         ;; handle line comments ourselves, because they may be followed
         ;; by a token not supported by (lex-lisp-chezscheme)
-        (parsectx-skip-line ctx)
+        (parsectx-skip-line ctx #t)
         (lex-lisp ctx flavor))
       ((#\[)
         (parsectx-read-char ctx)
