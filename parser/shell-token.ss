@@ -30,7 +30,7 @@
       ; TODO: is this list complete?
       ; Note: (lex-shell-impl) will change type of #\& to 'separator
       ;   unless it's followed by another #\&
-      ((#\! #\& #\# #\< #\> #\|) 'op)
+      ((#\! #\& #\< #\> #\|) 'op)
       ((#\" ) 'dquote)
       ((#\' ) 'squote)
       ((#\$ ) 'dollar)

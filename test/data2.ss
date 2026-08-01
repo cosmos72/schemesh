@@ -42,6 +42,10 @@
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
   (parse-shell-form1 (string->parsectx ""))            ,@"#<void>"
 
+  '{}                                                  (shell)
+  '{{}}                                                (shell (shell))
+  '{$EDITOR}                                           (shell (shell-env "EDITOR"))
+
   ;; test issue #68
   (parse-shell-form1 (string->parsectx
       "#!/usr/bin/env schemesh\n#!scheme foo"
@@ -53,15 +57,17 @@
   ;; test issue #71
   (let-values (((forms parser)
     (parse-shell-forms (string->parsectx
-        "#!/usr/bin/env schemesh\n#!shell\necho abc#def\n#!scheme ghi"
+        "#!/usr/bin/env schemesh\n#!shell\necho abc #def\n#!scheme ghi"
         (parsers))
       'eof)))
     (list forms (parser-name parser)))                 (((shell "echo" "abc" \x3B;
                                                            ) ghi) scheme)
+  ;; test issue #72 character # is a comment only at beginning of a shell word
+  (parse-shell-form1 (string->parsectx
+      "foo #bar"))                                     (shell "foo")
+  (parse-shell-form1 (string->parsectx
+      "foo#bar"))                                      (shell "foo#bar")
 
-  '{}                                                  (shell)
-  '{{}}                                                (shell (shell))
-  '{$EDITOR}                                           (shell (shell-env "EDITOR"))
   '{ls -l>/dev/null&}                                  (shell "ls" "-l" > "/dev/null" &)
   '{{;foo} <log 2>&1 && bar<>baz|wc -l;;}
                                                        (shell (shell \x3B;
