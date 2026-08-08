@@ -33,7 +33,7 @@
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                           logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            ==> assert* catch check-interrupts define-macro first-value-or-void nop raise-errorf values->list while try)
+    (only (scheme2k bootstrap)            ==> assert* catch catch-non-local-exit check-interrupts define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-clear! bytespan-insert-right/u8! bytespan-length
@@ -498,74 +498,80 @@
   ;;
   ;; Use (console-...-port) hoping they are not being used:
   ;; it's also useful in case (current-...-port) have been redirected
-  (parameterize ((break-handler       nop)
-                 (sh-inside-interrupt? #t)
-                 (sh-foreground-pgid  (sh-job-pgid #t))
-                 (current-input-port  (console-input-port))
-                 (current-output-port (console-output-port))
-                 (current-error-port  (console-error-port)))
+  (parameterize ((base-exception-handler nop)
+                 (break-handler          nop)
+                 (sh-inside-interrupt?   #t)
+                 (sh-foreground-pgid     (sh-job-pgid #t))
+                 (current-input-port     (console-input-port))
+                 (current-output-port    (console-output-port))
+                 (current-error-port     (console-error-port)))
     (call/cc
       (lambda (k)
         (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-          (let ((port (console-output-port)))
-            (while (repl-break-handler-once my-repl-args k port)))))))
+        (let ((port (console-output-port)))
+          (while (repl-break-handler-once my-repl-args k port)))))))
 
 
 ;; Print (break ...) arguments
 (define (repl-interrupt-show-who-msg-irritants args port)
   (when (pair? args)
-    (let* ((who  (car args))
-           (tail (cdr args))
-           (msg  (if (pair? tail) (car tail) ""))
-           (irritants (if (pair? tail) (cdr tail) '())))
-     (put-string port "break in " )
-     (put-datum  port who)
-     (put-string port ": ")
-     (put-string port msg)
-     (do ((l irritants (cdr l)))
-         ((null? l))
-       (put-char   port #\space)
-       (put-datum  port (car l)))
-     (put-char   port #\newline)
-     (flush-output-port port))))
+    (catch-non-local-exit (void)
+      (let* ((who  (car args))
+             (tail (cdr args))
+             (msg  (if (pair? tail) (car tail) ""))
+             (irritants (if (pair? tail) (cdr tail) '())))
+       (put-string port "break in " )
+       (put-datum  port who)
+       (put-string port ": ")
+       (put-string port msg)
+       (do ((l irritants (cdr l)))
+           ((null? l))
+         (put-char   port #\space)
+         (put-datum  port (car l)))
+       (put-char   port #\newline)
+       (flush-output-port port)))))
 
 
 ;; Single iteration of (repl-break-handler)
 (define (repl-break-handler-once my-repl-args k out)
-  (put-string out "break> ")
-  (flush-output-port out)
-  (case (let-values (((type token start end) (read-token (console-input-port))))
-          (cond
-            ((eq? 'eof type)
-              (put-char out #\newline)
-              (flush-output-port out)
-              'exit)
-            (else token)))
+  (case (catch-non-local-exit 'exit
+          (put-string out "break> ")
+          (flush-output-port out)
+          (let-values (((type token start end) (read-token (console-input-port))))
+            (cond
+              ((eq? 'eof type)
+                (put-char out #\newline)
+                (flush-output-port out)
+                'exit)
+              (else token))))
     ((a abort)        (abort) #f)
     ((c e cont exit)  #f)
-    ((i inspect)      (inspect k) #t)
+    ((i inspect)      (catch-non-local-exit #f (inspect k) #t))
     ((n new)          (apply repl* my-repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
     ((? help)
-      (put-string out "
+      (catch-non-local-exit #f
+        (put-string out "
 Type ? or help for this help.
      i or inspect to inspect current continuation
      n or new to enter new repl
      c or e to exit interrupt handler and continue
      t or throw to raise an error condition")
-      (if (sh-current-job)
-        (put-string out "
+        (if (sh-current-job)
+          (put-string out "
      q or r to quit current evaluation. KILLS CURRENT JOB then returns to repl")
-        (put-string out "
+          (put-string out "
      q or r to quit current evaluation. returns to repl"))
-      (put-string out "
+        (put-string out "
      a or abort to abort schemesh. terminates the program!\n\n")
-      (flush-output-port out)
-      #t)
-    (else (put-string out "Invalid command.  Type ? for help.\n")
-      (flush-output-port out)
-      #t)))
+        (flush-output-port out)
+        #t))
+    (else
+      (catch-non-local-exit #f
+        (put-string out "Invalid command.  Type ? for help.\n")
+        (flush-output-port out)
+        #t))))
 
 
 (begin

@@ -69,7 +69,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme)    break-handler console-output-port console-error-port
+    (only (chezscheme)    break break-handler console-output-port console-error-port
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
           (scheme2k bootstrap)
@@ -370,6 +370,7 @@
 ;; if got end-of-file, return #f
 (define (lineedit-read lctx timeout-milliseconds)
   (try
+    ;;z (begin
     (parameterize ((break-handler nop))
       (let ((ret (%lineedit-read lctx timeout-milliseconds)))
         (linectx-flush lctx)

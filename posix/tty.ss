@@ -183,18 +183,18 @@
   (syntax-rules ()
     ((_ body1 body2 ...)
       (dynamic-wind
-        tty-restore!       ; run before body
+        tty-restore!        ; run before body
         (lambda () body1 body2 ...)
-        tty-setraw!))))      ; run after body
+        tty-setraw!))))     ; run after body
 
 
 (define-syntax with-raw-tty
   (syntax-rules ()
     ((_ body1 body2 ...)
       (dynamic-wind
-        tty-setraw!       ; run before body
+        tty-setraw!         ; run before body
         (lambda () body1 body2 ...)
-        tty-restore!))))      ; run after body
+        tty-restore!))))    ; run after body
 
 
 (define (tty-inspect obj)

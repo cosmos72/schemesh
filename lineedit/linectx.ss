@@ -264,18 +264,24 @@
 
 ;; invoked when some function called by linectx-read or lineedit-read raises a condition:
 ;;
-;; display the condition on (console-error-port)
+;; display the condition on (console-error-port).
+;; Catches any condition raised by writing to (console-error-port)
 (define (linectx-show-error lctx message ex)
-  ; remove offending input that triggered the exception
-  (bytespan-clear! (linectx-rbuf lctx))
-  ; display the condition
-  (let ((out (console-error-port)))
-    (put-string out "\n\x1b;[1;31m; ")
-    (put-string out message)
-    (put-string out ": ")
-    (display-condition ex out)
-    (put-string out "\x1b;[m\n")
-    (flush-output-port out)))
+  ;;z (with-cooked-tty (break))
+  (catch-non-local-exit (void)
+    ;; remove offending input that triggered the exception
+    (bytespan-clear! (linectx-rbuf lctx))
+    ;; display the condition
+    (let ((out (console-error-port)))
+      (put-string out "\n\x1b;[1;31m; ")
+      #|
+      (put-string out message)
+      (put-string out ": ")
+      (display-condition ex out)
+      (put-string out "\x1b;[m\n")
+      (flush-output-port out)
+      |#
+      )))
 
 
 (define (linectx-clipboard-clear! lctx)

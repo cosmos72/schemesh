@@ -88,12 +88,12 @@
     ;; Use (console-...-port) hoping they are not being used:
     ;; it's also useful in case (current-...-port) have been redirected
     (parameterize ((sh-inside-interrupt? #t)
-                   (current-input-port  (console-input-port))
-                   (current-output-port (console-output-port))
-                   (current-error-port  (console-error-port)))
+                   (current-input-port   (console-input-port))
+                   (current-output-port  (console-output-port))
+                   (current-error-port   (console-error-port)))
       (unless (sh-current-job-sigchld)
         (unless (waiting-for-job)
-          ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
+          ;; (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
           (scheduler-wait #f 'nonblocking)))
       ;; we used to also call (display-status-changes) here,
       ;; but it's a bad idea: interrupts should do as little as possible,

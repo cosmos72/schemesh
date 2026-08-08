@@ -13,7 +13,7 @@
       ==> ~>
 
       ;; bootstrap.ss
-      assert* assert-not* catch check check-not define-macro debugf debugf-port
+      assert* assert-not* catch catch-non-local-exit check check-not define-macro debugf debugf-port
       first-value first-value-or-void let-macro iterate iterate-any iterator? raise-assert* reverse-macro
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
@@ -37,7 +37,7 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! console-error-port current-time format foreign-procedure
+    (only (chezscheme) append! base-exception-handler console-error-port current-time format foreign-procedure
                        fx1+ fx1- fx/ gensym include list-copy list-head lock-object logbit? meta
                        pariah procedure-arity-mask reverse! time-second time-nanosecond unlock-object void)
     (scheme2k bootstrap arrow)
@@ -73,6 +73,31 @@
   (syntax-rules ()
     ((_ expr)
       (call-with-values (lambda () expr) (lambda args (cadr args))))))
+
+
+;; evaluate body1 body2 ... and return their single value.
+;;
+;; on non-local exit i.e. if a condition is raised or a continuation exiting the scope is called,
+;; catch them, then evaluate and return ret-on-non-local-exit.
+(define-syntax catch-non-local-exit
+  (syntax-rules ()
+    ((_ ret-on-non-local-exit body1 body2 ...)
+      (call/cc
+        (lambda (k)
+          (let ((ret     k)
+                (handler #f))
+            (dynamic-wind
+              (lambda ()
+                (set! ret k)
+                (set! handler (base-exception-handler))
+                (base-exception-handler nop))
+              (lambda ()
+                (set! ret (begin body1 body2 ...)))
+              (lambda ()
+                (base-exception-handler handler)
+                (k (if (eq? ret k)
+                     ret-on-non-local-exit
+                     ret))))))))))
 
 
 ;; port where to write debug messages with (debugf).
