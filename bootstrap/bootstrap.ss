@@ -13,7 +13,7 @@
       ==> ~>
 
       ;; bootstrap.ss
-      assert* assert-not* catch catch-non-local-exit check check-not define-macro debugf debugf-port
+      assert* assert-not* catch catch-all check check-not define-macro debugf debugf-port dynamic-catch-all
       first-value first-value-or-void let-macro iterate iterate-any iterator? raise-assert* reverse-macro
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
@@ -75,29 +75,37 @@
       (call-with-values (lambda () expr) (lambda args (cadr args))))))
 
 
-;; evaluate body1 body2 ... and return their single value.
-;;
-;; on non-local exit i.e. if a condition is raised or a continuation exiting the scope is called,
-;; catch them, then evaluate and return ret-on-non-local-exit.
-(define-syntax catch-non-local-exit
-  (syntax-rules ()
-    ((_ ret-on-non-local-exit body1 body2 ...)
-      (call/cc
-        (lambda (k)
-          (let ((ret     k)
-                (handler #f))
+(define (dynamic-catch-all before thunk after)
+  (call/cc
+    (lambda (k-exit)
+      (with-exception-handler
+        (lambda (ex)
+          (k-exit (after)))
+        (lambda ()
+          (let ((ret k-exit))
             (dynamic-wind
+              before
               (lambda ()
-                (set! ret k)
-                (set! handler (base-exception-handler))
-                (base-exception-handler nop))
+                (set! ret (thunk)))
               (lambda ()
-                (set! ret (begin body1 body2 ...)))
-              (lambda ()
-                (base-exception-handler handler)
-                (k (if (eq? ret k)
-                     ret-on-non-local-exit
-                     ret))))))))))
+                (let ((ret2 (after)))
+                  (if (eq? ret k-exit)
+                    (k-exit ret2)
+                    ret2))))))))))
+
+
+;; evaluate `before`, and if it returns normally then evaluate `body` and return its single value.
+;;
+;; if `body` is ever evaluated, then `after` is guaranteed to be evaluated too, even if `body` raises a condition or calls a continuation.
+;;
+;; if `body` raises a condition, or tries to leave via a continuation, both are intercepted:
+;; in these cases, `catch-all` returns normally the single value produced by evaluating `after`
+;;
+;; note: if `body` returns normally, its single value is returned instead.
+(define-syntax catch-all
+  (syntax-rules ()
+    ((_ before body after)
+       (dynamic-catch-all (lambda () before) (lambda () body) (lambda () after)))))
 
 
 ;; port where to write debug messages with (debugf).

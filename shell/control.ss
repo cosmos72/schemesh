@@ -213,13 +213,6 @@
     (raise ex)))
 
 
-(define (job-start/display-condition obj port)
-  (put-string port "\x1b;[1;31m; ")
-  (display-condition obj port)
-  (put-string port "\x1b;[m\n")
-  (flush-output-port port))
-
-
 ;; Start a job in background and return immediately, without waiting for it to finish.
 ;; For possible values of options, see (sh-options)
 ;;

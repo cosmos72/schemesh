@@ -37,12 +37,15 @@
           (set! success? #t))
       (catch (ex)
         #|
-        (let ((port (current-error-port)))
-          (put-string out "\x1b;[1;31m; error saving ")
-          (put-string port temp-path)
-          (display-condition ex port)
-          (put-string out "\x1b;[m\n" port)
-          (flush-output-port port))
+        (catch-all
+          (void)
+          (let ((port (current-error-port)))
+            (put-string out "\x1b;[1;31m; error saving ")
+            (put-string port temp-path)
+            (display-condition ex port)
+            (put-string out "\x1b;[m\n" port)
+            (flush-output-port port))
+          (void))
         |#
         #f))
 
@@ -103,12 +106,15 @@
             (set! port #f))))
       (catch (ex)
         #|
-        (let ((port (console-error-port)))
-          (put-string out "\x1b;[1;31m; error loading ")
-          (put-string port path)
-          (display-condition ex port)
-          (put-string out "\x1b;[m\n")
-          (flush-output-port port))
+        (catch-all
+          void
+          (let ((port (console-error-port)))
+            (put-string out "\x1b;[1;31m; error loading ")
+            (put-string port path)
+            (display-condition ex port)
+            (put-string out "\x1b;[m\n")
+            (flush-output-port port))
+          (void))
         |#
         #f))))
 

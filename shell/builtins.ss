@@ -74,20 +74,22 @@
 (define sh-exception-handler
   (case-lambda
     ((obj proc-after-body)
-      (catch-non-local-exit (proc-after-body)
-        (let ((port (console-error-port)))
-          (put-string port "\x1b;[1;31m; ")
-          (display-condition obj port)
-          (put-string port "\x1b;[m\n")
-          (when (or (serious-condition? obj) (not (warning? obj)))
-            (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
-            (if (debug-on-exception)
-              (begin
-                (flush-output-port port)
-                (debug))
-              (put-string port "\x1b;[1m; type (debug) to enter the debugger, or (debug-condition) to retrieve the condition.\x1b;[m\n")))
-          (flush-output-port port)
-          (proc-after-body))))
+      (dynamic-catch-all
+        void
+        (lambda ()
+          (let ((port (console-error-port)))
+            (put-string port "\x1b;[1;31m; ")
+            (display-condition obj port)
+            (put-string port "\x1b;[m\n")
+            (when (or (serious-condition? obj) (not (warning? obj)))
+              (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
+              (if (debug-on-exception)
+                (begin
+                  (flush-output-port port)
+                  (debug))
+                (put-string port "\x1b;[1m; type (debug) to enter the debugger, or (debug-condition) to retrieve the condition.\x1b;[m\n")))
+            (flush-output-port port)))
+        proc-after-body))
     ((obj)
       (sh-exception-handler obj void))))
 

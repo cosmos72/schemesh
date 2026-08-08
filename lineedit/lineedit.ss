@@ -210,11 +210,14 @@
                   (linectx-parser-name lctx)
                   x y))
               (catch (ex)
-                (let ((out (console-error-port)))
-                  (put-string out "\n\x1b;[1;31m; Exception in parenmatcher-find/at: ")
-                  (display-condition ex out)
-                  (put-string out "\x1b;[m\n")
-                  (flush-output-port out))))))))
+                (catch-all
+                  (void)
+                  (let ((out (console-error-port)))
+                    (put-string out "\n\x1b;[1;31m; Exception in parenmatcher-find/at: ")
+                    (display-condition ex out)
+                    (put-string out "\x1b;[m\n")
+                    (flush-output-port out))
+                  (void))))))))
     ret))
 
 ;; return #f or innermost paren object surrounding the cursor.
@@ -243,11 +246,14 @@
               (linectx-parser-name lctx)
               x y))
           (catch (ex)
-            (let ((out (console-error-port)))
-              (put-string out "\n\x1b;[1;31m; Exception in parenmatcher-find/surrounds: ")
-              (display-condition ex out)
-              (put-string out "\x1b;m\n")
-              (flush-output-port out))))))
+            (catch-all
+              (void)
+              (let ((out (console-error-port)))
+                (put-string out "\n\x1b;[1;31m; Exception in parenmatcher-find/surrounds: ")
+                (display-condition ex out)
+                (put-string out "\x1b;m\n")
+                (flush-output-port out))
+              (void))))))
     ret))
 
 

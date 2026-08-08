@@ -33,7 +33,7 @@
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                           logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            ==> assert* catch catch-non-local-exit check-interrupts define-macro first-value-or-void nop raise-errorf values->list while try)
+    (only (scheme2k bootstrap)            ==> assert* catch catch-all check-interrupts define-macro first-value-or-void nop raise-errorf values->list while try)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-clear! bytespan-insert-right/u8! bytespan-length
@@ -515,73 +515,86 @@
 ;; Print (break ...) arguments
 (define (repl-interrupt-show-who-msg-irritants args port)
   (when (pair? args)
-    (catch-non-local-exit (void)
+    (catch-all
+      (void)
       (let* ((who  (car args))
              (tail (cdr args))
              (msg  (if (pair? tail) (car tail) ""))
              (irritants (if (pair? tail) (cdr tail) '())))
-       (put-string port "break in " )
-       (put-datum  port who)
-       (put-string port ": ")
-       (put-string port msg)
-       (do ((l irritants (cdr l)))
-           ((null? l))
-         (put-char   port #\space)
-         (put-datum  port (car l)))
-       (put-char   port #\newline)
-       (flush-output-port port)))))
+        (put-string port "break in " )
+        (put-datum  port who)
+        (put-string port ": ")
+        (put-string port msg)
+        (do ((l irritants (cdr l)))
+            ((null? l))
+          (put-char   port #\space)
+          (put-datum  port (car l)))
+        (put-char   port #\newline)
+        (flush-output-port port))
+      (void))))
+
+
+(define (inspect-current-job out)
+  (let ((job (sh-current-job)))
+    (if job
+      (inspect job)
+      (begin
+        (put-string out "No current job to inspect\n")
+        (flush-output-port out)))))
 
 
 ;; Single iteration of (repl-break-handler)
 (define (repl-break-handler-once my-repl-args k out)
-  (case (catch-non-local-exit 'exit
-          (put-string out "break> ")
-          (flush-output-port out)
-          (let-values (((type token start end) (read-token (console-input-port))))
-            (cond
-              ((eq? 'eof type)
-                (put-char out #\newline)
-                (flush-output-port out)
-                'exit)
-              (else token))))
+  (case (catch-all
+          (void)
+          (begin
+            (put-string out "break> ")
+            (flush-output-port out)
+            (let-values (((type token start end) (read-token (console-input-port))))
+              (cond
+                ((eq? 'eof type)
+                  (put-char out #\newline)
+                  (flush-output-port out)
+                  'exit)
+                (else token))))
+          'exit)
     ((a abort)        (abort) #f)
     ((c e cont exit)  #f)
-    ((i inspect)      (catch-non-local-exit #f (inspect k) #t))
-    ((j job)          (catch-non-local-exit #f
-                        (let ((job (sh-current-job)))
-                          (if job
-                            (inspect job)
-                            (begin
-                              (put-string out "No current job to inspect\n")
-                              (flush-output-port out))))
-                          #t))
+    ((i inspect)      (catch-all (void) (begin (inspect k)               #t) #f))
+    ((j job)          (catch-all (void) (begin (inspect-current-job out) #t) #f))
     ((n new)          (apply repl* my-repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
     ((? help)
-      (catch-non-local-exit #f
-        (put-string out "\nType ? or help for this help.
+      (catch-all
+        (void)
+        (begin
+          (put-string out "\nType ? or help for this help.
      i or inspect to inspect current continuation\n")
-        (put-string out
-          (if (sh-current-job)
+          (put-string out
+            (if (sh-current-job)
             "     j or job to inspect current job"
             "     j or job to inspect current job - no current job is set now"))
-        (put-string out "
+          (put-string out "
      n or new to enter new repl
      c or e to exit interrupt handler and continue
      t or throw to raise an error condition\n")
-        (put-string out
-          (if (sh-current-job)
+          (put-string out
+            (if (sh-current-job)
             "     q or r to quit current evaluation. KILLS CURRENT JOB then returns to repl\n"
             "     q or r to quit current evaluation. returns to repl\n"))
-        (put-string out "     a or abort to abort schemesh. terminates the program!\n\n")
-        (flush-output-port out)
-        #t))
+          (put-string out "     a or abort to abort schemesh. terminates the program!\n\n")
+          (flush-output-port out)
+          #t)
+        #f))
     (else
-      (catch-non-local-exit #f
-        (put-string out "Invalid command.  Type ? for help.\n")
-        (flush-output-port out)
-        #t))))
+      (catch-all
+        (void)
+        (begin
+          (put-string out "Invalid command.  Type ? for help.\n")
+          (flush-output-port out)
+          #t)
+        #f))))
 
 
 (begin

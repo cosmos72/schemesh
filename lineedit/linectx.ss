@@ -268,20 +268,20 @@
 ;; Catches any condition raised by writing to (console-error-port)
 (define (linectx-show-error lctx message ex)
   ;;z (with-cooked-tty (break))
-  (catch-non-local-exit (void)
-    ;; remove offending input that triggered the exception
-    (bytespan-clear! (linectx-rbuf lctx))
-    ;; display the condition
-    (let ((out (console-error-port)))
-      (put-string out "\n\x1b;[1;31m; ")
-      #|
-      (put-string out message)
-      (put-string out ": ")
-      (display-condition ex out)
-      (put-string out "\x1b;[m\n")
-      (flush-output-port out)
-      |#
-      )))
+  (dynamic-catch-all
+    void
+    (lambda ()
+      ;; remove offending input that triggered the exception
+      (bytespan-clear! (linectx-rbuf lctx))
+      ;; display the condition
+      (let ((out (console-error-port)))
+        (put-string out "\n\x1b;[1;31m; ")
+        (put-string out message)
+        (put-string out ": ")
+          (display-condition ex out)
+          (put-string out "\x1b;[m\n")
+          (flush-output-port out)))
+    void))
 
 
 (define (linectx-clipboard-clear! lctx)
