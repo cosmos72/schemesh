@@ -176,6 +176,13 @@
       parser-name)))
 
 
+(define (repl-consume-signals lctx)
+  (catch-all
+    (sh-consume-signals lctx)
+    (sh-stdio-flush)
+    (void)))
+
+
 ;; Read user input.
 ;; If user pressed ENTER, return string containing entered text.
 ;;
@@ -184,7 +191,7 @@
 ;; #t if waiting for more keypresses
 ;; a string if user pressed ENTER.
 (define (repl-lineedit lctx)
-  (sh-consume-signals lctx)
+  (repl-consume-signals lctx)
   (let ((ret (lineedit-read lctx -1)))
     (sh-consume-signals lctx)
     (if (boolean? ret)
@@ -273,11 +280,7 @@
 
 ;; Print values or exit statuses. vals must be a proper list.
 (define (repl-print-list vals)
-  (sh-consume-signals (repl-args-linectx))
-  (flush-output-port (current-error-port))
-  (flush-output-port (console-error-port))
-  (flush-output-port (current-output-port))
-  ;; (flush-output-port (console-output-port)) ;; no need, done below
+  (repl-consume-signals (repl-args-linectx))
   (do ((p (console-output-port))
        (tail vals (cdr tail)))
       ((null? tail) (flush-output-port p))
@@ -385,14 +388,17 @@
       (sh-eval-file path)
       #t
       (catch (ex)
-        (let ((out (console-error-port)))
-          (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
-          (put-datum  out path)
-          (put-string out ": ")
-          (display-condition ex out)
-          (put-string out "\x1b;[m\n")
-          (flush-output-port out)
-          #f)))))
+        (catch-all
+          (void)
+          (let ((out (console-error-port)))
+            (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
+            (put-datum  out path)
+            (put-string out ": ")
+            (display-condition ex out)
+            (put-string out "\x1b;[m\n")
+            (flush-output-port out))
+          (void))
+        #f))))
 
 
 ;; top-level interactive repl with all arguments mandatory
@@ -433,7 +439,7 @@
 (define (repl-parse-options options)
   ; (debugf "repl options=~s" options)
   (let ((history-path    #f) (history-path?    #f)
-        (print           #f) (print?           #f)
+        (print-func      #f) (print-func?      #f)
         (initial-parser  #f) (initial-parser?  #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (lctx            #f) (lctx?            #f)
@@ -450,7 +456,7 @@
           ((init)    (set! init-file-path val)  (set! init-file-path? #t))
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
-          ((print)   (set! print val)           (set! print? #t))
+          ((print)   (set! print-func val)      (set! print-func? #t))
           ((quit)    (set! quit-file-path val)  (set! quit-file-path? #t))
           (else      (syntax-violation 'repl "unexpected argument:" key)))))
     (when (and lctx? enabled-parsers?)
@@ -459,7 +465,7 @@
       (vhistory-path-set! (linectx-history lctx) history-path))
     (list
       (if initial-parser? initial-parser #f)
-      (if print? print repl-print-list)
+      (if print-func? print-func repl-print-list)
       (if lctx?
         lctx
         (sh-make-linectx

@@ -78,20 +78,29 @@
 (define (dynamic-catch-all before thunk after)
   (call/cc
     (lambda (k-exit)
-      (with-exception-handler
-        (lambda (ex)
-          (k-exit (after)))
-        (lambda ()
-          (let ((ret k-exit))
-            (dynamic-wind
-              before
-              (lambda ()
-                (set! ret (thunk)))
-              (lambda ()
-                (let ((ret2 (after)))
-                  (if (eq? ret k-exit)
-                    (k-exit ret2)
-                    ret2))))))))))
+      ;; ensure we call (after) only once
+      (let ((after* (let ((val k-exit))
+                       (lambda ()
+                         (when (eq? val k-exit)
+                           (set! val (after)))
+                         val))))
+        ;; we could omit (with-exception-handler ...)
+        ;; but then, if (thunk) throws an exception, the current exception handler would be called
+        ;; *before* invoking (after) and would usually show the exception on the console, which we don't want
+        (with-exception-handler
+          (lambda (ex)
+            (k-exit (after*)))
+          (lambda ()
+            (let ((ret k-exit))
+              (dynamic-wind
+                before
+                (lambda ()
+                  (set! ret (thunk))
+                  ret)
+                (lambda ()
+                  (let ((val (after*)))
+                    (when (eq? ret k-exit)
+                      (k-exit val))))))))))))
 
 
 ;; evaluate `before`, and if it returns normally then evaluate `body` and return its single value.

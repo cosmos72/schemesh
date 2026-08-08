@@ -790,6 +790,12 @@
       (sh-port #f fd 'textual))))
 
 
+;; flush console-...-port
+(define (flush-port-if-needed console-port)
+  (unless (port-closed? console-port)
+    (flush-output-port console-port)))
+
+
 ;; flush current-...-port and corresponding per-job binary and textual ports if they have been created
 (define (flush-ports-if-needed fd current-port)
   (if (fxzero? (textual-port-output-index current-port))
@@ -809,9 +815,6 @@
 
 
 (define (sh-stdio-flush)
-  ;; the ports (console-input-port) (console-output-port) (console-error-port)
-  ;; are mostly unbuffered, no need to flush them
-  ;;
   ;; flushing (current-...-port) also flushes the corresponding per-job binary and textual ports
   ;;
   ;; inside an interrupt, we cannot do I/O on most ports. Reason:
@@ -819,4 +822,6 @@
   (unless (sh-inside-interrupt?)
     (flush-ports-if-needed 0 (current-input-port))
     (flush-ports-if-needed 1 (current-output-port))
-    (flush-ports-if-needed 2 (current-error-port))))
+    (flush-ports-if-needed 2 (current-error-port))
+    (flush-port-if-needed (console-output-port))
+    (flush-port-if-needed (console-error-port))))
