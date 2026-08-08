@@ -547,24 +547,34 @@
     ((a abort)        (abort) #f)
     ((c e cont exit)  #f)
     ((i inspect)      (catch-non-local-exit #f (inspect k) #t))
+    ((j job)          (catch-non-local-exit #f
+                        (let ((job (sh-current-job)))
+                          (if job
+                            (inspect job)
+                            (begin
+                              (put-string out "No current job to inspect\n")
+                              (flush-output-port out))))
+                          #t))
     ((n new)          (apply repl* my-repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
     ((? help)
       (catch-non-local-exit #f
+        (put-string out "\nType ? or help for this help.
+     i or inspect to inspect current continuation\n")
+        (put-string out
+          (if (sh-current-job)
+            "     j or job to inspect current job"
+            "     j or job to inspect current job - no current job is set now"))
         (put-string out "
-Type ? or help for this help.
-     i or inspect to inspect current continuation
      n or new to enter new repl
      c or e to exit interrupt handler and continue
-     t or throw to raise an error condition")
-        (if (sh-current-job)
-          (put-string out "
-     q or r to quit current evaluation. KILLS CURRENT JOB then returns to repl")
-          (put-string out "
-     q or r to quit current evaluation. returns to repl"))
-        (put-string out "
-     a or abort to abort schemesh. terminates the program!\n\n")
+     t or throw to raise an error condition\n")
+        (put-string out
+          (if (sh-current-job)
+            "     q or r to quit current evaluation. KILLS CURRENT JOB then returns to repl\n"
+            "     q or r to quit current evaluation. returns to repl\n"))
+        (put-string out "     a or abort to abort schemesh. terminates the program!\n\n")
         (flush-output-port out)
         #t))
     (else
