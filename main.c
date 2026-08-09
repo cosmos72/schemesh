@@ -222,11 +222,23 @@ static void load_file_type_autodetect(const char filename[], size_t len) {
   scheme2k_call1("sh-eval-file/print", scheme2k_Sstring_utf8b(filename, len));
 }
 
+static void install_exception_handler(void) {
+  scheme2k_call1("base-exception-handler",
+                 Stop_level_value(Sstring_to_symbol("repl-exception-handler")));
+}
+
 static void run_files_and_strings(int argc, const char* argv[]) {
   const char* arg;
   const char* arg2;
   int         i;
   int         opts = 1;
+
+  /**
+   * install the same exception handler use use for REPL,
+   * because Chez Scheme default exception handler sometimes causes infinite loops
+   * when writing to stderr fails
+   */
+  install_exception_handler();
 
   for (i = 1; i < argc && (arg = argv[i]) != NULL; i++) {
     if (opts) {
@@ -297,13 +309,14 @@ int main(int argc, const char* argv[]) {
   errno = 0;
 
   if (cmd.have_file_or_string) {
+    on_exception = EVAL_FAILED;
     run_files_and_strings(argc, argv);
-  }
-  if (cmd.force_repl == 0 && cmd.have_file_or_string) {
-    goto finish;
   }
 
 again:
+  if (cmd.force_repl == 0 && cmd.have_file_or_string) {
+    goto finish;
+  }
 #if 1
   on_exception = EVAL_FAILED;
   do {
