@@ -203,13 +203,17 @@
          (beg  (bytespan-peek-beg wbuf))
          (end  (bytespan-peek-end wbuf)))
     (when (fx<? beg end)
-      (let ((bv (bytespan-peek-data wbuf))
-            (stdout (linectx-stdout lctx)))
-        (if (fixnum? stdout)
-          (fd-write-all stdout bv beg end)
-          (begin
-            (put-bytevector stdout bv beg (fx- end beg))
-            (flush-output-port stdout))))
+      (try
+        (let ((bv (bytespan-peek-data wbuf))
+              (stdout (linectx-stdout lctx)))
+          (if (fixnum? stdout)
+              (fd-write-all stdout bv beg end)
+              (begin
+		(put-bytevector stdout bv beg (fx- end beg))
+		(flush-output-port stdout))))
+	(catch (ex)
+	  (debug-condition ex)
+	  (linectx-show-error lctx "Exception in linectx-flush" ex)))
       (bytespan-clear! wbuf))))
 
 
@@ -278,9 +282,9 @@
         (put-string out "\n\x1b;[1;31m; ")
         (put-string out message)
         (put-string out ": ")
-          (display-condition ex out)
-          (put-string out "\x1b;[m\n")
-          (flush-output-port out)))
+        (display-condition ex out)
+        (put-string out "\x1b;[m\n")
+        (flush-output-port out)))
     void))
 
 

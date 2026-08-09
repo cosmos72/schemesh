@@ -125,15 +125,15 @@ static ptr c_endpoint_to_vector(const struct sockaddr* saddr, const socklen_t le
 }
 
 static void c_endpoint_set_port(struct sockaddr* saddr, socklen_t len, uint16_t port) {
-  if (len >= sizeof(struct sockaddr)) {
+  if (len > 0 && (size_t)len >= sizeof(struct sockaddr)) {
     switch (saddr->sa_family) {
       case AF_INET:
-        if (len >= sizeof(struct sockaddr_in)) {
+        if ((size_t)len >= sizeof(struct sockaddr_in)) {
           ((struct sockaddr_in*)saddr)->sin_port = port;
         }
         break;
       case AF_INET6:
-        if (len >= sizeof(struct sockaddr_in6)) {
+        if ((size_t)len >= sizeof(struct sockaddr_in6)) {
           ((struct sockaddr_in6*)saddr)->sin6_port = port;
         }
         break;

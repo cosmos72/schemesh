@@ -32,7 +32,7 @@ static ptr c_socket_endpoint2(int socket, int peer) {
                          getsockname(socket, (struct sockaddr*)&saddr, &len);
   if (err != 0) {
     return Sinteger(c_errno());
-  } else if (len > sizeof(saddr)) {
+  } else if (len <= 0 || (size_t)len > sizeof(saddr)) {
     return Sinteger(c_errno_set(EINVAL));
   } else {
     return c_endpoint_to_vector((const struct sockaddr*)&saddr, len);

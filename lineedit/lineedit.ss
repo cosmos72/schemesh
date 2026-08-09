@@ -347,25 +347,23 @@
   (linectx-consume-sigwinch lctx)
 
   (let ((ret (linectx-keytable-iterate lctx)))
-    (cond
-      ((eq? #t ret)
-        ;; need more input.
-        (let ((n (linectx-read lctx timeout-milliseconds)))
-          (cond
-            ((fx>? n 0)
-              ; got some bytes, call again (linectx-keytable-iterate)
-              (linectx-keytable-iterate lctx))
-            ((fxzero? n)
-               ; read interrupted or timed out, return #t
-               (linectx-consume-sigwinch lctx)
-               #t)
-            (else
-               ; end-of-file, return #f
-               #f))))
-      (else
-        ;; propagate return value of first (linectx-keytable-iterate)
-        ;;a (debugf "...skipped read lineedit-read rbuf=~s wbuf=~s flags=~s vscreen=~s ret=~s" (linectx-rbuf lctx) (linectx-wbuf lctx) (linectx-flags lctx) (linectx-vscreen lctx) ret)
-        ret))))
+    (if (eq? #t ret)
+      ;; need more input.
+      (let ((n (linectx-read lctx timeout-milliseconds)))
+        (cond
+          ((fx>? n 0)
+            ;; got some bytes, call again (linectx-keytable-iterate)
+            (linectx-keytable-iterate lctx))
+          ((fxzero? n)
+	    ;; read interrupted or timed out, return #t
+            (linectx-consume-sigwinch lctx)
+            #t)
+          (else
+            ;; end-of-file, return #f
+            #f)))
+      ;; propagate return value of first (linectx-keytable-iterate)
+      ;;a (debugf "...skipped read lineedit-read rbuf=~s wbuf=~s flags=~s vscreen=~s ret=~s" (linectx-rbuf lctx) (linectx-wbuf lctx) (linectx-flags lctx) (linectx-vscreen lctx) ret)
+      ret)))
 
 
 ;; Main entry point of lineedit library.
@@ -379,7 +377,7 @@
     ;;z (begin
     (parameterize ((break-handler nop))
       (let ((ret (%lineedit-read lctx timeout-milliseconds)))
-        (linectx-flush lctx)
+	(linectx-flush lctx)
         ret))
     (catch (ex)
       (debug-condition ex)
