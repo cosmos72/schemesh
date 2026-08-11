@@ -78,6 +78,9 @@
              (start     (fxmax 0 (fxmin start (fx- len n))))
              (chunk-max (fxmax 128 (tport-buffer-size t))))
         (when (fx>? n 0)
+          ;; keep tport-bspan bounded, in case a previous write
+          ;; to the underlying binary port raised a condition
+          (tport-maybe-overflow t)
           (let %write-loop ((start start) (n n))
             (let ((chunk-n (fxmin n chunk-max)))
               ;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
