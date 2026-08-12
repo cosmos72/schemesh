@@ -327,14 +327,14 @@
           (let-values (((forms parser)
                         ((repl-current-parse) lctx parser obj)))
             ;; (debugf "repl-once parsed ~s" forms)
-	    (linectx-parser-name-set! lctx (parser-name parser))
+            (linectx-parser-name-set! lctx (parser-name parser))
             (let ((forms (ast-unwrap1 forms)))
               (when (pair? forms)
-		(dynamic-wind
+                (dynamic-wind
                   tty-restore!
                   (lambda ()
                     (do ((tail forms (cdr tail)))
-			((null? tail))
+                        ((null? tail))
                       (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
                     (sh-stdio-flush))
                   tty-setraw!)))
@@ -367,20 +367,20 @@
             ;; when the (reset-handler) we installed is called, resume from here
             (let %repl-loop ((flush? #t))
               (let ((obj (repl-once print-func lctx flush?)))
-		(case obj
-		  ((#f) ; EOF
-		    (lineterm-write/u8 lctx 10))
-		  ((#t) ; waiting for more input
-		    (%repl-loop #f))
+                (case obj
+                  ((#f) ; EOF
+                    (lineterm-write/u8 lctx 10))
+                  ((#t) ; waiting for more input
+                    (%repl-loop #f))
                   (else
                     (unless (repl-restart?)
                       (let ((new-reload-count (sh-schemesh-reload-count)))
-			(unless (= reload-count new-reload-count)
+                        (unless (= reload-count new-reload-count)
                           (set! reload-count new-reload-count)
                           (put-string (console-error-port)
-				      "; warning: libschemesh was reloaded. Call (repl-restart) to switch to the new libschemesh.\n")))
-		      (%repl-loop #t))))))
-	    0)))))) ; EOF, or (repl-restart) was called. return 0
+                                      "; warning: libschemesh was reloaded. Call (repl-restart) to switch to the new libschemesh.\n")))
+                      (%repl-loop #t))))))
+            0)))))) ; EOF, or (repl-restart) was called. return 0
 
 
 (define (try-eval-file path)
@@ -407,7 +407,7 @@
 ;; Returns values passed to (exit), or (void) on linectx eof
 (define (repl* print-func lctx init-file-path quit-file-path)
   (let ((initial-parser-name (linectx-parser-name lctx))
-	(old-job-control (tty-job-control?))
+        (old-job-control (tty-job-control?))
         (new-job-control #f))
     (assert* 'repl (linectx? lctx))
     (dynamic-wind
@@ -460,9 +460,9 @@
     (if lctx?
       (begin
         (when enabled-parsers?
-	  (linectx-parsers-set! lctx enabled-parsers))
-	(when history-path?
-	  (vhistory-path-set! (linectx-history lctx) history-path)))
+          (linectx-parsers-set! lctx enabled-parsers))
+        (when history-path?
+          (vhistory-path-set! (linectx-history lctx) history-path)))
       (set! lctx
         (sh-make-linectx
           (if enabled-parsers? enabled-parsers (parsers))

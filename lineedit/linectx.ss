@@ -209,11 +209,11 @@
           (if (fixnum? stdout)
               (fd-write-all stdout bv beg end)
               (begin
-		(put-bytevector stdout bv beg (fx- end beg))
-		(flush-output-port stdout))))
-	(catch (ex)
-	  (debug-condition ex)
-	  (linectx-show-error lctx "Exception in linectx-flush" ex)))
+                (put-bytevector stdout bv beg (fx- end beg))
+                (flush-output-port stdout))))
+        (catch (ex)
+          (debug-condition ex)
+          (linectx-show-error lctx "Exception in linectx-flush" ex)))
       (bytespan-clear! wbuf))))
 
 

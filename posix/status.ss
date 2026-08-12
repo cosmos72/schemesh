@@ -117,7 +117,7 @@
       (let ((val (car vals)))
         (if (eq? (void) val)
           val ;; simplify (ok (void)) -> (void)
-	  (%make-status 'ok vals))))
+          (%make-status 'ok vals))))
     (else
       (%make-status 'ok vals))))
 

@@ -67,9 +67,9 @@
 
 (define (%tport-write-failed t orig-pos k)
   (let* ((pos   (tport-pos t))
-	 (added (- pos orig-pos))
-	 (blen  (tport-bspan-length t))
-	 (rmlen (min added blen)))
+         (added (- pos orig-pos))
+         (blen  (tport-bspan-length t))
+         (rmlen (min added blen)))
     (when (> rmlen 0)
       (bytespan-delete-right! (tport-bspan t) rmlen)
       (tport-pos-set! t (- pos rmlen)))
@@ -93,31 +93,31 @@
              (start     (fxmax 0 (fxmin start (fx- len n))))
              (chunk-max (fxmax 128 (tport-buffer-size t))))
         (if (fx>? n 0)
-	  (let ((pos (tport-pos t)))
+          (let ((pos (tport-pos t)))
             ;; keep tport-bspan bounded, in case a previous write
             ;; to the underlying binary port raised an exception
             (tport-maybe-overflow t)
-	    (call/cc
-	      (lambda (k)
-		(dynamic-wind
-		  void
-		  (lambda ()
-		    (let %write-loop ((start start) (n n))
-		      (let ((chunk-n (fxmin n chunk-max)))
-			;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
-			(bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
-			(tport-pos-set! t (+ chunk-n (tport-pos t)))
-			(tport-maybe-overflow t)
-			(unless (fx=? chunk-n n)
-			  (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
-		    (tport-flush t)
-		    (set! pos #f)
-		    n)
-		  (lambda ()
-		    (when pos
-		      ;; exception in (%write-loop) above, report partial write or propagate exception
-		      (%tport-write-failed t pos k)))))))
-	  0)))
+            (call/cc
+              (lambda (k)
+                (dynamic-wind
+                  void
+                  (lambda ()
+                    (let %write-loop ((start start) (n n))
+                      (let ((chunk-n (fxmin n chunk-max)))
+                        ;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
+                        (bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
+                        (tport-pos-set! t (+ chunk-n (tport-pos t)))
+                        (tport-maybe-overflow t)
+                        (unless (fx=? chunk-n n)
+                          (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
+                    (tport-flush t)
+                    (set! pos #f)
+                    n)
+                  (lambda ()
+                    (when pos
+                      ;; exception in (%write-loop) above, report partial write or propagate exception
+                      (%tport-write-failed t pos k)))))))
+          0)))
     n))
 
 

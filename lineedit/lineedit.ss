@@ -355,7 +355,7 @@
             ;; got some bytes, call again (linectx-keytable-iterate)
             (linectx-keytable-iterate lctx))
           ((fxzero? n)
-	    ;; read interrupted or timed out, return #t
+            ;; read interrupted or timed out, return #t
             (linectx-consume-sigwinch lctx)
             #t)
           (else
@@ -377,7 +377,7 @@
     ;;z (begin
     (parameterize ((break-handler nop))
       (let ((ret (%lineedit-read lctx timeout-milliseconds)))
-	(linectx-flush lctx)
+        (linectx-flush lctx)
         ret))
     (catch (ex)
       (debug-condition ex)
