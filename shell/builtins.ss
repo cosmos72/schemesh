@@ -10,7 +10,7 @@
 ;; this file should be included only by file shell/job.ss
 
 ;; thread parameter (repl-args) must be empty or a list
-;;   (parser eval-func linectx repl-init-file-path repl-quit-file-path)
+;;   (eval-func linectx repl-init-file-path repl-quit-file-path)
 ;; containing arguments of current call to (repl) or (repl*)
 (define repl-args
   (sh-make-thread-parameter
@@ -25,8 +25,8 @@
 ;; or #f if not present.
 (define (repl-args-linectx)
   (let ((repl-args (repl-args)))
-    (and (fx>=? (length repl-args) 3)
-         (list-ref repl-args 2))))
+    (and (fx>=? (length repl-args) 2)
+         (list-ref repl-args 1))))
 
 
 ;; return gbuffer containing previous commands saved to history,

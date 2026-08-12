@@ -49,7 +49,7 @@
       ;; port may be redirected, or current job may finish,
       ;; and next time it may not be at EOF
       (tport-eof?-set! t #f)
-      (tport-pos-set! t (fx+ char-n (tport-pos t)))
+      (tport-pos-set! t (+ char-n (tport-pos t)))
       char-n)))
 
 
@@ -65,8 +65,23 @@
     0))
 
 
-;; always writes exactly n characters
-(define (tport-write t str start n)
+(define (%tport-write-failed t orig-pos k)
+  (let* ((pos   (tport-pos t))
+	 (added (- pos orig-pos))
+	 (blen  (tport-bspan-length t))
+	 (rmlen (min added blen)))
+    (when (> rmlen 0)
+      (bytespan-delete-right! (tport-bspan t) rmlen)
+      (tport-pos-set! t (- pos rmlen)))
+    (when (> added rmlen)
+      ;; swallow the exception, report partial write
+      (k (- added rmlen)))))
+
+
+
+;; write up to n characters,
+;; or raise condition on I/O error
+(define (tport-write-flush t str start n)
   (if (and (string? str) (fixnum? start) (fixnum? n))
     (begin
       ;; at least Chez Scheme 10.3.0 does not validate port output size & index,
@@ -77,20 +92,32 @@
              (n         (fxmax 0 (fxmin n len)))
              (start     (fxmax 0 (fxmin start (fx- len n))))
              (chunk-max (fxmax 128 (tport-buffer-size t))))
-        (when (fx>? n 0)
-          ;; keep tport-bspan bounded, in case a previous write
-          ;; to the underlying binary port raised a condition
-          (tport-maybe-overflow t)
-          (let %write-loop ((start start) (n n))
-            (let ((chunk-n (fxmin n chunk-max)))
-              ;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
-              (bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
-              (tport-maybe-overflow t)
-              (tport-pos-set! t (fx+ chunk-n (tport-pos t)))
-              (unless (fx=? chunk-n n)
-                (%write-loop (fx+ start chunk-n) (fx- n chunk-n))))))
-        ;; (debugf "< tport-write n ~s" n)
-        n))
+        (if (fx>? n 0)
+	  (let ((pos (tport-pos t)))
+            ;; keep tport-bspan bounded, in case a previous write
+            ;; to the underlying binary port raised an exception
+            (tport-maybe-overflow t)
+	    (call/cc
+	      (lambda (k)
+		(dynamic-wind
+		  void
+		  (lambda ()
+		    (let %write-loop ((start start) (n n))
+		      (let ((chunk-n (fxmin n chunk-max)))
+			;; (debugf ". tport-write chunk str ~s, n ~s, chunk-n ~s" (substring str start (fx+ start n)) n chunk-n)
+			(bytespan-insert-right/string! (tport-bspan t) str start (fx+ start chunk-n))
+			(tport-pos-set! t (+ chunk-n (tport-pos t)))
+			(tport-maybe-overflow t)
+			(unless (fx=? chunk-n n)
+			  (%write-loop (fx+ start chunk-n) (fx- n chunk-n)))))
+		    (tport-flush t)
+		    (set! pos #f)
+		    n)
+		  (lambda ()
+		    (when pos
+		      ;; exception in (%write-loop) above, report partial write or propagate exception
+		      (%tport-write-failed t pos k)))))))
+	  0)))
     n))
 
 
@@ -131,9 +158,7 @@
                                (tport-read-some tport1 str start n))))
             (write-proc (and tport2
                              (lambda (str start n)
-                               (let ((written (tport-write tport2 str start n)))
-                                 (tport-flush tport2)
-                                 written))))
+                               (tport-write-flush tport2 str start n))))
             (close-proc (and (plist-ref options 'close? #t)
                              (lambda ()
                                 (when bport-in

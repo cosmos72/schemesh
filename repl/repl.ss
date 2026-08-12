@@ -166,6 +166,13 @@
 (define (repl-exception-handler obj)
   (sh-exception-handler obj (reset-handler)))
 
+(define (repl-consume-signals lctx flush?)
+  (catch-all
+    (sh-consume-signals lctx)
+    (when flush?
+      (sh-stdio-flush))
+    (void)))
+
 
 ;; Parameter containing the default initial parser name used by (repl)
 (define repl-initial-parser
@@ -176,13 +183,6 @@
       parser-name)))
 
 
-(define (repl-consume-signals lctx)
-  (catch-all
-    (sh-consume-signals lctx)
-    (sh-stdio-flush)
-    (void)))
-
-
 ;; Read user input.
 ;; If user pressed ENTER, return string containing entered text.
 ;;
@@ -190,10 +190,10 @@
 ;; #f if got end-of-file
 ;; #t if waiting for more keypresses
 ;; a string if user pressed ENTER.
-(define (repl-lineedit lctx)
-  (repl-consume-signals lctx)
+(define (repl-lineedit lctx flush?)
+  (repl-consume-signals lctx flush?)
   (let ((ret (lineedit-read lctx -1)))
-    (sh-consume-signals lctx)
+    (repl-consume-signals lctx #f)
     (if (boolean? ret)
       ret
       (vlines->string ret))))
@@ -280,7 +280,7 @@
 
 ;; Print values or exit statuses. vals must be a proper list.
 (define (repl-print-list vals)
-  (repl-consume-signals (repl-args-linectx))
+  (repl-consume-signals (repl-args-linectx) #t)
   (do ((p (console-output-port))
        (tail vals (cdr tail)))
       ((null? tail) (flush-output-port p))
@@ -315,40 +315,40 @@
 ;;
 ;;   For these reasons, the loop evaluating each form
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-once parser print-func lctx)
-  (linectx-parser-name-set! lctx (parser-name parser))
+(define (repl-once print-func lctx flush?)
   ;; (debugf "repl-once ready")
-  (let* ((obj    (repl-lineedit lctx))
-         ;; reload parser from linectx in case it changed
-         (parser (to-parser (linectx-parsers lctx) (linectx-parser-name lctx) 'repl)))
+  (let ((obj (repl-lineedit lctx flush?)))
     (case obj
-      ((#f) #f)     ; got end-of-file
-      ((#t) parser) ; nothing to execute: waiting for more user input
+      ((#f) #f) ; got end-of-file
+      ((#t) #t) ; nothing to execute: waiting for more user input
       (else
-        (let-values (((forms parser)
+        ;; reload parser from linectx in case it changed
+        (let ((parser (to-parser (linectx-parsers lctx) (linectx-parser-name lctx) 'repl)))
+          (let-values (((forms parser)
                         ((repl-current-parse) lctx parser obj)))
-          ;; (debugf "repl-once parsed ~s" forms)
-          (let ((forms (ast-unwrap1 forms)))
-            (when (pair? forms)
-              (dynamic-wind
-                tty-restore!
-                (lambda ()
-                  (do ((tail forms (cdr tail)))
-                      ((null? tail))
-                    (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
-                  (sh-stdio-flush))
-                tty-setraw!)))
-          parser)))))
+            ;; (debugf "repl-once parsed ~s" forms)
+	    (linectx-parser-name-set! lctx (parser-name parser))
+            (let ((forms (ast-unwrap1 forms)))
+              (when (pair? forms)
+		(dynamic-wind
+                  tty-restore!
+                  (lambda ()
+                    (do ((tail forms (cdr tail)))
+			((null? tail))
+                      (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
+                    (sh-stdio-flush))
+                  tty-setraw!)))
+            (void)))))))
 
 
 
 ;; main loop of (repl) and (repl*)
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl-loop parser print-func lctx)
+(define (repl-loop print-func lctx)
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
-  (let ((my-repl-args (list parser print-func lctx #f #f))
+  (let ((my-repl-args (list print-func lctx #f #f))
         (reload-count (sh-schemesh-reload-count)))
     (repl-restart #f)
     (call/cc
@@ -365,21 +365,22 @@
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ;; when the (reset-handler) we installed is called, resume from here
-            (while parser
-              (set! parser (repl-once parser print-func lctx))
-              (cond
-                (parser
-                  (set-car! my-repl-args parser)
-                  (if (repl-restart?)
-                    (set! parser #f) ; causes loop to exit
-                    (let ((new-reload-count (sh-schemesh-reload-count)))
-                      (unless (= reload-count new-reload-count)
-                        (set! reload-count new-reload-count)
-                        (put-string (console-error-port)
-                          "; warning: libschemesh was reloaded. Call (repl-restart) to switch to the new libschemesh.\n")))))
-                (else ; EOF
-                  (lineterm-write/u8 lctx 10))))
-            0)))))) ; EOF, or (repl-restart) was called. return 0
+            (let %repl-loop ((flush? #t))
+              (let ((obj (repl-once print-func lctx flush?)))
+		(case obj
+		  ((#f) ; EOF
+		    (lineterm-write/u8 lctx 10))
+		  ((#t) ; waiting for more input
+		    (%repl-loop #f))
+                  (else
+                    (unless (repl-restart?)
+                      (let ((new-reload-count (sh-schemesh-reload-count)))
+			(unless (= reload-count new-reload-count)
+                          (set! reload-count new-reload-count)
+                          (put-string (console-error-port)
+				      "; warning: libschemesh was reloaded. Call (repl-restart) to switch to the new libschemesh.\n")))
+		      (%repl-loop #t))))))
+	    0)))))) ; EOF, or (repl-restart) was called. return 0
 
 
 (define (try-eval-file path)
@@ -404,11 +405,9 @@
 ;; top-level interactive repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl* initial-parser print-func lctx init-file-path quit-file-path)
-  ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((override-parser (and initial-parser
-                              (to-parser (linectx-parsers lctx) initial-parser 'repl)))
-        (old-job-control (tty-job-control?))
+(define (repl* print-func lctx init-file-path quit-file-path)
+  (let ((initial-parser-name (linectx-parser-name lctx))
+	(old-job-control (tty-job-control?))
         (new-job-control #f))
     (assert* 'repl (linectx? lctx))
     (dynamic-wind
@@ -416,15 +415,14 @@
         (lineedit-clear! lctx)
         (linectx-load-history! lctx)
         (signal-init-sigwinch)
-        ;; init file may change (repl-initial-parser)
+        ;; init file may change lctx parser, we will restore parser below
         (try-eval-file init-file-path)
         ;; enable job control if available
         (set! new-job-control (tty-job-control? (tty-job-control-available?)))
         (tty-setraw!))
       (lambda ()
-        (let ((parser (or override-parser
-                          (to-parser (linectx-parsers lctx) (repl-initial-parser) 'repl))))
-          (repl-loop parser print-func lctx)))
+        (linectx-parser-name-set! lctx initial-parser-name)
+        (repl-loop print-func lctx))
       (lambda ()
         (tty-restore!)
         ; restore job control to previous value
@@ -440,7 +438,7 @@
   ; (debugf "repl options=~s" options)
   (let ((history-path    #f) (history-path?    #f)
         (print-func      #f) (print-func?      #f)
-        (initial-parser  #f) (initial-parser?  #f)
+        (initial-parser  (repl-initial-parser))
         (enabled-parsers #f) (enabled-parsers? #f)
         (lctx            #f) (lctx?            #f)
         (init-file-path  #f) (init-file-path?  #f)
@@ -454,29 +452,31 @@
           ((linectx) (set! lctx val)            (set! lctx? #t))
           ((history) (set! history-path val)    (set! history-path? #t))
           ((init)    (set! init-file-path val)  (set! init-file-path? #t))
-          ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
+          ((parser)  (set! initial-parser val))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
           ((print)   (set! print-func val)      (set! print-func? #t))
           ((quit)    (set! quit-file-path val)  (set! quit-file-path? #t))
           (else      (syntax-violation 'repl "unexpected argument:" key)))))
-    (when (and lctx? enabled-parsers?)
-      (linectx-parsers-set! lctx enabled-parsers))
-    (when (and lctx? history-path?)
-      (vhistory-path-set! (linectx-history lctx) history-path))
-    (list
-      (if initial-parser? initial-parser #f)
-      (if print-func? print-func repl-print-list)
-      (if lctx?
-        lctx
+    (if lctx?
+      (begin
+        (when enabled-parsers?
+	  (linectx-parsers-set! lctx enabled-parsers))
+	(when history-path?
+	  (vhistory-path-set! (linectx-history lctx) history-path)))
+      (set! lctx
         (sh-make-linectx
           (if enabled-parsers? enabled-parsers (parsers))
-          (if history-path?    history-path    (xdg-cache-home/ "schemesh/history.txt"))))
+          (if history-path?    history-path    (xdg-cache-home/ "schemesh/history.txt")))))
+    (linectx-parser-name-set! lctx initial-parser)
+    (list
+      (if print-func? print-func repl-print-list)
+      lctx
       (if init-file-path? init-file-path (xdg-config-home/ "schemesh/repl_init.ss"))
       (if quit-file-path? quit-file-path (xdg-config-home/ "schemesh/repl_quit.ss")))))
 
 
 ;; top-level interactive repl.
-;; optional argument options must be a list containing zero or more:
+;; optional argument options must be a plist containing zero or more:
 ;; 'history history-path    - string,    defaults to (xdg-cache-dir/ "schemesh/history.txt")
 ;; 'init    init-file-path  - string,    defaults to (xdg-config-dir/ "schemesh/repl_init.sh")
 ;; 'parser  initial-parser  - symbol,    defaults to 'shell

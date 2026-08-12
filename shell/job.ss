@@ -543,8 +543,7 @@
   (check-interrupts)
   (readers-writers-collect)
   (call-queued-job-ports-flush-close-forget)
-  (when lctx
-    (display-status-changes lctx)))
+  (display-status-changes lctx))
 
 
 (define (display-status-changes lctx)
