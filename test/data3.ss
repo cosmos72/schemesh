@@ -485,11 +485,16 @@
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
-  ; test issue #44: sh-pipe doesn't always work with external commands
+  ;; test issue #44: sh-pipe doesn't always work with external commands
   (string-trim-split-at-blanks (sh-run/string
-    {env echo (begin "aaa\nbbb\n") | wc -l}))          ("3")
+    {env echo (begin "aaa\nbbb\n") | wc -l}))          ("3")   ; |
   (string-trim-split-at-blanks (sh-run/string
-    {echo (begin "aaa\nbbb\n") | wc -l}))              ("3")
+    {echo (begin "aaa\nbbb\n") | wc -l}))              ("3")   ; |
+
+  ;; test issue #81: piping the output of a redirected command hangs due to leaked pipe file descriptor
+  ;(sh-run {builtin echo foo >/dev/null | grep foo})    (failed 1)
+  ;(sh-run/string {builtin echo foo 2>/dev/null 1>&2})  ""
+  ;(sh-run/string {command echo foo 2>/dev/null 1>&2})  ""
 
   (let* ((job   {grep xyz})
          (ports (sh-start/ports job))
@@ -568,6 +573,8 @@ B=2})                                                  ,@"#<void>"
   (sh-run/i {true || false})                           ,@"#<void>"
   (sh-run   {true || false})                           ,@"#<void>"
   (sh-run   {false || false})                          ,(failed 1)
+  ;; && has higher precedence than ||
+  (sh-run   {true || false && false})                  ,@"#<void>"
   (sh-run/i {! true})                                  ,@"(failed #<void>)"
   (sh-run   {! true})                                  ,@"(failed #<void>)"
   (sh-run   {!! true})                                 ,@"#<void>"
@@ -578,7 +585,7 @@ B=2})                                                  ,@"#<void>"
     (sh-start j)
     (sh-bg j)
     (sh-fg j))                                         ,(failed 1)
-  (let ((j {true |& command false}))
+  (let ((j {true |& command false}))  ; |
     (sh-start j)
     (sh-bg j)
     (sh-wait j))                                       ,(failed 1)

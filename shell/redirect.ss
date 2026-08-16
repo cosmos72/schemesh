@@ -598,7 +598,7 @@
 
 ;; extract the destination fd or bytevector0 from a redirection
 (define (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index)
-  (%prefix-job-dir-if-relative-path job-dir
+  (%prefix-job-dir-if-relative-path-else-sh-fd job job-dir
     (or (span-ref redirects (fx+ 3 index))
         (let ((to (span-ref redirects (fx+ 2 index))))
           (if (procedure? to)
@@ -606,10 +606,10 @@
             to)))))
 
 
-(define (%prefix-job-dir-if-relative-path job-dir path-or-fd)
+(define (%prefix-job-dir-if-relative-path-else-sh-fd job job-dir path-or-fd)
   (cond
     ((fixnum? path-or-fd)
-      path-or-fd)
+      (sh-fd job path-or-fd))
     ((text? path-or-fd)
       (let ((c-path0 (text->bytevector0 path-or-fd)))
         (if (and job-dir (not (fx=? 47 (bytevector-u8-ref c-path0 0))))
@@ -621,10 +621,10 @@
           c-path0)))
     ;; wildcards may expand to a list of strings: accept them if they have length 1
     ((and (pair? path-or-fd) (null? (cdr path-or-fd)) (string? (car path-or-fd)))
-      (%prefix-job-dir-if-relative-path job-dir (car path-or-fd)))
+      (%prefix-job-dir-if-relative-path-else-sh-fd job job-dir (car path-or-fd)))
     (else
       (raise-assert1 'job-remap-fds
-        "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"
+        "(or (fixnum? path-or-fd) (text? path-or-fd))"
         path-or-fd))))
 
 
