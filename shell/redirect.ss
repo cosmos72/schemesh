@@ -593,13 +593,13 @@
       (when (< ret 0)
         (s-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
-    (let* ((remap-fds (job-fds-to-remap job))
-           (old-remap-fd (hashtable-ref remap-fds fd #f)))
+    (let* ((cell (hashtable-cell (job-fds-to-remap job) fd #f))
+	   (old-remap-fd (cdr cell)))
       (when (and (s-fd? old-remap-fd) (s-fd-release old-remap-fd))
         ;; close old remapped fd before replacing it
         ;;#82 (debugf "job-unmap-fds! (fd-close ~s) in job ~s" (s-fd->int sfd) (sh-job->string job))
         (fd-close (s-fd->int old-remap-fd)))
-      (hashtable-set! remap-fds fd remap-fd))))
+      (set-cdr! cell remap-fd))))
 
 
 ;; extract the destination fd or bytevector0 from a redirection

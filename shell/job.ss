@@ -101,7 +101,7 @@
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- fxarithmetic-shift-right get-thread-id
-                       hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
+                       hashtable-cell hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string->immutable-string string-truncate!
