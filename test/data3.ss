@@ -491,10 +491,10 @@
   (string-trim-split-at-blanks (sh-run/string
     {echo (begin "aaa\nbbb\n") | wc -l}))              ("3")   ; |
 
-  ;; test issue #81: piping the output of a redirected command hangs due to leaked pipe file descriptor
-  ;(sh-run {builtin echo foo >/dev/null | grep foo})    (failed 1)
-  ;(sh-run/string {builtin echo foo 2>/dev/null 1>&2})  ""
-  ;(sh-run/string {command echo foo 2>/dev/null 1>&2})  ""
+  ;; test issue #82: piping the output of a redirected command hangs due to leaked pipe file descriptor
+  (sh-run {builtin echo foo >/dev/null | grep foo})    ,(failed 1)
+  (sh-run/string {builtin echo foo 2>/dev/null 1>&2})  ""
+  (sh-run/string {command echo foo 2>/dev/null 1>&2})  ""
 
   (let* ((job   {grep xyz})
          (ports (sh-start/ports job))

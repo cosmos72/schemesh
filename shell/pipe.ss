@@ -74,8 +74,6 @@
 
 ;; Internal function stored in (job-start-proc job) by (sh-pipe) and (sh-pipe*),
 ;; and called by (sh-start) to actually start a pipe multijob.
-;;
-;; Does not redirect file descriptors.
 (define (mj-pipe-start mj options)
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
@@ -91,18 +89,19 @@
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (when (sh-job? (sh-multijob-child-ref mj i))
-        (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd))))
-  (multijob-current-child-index-set! mj 0)))
+        (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd)))))
+  (multijob-current-child-index-set! mj 0))
 
 
 ;; Start i-th child job of a pipe multijob.
-;; Argument in-pipe-fd is the pipe fd job must read from, or -1 to read from stdin.
+;; Argument in-pipe-fd is the pipe fd job must read from, or -1 to read from stdin:
+;; started job takes ownership of it and automatically closes it when no longer needed.
 ;;
-;; Return the i-th child job output pipe fd,
+;; Return the i-th child job's read pipe fd,
 ;; or -1 if this is the last job and its output should not be redirected to a pipe.
 (define (mj-pipe-start-i mj i n in-pipe-fd)
   (let* ((job           (sh-multijob-child-ref mj i))
-         (out-pipe-fd/read -1)
+         (out-pipe-fd/read  -1)
          (out-pipe-fd/write -1)
          (pgid          (job-pgid mj)) ; #f if not set
          (redirect-in?  (fx>=? in-pipe-fd 0))
@@ -111,12 +110,8 @@
                              (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i)))))
          ;; run all jobs as subprocesses, including the last one.
          ;; reason: they must all have the same pgid, for suspending/resuming them simultaneously
-         (spawn?   #t)
-         (options  (sh-options (list
-                     (and spawn? 'spawn?)           spawn?
-                     (and pgid   'process-group-id) pgid
-                     'catch? #t))))
-
+         (options       '(catch? #t spawn? #t))
+         (options       (sh-options (if pgid (cons* 'process-group-id pgid options) options))))
 
     ; Apply redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.
     (when redirect-in?

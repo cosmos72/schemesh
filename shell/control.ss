@@ -152,7 +152,8 @@
     (sh-exit (job-last-status job)))
 
   (when (and (job-started? job) (job-pid job))
-    ; we can cleanup job's file descriptor, as it's running in a subprocess
+    ;; we can cleanup job's file descriptor, as it's running in a subprocess
+    ;; (break job)
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))
   ;;0 (debugf "< job-start ~a ~s status ~s" job options (job-last-status job))

@@ -110,21 +110,21 @@
                               `(fd-close ,(car to-fds) ,@options)))))
 
 
-(define (close-redirection-fds redirections fdv i err?)
+(define (close-redirection-fds job redirections fdv i err?)
   (unless (null? redirections)
     (let* ((from-fd  (car redirections))
            (to-fds   (vector-ref fdv i))
            (our-fd   (car to-fds))
            (child-fd (cdr to-fds)))
       (when (and err? our-fd (fx>=? our-fd 0))
-        ;; close our side of each pair
+        ;;#82 (debugf "close-redirection-fds (fd-close ~s) ; close our side of pair ~s in job ~a" our-fd to-fds (sh-job->string job))
         (fd-close our-fd)
         (set-car! to-fds #f))
       (when (and child-fd (fx>=? child-fd 0))
-        ;; close child side of each pair
+        ;;#82 (debugf "close-redirection-fds (fd-close ~s) ; close child side of pair ~s in job ~a" child-fd to-fds (sh-job->string job))
         (fd-close child-fd)
         (set-cdr! to-fds #f)))
-    (close-redirection-fds (cddr redirections) fdv (fx1+ i) err?)))
+    (close-redirection-fds job (cddr redirections) fdv (fx1+ i) err?)))
 
 
 ;; given a vector of pairs, return a list containing the car of each pair.
@@ -169,7 +169,7 @@
               (sh-start job options))
 
             ;; close the fds we don't use: needed to detect eof on read fds
-            (close-redirection-fds redirections fdv 0 #f)
+            (close-redirection-fds job redirections fdv 0 #f)
 
             ;; job no longer needs fd remapping:
             ;; they also may contain a dup() of write-fd
@@ -181,7 +181,7 @@
 
           (lambda () ; after body
             ;; close the fds we don't use: needed to detect eof on read fds
-            (close-redirection-fds redirections fdv 0 err?)))
+            (close-redirection-fds job redirections fdv 0 err?)))
 
         (extract-vector-cars fdv))) ; return list of our fds, or list of multiple #f on error
     ((job redirections)
@@ -593,7 +593,13 @@
       (when (< ret 0)
         (s-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
-    (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
+    (let* ((remap-fds (job-fds-to-remap job))
+           (old-remap-fd (hashtable-ref remap-fds fd #f)))
+      (when (and (s-fd? old-remap-fd) (s-fd-release old-remap-fd))
+        ;; close old remapped fd before replacing it
+        ;;#82 (debugf "job-unmap-fds! (fd-close ~s) in job ~s" (s-fd->int sfd) (sh-job->string job))
+        (fd-close (s-fd->int old-remap-fd)))
+      (hashtable-set! remap-fds fd remap-fd))))
 
 
 ;; extract the destination fd or bytevector0 from a redirection
@@ -644,7 +650,7 @@
     (when remap-fds
       (for-hash-values ((sfd remap-fds))
         (when (s-fd-release sfd)
-          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int sfd))
+          ;;#82 (debugf "job-unmap-fds! (fd-close ~s) in job ~s" (s-fd->int sfd) (sh-job->string job))
           (fd-close (s-fd->int sfd))))
       (job-fds-to-remap-set! job #f))))
 
