@@ -564,6 +564,13 @@
       (display-status-changes lctx))))
 
 
+(define (display-job-status-change? job)
+  (let ((id  (job-id job))
+        (oid (job-oid job)))
+    (and (or id oid)
+         (not (or (eqv? -1 id) (eqv? -1 oid))))))
+
+
 (define (display-job-status-change job port)
   (let ((id  (job-id job))
         (oid (job-oid job)))
