@@ -163,7 +163,7 @@
       ((char squote dquote backslash)
         (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
       (else
-        (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
+        (syntax-errorf ctx 'lex-shell "unimplemented character type: ~s" type)))))
 
 
 ;; fix issue #69: (parsectx-try-read-directive) may find
@@ -273,13 +273,13 @@
         (case type
           ((eof)
             (unless (eq? type end-type)
-              (syntax-errorf ctx 'parse-shell-forms "unexpected end-of-file after ~a" (reverse! ret)))
+              (syntax-errorf ctx 'parse-shell-forms "unexpected end-of-file after ~s" (reverse! ret)))
             (set! done? #t))
           ((parser)
             ; switch to other parser until end of current list
             (unless can-change-parser?
               (syntax-errorf ctx 'parse-shell-forms
-                "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
+                "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~s"
                 (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
             (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
               (unless (eq? parse-shell-forms other-parse-forms)
@@ -359,11 +359,11 @@
             (set! equal-is-operator?    #f)
             (set! lbracket-is-subshell? #f)
             (unless (eq? type end-type)
-              (syntax-errorf ctx 'parse-shell-forms "unexpected token ~a, expecting ~a"
+              (syntax-errorf ctx 'parse-shell-forms "unexpected token ~s, expecting ~s"
                 (paren-type->string type) (paren-type->string end-type)))
             (set! done? #t))
           (else
-            (syntax-errorf ctx 'parse-shell-forms "unexpected ~a ~s after ~a" type value (reverse! ret))))))
+            (syntax-errorf ctx 'parse-shell-forms "unexpected ~s ~s after ~s" type value (reverse! ret))))))
 
 
     ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s" end-type prefix (if prefix (reverse ret) ret))

@@ -119,7 +119,7 @@
       (parse-vector ctx type value flavor))
     ;; TODO implement types: record-brack fasl insert mark
     (else
-      (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type))))
+      (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~s" type))))
 
 
 (define (parse-lisp-shell-backquote ctx flavor)
@@ -183,7 +183,7 @@
         (case type
           ((eof)
             (unless (eq? type end-type)
-              (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after ~a"
+              (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after ~s"
                 (if reverse? (reverse! ret) ret)))
             (set! again? #f))
           ((parser)
@@ -236,7 +236,7 @@
       ((vfxparen)  (create-vector  ctx   fxvector vals))
       ((vparen)    (create-vector  ctx     vector vals))
       ((vu8paren)  (create-vector  ctx bytevector vals))
-      (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
+      (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~s" vec-type)))))
 
 (define (create-vector ctx maker vals)
   (ast-wrap-vector ctx (apply maker (ast-unwrap vals)) vals))
