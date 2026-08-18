@@ -69,12 +69,11 @@
         (unless (job-silent? job)
           (set! queue (cons job queue))))
       (()
-        ; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))
-        (if (null? queue)
-          queue
-          (let ((ret queue))
-            (set! queue '())
-            ret))))))
+        ;; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))
+        (let ((ret queue))
+          (unless (null? ret)
+            (set! queue '()))
+          ret)))))
 
 
 ;; return padding string to align printing job-id
@@ -139,9 +138,9 @@
 
 
 (define (job-display/multijob job port outer-precedence)
-  ; would be informative, but does not correspond
-  ; to shell syntax: cannot be parsed back correctly
-  ; (job-display/env-lazy job port)
+  ;; would be informative, but does not correspond
+  ;; to shell syntax: cannot be parsed back correctly
+  ;; (job-display/env-lazy job port)
   (let* ((kind (multijob-kind job))
          (precedence
            (case kind
@@ -230,7 +229,7 @@
 (define (job-display/redirects job port)
   (let* ((redirects (job-redirects job))
          (n (span-length redirects)))
-    ; do not show temporary redirections
+    ;; do not show temporary redirections
     (do ((i (job-redirects-temp-n job) (fx+ i 4)))
         ((fx>? (fx+ i 4) n))
       (job-display/redirect redirects i port))))
@@ -310,7 +309,7 @@
 (define (job-write/multijob job port)
   (let ((kind (multijob-kind job)))
     (cond
-      ; do not show temporary redirections
+      ;; do not show temporary redirections
       ((job-persistent-redirects? job)
         (job-write/multijob* job port))
       (else
@@ -383,7 +382,7 @@
 (define (job-write/redirects job port)
   (let* ((redirects (job-redirects job))
          (n (span-length redirects)))
-    ; do not show temporary redirections
+    ;; do not show temporary redirections
     (do ((i (job-redirects-temp-n job) (fx+ i 4)))
         ((fx>? (fx+ i 4) n))
       (job-write/redirect redirects i port))))
