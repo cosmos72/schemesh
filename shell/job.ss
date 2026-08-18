@@ -564,20 +564,22 @@
       (display-status-changes lctx))))
 
 
-(define (display-job-status-change? job)
-  (let ((id  (job-id job))
-        (oid (job-oid job)))
-    (and (or id oid)
-         (not (or (eqv? -1 id) (eqv? -1 oid))))))
+(define job-silent?
+  (case-lambda
+    ((job id oid)
+      (or (not (or id oid)) (eqv? -1 id) (eqv? -1 oid)))
+    ((job)
+      (job-silent? job (job-id job) (job-oid job)))))
+
 
 
 (define (display-job-status-change job port)
   (let ((id  (job-id job))
         (oid (job-oid job)))
     ;; (debugf "; display-job-status-change id ~s, oid ~s, job ~s" id oid job)
-    (when (or id oid)
-      (unless (or (eqv? -1 id) (eqv? -1 oid))
-        (sh-job-display-summary job port))
+    (unless (job-silent? job id oid)
+      (sh-job-display-summary job port))
+    (when oid
       (job-oid-set! job #f)))) ; no longer needed, clear it
 
 
