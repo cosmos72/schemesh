@@ -720,28 +720,37 @@ sudo make install
 
 #### Nix/NixOS
 *WARNING* build instructions for Nix/NixOS below are user-contributed, and the author has very little expertise to investigate possible issues.
+
+Supported systems: `x86_64-linux`, `aarch64-linux`, `aarch64-darwin`.
+`x86_64-darwin` is absent because nixpkgs 26.11 dropped it, and needs a 26.05 channel.
+
 ```shell
-# Build and run by cloning source repository
-git clone https://github.com/cosmos72/schemesh
-cd schemesh
-nix-build && ./result/bin/schemesh
+nix run     github:cosmos72/schemesh   # try schemesh without installing it
+nix build   github:cosmos72/schemesh   # build into ./result
+nix develop github:cosmos72/schemesh   # dev shell, then `make -j`
 ```
 
+Without flakes, from a clone of the source repository:
+```shell
+nix-build && ./result/bin/schemesh
+nix-shell                              # dev shell, then `make -j`
+```
+
+Both use the same derivation, [package.nix](package.nix).
+
+Install on NixOS via the overlay:
 ```nix
-# Install on NixOS as package
-{ pkgs, ... }:
-let
-  schemesh = pkgs.fetchgit {
-    url = "https://github.com/cosmos72/schemesh.git";
-    rev = "refs/tags/v1.0.1"; # or: "refs/heads/main"
-    sha256 = ""; # insert sha256 when ready
-  };
 {
-  environment.systemPackages = [
-    # ...
-    pkgs.chez
-    (callPackage schemesh {})
-  ];
+  inputs.schemesh.url = "github:cosmos72/schemesh";
+
+  outputs = { nixpkgs, schemesh, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        { nixpkgs.overlays = [ schemesh.overlays.default ]; }
+        { environment.systemPackages = [ pkgs.schemesh ]; }
+      ];
+    };
+  };
 }
 ```
 
@@ -779,9 +788,17 @@ If `make -j` fails, do not panic :) Some issues are relatively minor and can be 
 4. on macOS + Nix, launching `schemesh` may fail with an error message similar to
    ```schemesh: Exception: incompatible fasl-object version 0.0.0-pre-release.20 found in result/lib/schemesh/libschemesh_X.Y.X.so```
 
-   It is likely caused by an issue in Nix rules for building Chez Scheme - see [issue #34](https://github.com/cosmos72/schemesh/issues/34#issuecomment-4231026013) for more details.
+   It is caused by Nix's `fixupPhase`, which strips `$out/lib` by default.
+   `libschemesh_X.Y.Z.so` is a Chez Scheme fasl object, not a native shared library,
+   and Apple's `strip` truncates it to 24 bytes. Check with
+   `ls -l result/lib/schemesh/libschemesh_*.so`
 
-   Workaround: either follow the instructions for plain macOS i.e. **without** Nix, or (untested) apply the user-contributed patch listed in the issue linked above.
+   Fixed in [package.nix](package.nix) by stripping only `$out/bin`:
+   ```nix
+   stripDebugList = [ "bin" ];
+   ```
+   Earlier diagnosis in [issue #34](https://github.com/cosmos72/schemesh/issues/34#issuecomment-4231026013)
+   attributed this to Chez Scheme's Nix build rules; that is not the cause.
 
 If you get some other error and you correctly installed the required dependencies,
 feel free to open a [GitHub issue](https://github.com/cosmos72/schemesh/issues)
