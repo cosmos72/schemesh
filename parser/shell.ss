@@ -50,7 +50,7 @@
           ((eof)
             (when dquote?
               (syntax-errorf ctx 'parse-shell
-                "unexpected end-of-file inside double-quoted string ~s" (reverse! ret)))
+                "unexpected end-of-file inside double-quoted string ~s" (map ast-unwrap (reverse! ret))))
             (set! again? #f))
           ((dquote)
             (set! dquote? (not dquote?))
@@ -221,7 +221,7 @@
       ((and (pair? forms) (null? (cdr forms)))
         (car forms))
       (else
-        (syntax-errorf ctx 'parse-shell-form1 "expecting a single shell form, parsed ~s" forms)))))
+        (syntax-errorf ctx 'parse-shell-form1 "expecting a single shell form, parsed ~s" (map ast-unwrap forms))))))
 
 
 ;; Read simple or compound shell commands from textual input port 'in' until a token ) or ] or } matching
@@ -273,14 +273,14 @@
         (case type
           ((eof)
             (unless (eq? type end-type)
-              (syntax-errorf ctx 'parse-shell-forms "unexpected end-of-file after ~s" (reverse! ret)))
+              (syntax-errorf ctx 'parse-shell-forms "unexpected end-of-file after ~s" (map ast-unwrap (reverse! ret))))
             (set! done? #t))
           ((parser)
             ; switch to other parser until end of current list
             (unless can-change-parser?
               (syntax-errorf ctx 'parse-shell-forms
                 "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~s"
-                (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
+                (map ast-unwrap (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret)))))
             (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
               (unless (eq? parse-shell-forms other-parse-forms)
                 (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
@@ -292,7 +292,8 @@
           ((separator)
             ; value can be '& #\; or #\newline
             (unless (and (eqv? #\newline value) (should-ignore-newlines? ret))
-              (set! ret (cons (if (eq? value '&) '& '\x3B;) ret))
+              (set! ret (cons (if (eq? value '&) '& '\x3B;
+			                            ) ret))
               (set! can-change-parser?    #t)
               (set! equal-is-operator?    #t)
               (set! lbracket-is-subshell? #t)))
@@ -363,7 +364,8 @@
                 (paren-type->string type) (paren-type->string end-type)))
             (set! done? #t))
           (else
-            (syntax-errorf ctx 'parse-shell-forms "unexpected ~s ~s after ~s" type value (reverse! ret))))))
+            (syntax-errorf ctx 'parse-shell-forms "unexpected ~s ~s after ~s"
+			   type value (map ast-unwrap (reverse! ret)))))))
 
 
     ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s" end-type prefix (if prefix (reverse ret) ret))

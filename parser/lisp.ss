@@ -131,7 +131,7 @@
     (let-values (((other-forms _) (other-parse-forms ctx 'lbrace)))
       (unless (eq? 'shell (ast-car other-forms))
         (syntax-errorf ctx (caller-for flavor)
-          "invalid shell form ~s inside scheme syntax ${...}" other-forms))
+          "invalid shell form ~s inside scheme syntax ${...}" (map ast-unwrap other-forms)))
       (ast-wrap-list2 ctx 'sh-run/string-rtrim-newlines other-forms))))
 
 
@@ -184,7 +184,7 @@
           ((eof)
             (unless (eq? type end-type)
               (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after ~s"
-                (if reverse? (reverse! ret) ret)))
+                (map ast-unwrap (if reverse? (reverse! ret) ret))))
             (set! again? #f))
           ((parser)
             (set! parser value)

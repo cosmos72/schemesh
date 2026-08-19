@@ -37,6 +37,13 @@
         '${echo hi})        #| shell backquote |#      ((shell-expr (display "hello"))
                                                         (sh-run/string-rtrim-newlines (shell "echo" "hi")))
 
+  (try
+    (sh-eval-string "(begin \"\\x0E;\"" 'scheme)
+    (catch (ex)
+      (with-output-to-string
+        (lambda ()
+	  (display-condition ex)))))                   "Exception in parse-scheme-forms: unexpected end-of-file after (begin \"\\xE;\") at line 1, char 14 of #<input port string>"
+
   ;; ------------------------ parser shell -------------------------------
   ;; invariant: {#!scheme ...} is always equivalent to (...)
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
