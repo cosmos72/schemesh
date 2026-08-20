@@ -408,6 +408,12 @@
 (define (lineedit-key-cmd-dir lctx)
   (lineedit-key-cmd lctx "dir" "-l"))
 
+(define (lineedit-key-sh-run/i lctx job)
+  (lineedit-undraw lctx #t)
+  ((top-level-value 'sh-run/i) job)
+  (linectx-redraw-set! lctx #t)
+  (lineterm-soft-nl-unless-at-bol lctx))
+
 (define (lineedit-navigate-history lctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))
         (hist   (linectx-history lctx)))
