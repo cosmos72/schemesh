@@ -124,6 +124,7 @@
     ; additional builtins
     (hashtable-set! bt "alias"      builtin-alias)
     (hashtable-set! bt "bg"         builtin-bg)
+    (hashtable-set! bt "bind"       builtin-bind)
     (hashtable-set! bt "builtin"    builtin-builtin)
     (hashtable-set! bt "cd"         builtin-cd)
     (hashtable-set! bt "cd-"        builtin-cd-)
@@ -163,6 +164,16 @@
     move a job to the background.
 
     return updated job status, or failure if job-id was not found.\n"))
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    (hashtable-set! t "bind"    (string->utf8 " keyseq [cmd [arg ...]]
+    register a key sequence that will execute CMD [ARG ...] with (sh-run/i) when pressed.
+
+    Note: shell syntax has no mechanism for specifying control characters;
+    in most cases, you'll want to specify KEYSEQ using a Scheme expression (values \"...\")
+    because it allows using Scheme string escape sequences.
+
+    return success, or failure if no keyseq is specified.\n"))
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]
