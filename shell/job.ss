@@ -116,7 +116,7 @@
                                            bytespan-length bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                            bytespan-ref-right/u8 bytespan-reserve-right! bytespan-resize-right! make-bytespan)
     (only (scheme2k containers bytevector) bytevector-append)
-    (only (scheme2k containers charspan)   charspan charspan? charspan=? charspan-copy charspan-insert-right! charspan-insert-right/string!
+    (only (scheme2k containers charspan)   charspan charspan? charspan=? charspan-copy charspan-empty? charspan-insert-right! charspan-insert-right/string!
                                            charspan->string charspan->string*! string->charspan*)
     (only (scheme2k containers gbuffer)    gbuffer-length gbuffer-ref)
     (only (scheme2k containers hashtable)  eqv-hashtable for-hash for-hash-cells for-hash-values plist->hashtable)

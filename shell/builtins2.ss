@@ -55,11 +55,24 @@
     (write-builtin-error "bind" "too few arguments")
     (let* ((args (cdr prog-and-args))
            (keyseq (car args))
-           (cmd    (cdr args)))
+           (cmd    (cdr args))
+           (str    (cmd-and-args->string cmd)))
       (linectx-keytable-insert! linectx-default-keytable
         (lambda (lctx)
-          (lineedit-key-sh-run/i lctx (apply sh-cmd cmd)))
+          ;; create a new sh-cmd at each call:
+          ;; allows running multiple simultaneous commands
+          (lineedit-key-sh-run/i lctx (make-sh-cmd cmd) str))
           keyseq))))
+
+
+(define (cmd-and-args->string l)
+  (do ((tail l (cdr tail))
+       (csp (charspan) csp))
+      ((null? tail)
+       (charspan->string*! csp))
+    (unless (charspan-empty? csp)
+      (charspan-insert-right! csp #\space))
+    (charspan-insert-right/string! csp (car tail))))
 
 
 ;; the "builtin" builtin: run the builtin in the remaining command line.
