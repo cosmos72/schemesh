@@ -77,7 +77,7 @@
                                          bytespan-insert-right/bytespan! bytespan-insert-right/bytevector! bytespan-insert-right/u8! bytespan-length
                                          bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                          bytespan-ref/u8 bytespan-reserve-right! bytespan-resize-right!)
-    (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-length charspan-ref)
+    (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-empty? charspan-insert-right! charspan-insert-right/string! charspan-length charspan-ref charspan->string*!)
     (only (scheme2k containers span)     for-span span span-iterate span-length span-ref)
     (only (scheme2k containers utf8b)    bytespan-insert-right/charspan! bytespan-insert-right/string!
                                          bytespan-ref/char string->utf8b)

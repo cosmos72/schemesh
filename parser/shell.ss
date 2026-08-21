@@ -293,7 +293,7 @@
             ; value can be '& #\; or #\newline
             (unless (and (eqv? #\newline value) (should-ignore-newlines? ret))
               (set! ret (cons (if (eq? value '&) '& '\x3B;
-			                            ) ret))
+                                                    ) ret))
               (set! can-change-parser?    #t)
               (set! equal-is-operator?    #t)
               (set! lbracket-is-subshell? #t)))
@@ -365,7 +365,7 @@
             (set! done? #t))
           (else
             (syntax-errorf ctx 'parse-shell-forms "unexpected ~s ~s after ~s"
-			   type value (map ast-unwrap (reverse! ret)))))))
+                           type value (map ast-unwrap (reverse! ret)))))))
 
 
     ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s" end-type prefix (if prefix (reverse ret) ret))

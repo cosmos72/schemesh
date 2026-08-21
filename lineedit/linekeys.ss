@@ -377,6 +377,32 @@
   ;; TODO: implement?
   (void))
 
+
+(define linekey-cleanup-before-cmd
+  (case-lambda
+    ((lctx str str-start str-end)
+      (if str
+        (begin
+          ;; display str before running command
+          (lineterm-move-to lctx (linectx-prompt-end-x lctx) (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))
+          (lineterm-clear-to-eos lctx)
+          (lineterm-write/string lctx str str-start str-end)
+          (lineterm-write/u8 lctx 10)
+          (linectx-flush lctx))
+        (lineedit-undraw lctx #f)))
+    ((lctx str)
+      (linekey-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))))
+
+
+;; make enough space after command output for prompt and current line(s)
+(define (linekey-cleanup-after-cmd lctx)
+  (if (fxzero? (linectx-vy lctx))
+    (lineterm-soft-nl-unless-at-bol lctx)
+    (repeat (linectx-vy lctx)
+      (lineterm-write/u8 lctx 10)))
+  (linectx-redraw-set! lctx #t))
+
+
 (define (lineedit-key-cmd-cd-parent lctx)
   ((top-level-value 'sh-cd) "..")
   (linectx-redraw-all lctx))
@@ -390,29 +416,42 @@
         #f))
     (linectx-redraw-all lctx)))
 
+(define (cmd-and-args->string l)
+  (do ((tail l (cdr tail))
+       (csp (charspan) csp))
+      ((null? tail)
+       (charspan->string*! csp))
+    (unless (charspan-empty? csp)
+      (charspan-insert-right! csp #\space))
+    (charspan-insert-right/string! csp (car tail))))
+
 (define (lineedit-key-cmd lctx cmd-name . args)
-  (lineterm-move-to lctx (linectx-prompt-end-x lctx) (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))
-  (lineterm-write/string lctx cmd-name)
-  (do ((args args (cdr args)))
-      ((null? args))
-    (lineterm-write/u8 lctx 32) ; #\space
-    (lineterm-write/string lctx (car args)))
-  (lineterm-write/bytevector lctx #vu8(27 91 74 10)) ; ESC [ J \n
-  (lineedit-flush lctx)
-  ((top-level-value 'sh-run) ((top-level-value 'make-sh-cmd) (cons cmd-name args)))
-  ; make enough space after command output for prompt and current line(s)
-  (repeat (linectx-vy lctx)
-    (lineterm-write/u8 lctx 10))
-  (linectx-redraw-all lctx))
+  (let ((cmd-and-args (cons cmd-name args)))
+    (linekey-cleanup-before-cmd lctx (cmd-and-args->string cmd-and-args))
+    ((top-level-value 'sh-run/i) ((top-level-value 'make-sh-cmd) cmd-and-args))
+    (linekey-cleanup-after-cmd lctx)))
 
 (define (lineedit-key-cmd-dir lctx)
   (lineedit-key-cmd lctx "dir" "-l"))
 
-(define (lineedit-key-sh-run/i lctx job)
-  (lineedit-undraw lctx #t)
-  ((top-level-value 'sh-run/i) job)
-  (linectx-redraw-set! lctx #t)
-  (lineterm-soft-nl-unless-at-bol lctx))
+(define lineedit-key-sh-run/i
+  (case-lambda
+    ((lctx job job-string)
+      (let* ((str  (cond
+                     ((eq? #t job-string)     ((top-level-value 'sh-job->string) job))
+                     ((string? job-string)    job-string)
+                     ((procedure? job-string) (job-string job))
+                     (else #f)))
+             (len   (if (string? str) (string-length str) 0))
+             (trim? (not (or (fxzero? len) (string? job-string))))
+             (start (if (and trim? (char=? #\{ (string-ref str 0))) 1 0))
+             (end   (if (and trim? (char=? #\} (string-ref str (fx1- len)))) (fx1- len) len)))
+        (linekey-cleanup-before-cmd lctx str start end)
+        ((top-level-value 'sh-run/i) job)
+        (linekey-cleanup-after-cmd lctx)))
+    ((lctx job)
+      (lineedit-key-sh-run/i lctx job #f))))
+
 
 (define (lineedit-navigate-history lctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))

@@ -594,7 +594,7 @@
         (s-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
     (let* ((cell (hashtable-cell (job-fds-to-remap job) fd #f))
-	   (old-remap-fd (cdr cell)))
+           (old-remap-fd (cdr cell)))
       (when (and (s-fd? old-remap-fd) (s-fd-release old-remap-fd))
         ;; close old remapped fd before replacing it
         ;;#82 (debugf "job-unmap-fds! (fd-close ~s) in job ~s" (s-fd->int sfd) (sh-job->string job))

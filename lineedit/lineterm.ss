@@ -44,8 +44,12 @@
 
 
 ;; write given string to wbuf
-(define (lineterm-write/string ctx str)
-  (bytespan-insert-right/string! (linectx-wbuf ctx) str))
+(define lineterm-write/string
+  (case-lambda
+   ((ctx str start end)
+     (bytespan-insert-right/string! (linectx-wbuf ctx) str start end))
+   ((ctx str)
+     (lineterm-write/string ctx str 0 (string-length str)))))
 
 
 ;; write n spaces to wbuf

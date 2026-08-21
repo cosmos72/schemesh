@@ -54,12 +54,12 @@
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (write-builtin-error "bind" "too few arguments")
     (let* ((args (cdr prog-and-args))
-	   (keyseq (car args))
-	   (cmd    (cdr args)))
+           (keyseq (car args))
+           (cmd    (cdr args)))
       (linectx-keytable-insert! linectx-default-keytable
         (lambda (lctx)
-	  (lineedit-key-sh-run/i lctx (apply sh-cmd cmd)))
-	  keyseq))))
+          (lineedit-key-sh-run/i lctx (apply sh-cmd cmd)))
+          keyseq))))
 
 
 ;; the "builtin" builtin: run the builtin in the remaining command line.

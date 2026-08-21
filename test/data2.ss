@@ -42,7 +42,7 @@
     (catch (ex)
       (with-output-to-string
         (lambda ()
-	  (display-condition ex)))))                   "Exception in parse-scheme-forms: unexpected end-of-file after (begin \"\\xE;\") at line 1, char 14 of #<input port string>"
+          (display-condition ex)))))                   "Exception in parse-scheme-forms: unexpected end-of-file after (begin \"\\xE;\") at line 1, char 14 of #<input port string>"
 
   ;; ------------------------ parser shell -------------------------------
   ;; invariant: {#!scheme ...} is always equivalent to (...)
