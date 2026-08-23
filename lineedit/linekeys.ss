@@ -389,17 +389,18 @@
           (lineterm-write/string lctx str str-start str-end)
           (lineterm-write/u8 lctx 10)
           (linectx-flush lctx))
-        (lineedit-undraw lctx #f)))
+        (lineedit-undraw lctx #t)))
     ((lctx str)
-      (linekey-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))))
+      (linekey-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))
+    ((lctx)
+      (linekey-cleanup-before-cmd lctx #f #f #f))))
 
 
 ;; make enough space after command output for prompt and current line(s)
 (define (linekey-cleanup-after-cmd lctx)
-  (if (fxzero? (linectx-vy lctx))
-    (lineterm-soft-nl-unless-at-bol lctx)
-    (repeat (linectx-vy lctx)
-      (lineterm-write/u8 lctx 10)))
+  (lineterm-soft-nl-unless-at-bol lctx)
+  (repeat (linectx-vy lctx)
+    (lineterm-write/u8 lctx 10))
   (linectx-redraw-set! lctx #t))
 
 
