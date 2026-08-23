@@ -427,14 +427,18 @@
       (charspan-insert-right! csp #\space))
     (charspan-insert-right/string! csp (car tail))))
 
-(define (lineedit-key-cmd lctx cmd-name . args)
-  (let ((cmd-and-args (cons cmd-name args)))
-    (linekey-cleanup-before-cmd lctx (cmd-and-args->string cmd-and-args))
-    ((top-level-value 'sh-run/i) ((top-level-value 'make-sh-cmd) cmd-and-args))
-    (linekey-cleanup-after-cmd lctx)))
+(define (%sh-run/i job)
+  (with-exception-handler
+    (base-exception-handler)
+    (lambda ()
+      ((top-level-value 'sh-run/i) job))))
 
-(define (lineedit-key-cmd-dir lctx)
-  (lineedit-key-cmd lctx "dir" "-l"))
+(define (%sh-display obj)
+  (unless (eq? (void) obj)
+    (let ((port (current-output-port)))
+      (display obj port)
+      (newline port)
+      (flush-output-port port))))
 
 (define lineedit-key-sh-run/i
   (case-lambda
@@ -449,10 +453,21 @@
              (start (if (and trim? (char=? #\{ (string-ref str 0))) 1 0))
              (end   (if (and trim? (char=? #\} (string-ref str (fx1- len)))) (fx1- len) len)))
         (linekey-cleanup-before-cmd lctx str start end)
-        ((top-level-value 'sh-run/i) job)
-        (linekey-cleanup-after-cmd lctx)))
+        (let ((obj (%sh-run/i job)))
+          (linekey-cleanup-after-cmd lctx)
+	  (%sh-display obj))))
     ((lctx job)
       (lineedit-key-sh-run/i lctx job #f))))
+
+
+(define (lineedit-key-cmd lctx . cmd-and-args)
+  (lineedit-key-sh-run/i lctx
+    ((top-level-value 'make-sh-cmd) cmd-and-args)
+    (cmd-and-args->string cmd-and-args)))
+
+
+(define (lineedit-key-cmd-dir lctx)
+  (lineedit-key-cmd lctx "dir" "-l"))
 
 
 (define (lineedit-navigate-history lctx delta-y)

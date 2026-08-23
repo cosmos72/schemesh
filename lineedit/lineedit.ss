@@ -69,7 +69,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme)    break break-handler console-output-port console-error-port
+    (only (chezscheme)    base-exception-handler break break-handler console-output-port console-error-port
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
           (scheme2k bootstrap)
