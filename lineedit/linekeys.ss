@@ -389,7 +389,7 @@
           (lineterm-write/string lctx str str-start str-end)
           (lineterm-write/u8 lctx 10)
           (linectx-flush lctx)
-	  (linectx-redraw-set! lctx #t))
+          (linectx-redraw-set! lctx #t))
         (lineedit-undraw lctx #t)))
     ((lctx str)
       (linekey-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))
@@ -431,7 +431,8 @@
   (with-exception-handler
     (base-exception-handler)
     (lambda ()
-      ((top-level-value 'sh-run/i) job))))
+      (with-cooked-tty
+        ((top-level-value 'sh-run/i) job)))))
 
 (define (%sh-display obj)
   (unless (eq? (void) obj)
@@ -455,7 +456,7 @@
         (linekey-cleanup-before-cmd lctx str start end)
         (let ((obj (%sh-run/i job)))
           (linekey-cleanup-after-cmd lctx)
-	  (%sh-display obj))))
+          (%sh-display obj))))
     ((lctx job)
       (lineedit-key-sh-run/i lctx job #f))))
 

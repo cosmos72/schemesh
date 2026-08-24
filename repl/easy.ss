@@ -49,8 +49,8 @@
 ;; easy wrapper for (fd-close) (close-port) (reader-close) (writer-close)
 (define (close obj)
   (cond
-    ((fixnum? obj)      (fd-close obj))
-    ((port? obj)        (close-port obj))
+    ((fixnum? obj)  (fd-close obj))
+    ((port? obj)    (close-port obj))
     ((reader? obj)  (reader-close obj))
     ((writer? obj)  (writer-close obj))))
 
