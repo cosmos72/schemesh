@@ -58,7 +58,7 @@
 
     ;; job.ss
     sh-consume-signals sh-cwd
-    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception sh-job-on-finish
+    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception sh-job-on-finish sh-job-verbose
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -420,6 +420,18 @@
     (span-insert-right! children job)
     (%job-id-set! job id)
     id))
+
+
+(define sh-job-verbose
+  (case-lambda
+    ((job)
+      (not (eqv? -1 (job-id job))))
+    ((job verbose?)
+      (assert-not* 'sh-job-verbose (started? (job-last-status job)))
+      (%job-id-set! job
+        (if verbose?
+          #f      ;; enable job status change notifications
+          -1))))) ;; suppress job status change notifications
 
 
 (define (job-parent job)
