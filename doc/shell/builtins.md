@@ -104,8 +104,10 @@ Return exit status of executed builtin, or failure if no such builtin was found.
 
 #### bind
 Syntax: `bind KEYSEQ [CMD [ARG ...]]`
+<br/>Added in 1.0.2
 
-Register a key sequence that, when pressed, will execute `CMD [ARG ...]` as a shell command with `(sh-run/i)`.
+Register a key sequence that, when pressed, will execute `CMD [ARG ...]` as a shell job with `(sh-run/i)`.
+Arument `CMD` can be an alias, a shell builtin, or a command.
 
 Note: shell syntax has no mechanism for specifying control characters;
 in most cases, you'll want to specify `KEYSEQ` using a Scheme expression `(values "...")`
