@@ -11,6 +11,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`answers`](#answers) display as structured data the values returned by recent expressions or commands executed at repl
 * [`args`](#args) parse structured data from stdin, and execute alias, builtin or command with arguments set to parsed fields
 * [`bg`](bg) resume a job and move a job to the background
+* [`bind`](bind) register a command to be executed upon keypress
 * [`builtin`](#builtin) execute a builtin, even if shadowed by an alias
 * [`cd`](#cd) change the current directory
 * [`cd-`](#cd-) change back to previous current directory
@@ -100,6 +101,17 @@ Syntax: `builtin [BUILTIN_NAME [ARG ...]]`
 Execute a builtin with specified arguments, even if it's shadowed by an alias.
 
 Return exit status of executed builtin, or failure if no such builtin was found.
+
+#### bind
+Syntax: `bind KEYSEQ [CMD [ARG ...]]`
+
+Register a key sequence that, when pressed, will execute `CMD [ARG ...]` as a shell command with `(sh-run/i)`.
+
+Note: shell syntax has no mechanism for specifying control characters;
+in most cases, you'll want to specify `KEYSEQ` using a Scheme expression `(values "...")`
+because it allows using Scheme string escape sequences, as for example `"\x1b;"` that indicates ESC.
+
+Return success, or failure if no `KEYSEQ` is specified.
 
 #### cd
 Syntax: `cd [DIR]`

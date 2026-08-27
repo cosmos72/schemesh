@@ -64,7 +64,7 @@ Default value: `repl-parse`
 
 
 #### repl-eval
-Syntax: `(repl-parse form env)`
+Syntax: `(repl-eval form env)`
 <br/>Added in 1.0.1
 
 Arguments:

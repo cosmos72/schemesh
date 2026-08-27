@@ -151,7 +151,22 @@ Added in 1.0.0
 `(lineedit-key-cmd-cd-old-dir lctx)` executes the shell command `{cd-}`, then redraws prompt and current lines.
 
 ##### (lineedit-key-cmd)
-`(lineedit-key-cmd lctx cmd-name args ...)` executes `cmd-name args ...` as a shell command, then redraws prompt and current lines.
+`(lineedit-key-cmd lctx cmd-name args ...)` echoes the strings `cmd-name args ...` then runs them as a shell command with `(sh-run/i)`,
+finally redraws prompt and current lines.
+
+##### (lineedit-key-sh-run/i)
+`(lineedit-key-cmd lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
+then runs `job` with `(sh-run/i)`, finally redraws prompt and current lines.<br/>
+Added in 1.0.2
+
+Mandatory argument `lctx` must be `linectx`.<br/>
+Mandatory argument `job` must be a `sh-job`.<br/>
+Optional argument `job-string` must be one of:
+* `#f` to suppress displaying job before starting it. This is the default.
+* `#t` to display job before starting it
+* a string, to be displayed instead of job
+* a procedure accepting one argument and returning one value. If calling `(job-string job)` returns a string,
+  such string will be be displayed instead of job. If it returns a `#f`, nothing will be displayed.
 
 ### Examples
 
