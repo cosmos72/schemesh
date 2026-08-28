@@ -111,7 +111,7 @@ uninstall_all: uninstall_schemesh uninstall_scheme2k uninstall_utils
 ######################################################################################
 SCHEMESH_SO=libschemesh_$(VERSION_STR).so
 
-SRCS=containers/containers.c eval.c posix/posix.c
+SRCS=containers/containers.c eval.c os/os.c posix/posix.c
 OBJS=containers.o eval.o os.o posix.o thread_elf.o
 OBJS_WRAP=containers.o eval.o os.o posix.o thread_wrap.o
 
