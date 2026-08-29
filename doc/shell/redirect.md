@@ -7,9 +7,11 @@ and differences are documented in the main [README.md](../../README.md).
 
 Scheme functions to **create** shell jobs are not documented yet.
 
+Scheme functions to **start and control** shell jobs are documented in [job-control.md](job-control.md)
+
 Scheme functions to manage the **environment variables** of existing shell jobs are documented in [env.md](env.md)
 
-Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a job, are documented below.
+Scheme functions to **redirect** existing shell jobs, and to access redirected ports and file descriptors of a job, are documented below.
 
 
 ### Alphabetical index
@@ -50,20 +52,20 @@ In this case, the added redirections are *temporary* i.e. they are automatically
 
 ##### (sh-run/bytevector)
 `(sh-run/bytevector job)` or `(sh-run/bytevector job options)` starts a job in foreground and waits for it to exit.<br/>
-Does NOT return early if job is stopped, use `(sh-run/i)` for that. Options are the same as `(sh-start)`.<br/>
+Does NOT return early if job is stopped, use [`(sh-run/i)`](job-control#sh-runi) for that. Options are the same as [`(sh-options)`](job-control-md#sh-options).<br/>
 Reads job's standard output and returns it converted to bytevector.<br/>
 Note: if job finishes with a status `(exception ...)` `(killed 'sigint)` `(killed 'sigquit)` tries to kill `(sh-current-job)` then raises exception.
 
-Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+Optional argument `options` is described in [`(sh-options)`](job-control#sh-options) and defaults to the empty list.
 
 ##### (sh-run/string)
 `(sh-run/string job)` or `(sh-run/string job options)` same as [`(sh-run/bytevector)`](#sh-runbytevector), except that job's output is converted to a string:<br/>
 starts a job in foreground and waits for it to exit.<br/>
-Does NOT return early if job is stopped, use `(sh-run/i)` for that. Options are the same as `(sh-start)`.<br/>
+Does NOT return early if job is stopped, use [`(sh-run/i)`](job-control#sh-runi) for that. Options are the same as [`(sh-options)`](job-control-md#sh-options).<br/>
 Reads job's standard output and returns it converted to string.<br/>
 Note: if job finishes with a status `(exception ...)` `(killed 'sigint)` `(killed 'sigquit)` tries to kill `(sh-current-job)` then raises exception.
 
-Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+Optional argument `options` is described in [`(sh-options)`](job-control#sh-options) and defaults to the empty list.
 
 ### Start a job with redirections
 
@@ -112,7 +114,7 @@ Optional arguments are:
   The usual Scheme convention applies: we recommend writing it as one of `(buffer-mode block)` `(buffer-mode line)` `(buffer-mode none)`
   as they better describe the meaning and check for validity at compile-time.
 
-* `options` is described in `(sh-start)` and defaults to the empty list.
+* `options` is described in [`(sh-options)`](job-control#sh-options) and defaults to the empty list.
 
 ##### (sh-start/fds)
 `(sh-start/fds job [redirections [options]])` is a lower-level alternative to [`(sh-start/ports)`](#sh-startports):<br>
@@ -120,7 +122,7 @@ starts a job in background, returns a list of file descriptors connected to the 
 
 Optional arguments are:
 * `redirections` is described in [`(sh-start/ports)`](#sh-startports) above and again defaults to `'(0 <& 1 >& 2 >&)`
-* `options` is described in `(sh-start)` and defaults to the empty list.
+* `options` is described in [`(sh-options)`](job-control#sh-options) and defaults to the empty list.
 
 Each returned file descriptor must be closed with `(fd-close)` when no longer needed,
 because each one consumes an OS-level file descriptor.
@@ -129,7 +131,7 @@ because each one consumes an OS-level file descriptor.
 `(sh-start/fd1 job)` or `(sh-start/fd1 job options)` starts a job in background, returns a file descriptor fixnum<br/>
 for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`.
 
-Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+Optional argument `options` is described in [`(sh-options)`](job-control#sh-options) and defaults to the empty list.
 
 Returned file descriptor must be closed with `(fd-close)` when no longer needed.
 

@@ -1,4 +1,4 @@
-# posix fs
+# scheme2k posix fs
 
 The library `(scheme2k posix fs)`, which is also included in `(scheme2k posix)` and `(schemesh)`,
 provides low-level functions to access POSIX filesystem.

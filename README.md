@@ -106,6 +106,8 @@ The analogous job control mechanisms from Scheme syntax are:
 * `(sh-fg    job-or-id)` resume a job in foreground, wait until job finishes or is suspended
 * `(sh-wait  job-or-id)` resume a job in foreground, wait until job finishes
 
+For more information about functions for starting and controlling jobs, see [doc/shell/job-control.md](doc/shell/job-control.md)
+
 Some more advanced Scheme functions:
 * `(sh-run/bytevector job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme bytevector
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
@@ -165,8 +167,9 @@ CTRL+Z
 (ok "done!\n")
 ```
 
-This feature is named "Scheme jobs" and can also be written in long form `(shell-expr ...)`
-both from shell syntax and from Scheme syntax.
+This feature is named "Scheme jobs" and is **NOT** a special syntax:
+it is only an abbreviation for the long form `(shell-expr ...)`
+and both short and long forms can be used either from shell syntax or from Scheme syntax.
 
 If used from Scheme syntax, the job created by short or long form can be executed immediately,
 or saved in a variable for later execution, or passed to a function, etc.
@@ -177,7 +180,7 @@ Example:
 (ok "done too!\n")
 ```
 
-From version 1.0.1, Scheme jobs can also run in background: they are always started in a subprocess.
+From version 1.0.1, Scheme jobs are always started in a subprocess and can also run in background.
 
 Example:
 ```shell
@@ -801,6 +804,10 @@ and help for each builtin can be viewed by typing `help NAME` at the prompt.
 The documentation currently include:
 
 * Complete shell syntax, see [doc/shell/syntax.md](doc/shell/syntax.md)
+
+* Shell macros, see [doc/shell/shell.md](doc/shell/shell.md)
+
+* Job control and management, see [doc/shell/job-control.md](doc/shell/job-control.md)
 
 * Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
 

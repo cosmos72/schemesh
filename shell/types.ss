@@ -113,7 +113,9 @@
 
 ;; return the id of a job-or-id, or #f if not set
 (define (sh-job-id job-or-id)
-  (job-id   (sh-job job-or-id)))
+  (let ((id (job-id (sh-job job-or-id))))
+    ;; id is -1 for silent jobs: return #f instead
+    (and (fixnum? id) (fx>=? id 0) id)))
 
 
 ;; return the process group id of a job-or-id, or #f if not set

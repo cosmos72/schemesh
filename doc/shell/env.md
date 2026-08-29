@@ -11,9 +11,11 @@ the relevant builtins are [export](builtins.md#export) [global](builtins.md#glob
 
 Scheme functions to **create** shell jobs are not documented yet.
 
+Scheme functions to **start and control** shell jobs are documented in [job-control.md](job-control.md)
+
 Scheme functions to manage the **environment variables** of existing shell jobs are documented below.
 
-Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a job, are documented in [redirect.md](redirect.md).
+Scheme functions to **redirect** existing shell jobs, and to access redirected ports and file descriptors of a job, are documented in [redirect.md](redirect.md).
 
 ### Alphabetical index
 * [`(sh-env-copy)`](#sh-env-copy)

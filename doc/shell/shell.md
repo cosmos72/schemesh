@@ -9,6 +9,8 @@ Most of the time the shell syntax is enough, and there is no need to look behind
 In the few cases where it's needed, or if you are curious, the following describes the Scheme macros and functions
 produced by parsing shell syntax.
 
+For details about shell syntax parsing, see [syntax.md](syntax.md).
+
 ### Macros
 
 ##### (shell)
@@ -29,6 +31,9 @@ You can see how shell syntax is parsed to `(shell)` macro by evaluating `(begin 
   Again, shell syntax does **not** allow spaces between a file descriptor number and its following redirection operator.
 
 Note that arguments, file redirections and fd redirections **can** be interleaved.
+
+* Per-command environment variables are assignments `NAME=value` appearing before a simple or composite command.
+  They are parsed to `(shell "NAME" = "value" ...)`
 
 * Wildcards are special characters in simple command arguments (either unquoted or double quoted)
   that contain one or more special characters `*` `?` `[...]` or `~`.<br/>
