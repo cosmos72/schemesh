@@ -110,6 +110,9 @@
   '{ls "'so'me'"'file'path}                            (shell "ls" (shell-wildcard "'so'me'" "file" "path"))
   '{ls `cmd1 && cmd2 || cmd3 -arg3`}                   (shell "ls" (shell-backquote "cmd1" && "cmd2" \x7C;\x7C;
                                                                                     "cmd3" "-arg3"))
+  '{ls $1234 abc}                                      (shell "ls" (shell-wildcard (shell-env "1") "234") "abc")
+  '{ls $567abc}                                        (shell "ls" (shell-wildcard (shell-env "5") "67abc"))
+  '{ls ${890}}                                         (shell "ls" (shell-env "890"))
   '{ls $vv1 "$vv2" '$vv3'}                             (shell "ls" (shell-env "vv1") (shell-env "vv2") "$vv3")
   '{ls $vv1"$vv2"'$vv3'}                               (shell "ls" (shell-wildcard (shell-env "vv1") (shell-env "vv2") "$vv3"))
   '{ls $v-1 "$v-2" '$v-3'}                             (shell "ls" (shell-wildcard (shell-env "v") "-1")

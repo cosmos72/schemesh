@@ -110,26 +110,34 @@
 
 ;; Read an unquoted subword starting with $
 (define (read-subword-dollar-unquoted ctx)
-  (let ((csp (charspan))
-        (again? #t))
-    (while again?
+  (let ((csp (charspan)))
+    (let %loop ((ctx ctx) (csp csp))
       (let ((ch (parsectx-peek-char ctx)))
         (cond
           ((eof-object? ch)
-            (set! again? #f))
+            (void))
           ((char=? #\\ ch)
             (parsectx-read-char ctx)
             ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
-              (when ch-i (charspan-insert-right! csp ch-i))))
+              (when ch-i (charspan-insert-right! csp ch-i)))
+            (%loop ctx csp))
           ((or (char<=? #\0 ch #\9)
                (char<=? #\A ch #\Z)
                (char<=? #\a ch #\z)
                (char=?  #\_ ch))
             (parsectx-read-char ctx)
+            (charspan-insert-right! csp ch)
+            ;; stop parsing if 0..9 is the first digit after $
+            (unless (and (char<=? #\0 ch #\9) (fx=? 1 (charspan-length csp)))
+              (%loop ctx csp)))
+          #|
+          ((and (char=? #\@ ch) (charspan-empty? csp))
+            ;; parse $@
+            (parsectx-read-char ctx)
             (charspan-insert-right! csp ch))
-          (else
-            (set! again? #f)))))
+          |#
+          )))
     (list 'shell-env (charspan->string csp))))
 
 

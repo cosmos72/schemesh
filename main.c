@@ -327,17 +327,6 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
   int         i;
   int         opts = 1;
 
-  /**
-   * install the same exception handler use use for REPL,
-   * because Chez Scheme default exception handler sometimes causes infinite loops
-   * when writing to stderr fails
-   */
-  install_exception_handler();
-
-  if (cmd->runtime_args) {
-    set_command_line_args(cmd->runtime_args, cmd->runtime_argn);
-  }
-
   if (cmd->is_script) {
     if (argc > 1 && argv[1]) {
       load_file_type_autodetect(argv[1], -1);
@@ -420,6 +409,15 @@ int main(int argc, const char* argv[]) {
   errno = 0;
 
   on_exception = EVAL_FAILED;
+  /**
+   * install the same exception handler use use for REPL,
+   * because Chez Scheme default exception handler sometimes causes infinite loops
+   * when writing to stderr fails
+   */
+  install_exception_handler();
+  if (cmd.runtime_args) {
+    set_command_line_args(cmd.runtime_args, cmd.runtime_argn);
+  }
   if (cmd.have_file_or_string) {
     run_files_and_strings(argc, argv, &cmd);
   }

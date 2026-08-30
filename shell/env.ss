@@ -13,6 +13,16 @@
 (define empty-string (string->immutable-string ""))
 
 
+(define (list-ref-or l idx default)
+  (cond
+    ((or (null? l) (fx<? idx 0))
+      default)
+    ((fxzero? idx)
+      (car l))
+    (else
+      (list-ref-or (cdr l) (fx1- idx) default))))
+
+
 ;; Return a string obtained by concatenating args:
 ;; each arg must be either:
 ;;   a string
@@ -64,17 +74,22 @@
 ;; If name is not found, return default
 ;; Returned value is always an immutable string or the specified default.
 (define (sh-env-ref* job-or-id name default)
-  (if (string=? name "PWD")
-    (sh-env-pwd job-or-id)
-    (or
-      (job-parents-iterate-any job-or-id
-        (lambda (job)
-          (let* ((vars (job-env job))
-                 (elem (and vars (hashtable-ref vars name #f))))
-            (and (pair? elem)
-                 (not (eq? 'delete (car elem)))
-                 (cdr elem)))))
-      default)))
+  (cond
+    ((string=? name "PWD")
+      (sh-env-pwd job-or-id))
+    ((string-is-unsigned-base10-integer? name)
+      (let ((n (string->number name)))
+        (list-ref-or (command-line) n "")))
+    (else
+      (or
+        (job-parents-iterate-any job-or-id
+          (lambda (job)
+            (let* ((vars (job-env job))
+                   (elem (and vars (hashtable-ref vars name #f))))
+              (and (pair? elem)
+                   (not (eq? 'delete (car elem)))
+                   (cdr elem)))))
+        default))))
 
 
 ;; Return the value and visibility of an environment variable for specified job.
