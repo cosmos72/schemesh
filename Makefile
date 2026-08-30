@@ -60,6 +60,7 @@ SCHEME2K_DIR = $(libdir)/scheme2k
 INSTALL         = install
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA    = $(INSTALL) -m 644
+LN_S            = ln -s -f
 MKDIR_P         = mkdir -p
 
 
@@ -80,7 +81,7 @@ VERSION_STR=1.0.1
 ## by default, only compile and install additional programs that do *not* require
 ## external dependencies (libcurl, libsqlite3 ...)
 
-default: countdown schemesh schemesh_test schemesh_so
+default: countdown schemesh schemesh-test schemesh_so
 
 clean: clean_schemesh clean_scheme2k clean_utils
 	rm -f *~ *.o *.so
@@ -144,27 +145,28 @@ test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 schemesh: main.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-schemesh_test: test.o $(OBJS)
+schemesh-test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
 schemesh_so: $(SCHEMESH_SO)
 
-$(SCHEMESH_SO): schemesh_test
-	./schemesh_test
+$(SCHEMESH_SO): schemesh-test
+	./schemesh-test
 
 clean_schemesh:
-	rm -f schemesh schemesh_embed schemesh_static schemesh_test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
+	rm -f schemesh schemesh-embed schemesh-script schemesh-static schemesh-test $(SCHEMESH_SO) libscheme2k_temp.so $(OBJS)
 
 install_schemesh: schemesh schemesh_so installdirs
 	$(INSTALL_PROGRAM) schemesh '$(DESTDIR)$(bindir)'
+	$(LN_S) schemesh '$(DESTDIR)$(bindir)/schemesh-script'
 	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 uninstall_schemesh:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/schemesh-script' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
 
 
 ################################################################################
-### alternative schemesh executables: schemesh_embed schemesh_static
+### alternative schemesh executables: schemesh-embed schemesh-static
 ### NOT compiled nor installed by default
 ################################################################################
 
@@ -177,35 +179,35 @@ main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
 asm_embed.o: asm_embed.S $(SCHEMESH_SO)
 	$(CC) -o $@ -c $< $(CFLAGS) -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
-# alternative schemesh executables: schemesh_embed
+# alternative schemesh executables: schemesh-embed
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
-schemesh_embed: main_embed.o asm_embed.o $(OBJS)
+schemesh-embed: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-# alternative schemesh executables: schemesh_static
+# alternative schemesh executables: schemesh-static
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 #   also links against system-wide static libraries where feasible
 ifeq ($(OS), FreeBSD)
-  schemesh_static: main_embed.o asm_embed.o $(OBJS_WRAP)
+  schemesh-static: main_embed.o asm_embed.o $(OBJS_WRAP)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS) -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=pthread_mutex_timedlock -Wl,--wrap=pthread_mutex_trylock -Wl,--wrap=pthread_mutex_unlock
 else # Android, GNU/Linux
-  schemesh_static: main_embed.o asm_embed.o $(OBJS)
+  schemesh-static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
 endif
 
-install_schemesh_embed: schemesh_embed installdirs
-	$(INSTALL_PROGRAM) schemesh_embed '$(DESTDIR)$(bindir)'
+install_schemesh_embed: schemesh-embed installdirs
+	$(INSTALL_PROGRAM) schemesh-embed '$(DESTDIR)$(bindir)'
 
-install_schemesh_static: schemesh_static installdirs
-	$(INSTALL_PROGRAM) schemesh_static '$(DESTDIR)$(bindir)'
+install_schemesh_static: schemesh-static installdirs
+	$(INSTALL_PROGRAM) schemesh-static '$(DESTDIR)$(bindir)'
 
 uninstall_schemesh_embed:
-	rm -f '$(DESTDIR)$(bindir)/schemesh_embed'
+	rm -f '$(DESTDIR)$(bindir)/schemesh-embed'
 
 uninstall_schemesh_static:
-	rm -f '$(DESTDIR)$(bindir)/schemesh_static'
+	rm -f '$(DESTDIR)$(bindir)/schemesh-static'
 
 
 ################################################################################
@@ -337,8 +339,8 @@ SCHEME2K_SO=libscheme2k_$(VERSION_STR).so
 
 scheme2k_so: $(SCHEME2K_SO)
 
-$(SCHEME2K_SO): schemesh_test
-	./schemesh_test --compile_scheme2k_so
+$(SCHEME2K_SO): schemesh-test
+	./schemesh-test --compile_scheme2k_so
 
 clean_scheme2k_so:
 	rm -f $(SCHEME2K_SO) libscheme2k_temp.so

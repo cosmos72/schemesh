@@ -66,45 +66,47 @@ static int usage(const char* name) {
   if (name == NULL) {
     name = "schemesh";
   }
-  fprintf(
-      stdout,
-      "Usage: %s [options and files]\n"
-      "  options:\n"
-      "    -c STRING, --cmd STRING     run STRING as shell script\n"
-      "    -e STRING, --eval STRING    run STRING as scheme source\n"
-      "    --cmd-file FILE             read and execute FILE as shell script\n"
-      "    --eval-file FILE            read and execute FILE as scheme source\n"
-      "    --load-file FILE            load and execute FILE as compiled scheme library\n"
-      "    -h, --help                  display this help and exit immediately\n"
-      "    -i, --repl                  unconditionally start the interactive repl\n"
-      "                                (default: start only if no files, strings or --version\n"
-      "                                are specified)\n"
-      "    --version                   display version information\n"
-      "    -l, --login                 ignored. accepted for compatibility with other shells\n"
-      "    -p                          ignored. accepted for compatibility with other shells\n"
+  fprintf(stdout,
+          "Usage: %s [options and files]\n"
+          "Options:\n"
+          "  -c STRING, --cmd STRING   run STRING as shell script\n"
+          "  -e STRING, --eval STRING  run STRING as scheme source\n"
+          "  --args [ARG...]           store ARGS as the command-line arguments.\n"
+          "                            always last option: it consumes all remaining arguments.\n"
+          "  --cmd-file FILE           read and execute FILE as shell script\n"
+          "  --eval-file FILE          read and execute FILE as scheme source\n"
+          "  --load-file FILE          load and execute FILE as compiled scheme library\n"
+          "  -h, --help                display this help and exit immediately\n"
+          "  -i, --repl                unconditionally start the interactive repl\n"
+          "                            (default: start only if no files, strings or --version\n"
+          "                            are specified)\n"
+          "  --version                 display version information\n"
+          "  -l, --login               ignored. accepted for compatibility with other shells\n"
+          "  -p                        ignored. accepted for compatibility with other shells\n"
 #ifdef SCHEMESH_STATIC
-      "    --boot-dir DIR              ignored in this build. set Chez Scheme boot directory\n"
-      "    --library-dir DIR           ignored in this build. set schemesh library directory\n"
+          "  --boot-dir DIR            ignored in this build. set Chez Scheme boot directory\n"
+          "  --library-dir DIR         ignored in this build. set schemesh library directory\n"
 #else
-      "    --boot-dir DIR              load Chez Scheme boot files from DIR\n"
-      "    --library-dir DIR           load schemesh libraries from DIR\n"
+          "  --boot-dir DIR            load Chez Scheme boot files from DIR\n"
+          "  --library-dir DIR         load schemesh libraries from DIR\n"
 #endif
-      "    --                          end of options. always treat further arguments as files\n"
-      "\n"
-      "  the type of files, if they are not specified after options '--cmd-file', '--eval-file'\n"
-      "  or '--load-file' is determined by their name:\n"
-      "    file names ending in '.sh' or not containing '.' are executed as shell script,\n"
-      "    file names ending in '.so' are executed as compiled scheme library,\n"
-      "    all other files are executed as scheme source\n"
-      "\n"
-      "  both files and strings can switch to different languages\n"
-      "  by using the following language-changing syntax tokens:\n"
-      "    (             switch to scheme source until the matching )\n"
-      "    {             switch to shell script until the matching }\n"
-      "    #!scheme      switch to scheme source until end of current scope\n"
-      "    #!shell       switch to shell script until end of current scope\n"
-      "\n",
-      name);
+          "  --                        end of options. always treat further arguments as files\n"
+          "                            even if they start with -"
+          "\n"
+          "The type of files passed as arguments (i.e. not specified after options\n"
+          "'--cmd-file...', '--eval-file...' or '--load-file') is determined by their name:\n"
+          "  file names ending in '.sh' or not containing '.' are executed as shell script,\n"
+          "  file names ending in '.so' are executed as compiled scheme library,\n"
+          "  all other files are executed as scheme source\n"
+          "\n"
+          "Files and strings can internally switch to different syntax\n"
+          "by using the following syntax-changing tokens:\n"
+          "  (          switch to scheme source until the matching )\n"
+          "  {          switch to shell script until the matching }\n"
+          "  #!scheme   switch to scheme source until end of current scope\n"
+          "  #!shell    switch to shell script until end of current scope\n"
+          "\n",
+          name);
 
   exit(0);
 }
@@ -138,57 +140,137 @@ static int missing_option_argument(const char* name, const char* arg) {
   exit(1);
 }
 
-struct cmdline {
-  const char* boot_dir;
-  const char* library_dir;
-  char        have_file_or_string;
-  char        force_repl;
-};
+static ptr make_string_list(const char* const* args, int n) {
+  ptr ret = Snil;
+  while (n > 0) {
+    ret = Scons(scheme2k_Sstring_utf8b(args[--n], -1), ret);
+  }
+  return ret;
+}
 
-static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd) {
-  const char* arg;
-  const char* arg2;
+static void set_command_line_args(const char* const* args, int n) {
+  ptr l = make_string_list(args, n);
+  Slock_object(l);
+  scheme2k_call1("command-line", Scons(Smake_string(0, 0), l));
+  scheme2k_call1("command-line-arguments", l);
+  Sunlock_object(l);
+}
+
+static void set_command_name(ptr name) {
+  if (Sstringp(name)) {
+    ptr l = scheme2k_call0("command-line");
+    scheme2k_call1("command-line", Scons(name, Spairp(l) ? Scdr(l) : Snil));
+  }
+}
+
+typedef struct {
+  const char*        boot_dir;
+  const char*        library_dir;
+  const char* const* runtime_args;
+  int                runtime_argn;
+  char               have_file_or_string;
+  char               is_script;
+  char               force_repl;
+} cmdline;
+
+typedef struct {
+  const char* data;
+  size_t      len;
+} chars;
+
+static chars chars_from_c(const char* data) {
+  chars ret = {data ? data : "", data ? strlen(data) : 0};
+  return ret;
+}
+
+static chars chars_make(const char* data, size_t len) {
+  chars ret = {data ? data : "", len};
+  return ret;
+}
+
+#define CHARS(str) chars_make((str), (sizeof(str)) - 1)
+
+static int chars_equal(chars left, chars right) {
+  if (left.len != right.len) {
+    return 0;
+  }
+  if (left.data == right.data) {
+    return 1;
+  }
+  return memcmp(left.data, right.data, left.len) == 0;
+}
+
+static int chars_end_with(chars cs, chars suffix) {
+  if (cs.len < suffix.len) {
+    return 0;
+  }
+  cs.data += cs.len - suffix.len;
+  cs.len = suffix.len;
+  return chars_equal(cs, suffix);
+}
+
+static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
+  const char* argi;
   int         i;
 
-  for (i = 1; i < argc && (arg = argv[i]) != NULL; i++) {
-    arg2 = i + 1 < argc ? argv[i + 1] : NULL;
-    if (!strcmp(arg, "--")) {
+  if (chars_end_with(chars_from_c(argv[0]), CHARS("-script"))) {
+    cmd->runtime_args        = argv + 2;
+    cmd->runtime_argn        = argc - 2;
+    cmd->have_file_or_string = 1;
+    cmd->is_script           = 1;
+    cmd->force_repl          = 0;
+    /* consumes all arguments */
+    return;
+  }
+
+  for (i = 1; (argi = argv[i]) != NULL; i++) {
+    chars       arg  = {argi, strlen(argi)};
+    const char* arg2 = argv[i + 1]; /* NULL if argi is last argument */
+
+    if (chars_equal(arg, CHARS("--"))) {
       /* end of options, the rest are files */
       cmd->have_file_or_string = 1;
       break;
-    } else if (!strcmp(arg, "--boot-dir")) {
+    } else if (chars_equal(arg, CHARS("--boot-dir"))) {
       if (!arg2) {
-        missing_option_argument(argv[0], arg);
+        missing_option_argument(argv[0], argi);
       }
       cmd->boot_dir = arg2;
       i++;
-    } else if (!strcmp(arg, "--library-dir")) {
+    } else if (chars_equal(arg, CHARS("--library-dir"))) {
       if (!arg2) {
-        missing_option_argument(argv[0], arg);
+        missing_option_argument(argv[0], argi);
       }
       cmd->library_dir = arg2;
       i++;
-    } else if (!strcmp(arg, "-c") || !strcmp(arg, "--cmd") || !strcmp(arg, "--cmd-file") ||
-               !strcmp(arg, "-e") || !strcmp(arg, "--eval") || !strcmp(arg, "--eval-file") ||
-               !strcmp(arg, "--load-file")) {
+    } else if (chars_equal(arg, CHARS("--args"))) {
+      /* consumes all remaining arguments */
+      cmd->runtime_args = argv + i + 1;
+      cmd->runtime_argn = argc - i - 1;
+      break;
+    } else if (chars_equal(arg, CHARS("-c")) || chars_equal(arg, CHARS("-e")) ||        /**/
+               chars_equal(arg, CHARS("--cmd")) || chars_equal(arg, CHARS("--eval")) || /**/
+               chars_equal(arg, CHARS("--cmd-file")) || chars_equal(arg, CHARS("--eval-file")) ||
+               chars_equal(arg, CHARS("--load-file"))) {
       if (!arg2) {
-        missing_option_argument(argv[0], arg);
+        missing_option_argument(argv[0], argi);
       }
       /* will be executed by run_files_and_strings() */
       cmd->have_file_or_string = 1;
       i++;
-    } else if (!strcmp(arg, "-h") || !strcmp(arg, "--help")) {
+    } else if (chars_equal(arg, CHARS("-h")) || chars_equal(arg, CHARS("--help"))) {
       usage(argv[0]);
-    } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
+    } else if (chars_equal(arg, CHARS("-i")) || chars_equal(arg, CHARS("--repl"))) {
       cmd->force_repl = 1;
-    } else if (!strcmp(arg, "-l") || !strcmp(arg, "--login") || !strcmp(arg, "-p")) {
+    } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("-p")) ||
+               chars_equal(arg, CHARS("--login"))) {
       /* nop */
-    } else if (!strcmp(arg, "--version")) {
+    } else if (chars_equal(arg, CHARS("--version"))) {
       /* disable repl unless cmd->force_repl is set */
       cmd->have_file_or_string = 1;
       display_version();
-    } else if (!strncmp(arg, "-", 1)) {
-      unknown_option(argv[0], arg);
+    } else if (argi[0] == '-') {
+      unknown_option(argv[0], argi);
     } else {
       /* file, will be executed by run_files_and_strings() */
       cmd->have_file_or_string = 1;
@@ -204,12 +286,15 @@ static void eval_string_type(const char filename[], const size_t len, const char
 }
 
 static void load_file_type(const char filename[], const size_t len, const char* type) {
-  scheme2k_call3(
-      "sh-eval-file/print", scheme2k_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
+  ptr str = scheme2k_Sstring_utf8b(filename, len);
+  set_command_name(str);
+  scheme2k_call2("sh-eval-file/print", str, Sstring_to_symbol(type));
 }
 
 static void load_file_type_compiled(const char filename[], const size_t len) {
-  scheme2k_call1("load", scheme2k_Sstring_utf8b(filename, len));
+  ptr str = scheme2k_Sstring_utf8b(filename, len);
+  set_command_name(str);
+  scheme2k_call1("load", str);
 }
 
 static void load_file_type_autodetect(const char filename[], size_t len) {
@@ -219,7 +304,9 @@ static void load_file_type_autodetect(const char filename[], size_t len) {
   if (len >= 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
     return load_file_type_compiled(filename, len);
   }
-  scheme2k_call1("sh-eval-file/print", scheme2k_Sstring_utf8b(filename, len));
+  ptr str = scheme2k_Sstring_utf8b(filename, len);
+  set_command_name(str);
+  scheme2k_call1("sh-eval-file/print", str);
 }
 
 static void install_exception_handler(void) {
@@ -227,12 +314,12 @@ static void install_exception_handler(void) {
                  Stop_level_value(Sstring_to_symbol("repl-exception-handler")));
 }
 
-static void run_files_and_strings(int argc, const char* argv[]) {
-  const char* arg;
-  const char* arg2;
+static void run_files_and_strings(int argc, const char* argv[], const cmdline* cmd) {
+  const char* argi;
   int         i;
   int         opts = 1;
 
+  (void)argc;
   /**
    * install the same exception handler use use for REPL,
    * because Chez Scheme default exception handler sometimes causes infinite loops
@@ -240,42 +327,55 @@ static void run_files_and_strings(int argc, const char* argv[]) {
    */
   install_exception_handler();
 
-  for (i = 1; i < argc && (arg = argv[i]) != NULL; i++) {
+  if (cmd->runtime_args) {
+    set_command_line_args(cmd->runtime_args, cmd->runtime_argn);
+  }
+
+  if (cmd->is_script) {
+    load_file_type_autodetect(argv[1], -1);
+    /* consumes all arguments */
+    return;
+  }
+  for (i = 1; (argi = argv[i]) != NULL; i++) {
     if (opts) {
-      arg2 = i + 1 < argc ? argv[i + 1] : NULL;
-      if (!strcmp(arg, "--")) {
+      chars       arg  = {argi, strlen(argi)};
+      const char* arg2 = argv[i + 1]; /* NULL if argi is last argument */
+      if (chars_equal(arg, CHARS("--"))) {
         opts = 0; /* end of options, the rest are files */
-      } else if (arg2 && (!strcmp(arg, "--boot-dir") || !strcmp(arg, "--library-dir"))) {
-        i++; /* skip subsequent arg */
-      } else if (arg2 && (!strcmp(arg, "-c") || !strcmp(arg, "--cmd"))) {
+      } else if (chars_equal(arg, CHARS("--args"))) {
+        break; /* consumes all arguments */
+      } else if (arg2 && (chars_equal(arg, CHARS("--boot-dir")) ||
+                          chars_equal(arg, CHARS("--library-dir")))) {
+        i++; /* skip subsequent argi */
+      } else if (arg2 && (chars_equal(arg, CHARS("-c")) || chars_equal(arg, CHARS("--cmd")))) {
         eval_string_type(arg2, -1, "shell");
         i++;
-      } else if (arg2 && (!strcmp(arg, "--cmd-file"))) {
-        load_file_type(arg2, -1, "shell");
-        i++;
-      } else if (arg2 && (!strcmp(arg, "-e") || !strcmp(arg, "--eval"))) {
+      } else if (arg2 && (chars_equal(arg, CHARS("-e")) || chars_equal(arg, CHARS("--eval")))) {
         eval_string_type(arg2, -1, "scheme");
         i++;
-      } else if (arg2 && (!strcmp(arg, "--eval-file"))) {
+      } else if (arg2 && (chars_equal(arg, CHARS("--cmd-file")))) {
+        load_file_type(arg2, -1, "shell");
+        i++;
+      } else if (arg2 && (chars_equal(arg, CHARS("--eval-file")))) {
         load_file_type(arg2, -1, "scheme");
         i++;
-      } else if (arg2 && (!strcmp(arg, "--load-file"))) {
+      } else if (arg2 && (chars_equal(arg, CHARS("--load-file")))) {
         load_file_type_compiled(arg2, -1);
         i++;
-      } else if (!strncmp(arg, "-", 1)) {
+      } else if (argi[0] == '-') {
         /* some other option */
       } else {
-        load_file_type_autodetect(arg, -1);
+        load_file_type_autodetect(argi, -1);
       }
     } else {
-      load_file_type_autodetect(arg, -1);
+      load_file_type_autodetect(argi, -1);
     }
   }
 }
 
 int main(int argc, const char* argv[]) {
-  struct cmdline cmd = {};
-  int            err = drop_privileges();
+  cmdline cmd = {};
+  int     err = drop_privileges();
   if (err != 0) {
     return err;
   }
@@ -308,9 +408,9 @@ int main(int argc, const char* argv[]) {
   Senable_expeditor(NULL);
   errno = 0;
 
+  on_exception = EVAL_FAILED;
   if (cmd.have_file_or_string) {
-    on_exception = EVAL_FAILED;
-    run_files_and_strings(argc, argv);
+    run_files_and_strings(argc, argv, &cmd);
   }
 
 again:
@@ -318,7 +418,8 @@ again:
     goto finish;
   }
 #if 1
-  on_exception = EVAL_FAILED;
+  /* copy only program name, not the arguments we parsed above */
+  set_command_name(scheme2k_Sstring_utf8b(argv[0], -1));
   do {
     ptr ret = scheme2k_call0("repl");
 
