@@ -324,14 +324,15 @@
 
         (sh-stdio-flush) ;; does nothing if inside an interrupt
 
-        (if (sh-inside-interrupt?)
-          (queue-job-ports-flush-close-forget job)
-          (job-ports-flush-close-forget job))
-
+        ;; unset job ID, pid, pgid before calling thunks registered with (sh-job-on-finish)
         (job-id-unset! job)    ; also updates (sh-preferred-job-id)
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
         (%job-pgid-fg-set! job #f)
+
+        (if (sh-inside-interrupt?)
+          (queue-job-ports-flush-close-forget job)
+          (job-ports-flush-close-forget job)) ;; also calls thunks registered with (sh-job-on-finish)
 
         ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
         (job-unmap-fds! job)
@@ -371,20 +372,21 @@
 ;; Return job status
 (define (job-id-unset! job)
   (assert* 'job-id-unset! (sh-job? job))
-  (let ((id (job-id job)))
-    (when id
-      (let* ((jobs (multijob-children (sh-globals)))
-             (n    (span-length jobs)))
-        (when (and (fx<? 0 id n) (eq? job (span-ref jobs id)))
-          (span-set! jobs id #f)
-          (until (or (span-empty? jobs) (span-ref-right jobs 0))
-	    (span-delete-right! jobs 1))))
-      (unless (eqv? -1 id)
-	(%job-id-set! job #f)
-	(job-oid-set! job id)) ;; needed for later displaying it
-      (when (eqv? id (sh-preferred-job-id))
-        (sh-preferred-job-id-update!))
-      (queue-job-display-summary job)))
+  (let* ((jobs (multijob-children (sh-globals)))
+         (n    (span-length jobs))
+         (id   (job-id job)))
+    (when (fixnum? id)
+      (when (and (fx<? 0 id n) (eq? job (span-ref jobs id)))
+        (span-set! jobs id #f)
+        (until (or (span-empty? jobs) (span-ref-right jobs 0))
+          (span-delete-right! jobs 1)))
+      (%job-id-set! job #f)
+      (job-oid-set! job id) ;; needed for later displaying it
+      (queue-job-display-summary job))
+    (let ((preferred-id (sh-preferred-job-id))
+          (n            (span-length jobs))) ;; reload, it may have changed
+      (unless (and (fixnum? preferred-id) (fx<? 0 preferred-id n) (sh-job? (span-ref jobs preferred-id)))
+        (sh-preferred-job-id-update!))))
   (job-last-status job))
 
 
@@ -393,22 +395,18 @@
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
-  (when (job-started? job)
-    (let ((parent (job-default-parent job)))
-      ;; the children jobs of a (sh-pipe) are managed as a single unit,
-      ;; and assigning a job-id to them is not useful
-      (unless (and (sh-multijob? parent) (eq? 'sh-pipe (multijob-kind parent)))
-        (let* ((old-id (job-id job))
-               (id     (or old-id (%job-id-assign! job)))
-               (status (job-last-status job))
-               (kind   (status->kind status)))
-          (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
-            ;; replace job status (running) -> (running job-id)
-            (job-status-set! 'job-id-set! job (running id)))
-          ;; set preferred job-id to this job id
-          (unless (eqv? id old-id)
-            (sh-preferred-job-id-set! id)
-            (queue-job-display-summary job))))))
+  (when (and (job-started? job) (sh-job-verbose? job))
+    (let* ((old-id (job-id job))
+           (id     (or old-id (%job-id-assign! job)))
+           (status (job-last-status job))
+           (kind   (status->kind status)))
+      (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
+        ;; replace job status (running) -> (running job-id)
+        (job-status-set! 'job-id-set! job (running id)))
+      ;; set preferred job-id to this job id
+      (unless (eqv? id old-id)
+        (sh-preferred-job-id-set! id)
+        (queue-job-display-summary job))))
   ;;(debugf "job-id-set! job=~s\tid=~s" job (job-id job))
   (job-last-status job))
 
@@ -424,15 +422,15 @@
 
 
 (define (sh-job-verbose? job)
-  (not (eqv? -1 (job-id job))))
+  (not (eq? 'silent (job-id job))))
 
 
 (define (sh-job-verbose?-set! job verbose?)
   (assert-not* 'sh-job-verbose?-set! (started? (job-last-status job)))
   (%job-id-set! job
     (if verbose?
-        #f    ;; enable job status change notifications
-        -1))) ;; suppress job status change notifications
+        #f         ;; enable job status change notifications
+        'silent))) ;; suppress job status change notifications
 
 
 (define (job-parent job)
@@ -577,23 +575,12 @@
       (display-status-changes lctx))))
 
 
-(define job-silent?
-  (case-lambda
-    ((job id oid)
-      (or (not (or id oid)) (eqv? -1 id) (eqv? -1 oid)))
-    ((job)
-      (job-silent? job (job-id job) (job-oid job)))))
-
-
-
 (define (display-job-status-change job port)
-  (let ((id  (job-id job))
-        (oid (job-oid job)))
-    ;; (debugf "; display-job-status-change id ~s, oid ~s, job ~s" id oid job)
-    (unless (job-silent? job id oid)
-      (sh-job-display-summary job port))
-    (when oid
-      (job-oid-set! job #f)))) ; no longer needed, clear it
+  ;; (debugf "; display-job-status-change id ~s, oid ~s, job ~s" id oid job)
+  (when (sh-job-verbose? job)
+    (sh-job-display-summary job port))
+  (when (job-oid job)
+    (job-oid-set! job #f))) ; no longer needed, clear it
 
 
 (include "shell/exit.ss")

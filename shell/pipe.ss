@@ -17,7 +17,7 @@
 
 ;; Create a pipe multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-pipe . children-jobs)
-  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol mj-pipe-start #f
+  (make-multijob 'sh-pipe assert-is-job mj-pipe-start #f
     (validate-convert-pipe-args children-jobs)))
 
 
@@ -43,28 +43,34 @@
         (reverse! (cdr ret))) ; remove last extra '|
       (let ((arg (car tail)))
         (assert-is-job 'sh-pipe arg)
+        ;; the children jobs of a (sh-pipe) are managed as a single unit,
+        ;; and assigning a job-id to them is not useful
+        (sh-job-verbose?-set! arg #f)
         (%again (cdr tail) (cons '\x7C; (cons arg ret)))))))
 
 
 ;; check that args is an alternating list of jobs and symbols '| '|&
 ;; return 'sh-pipe* if some '|& symbols are present, otherwise return 'sh-pipe
 (define (validate-pipe*-args args)
-  (let ((i 0)
-        (kind 'sh-pipe))
-    (for-list ((arg args))
-      (assert-is-job-or-pipe-symbol 'sh-pipe* arg)
-      (if (fxeven? i)
-        (unless (sh-job? arg)
-          (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
-        (case arg
-          ((\x7C;
-             ) (void))
-          ((\x7C;&
-             ) (set! kind 'sh-pipe*))
-          (else
-            (raise-errorf 'sh-pipe* "odd-indexed arguments must be a pipe symbol '| '|& found instead ~s" arg))))
-      (set! i (fx1+ i)))
-    kind))
+  (let %validate-pipe*-args ((args args) (i 0) (kind 'sh-pipe))
+    (let ((arg (if (null? args) #f (car args))))
+      (cond
+        ((null? args)
+          kind)
+        ((fxeven? i)
+          (unless (sh-job? arg)
+            (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
+          ;; the children jobs of a (sh-pipe*) are managed as a single unit,
+          ;; and assigning a job-id to them is not useful
+          (sh-job-verbose?-set! arg #f)
+          (%validate-pipe*-args (cdr args) (fx1+ i) kind))
+        ;; i is odd => arg must be '| or '|&
+        ((eq? arg '\x7C;)
+          (%validate-pipe*-args (cdr args) (fx1+ i) kind))
+        ((eq? arg '\x7C;&)
+          (%validate-pipe*-args (cdr args) (fx1+ i) 'sh-pipe*))
+        (else
+          (raise-errorf 'sh-pipe* "odd-indexed arguments must be a pipe symbol '| '|& found instead ~s" arg))))))
 
 
 (define (assert-is-job-or-pipe-symbol who arg)

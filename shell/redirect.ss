@@ -349,7 +349,13 @@
   (case-lambda
     ((job options)
       (job-raise-if-started/recursive 'sh-run/bytevector job)
-      (%job-id-set! job -1) ;; prevents showing job notifications
+      (let ((verbose? (sh-job-verbose? job)))
+        ;; set job as silent: suppress job status change notifications
+        (sh-job-verbose?-set! job #f)
+        (sh-job-on-finish job
+          (lambda ()
+            ;; restore job verbose/silent flag when it finishes
+            (sh-job-verbose?-set! job verbose?))))
       (let ((read-fd (sh-start/fd1 job options)))
         ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
         (sh-wait/fd-read-all job read-fd)))

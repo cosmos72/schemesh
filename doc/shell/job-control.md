@@ -151,4 +151,3 @@ Job must be just created or already exited, i.e. NOT running or stopped.
 If `verbose?` is truish then the job is set to "verbose": it may have a job ID, and its status changes will be notified at REPL.
 
 If `verbose?` is `#f` then job is set to "silent": it will NOT have a job ID, and its status changes will NOT be notified at REPL.
-

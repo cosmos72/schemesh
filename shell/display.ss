@@ -66,7 +66,7 @@
       ((job)
         ;; (debugf "queue-job-display-summary add job=~s id=~s" job (job-id job))
         ;; fix issue #83: ignore silent jobs
-        (unless (job-silent? job)
+        (when (sh-job-verbose? job)
           (set! queue (cons job queue))))
       (()
         ;; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))

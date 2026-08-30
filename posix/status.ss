@@ -63,10 +63,8 @@
 (define running
   (case-lambda
     ((job-id)
-      (if job-id
-        (begin
-          (assert* 'running (fixnum? job-id)) ;; job-id may also be -1 or #f
-          (%make-status 'running job-id))
+      (if (fixnum? job-id) ;; job-id may also be #f or 'silent
+        (%make-status 'running job-id)
         s-running))
     (()
       s-running)))
