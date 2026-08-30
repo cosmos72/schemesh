@@ -22,8 +22,8 @@
 
 
 ;; Create a pipe multijob to later start it.
-;; Odd elements in children-jobs-with-pipe must be sh-job or subtype.
-;; Even elements in children-jobs-with-pipe must be one of the symbols '\ '|&
+;; Odd elements (i.e. first, third...) in children-jobs-with-pipe must be sh-job or subtype.
+;; Even elements (i.e. second, fourth... ) in children-jobs-with-pipe must be one of the symbols '\ '|&
 (define (sh-pipe* . children-jobs-with-pipe)
   (let ((kind (validate-pipe*-args children-jobs-with-pipe)))
     (make-multijob kind
