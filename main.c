@@ -62,7 +62,7 @@ static void handle_scheme_exception(void) {
   longjmp(jmp_env, on_exception);
 }
 
-static int usage(const char* name) {
+static void usage(const char* name) {
   if (name == NULL) {
     name = "schemesh";
   }
@@ -116,7 +116,7 @@ static void display_version(void) {
   fflush(stdout);
 }
 
-static int unknown_option(const char* name, const char* arg) {
+static void unknown_option(const char* name, const char* arg) {
   if (name == NULL) {
     name = "schemesh";
   }
@@ -128,7 +128,15 @@ static int unknown_option(const char* name, const char* arg) {
   exit(1);
 }
 
-static int missing_option_argument(const char* name, const char* arg) {
+static void missing_script_argument(const char* name) {
+  if (name == NULL) {
+    name = "schemesh-script";
+  }
+  fprintf(stderr, "%s: missing file path to execute.\n", name);
+  exit(1);
+}
+
+static void missing_option_argument(const char* name, const char* arg) {
   if (name == NULL) {
     name = "schemesh";
   }
@@ -319,7 +327,6 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
   int         i;
   int         opts = 1;
 
-  (void)argc;
   /**
    * install the same exception handler use use for REPL,
    * because Chez Scheme default exception handler sometimes causes infinite loops
@@ -332,7 +339,11 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
   }
 
   if (cmd->is_script) {
-    load_file_type_autodetect(argv[1], -1);
+    if (argc > 1 && argv[1]) {
+      load_file_type_autodetect(argv[1], -1);
+    } else {
+      missing_script_argument(argv[0]);
+    }
     /* consumes all arguments */
     return;
   }
