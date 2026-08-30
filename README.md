@@ -29,8 +29,8 @@ Schemesh can be used as:
   just execute the command `schemesh PATH-TO-SOME-FILE`
 
   You can also create a schemesh script file, let's say `my_script`,
-  write `#!/usr/bin/env schemesh` in its first line, then  `chmod +x my_script`
-  and launch it as an executable by typing `./my_script`
+  write `#!/usr/bin/env schemesh-script` in its first line, then  `chmod +x my_script`
+  and launch it as an executable by typing `./my_script arg1 arg2 ...`
 
 * a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes
 
