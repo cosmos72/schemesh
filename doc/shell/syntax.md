@@ -29,9 +29,13 @@ Ordered from highest precedence to lowest precedence, shell syntax is:
     and can also be disabled for a single character by preceding it with backslash `\`
 
 * substitution: command name and its arguments can contain the special sequences:
-    `$NAME` which expands to the value of the corresponding environment variable
+    `$NAME` or `${NAME}` that expand to the value of the corresponding environment variable,
+    including the special environment variables `$0` ... `$9` and `${NNN}` (where `NNN` is an unsigned integer)
+    for accessing the n-th command line argument
+
     `$[shell_commands]` or `` `shell_commands` `` that expand to the output produced by running the `shell_commands`
     See below for what `shell_commands` can contain.
+
     Substitution works normally inside double quotes `"..."` while it is disabled inside single quotes `'...'`
     and can also be disabled for a single character by preceding it with backslash `\`
 
