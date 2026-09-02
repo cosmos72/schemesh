@@ -61,7 +61,8 @@ Syntax: `. FILE`
 
 Same as [source](#source)
 
-Read a file and execute the contained shell script or Scheme source code.
+Read a file and execute the contained shell script or Scheme source code,
+passing `[ARG...]` as runtime arguments.
 
 Return exit status of last executed command, or value of last evaluated expression.
 
@@ -286,11 +287,12 @@ Each job has its own environment variables: initially they are inherited from pa
 To access the environment variables of the whole shell, use `global set [VAR [VALUE]]`
 
 #### source
-Syntax: `source FILE`
+Syntax: `source FILE [ARG...]`
 
 Same as [.](#dot)
 
-Read a file and execute the contained shell script or Scheme source code.
+Read a file and execute the contained shell script or Scheme source code,
+passing `[ARG...]` as runtime arguments.
 
 Return exit status of last executed command, or value of last evaluated expression.
 

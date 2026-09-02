@@ -90,20 +90,6 @@
             status))))))
 
 
-;; wrap the values returned by a jexpr into a status
-(define (jexpr-rets->status . vals)
-  (if (and (pair? vals) (null? (cdr vals)))
-    (let ((val (car vals)))
-      (cond
-        ((not val)
-          (failed #f)) ;; special case: wrap #f -> (failed #f)
-        ((status? val)
-          val) ;; jexpr returned a status, do not wrap it
-        (else
-          (list->ok vals))))
-    (list->ok vals)))
-
-
 ;; call jexpr-proc and store its results into job-status
 ;; returns job status
 (define (jexpr-call-proc job options)
@@ -119,7 +105,7 @@
             (if (logbit? 1 (procedure-arity-mask proc))
               (proc job)
               (proc))))
-        jexpr-rets->status)
+        values->status)
       (catch (ex)
         (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
         (exception ex))))) ;; return exception status

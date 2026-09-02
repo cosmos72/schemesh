@@ -15,16 +15,17 @@
 
     sh-dynamic-wind)
   (import
-    (rnrs)
-    (rnrs mutable-pairs)
-    (only (chezscheme)                 annotation? annotation-stripped compile-to-port load-compiled-from-port void)
+    (except (rnrs)                     command-line)
+          (rnrs mutable-pairs)
+    (only (chezscheme)                 annotation? annotation-stripped command-line command-line-arguments
+                                       compile-to-port load-compiled-from-port parameterize void)
     (only (scheme2k bootstrap) assert* raise-errorf until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
     (only (scheme2k containers utf8b)  utf8b->string)
     (only (scheme2k posix fd)          fd-close fd-read-all fd-write-all file->fd)
     (only (scheme2k posix io)          fd->port file->port)
-    (only (scheme2k posix status)      ok failed)
+    (only (scheme2k posix status)      ok failed values->status)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-job-on-finish sh-fd))
@@ -433,18 +434,18 @@
 ;;
 ;; As all builtins do, must return job status.
 (define builtin-source
-  (let ((bv-too-few-args  (string->utf8 "schemesh: source: too few arguments\n"))
-        (bv-too-many-args (string->utf8 "schemesh: source: too many arguments\n")))
+  (let ((bv-too-few-args  (string->utf8 "schemesh: source: too few arguments\n")))
     (lambda (job prog-and-args options)
       (cond
         ((null? (cdr prog-and-args))
           (fd-write-all (sh-fd 2) bv-too-few-args)
           (failed 1))
-        ((not (null? (cddr prog-and-args)))
-          (fd-write-all (sh-fd 2) bv-too-many-args)
-          (failed 1))
         (else
-          (ok (sh-eval-file (cadr prog-and-args))))))))
+          (parameterize ((command-line           (cdr prog-and-args))
+                         (command-line-arguments (cddr prog-and-args)))
+            (call-with-values
+              (lambda () (sh-eval-file (cadr prog-and-args)))
+              values->status)))))))
 
 
 (begin
@@ -454,8 +455,14 @@
     (hashtable-set! t "source"     builtin-source))
 
   (let ((t (sh-builtins-help))
-        (msg (string->utf8 " filename
-    read FILENAME and execute the contained shell script or Scheme source code.
+        (msg (string->utf8 " filename [arg...]
+    read FILENAME and execute the contained shell script, Scheme source code or compiled library.
+
+    Optional arguments [ARG...] are stored in shell special variables $1 ... $9 and ${NNN}
+    and also in Scheme parameters (command-line) and (command-line-arguments)
+
+    Note: (car (command-line)) will be FILENAME,
+    while (cdr (command-line)) and (command-line-arguments) will both be [ARG...]
 
     return exit status of last executed command, or value of last evaluated expression.\n")))
     (hashtable-set! t "."      msg)

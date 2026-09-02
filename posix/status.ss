@@ -11,7 +11,7 @@
   (export
        posix-exit status-display-color?
        new running stopped exception failed killed ok
-       status? status->kind status->value list->ok ok->list ok->values
+       status? status->kind status->value list->ok ok->list ok->values values->status
        new? started? running? stopped? finished? ok?)
   (import
     (rnrs)
@@ -118,6 +118,20 @@
           (%make-status 'ok vals))))
     (else
       (%make-status 'ok vals))))
+
+
+;; wrap the values returned by an arbitrary expression into a status
+(define (values->status . vals)
+  (if (and (pair? vals) (null? (cdr vals)))
+    (let ((val (car vals)))
+      (cond
+        ((not val)
+          (failed #f)) ;; special case: wrap #f -> (failed #f)
+        ((status? val)
+          val) ;; returned a status, do not wrap it
+        (else
+          (list->ok vals))))
+    (list->ok vals)))
 
 
 ;; Extract the kind of a status and return it.
