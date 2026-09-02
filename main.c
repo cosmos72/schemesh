@@ -123,7 +123,7 @@ static void usage(const char* name, const int is_script) {
           "\n"
           "The type of files specified in command line is determined by the last preceding\n"
           "  option '-t TYPE' or '--type TYPE'.\n"
-          "If TYPE is set to 'auto' or is not set, the type of files depends on its name:\n"
+          "If TYPE is set to 'auto' or is not set, the type of files depend on their name:\n"
           "  file names ending in '.sh' or not containing '.' are executed as shell source,\n"
           "  file names ending in '.so' are executed as compiled scheme library,\n"
           "  all other files are executed as scheme source\n"
