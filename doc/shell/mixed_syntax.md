@@ -56,13 +56,13 @@ Schemesh can execute files in several ways:
 3. by running `schemesh --script FILE [ARG...]`
 4. inside schemesh, by executing `. FILE [ARG...]` or `source FILE [ARG...]`
 5. inside schemesh, by evaluating `(sh-eval-file "FILE")` or `(sh-eval-file "FILE" TYPE)`
-   where `TYPE` is one of: `'auto` `'scheme` `'shell` `'library`
+   where optional `TYPE` is one of: `'auto` `'scheme` `'shell` `'library`
 6. by creating a file that starts with a line `#!/usr/bin/env schemesh-script`
    then marking it executable with `chmod +x PATH/TO/FILE`
    and finally executing it with `PATH/TO/FILE [ARG...]`
 
 In 2. and 3. `FILE` initial syntax can optionally be specified by a preceding option `--type scheme` or `--type shell` or `--type library`<br/>
-In 5. `FILE` initial syntax can optionally be specified by optional argument `TYPE`<br/>
+In 5. `FILE` initial syntax can be specified by optional argument `TYPE`<br/>
 In all other cases, the initial syntax is deduced from `FILE` name:
 * file names ending with `.sh`, or without dots in the name, are assumed to start in shell syntax
 * file names ending with `.so` are assumed to be compiled libraries
@@ -80,7 +80,7 @@ If you want to pass arguments to a file, two mechanisms are available:<br/>
 ```
 
 Independently from how they have been set, command line arguments can be accessed
-both with Scheme `(command-line)` and with shell special variables `$0` ... `$9` and `${NNN}`
+both with standard Scheme function `(command-line)` and with shell special variables `$0` ... `$9` and `${NNN}`
 
 ### Mixed syntax: shell inside Scheme
 
