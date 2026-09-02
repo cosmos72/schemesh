@@ -23,19 +23,19 @@
 #include "load.h"
 #include "posix/posix.h"
 
-enum jmp_arg {
+typedef enum {
   NOP         = 0,
   INIT_FAILED = 1,
   EVAL_FAILED = 2,
   QUIT_FAILED = 3,
-};
+} jmp_arg;
 
-enum syntax_type {
+typedef enum {
   TYPE_AUTO     = 0,
   TYPE_SCHEME   = 1,
   TYPE_SHELL    = 2,
   TYPE_COMPILED = 3,
-};
+} syntax_type;
 
 typedef struct {
   const char* data;
@@ -92,47 +92,38 @@ static void usage(const char* name, const int is_script) {
           name,
           is_script ? "[options] FILE [ARG...]" : "[options and files]",
           "\nOptions:\n"
-          "  -c STRING, --cmd STRING     run STRING as shell source\n"
-          "  -e STRING, --eval STRING    run STRING as scheme source\n"
+          "  -c STRING, --cmd STRING   run STRING as shell source\n"
+          "  -e STRING, --eval STRING  run STRING as scheme source\n"
           "\n"
-          "  --cmd-file FILE             read and execute FILE as shell source\n"
-          "  --cmd-script FILE [ARG...]  always last option: consume all remaining arguments,\n"
-          "                              store them as runtime arguments, then\n"
-          "                              read and execute FILE as shell source\n"
-          "\n"
-          "  --eval-file FILE            read and execute FILE as scheme source\n"
-          "  --eval-script FILE [ARG...] always last option: consume all remaining arguments,\n"
-          "                              store them as runtime arguments, then\n"
-          "                              read and execute FILE as scheme source\n"
-          "\n"
-          "  --load-file FILE            load and execute FILE as compiled scheme library\n"
-          "  --load-script FILE [ARG...] always last option: consume all remaining arguments,\n"
-          "                              store them as runtime arguments, then\n"
-          "                              load and execute FILE as compiled scheme library\n"
-          "\n"
-          "  -h, --help                  display this help and exit immediately\n",
+          "  -f FILE, --file FILE    read and execute FILE\n"
+          "  --script FILE [ARG...]  always last option: consume all remaining arguments,\n"
+          "                            store them as runtime arguments,\n"
+          "                            then read and execute FILE\n"
+          "  -h, --help              display this help and exit immediately\n",
           is_script ? /**/
-              "  -i, --repl                  IGNORED in schemesh-script,\n"
-              "                              would start the interactive repl in schemesh\n" :
-              "  -i, --repl                  unconditionally start the interactive repl\n"
-              "                              (default: start only if no files, strings\n"
-              "                              or --version are specified)\n",
-
-          "  --version                   display version information\n"
-          "  -l, --login                 ignored. accepted for compatibility with other shells\n"
-          "  -p                          ignored. accepted for compatibility with other shells\n"
+              "  -i, --repl              IGNORED in schemesh-script,\n"
+              "                            would start the interactive repl in schemesh\n" :
+              "  -i, --repl              unconditionally start the interactive repl\n"
+              "                            (default: start only if no files, strings\n"
+              "                            or --version are specified)\n",
+          "  -t TYPE, --type TYPE    set the type of any following FILE. Must be one of:\n"
+          "                            auto scheme shell compiled. Default is 'auto'\n"
+          "  --version               display version information\n"
+          "  -l, --login             ignored. accepted for compatibility with other shells\n"
+          "  -p                      ignored. accepted for compatibility with other shells\n"
 #ifdef SCHEMESH_STATIC
-          "  --boot-dir DIR              ignored in this build. set Chez Scheme boot directory\n"
-          "  --library-dir DIR           ignored in this build. set schemesh library directory\n"
+          "  --boot-dir DIR          ignored in this build. set Chez Scheme boot directory\n"
+          "  --library-dir DIR       ignored in this build. set schemesh library directory\n"
 #else
-          "  --boot-dir DIR              load Chez Scheme boot files from DIR\n"
-          "  --library-dir DIR           load schemesh libraries from DIR\n"
+          "  --boot-dir DIR          load Chez Scheme boot files from DIR\n"
+          "  --library-dir DIR       load schemesh libraries from DIR\n"
 #endif
-          "  --                          end of options. always treat further arguments\n"
-          "                              as files even if they start with -\n"
+          "  --                      end of options. always treat further arguments\n"
+          "                            as files even if they start with -\n"
           "\n"
-          "The type of files passed as arguments (i.e. not specified after options\n"
-          "'--cmd-...', '--eval-...' or '--load-...') is determined by their name:\n"
+          "The type of files specified in command line is determined by the last preceding\n"
+          "  option '-t TYPE' or '--type TYPE'.\n"
+          "If TYPE is set to 'auto' or is not set, the type of files depends on its name:\n"
           "  file names ending in '.sh' or not containing '.' are executed as shell source,\n"
           "  file names ending in '.so' are executed as compiled scheme library,\n"
           "  all other files are executed as scheme source\n"
@@ -232,6 +223,39 @@ static int chars_end_with(chars cs, chars suffix) {
   return chars_equal(cs, suffix);
 }
 
+static ptr type_to_symbol(const syntax_type type) {
+  return Sstring_to_symbol(type == TYPE_SCHEME ? "scheme" : "shell");
+}
+
+static syntax_type type_from_chars(const chars arg) {
+  syntax_type type;
+  if (chars_equal(arg, CHARS("scheme"))) {
+    type = TYPE_SCHEME;
+  } else if (chars_equal(arg, CHARS("shell"))) {
+    type = TYPE_SHELL;
+  } else if (chars_equal(arg, CHARS("compiled"))) {
+    type = TYPE_COMPILED;
+  } else {
+    type = TYPE_AUTO;
+  }
+  return type;
+}
+
+static void type_from_chars_validate(const char* name, const chars arg) {
+  if (chars_equal(arg, CHARS("auto")) || chars_equal(arg, CHARS("scheme")) ||
+      chars_equal(arg, CHARS("shell")) || chars_equal(arg, CHARS("compiled"))) {
+    return;
+  }
+  if (name == NULL) {
+    name = "schemesh";
+  }
+  fprintf(stderr,
+          "%s: invalid type '%s', expecting one of: auto scheme shell compiled.\n",
+          name,
+          arg.data);
+  exit(1);
+}
+
 static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
   const char* argi;
   int         i;
@@ -276,17 +300,14 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
       /* will be executed by run_files_and_strings() */
       cmd->have_string = 1;
       i++;
-    } else if (chars_equal(arg, CHARS("--cmd-file")) || chars_equal(arg, CHARS("--eval-file")) ||
-               chars_equal(arg, CHARS("--load-file"))) {
+    } else if (chars_equal(arg, CHARS("-f")) || chars_equal(arg, CHARS("--file"))) {
       if (!arg2) {
         missing_option_argument(argv[0], argi);
       }
       /* will be executed by run_files_and_strings() */
       cmd->have_file = 1;
       i++;
-    } else if (chars_equal(arg, CHARS("--cmd-script")) ||
-               chars_equal(arg, CHARS("--eval-script")) ||
-               chars_equal(arg, CHARS("--load-script"))) {
+    } else if (chars_equal(arg, CHARS("--script"))) {
       if (!arg2) {
         missing_option_argument(argv[0], argi);
       }
@@ -298,9 +319,11 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
       usage(argv[0], cmd->is_script);
     } else if (chars_equal(arg, CHARS("-i")) || chars_equal(arg, CHARS("--repl"))) {
       cmd->force_repl = 1;
-    } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("-p")) ||
-               chars_equal(arg, CHARS("--login"))) {
+    } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("--login")) ||
+               chars_equal(arg, CHARS("-p"))) {
       /* nop */
+    } else if (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("-type"))) {
+      type_from_chars_validate(argv[0], arg);
     } else if (chars_equal(arg, CHARS("--version"))) {
       /* disable repl unless cmd->force_repl is set */
       cmd->have_string = 1;
@@ -314,16 +337,12 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
   }
 }
 
-static ptr type_to_symbol(const enum syntax_type type) {
-  return Sstring_to_symbol(type == TYPE_SCHEME ? "scheme" : "shell");
-}
-
-static void eval_string_type(const char filename[], const enum syntax_type type) {
+static void eval_string_type(const char filename[], const syntax_type type) {
   scheme2k_call3(
       "sh-eval-string/print", scheme2k_Sstring_utf8b(filename, -1), type_to_symbol(type), Strue);
 }
 
-static void load_script_type(const char* argv[], const int argc, enum syntax_type type) {
+static void load_script_type(const char* argv[], const int argc, syntax_type type) {
   ptr str;
   if (!argv || !argv[0] || argc <= 0) {
     return;
@@ -351,7 +370,7 @@ static void load_script_type(const char* argv[], const int argc, enum syntax_typ
   }
 }
 
-static void load_file_type(const char filename[], const enum syntax_type type) {
+static void load_file_type(const char filename[], const syntax_type type) {
   load_script_type(&filename, 1, type);
 }
 
@@ -364,6 +383,7 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
   const char* argi;
   int         i;
   int         opts = 1;
+  syntax_type type = TYPE_AUTO;
 
   for (i = 1; (argi = argv[i]) != NULL; i++) {
     if (opts && argi[0] == '-') {
@@ -382,32 +402,23 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
       } else if (arg2 && (chars_equal(arg, CHARS("-e")) || chars_equal(arg, CHARS("--eval")))) {
         eval_string_type(arg2, TYPE_SCHEME);
         i++;
-      } else if (arg2 && (chars_equal(arg, CHARS("--cmd-file")))) {
-        load_file_type(arg2, TYPE_SHELL);
+      } else if (arg2 && (chars_equal(arg, CHARS("-f")) || chars_equal(arg, CHARS("--file")))) {
+        load_file_type(arg2, type);
         i++;
-      } else if (arg2 && (chars_equal(arg, CHARS("--eval-file")))) {
-        load_file_type(arg2, TYPE_SCHEME);
+      } else if (arg2 && (chars_equal(arg, CHARS("--script")))) {
+        load_script_type(argv + i + 1, argc - i - 1, type);
+        break; /* consumes all arguments */
+      } else if (arg2 && (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("--type")))) {
+        type = type_from_chars(chars_from_c(arg2));
         i++;
-      } else if (arg2 && (chars_equal(arg, CHARS("--load-file")))) {
-        load_file_type(arg2, TYPE_COMPILED);
-        i++;
-      } else if (arg2 && (chars_equal(arg, CHARS("--cmd-script")))) {
-        load_script_type(argv + i + 1, argc - i - 1, TYPE_SHELL);
-        break; /* consumes all arguments */
-      } else if (arg2 && (chars_equal(arg, CHARS("--eval-script")))) {
-        load_script_type(argv + i + 1, argc - i - 1, TYPE_SCHEME);
-        break; /* consumes all arguments */
-      } else if (arg2 && (chars_equal(arg, CHARS("--load-script")))) {
-        load_script_type(argv + i + 1, argc - i - 1, TYPE_COMPILED);
-        break; /* consumes all arguments */
       } else {
         /* some other option */
       }
     } else if (cmd->is_script) {
-      load_script_type(argv + i, argc - i, TYPE_AUTO);
+      load_script_type(argv + i, argc - i, type);
       break; /* consumes all arguments */
     } else {
-      load_file_type(argi, TYPE_AUTO);
+      load_file_type(argi, type);
     }
   }
 }
