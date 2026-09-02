@@ -227,7 +227,8 @@ static ptr type_to_symbol(const syntax_type type) {
   return Sstring_to_symbol(type == TYPE_SCHEME ? "scheme" : "shell");
 }
 
-static syntax_type type_from_chars(const chars arg) {
+static syntax_type type_from_string(const char str[]) {
+  chars arg = {str, strlen(str)};
   syntax_type type;
   if (chars_equal(arg, CHARS("scheme"))) {
     type = TYPE_SCHEME;
@@ -241,7 +242,8 @@ static syntax_type type_from_chars(const chars arg) {
   return type;
 }
 
-static void type_from_chars_validate(const char* name, const chars arg) {
+static void type_from_string_validate(const char* name, const char str[]) {
+  const chars arg = {str, strlen(str)};
   if (chars_equal(arg, CHARS("auto")) || chars_equal(arg, CHARS("scheme")) ||
       chars_equal(arg, CHARS("shell")) || chars_equal(arg, CHARS("compiled"))) {
     return;
@@ -322,8 +324,9 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
     } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("--login")) ||
                chars_equal(arg, CHARS("-p"))) {
       /* nop */
-    } else if (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("-type"))) {
-      type_from_chars_validate(argv[0], arg);
+    } else if (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("--type"))) {
+      type_from_string_validate(argv[0], arg2);
+      i++;
     } else if (chars_equal(arg, CHARS("--version"))) {
       /* disable repl unless cmd->force_repl is set */
       cmd->have_string = 1;
@@ -391,8 +394,6 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
       const char* arg2 = argv[i + 1]; /* NULL if argi is last argument */
       if (chars_equal(arg, CHARS("--"))) {
         opts = 0; /* end of options, the rest are files */
-      } else if (chars_equal(arg, CHARS("--args"))) {
-        break; /* consumes all arguments */
       } else if (arg2 && (chars_equal(arg, CHARS("--boot-dir")) ||
                           chars_equal(arg, CHARS("--library-dir")))) {
         i++; /* skip subsequent argi */
@@ -409,7 +410,7 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
         load_script_type(argv + i + 1, argc - i - 1, type);
         break; /* consumes all arguments */
       } else if (arg2 && (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("--type")))) {
-        type = type_from_chars(chars_from_c(arg2));
+        type = type_from_string(arg2);
         i++;
       } else {
         /* some other option */
