@@ -23,6 +23,8 @@
 #include "load.h"
 #include "posix/posix.h"
 
+#define N_OF(array) (sizeof(array) / sizeof((array)[0]))
+
 typedef enum {
   NOP         = 0,
   INIT_FAILED = 1,
@@ -31,10 +33,10 @@ typedef enum {
 } jmp_arg;
 
 typedef enum {
-  TYPE_AUTO     = 0,
-  TYPE_SCHEME   = 1,
-  TYPE_SHELL    = 2,
-  TYPE_COMPILED = 3,
+  TYPE_AUTO    = 0,
+  TYPE_SCHEME  = 1,
+  TYPE_SHELL   = 2,
+  TYPE_LIBRARY = 3,
 } syntax_type;
 
 typedef struct {
@@ -223,19 +225,23 @@ static int chars_end_with(chars cs, chars suffix) {
   return chars_equal(cs, suffix);
 }
 
-static ptr type_to_symbol(const syntax_type type) {
-  return Sstring_to_symbol(type == TYPE_SCHEME ? "scheme" : "shell");
+static ptr type_to_symbol(syntax_type type) {
+  static const char names[][8] = {"auto", "scheme", "shell", "library"};
+  if ((int)type < 0 || (size_t)type >= N_OF(names)) {
+    type = TYPE_AUTO;
+  }
+  return Sstring_to_symbol(names[type]);
 }
 
 static syntax_type type_from_string(const char str[]) {
-  chars arg = {str, strlen(str)};
+  chars       arg = {str, strlen(str)};
   syntax_type type;
   if (chars_equal(arg, CHARS("scheme"))) {
     type = TYPE_SCHEME;
   } else if (chars_equal(arg, CHARS("shell"))) {
     type = TYPE_SHELL;
-  } else if (chars_equal(arg, CHARS("compiled"))) {
-    type = TYPE_COMPILED;
+  } else if (chars_equal(arg, CHARS("library"))) {
+    type = TYPE_LIBRARY;
   } else {
     type = TYPE_AUTO;
   }
@@ -245,14 +251,14 @@ static syntax_type type_from_string(const char str[]) {
 static void type_from_string_validate(const char* name, const char str[]) {
   const chars arg = {str, strlen(str)};
   if (chars_equal(arg, CHARS("auto")) || chars_equal(arg, CHARS("scheme")) ||
-      chars_equal(arg, CHARS("shell")) || chars_equal(arg, CHARS("compiled"))) {
+      chars_equal(arg, CHARS("shell")) || chars_equal(arg, CHARS("library"))) {
     return;
   }
   if (name == NULL) {
     name = "schemesh";
   }
   fprintf(stderr,
-          "%s: invalid type '%s', expecting one of: auto scheme shell compiled.\n",
+          "%s: invalid type '%s', expecting one of: auto scheme shell library.\n",
           name,
           arg.data);
   exit(1);
@@ -325,6 +331,9 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
                chars_equal(arg, CHARS("-p"))) {
       /* nop */
     } else if (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("--type"))) {
+      if (!arg2) {
+        missing_option_argument(argv[0], argi);
+      }
       type_from_string_validate(argv[0], arg2);
       i++;
     } else if (chars_equal(arg, CHARS("--version"))) {
@@ -356,20 +365,13 @@ static void load_script_type(const char* argv[], const int argc, syntax_type typ
     size_t      len      = strlen(filename);
     str                  = scheme2k_Sstring_utf8b(filename, len);
     if (type == TYPE_AUTO && len > 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
-      type = TYPE_COMPILED;
+      type = TYPE_LIBRARY;
     }
   }
-  switch (type) {
-    case TYPE_AUTO:
-      scheme2k_call1("sh-eval-file/print", str);
-      break;
-    case TYPE_SCHEME:
-    case TYPE_SHELL:
-      scheme2k_call2("sh-eval-file/print", str, type_to_symbol(type));
-      break;
-    case TYPE_COMPILED:
-      scheme2k_call1("load", str);
-      break;
+  if (type == TYPE_AUTO) {
+    scheme2k_call1("sh-eval-file/print", str);
+  } else {
+    scheme2k_call2("sh-eval-file/print", str, type_to_symbol(type));
   }
 }
 

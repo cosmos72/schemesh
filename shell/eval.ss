@@ -17,7 +17,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)                 annotation? annotation-stripped compile-to-port void)
+    (only (chezscheme)                 annotation? annotation-stripped compile-to-port load-compiled-from-port void)
     (only (scheme2k bootstrap) assert* raise-errorf until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
@@ -30,11 +30,21 @@
     (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-job-on-finish sh-fd))
 
 
-(define (default-parser-for-file-extension path)
-  (if (or (string-suffix? path ".sh")
-          (not (filename-index-right path #\.)))
-    'shell
-    'scheme))
+(define (default-parser-for-file path)
+  (cond
+    ((string-suffix? path ".so")
+      'library)
+    ((or (string-suffix? path ".sh")
+         (not (filename-index-right path #\.)))
+      'shell)
+    (else
+      'scheme)))
+
+
+(define (default-parser-for path initial-parser)
+  (if (eq? 'auto initial-parser)
+    (default-parser-for-file path)
+    initial-parser))
 
 
 ;; return position of last character equal to ch in the filename part of path,
@@ -56,9 +66,9 @@
 ;; and return the parsed source form.
 ;;
 ;; optional arguments:
-;;   initial-parser - one of the symbols: 'scheme 'shell 'r6rs.
+;;   initial-parser - one of the symbols: 'auto 'scheme 'shell 'r6rs.
 ;;                    default: autodetect from file name's extension.
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     default: #t
@@ -69,7 +79,8 @@
     ((path initial-parser enabled-parsers annotations)
       (assert* 'sh-read-file (symbol? initial-parser))
       (assert* 'sh-read-file (symbol? annotations))
-      (let ((port #f))
+      (let ((initial-parser (default-parser-for path initial-parser))
+            (port #f))
         (dynamic-wind
           (lambda () ; before body
             (set! port (file->port path 'read)))
@@ -82,7 +93,7 @@
     ((path initial-parser)
        (sh-read-file path initial-parser #t 'plain))
     ((path)
-       (sh-read-file path (default-parser-for-file-extension path) #t 'plain))))
+       (sh-read-file path 'auto #t 'plain))))
 
 
 ;; read multi-language source contents from specified input-path with (sh-read-file),
@@ -91,9 +102,9 @@
 ;; optional arguments:
 ;;   output-path     - if not specified, input-file with its extension replaced by ".so"
 ;;                     (if input-file already ends with ".so", then input-file + another ".so")
-;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs.
+;;   initial-parser  - one of the symbols: 'auto 'scheme 'shell 'r6rs.
 ;;                     default: autodetect from input-path's extension.
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     default: #t
@@ -121,12 +132,11 @@
     ((input-path output-path initial-parser)
       (sh-compile-file input-path output-path initial-parser #t 'annotations))
     ((input-path output-path)
-      (sh-compile-file input-path output-path (default-parser-for-file-extension input-path) #t 'annotations))
+      (sh-compile-file input-path output-path 'auto #t 'annotations))
     ((input-path)
       (sh-compile-file input-path
                        (default-output-path-for-input-path input-path)
-                       (default-parser-for-file-extension input-path)
-                       #t 'annotations))))
+                       'auto #t 'annotations))))
 
 
 (define (default-output-path-for-input-path input-path)
@@ -141,7 +151,7 @@
 ;;   fd              - the file descriptor to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t
@@ -163,7 +173,7 @@
 ;;   in              - the textual input port to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t
@@ -196,7 +206,7 @@
 ;;   str             - the string to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. #t
 ;;                     Default: #t
@@ -255,14 +265,26 @@
       (else                (cons 'begin forms)))))
 
 
+;; wrapper around (load-compiled-from-port) that supports non-UTF8 paths
+(define (load-compiled-from-file path)
+  (let ((port #f))
+    (dynamic-wind
+      (lambda () ; before body
+        (set! port (file->port path 'read '() 'binary (buffer-mode block))))
+      (lambda () ; body
+        (load-compiled-from-port port))
+      (lambda () ; after body
+        (when port (close-port port) (set! port #f))))))
+
+
 ;; open specified file path, read and parse its multi-language source contents with (sh-read-port),
 ;; and eval the parsed source form.
 ;;
 ;; mandatory arguments:
 ;;   path            - the filesystem path to read from
 ;; optional arguments:
-;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   initial-parser  - one of the symbols: 'auto 'scheme 'shell 'r6rs 'library
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t
@@ -271,13 +293,16 @@
 (define sh-eval-file
   (case-lambda
     ((path initial-parser enabled-parsers annotations)
-      (sh-eval (sh-read-file path initial-parser enabled-parsers annotations)))
+      (let ((initial-parser (default-parser-for path initial-parser)))
+        (if (eq? 'library initial-parser)
+          (load-compiled-from-file path)
+          (sh-eval (sh-read-file path initial-parser enabled-parsers annotations)))))
     ((path initial-parser enabled-parsers)
       (sh-eval-file path initial-parser enabled-parsers 'annotations))
     ((path initial-parser)
-      (sh-eval-file path initial-parser (parsers) 'annotations))
+      (sh-eval-file path initial-parser #t 'annotations))
     ((path)
-      (sh-eval-file path (default-parser-for-file-extension path) (parsers) 'annotations))))
+      (sh-eval-file path 'auto #t 'annotations))))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
@@ -286,7 +311,7 @@
 ;;   fd              - the file descriptor to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t
@@ -309,7 +334,7 @@
 ;;   in              - the textual input port to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t
@@ -342,7 +367,7 @@
 ;;   str             - the string to read from
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
 ;; optional arguments:
-;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 ;;                     Default: #t

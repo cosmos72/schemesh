@@ -52,22 +52,39 @@ For details about valid shell syntax, see [doc/shell/syntax.md](syntax.md).
 
 Schemesh can execute files in several ways:
 1. by running `schemesh FILE`
-2. by running `schemesh --cmd-file FILE`
-3. by running `schemesh --eval-file FILE`
-4. by creating a file that starts with a line `#!/usr/bin/env schemesh` then marking it executable with `chmod +x FILE`
-   and finally executing it with `./FILE`
-5. inside schemesh using shell syntax, by executing `. FILE` or `source FILE`
-6. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE")`
-7. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'scheme)`
-8. inside schemesh using Scheme syntax, by evaluating `(sh-eval-file "FILE" 'shell)`
+2. by running `schemesh --file FILE`
+3. by running `schemesh --script FILE [ARG...]`
+4. inside schemesh, by executing `. FILE` or `source FILE`
+5. inside schemesh, by evaluating `(sh-eval-file "FILE")` or `(sh-eval-file "FILE" 'auto)`
+6. inside schemesh, by evaluating `(sh-eval-file "FILE" 'scheme)` - assumes `FILE` starts in Scheme syntax
+7. inside schemesh, by evaluating `(sh-eval-file "FILE" 'shell)` - assumes `FILE` starts in shell syntax
+8. inside schemesh, by evaluating `(sh-eval-file "FILE" 'library)` - assumes `FILE` is a compiled library
+9. by creating a file that starts with a line `#!/usr/bin/env schemesh-script`
+   then marking it executable with `chmod +x PATH/TO/FILE`
+   and finally executing it with `PATH/TO/FILE [ARG...]`
 
-In 2. and 8. FILE is assumed to start in shell syntax.<br/>
-In 3. and 7. FILE is assumed to start in Scheme syntax.<br/>
-In all other cases, the initial syntax is deduced from FILE name:
+In 2. and 3. `FILE` initial syntax can optionally be specified by a preceding option `--type scheme` or `--type shell`<br/>
+In 6. `FILE` is assumed to start in Scheme syntax.<br/>
+In 7. `FILE` is assumed to start in shell syntax.<br/>
+In 8. `FILE` is assumed to be the compiled output produced by `(compile-file)`, `(sh-compile-file)` or similar.<br/>
+In all other cases, the initial syntax is deduced from `FILE` name:
 * file names ending with `.sh`, or without dots in the name, are assumed to start in shell syntax
+* file names ending with `.so` are assumed to be compiled libraries
 * all other files assumed to start in Scheme syntax
 
 As usual, the current syntax can be changed from inside the file itself with `#!scheme` `#!shell` `{...}` `(...)`
+
+If you want to pass arguments to a file, two mechanisms are available:<br/>
+* In 3. and 9. arguments can be specified immediately after `FILE` i.e. `FILE [ARG...]`
+* In 4. 5. 6. 7. and 8. file path and arguments can be temporarily stored in the global parameter
+  `(command-line)` as a list of strings. Example:
+```scheme
+(parameterize ((command-line '("./myscript" "arg1" "arg2")))
+  (sh-eval-file "./myscript"))
+```
+
+Independently from how they have been set, command line arguments can be accessed
+both with Scheme `(command-line)` and with shell special variables `$0` ... `$9` and `${NNN}`
 
 ### Mixed syntax: shell inside Scheme
 
