@@ -427,12 +427,12 @@
       (charspan-insert-right! csp #\space))
     (charspan-insert-right/string! csp (car tail))))
 
-(define (%sh-run/i job)
+(define (%sh-run* job run-proc)
   (with-exception-handler
     (base-exception-handler)
     (lambda ()
       (with-cooked-tty
-        ((top-level-value 'sh-run/i) job)))))
+        (run-proc job)))))
 
 (define (%sh-display obj)
   (unless (eq? (void) obj)
@@ -441,22 +441,32 @@
       (newline port)
       (flush-output-port port))))
 
+(define (lineedit-key-sh-run* lctx job job-string run-proc)
+  (let* ((str  (cond
+                 ((eq? #t job-string)     ((top-level-value 'sh-job->string) job))
+                 ((string? job-string)    job-string)
+                 ((procedure? job-string) (job-string job))
+                 (else #f)))
+         (len   (if (string? str) (string-length str) 0))
+         (trim? (not (or (fxzero? len) (string? job-string))))
+         (start (if (and trim? (char=? #\{ (string-ref str 0))) 1 0))
+         (end   (if (and trim? (char=? #\} (string-ref str (fx1- len)))) (fx1- len) len)))
+    (linekey-cleanup-before-cmd lctx str start end)
+    (let ((obj (%sh-run* job run-proc)))
+      (linekey-cleanup-after-cmd lctx)
+      (%sh-display obj))))
+
+(define lineedit-key-sh-run
+  (case-lambda
+    ((lctx job job-string)
+      (lineedit-key-sh-run* lctx job job-string (top-level-value 'sh-run)))
+    ((lctx job)
+      (lineedit-key-sh-run/i lctx job #f))))
+
 (define lineedit-key-sh-run/i
   (case-lambda
     ((lctx job job-string)
-      (let* ((str  (cond
-                     ((eq? #t job-string)     ((top-level-value 'sh-job->string) job))
-                     ((string? job-string)    job-string)
-                     ((procedure? job-string) (job-string job))
-                     (else #f)))
-             (len   (if (string? str) (string-length str) 0))
-             (trim? (not (or (fxzero? len) (string? job-string))))
-             (start (if (and trim? (char=? #\{ (string-ref str 0))) 1 0))
-             (end   (if (and trim? (char=? #\} (string-ref str (fx1- len)))) (fx1- len) len)))
-        (linekey-cleanup-before-cmd lctx str start end)
-        (let ((obj (%sh-run/i job)))
-          (linekey-cleanup-after-cmd lctx)
-          (%sh-display obj))))
+      (lineedit-key-sh-run* lctx job job-string (top-level-value 'sh-run/i)))
     ((lctx job)
       (lineedit-key-sh-run/i lctx job #f))))
 

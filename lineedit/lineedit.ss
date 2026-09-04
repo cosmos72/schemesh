@@ -56,7 +56,7 @@
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
     lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
 
-    lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent lineedit-key-cmd lineedit-key-sh-run/i
+    lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent lineedit-key-cmd lineedit-key-sh-run lineedit-key-sh-run/i
 
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
