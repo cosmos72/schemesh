@@ -186,12 +186,15 @@ static ptr make_string_list(const char* const* argv, int n) {
   return ret;
 }
 
-static void set_command_line(const char* const* argv, int n) {
-  ptr l = make_string_list(argv, n);
+static void set_command_line_list(ptr l) {
   Slock_object(l);
   scheme2k_call1("command-line", l);
   scheme2k_call1("command-line-arguments", Spairp(l) ? Scdr(l) : Snil);
   Sunlock_object(l);
+}
+
+static void set_command_line(const char* const* argv, int n) {
+  set_command_line_list(make_string_list(argv, n));
 }
 
 static chars chars_from_c(const char* data) {
@@ -349,9 +352,12 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
   }
 }
 
-static void eval_string_type(const char filename[], const syntax_type type) {
+static ptr minimal_command_line_list = Snil;
+
+static void eval_string_type(const char str[], const syntax_type type) {
+  set_command_line_list(minimal_command_line_list);
   scheme2k_call3(
-      "sh-eval-string/print", scheme2k_Sstring_utf8b(filename, -1), type_to_symbol(type), Strue);
+      "sh-eval-string/print", scheme2k_Sstring_utf8b(str, -1), type_to_symbol(type), Strue);
 }
 
 static void load_script_type(const char* argv[], const int argc, syntax_type type) {
@@ -428,7 +434,8 @@ static void run_files_and_strings(int argc, const char* argv[], const cmdline* c
 
 int main(int argc, const char* argv[]) {
   cmdline cmd = {};
-  int     err = drop_privileges();
+
+  int err = drop_privileges();
   if (err != 0) {
     return err;
   }
@@ -457,7 +464,7 @@ int main(int argc, const char* argv[]) {
   }
 
   schemesh_import_all_libraries();
-
+  Slock_object(minimal_command_line_list = make_string_list(argv, *argv ? 1 : 0));
   Senable_expeditor(NULL);
   errno = 0;
 
@@ -477,8 +484,8 @@ again:
     goto finish;
   }
 #if 1
-  /* copy only program name, not the arguments we parsed above */
-  set_command_line(argv, 1);
+  /* store only program name, not the arguments we parsed above */
+  set_command_line_list(minimal_command_line_list);
   do {
     ptr ret = scheme2k_call0("repl");
 
