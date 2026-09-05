@@ -168,7 +168,7 @@ Added in 1.0.2
 `(lineedit-key-sh-run lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
 then runs `job` with [`(sh-run)`](../shell/job-control.md#sh-run),
 displays job exit status, finally marks prompt and current lines as "need redraw".<br/>
-Returns job status.<br/>
+Returns job exit status.<br/>
 Added in 1.0.2
 
 This function is needed rarely - consider using [`(lineedit-key-sh-run/i)`](#lineedit-key-sh-runi) instead.
@@ -179,7 +179,7 @@ Arguments are the same as [`(lineedit-key-sh-run/i)`](#lineedit-key-sh-runi).
 `(lineedit-key-sh-run/i lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
 then runs `job` with [`(sh-run/i)`](../shell/job-control.md#sh-runi),
 displays job exit or stopped status, finally marks prompt and current lines as "need redraw".<br/>
-Returns job status.<br/>
+Returns job exit or stopped status.<br/>
 Added in 1.0.2
 
 Mandatory argument `lctx` must be `linectx`.<br/>
@@ -189,18 +189,27 @@ Optional argument `job-string` must be one of:
 * `#t` to display job before starting it
 * a string, to be displayed instead of job
 * a function accepting one argument and returning one value. If calling `(job-string job)` returns a string,
-  such string will be be displayed instead of job. If it returns a `#f`, nothing will be displayed.
+  such string will be be displayed instead of job. If it returns `#f`, nothing will be displayed.
 
 ### Examples
 
-The following code instructs schemesh to start the command `` make -j `nproc` ``
+The following code instructs schemesh to run the command `` make -j `nproc` ``
 every time keypad KP+ is pressed, which produces the sequence `ESC O k` at least on xterm:
-```
+```scheme
 (linectx-keytable-insert! linectx-default-keytable
   (lambda (lctx)
-    (lineedit-key-to-history lctx)
-    (linectx-insert/string! lctx "make -j `nproc`")
-    (lineedit-key-enter lctx))
+    (lineedit-key-sh-run/i lctx {make -j `nproc`}))
   "\x1b;Ok")
 ```
-See [linectx.md](linectx.md#linectx-insertstring) for the function `(linectx-insert/string!)` used in the example and not documented above.
+Note that job control IS available: while `` make -j `nproc` `` is running,
+you can press `CTRL+Z` or `CTRL+C` with the usual effects.
+
+An almost equivalent mechanism is the shell builtin [`bind`](../shell/builtins.md#bind), as for example:
+```shell
+bind (values "\x1b;Ok") make -j `nproc`
+```
+which has a minor difference: it applies shell parsing rules,
+thus job substitution `` `nproc` `` is executed **immediately** and only **once** when `bind ...` is executed,
+and its output is injected into the arguments passed to shell builtin `bind`.
+
+Each time keypad KP+ is later pressed, there's no `` `nproc` `` to run: it has already been replaced with its output.
