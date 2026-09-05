@@ -113,7 +113,7 @@ Arument `CMD` can be an alias, a shell builtin, or a command.
 
 Note: shell syntax has no mechanism for specifying control characters;
 in most cases, you'll want to specify `KEYSEQ` using a Scheme expression `(values "...")`
-because it allows using Scheme string escape sequences, as for example `"\x1b;"` that indicates ESC.
+because it allows using Scheme string escape sequences, as for example `(values "\x1b;")` that indicates ESC.
 
 Return success, or failure if no `KEYSEQ` is specified.
 
