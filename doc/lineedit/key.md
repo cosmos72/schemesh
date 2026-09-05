@@ -201,14 +201,14 @@ every time keypad KP+ is pressed, which produces the sequence `ESC O k` at least
     (lineedit-key-sh-run/i lctx {make -j `nproc`}))
   "\x1b;Ok")
 ```
-Note that job control IS available: while `` make -j `nproc` `` is running,
+Note that job control **is** available: while `` make -j `nproc` `` is running,
 you can press `CTRL+Z` or `CTRL+C` with the usual effects.
 
 An almost equivalent mechanism is the shell builtin [`bind`](../shell/builtins.md#bind), as for example:
 ```shell
 bind (values "\x1b;Ok") make -j `nproc`
 ```
-which has a minor difference: it applies shell parsing rules,
+which has a minor difference: it applies shell semantic rules,
 thus job substitution `` `nproc` `` is executed **immediately** and only **once** when `bind ...` is executed,
 and its output is injected into the arguments passed to shell builtin `bind`.
 
