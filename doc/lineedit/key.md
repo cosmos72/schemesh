@@ -145,16 +145,16 @@ Added in 1.0.0
 `(lineedit-key-inspect-linectx lctx)` debugging helper: calls Chez Scheme `(inspect)` on `linectx` object passed as argument.
 
 ##### (lineedit-key-cmd-cd-parent)
-`(lineedit-key-cmd-cd-parent lctx)` executes the shell command `{cd ..}`, then redraws prompt and current lines.
+`(lineedit-key-cmd-cd-parent lctx)` calls the function `(sh-cd "..")`, then redraws prompt and current lines.
 
 ##### (lineedit-key-cmd-cd-old-dir)
-`(lineedit-key-cmd-cd-old-dir lctx)` executes the shell command `{cd-}`, then redraws prompt and current lines.
+`(lineedit-key-cmd-cd-old-dir lctx)` calls the function `(sh-cd-)`, then redraws prompt and current lines.
 
 ##### (lineedit-key-cmd)
 `(lineedit-key-cmd lctx cmd-name args ...)` echoes the strings `cmd-name args ...`
 then runs them as a shell job with [`(sh-run/i)`](../shell/job-control.md#sh-runi)
 finally redraws prompt and current lines.<br/>
-Returns job status.
+Returns job exit or stopped status.
 
 ##### (lineedit-key-edit-input)
 `(lineedit-key-edit-input lctx [cmd-name args ...])` runs specified external editor,
@@ -167,7 +167,7 @@ Added in 1.0.2
 ##### (lineedit-key-sh-run)
 `(lineedit-key-sh-run lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
 then runs `job` with [`(sh-run)`](../shell/job-control.md#sh-run),
-displays job status, finally marks prompt and current lines as "need redraw".<br/>
+displays job exit status, finally marks prompt and current lines as "need redraw".<br/>
 Returns job status.<br/>
 Added in 1.0.2
 
@@ -177,8 +177,8 @@ Arguments are the same as [`(lineedit-key-sh-run/i)`](#lineedit-key-sh-runi).
 
 ##### (lineedit-key-sh-run/i)
 `(lineedit-key-sh-run/i lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
-then runs `job` with [`(sh-run/i)`](../shell/job-control.md#sh-runi)`,
-displays job status, finally marks prompt and current lines as "need redraw".<br/>
+then runs `job` with [`(sh-run/i)`](../shell/job-control.md#sh-runi),
+displays job exit or stopped status, finally marks prompt and current lines as "need redraw".<br/>
 Returns job status.<br/>
 Added in 1.0.2
 
@@ -188,7 +188,7 @@ Optional argument `job-string` must be one of:
 * `#f` to suppress displaying job before starting it. This is the default.
 * `#t` to display job before starting it
 * a string, to be displayed instead of job
-* a procedure accepting one argument and returning one value. If calling `(job-string job)` returns a string,
+* a function accepting one argument and returning one value. If calling `(job-string job)` returns a string,
   such string will be be displayed instead of job. If it returns a `#f`, nothing will be displayed.
 
 ### Examples
