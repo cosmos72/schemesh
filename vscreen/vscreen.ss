@@ -720,7 +720,7 @@
       (vscreen-reflow screen))))
 
 
-;; insert a character or cell, which can be a #\newline, into vscreen at cursor position
+;; insert a character or cell, which must be #\newline or >= #space, into vscreen at cursor position
 ;; then move cursor right by one.
 (define (vscreen-insert/c! screen c)
   (let ((x (vscreen-cursor-ix screen))

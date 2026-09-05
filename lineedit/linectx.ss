@@ -478,7 +478,11 @@
 ;; insert a single character or cell into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
 (define (linectx-insert/char! lctx c)
-  (vscreen-insert/c! (linectx-vscreen lctx) c))
+  (vscreen-insert/c! (linectx-vscreen lctx)
+    (cond
+      ((char>=? c #\space)   c)
+      ((char=?  c #\newline) c)
+      (else                  #\space))))
 
 
 ;; read (- end start) chars from string str, starting at offset = start

@@ -42,9 +42,12 @@
 
     ;; lineedit.ss
     linectx-read linectx-insert/bytespan! linectx-insert/char! linectx-insert/charspan! linectx-insert/string!
-
     lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
+    lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
+    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
+
+    ;; linekeys.ss
     lineedit-key-autocomplete lineedit-key-nop
     lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
@@ -56,10 +59,9 @@
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
     lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
 
-    lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent lineedit-key-cmd lineedit-key-sh-run lineedit-key-sh-run/i
+    lineedit-key-cmd lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent
+    lineedit-key-edit-input lineedit-key-sh-run lineedit-key-sh-run/i
 
-    lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
-    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
     ;; lineterm.ss
     lineterm-write/u8
@@ -69,7 +71,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme)    base-exception-handler break break-handler console-output-port console-error-port
+    (only (chezscheme)    base-exception-handler break break-handler bytevector-truncate! console-output-port console-error-port
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
           (scheme2k bootstrap)
@@ -77,12 +79,14 @@
                                          bytespan-insert-right/bytespan! bytespan-insert-right/bytevector! bytespan-insert-right/u8! bytespan-length
                                          bytespan-peek-beg bytespan-peek-data bytespan-peek-end
                                          bytespan-ref/u8 bytespan-reserve-right! bytespan-resize-right!)
-    (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-empty? charspan-insert-right! charspan-insert-right/string! charspan-length charspan-ref charspan->string*!)
+    (only (scheme2k containers charspan) charspan charspan? charspan-count= charspan-empty? charspan-insert-right! charspan-insert-right/string!
+                                         charspan-length charspan-ref charspan->string*!)
     (only (scheme2k containers span)     for-span span span-iterate span-length span-ref)
     (only (scheme2k containers utf8b)    bytespan-insert-right/charspan! bytespan-insert-right/string!
-                                         bytespan-ref/char string->utf8b)
+                                         bytespan-ref/char string->utf8b utf8b->string)
           (scheme2k posix fd)
     (only (scheme2k posix signal)        countdown signal-consume-sigwinch)
+    (only (scheme2k posix status)        failed ok?)
           (scheme2k posix tty)
           (scheme2k vscreen)
           (scheme2k lineedit ansi)

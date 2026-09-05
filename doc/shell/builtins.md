@@ -20,6 +20,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`disk`](#disk) display mounted file systems as structured data
 * [`echo`](#echo) write space-separated arguments to standard output, terminated by a newline
 * [`echo0`](#echo0) write NUL-terminated arguments to standard output
+* [`edit-text`](#edit-text) execute an external editor
 * [`exec`](#exec) replace the current shell or subshell with the specified command
 * [`exit`](#exit) exit the current shell or subshell with specified exit status, or 0 by default
 * [`export`](#export) show or export environment variables
@@ -101,7 +102,7 @@ Syntax: `builtin [BUILTIN_NAME [ARG ...]]`
 
 Execute a builtin with specified arguments, even if it's shadowed by an alias.
 
-Return exit status of executed builtin, or failure if no such builtin was found.
+Return exit or stopped status of executed builtin, or failure if no such builtin was found.
 
 #### bind
 Syntax: `bind KEYSEQ [CMD [ARG ...]]`
@@ -151,7 +152,7 @@ Syntax: `command [COMMAND_NAME [ARG ...]]`
 
 Execute a command with specified arguments, even if it's shadowed by an alias or by a builtin.
 
-Return exit status of executed command, or failure if no such command was found.
+Return exit or stopped status of executed command, or failure if no such command was found.
 
 #### echo
 Syntax: `echo [ARG ...]`
@@ -166,6 +167,15 @@ Syntax: `echo0 [ARG ...]`
 Display arguments to standard output, separating them with a single NUL, and terminating them with a single NUL.
 
 Return success.
+
+#### edit-text
+Syntax: `edit-text [ARG ...]`
+
+Launch the first available editor among, in order:
+  `$VISUAL` `$EDITOR` `sensible-editor` `editor` `nano` `emacs` `vi`
+passing arguments `[ARG ...]` to it.
+
+Return editor's exit or stopped status, or failure if no editor could be launched.
 
 #### exec
 Syntax: `exec [CMD [ARG ...]]`

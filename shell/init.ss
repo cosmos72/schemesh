@@ -181,7 +181,7 @@
 
     useful if BUILTIN-NAME has been shadowed by an alias with the same name.
 
-    return exit status of executed builtin, or failure if no such builtin was found.\n"))
+    return exit or stopped status of executed builtin, or failure if no such builtin was found.\n"))
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "cd"      (string->utf8 " [dir]
@@ -213,7 +213,7 @@
 
     useful if COMMAND-NAME has been shadowed by an alias or by a builtin with the same name.
 
-    return exit status of executed command, or failure if no such command was found.\n"))
+    return exit or stopped status of executed command, or failure if no such command was found.\n"))
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "edit-text" (string->utf8 " [arg ...]
@@ -222,7 +222,7 @@
     Launches the first available editor among, in order:
       $VISUAL $EDITOR sensible-editor editor nano emacs vi
 
-    return editor's exit status, or failure if no editor could be launched.\n"))
+    return editor's exit or stopped status, or failure if no editor could be launched.\n"))
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]

@@ -767,6 +767,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
   Sregister_symbol("c_fd_type", &c_fd_type);
   Sregister_symbol("c_file_fd", &c_file_fd);
+  Sregister_symbol("c_file_mkstemp_fd", &c_file_mkstemp_fd);
   Sregister_symbol("c_pipe_fds", &c_pipe_fds);
 
   Sregister_symbol("c_endpoint_inet", &c_endpoint_inet);

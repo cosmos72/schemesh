@@ -320,6 +320,25 @@ static int c_file_fd(ptr bytevector0_filepath,
   return ret >= 0 ? ret : c_errno();
 }
 
+/**
+ * call mkstemp() and return fd of created and opened temporary file, or c_errno() on error
+ */
+static int c_file_mkstemp_fd(ptr bytevector0_template) {
+  char* filepath;
+  iptr  len;
+  int   ret;
+  if (!Sbytevectorp(bytevector0_template)) {
+    return c_errno_set(EINVAL);
+  }
+  filepath = (char*)Sbytevector_data(bytevector0_template);
+  len      = Sbytevector_length(bytevector0_template);
+  if (len <= 0 || filepath[len - 1] != '\0') {
+    return c_errno_set(EINVAL);
+  }
+  ret = mkstemp(filepath);
+  return ret >= 0 ? ret : c_errno();
+}
+
 /** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 static ptr c_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec) {
   int fds[2];

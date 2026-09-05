@@ -151,12 +151,35 @@ Added in 1.0.0
 `(lineedit-key-cmd-cd-old-dir lctx)` executes the shell command `{cd-}`, then redraws prompt and current lines.
 
 ##### (lineedit-key-cmd)
-`(lineedit-key-cmd lctx cmd-name args ...)` echoes the strings `cmd-name args ...` then runs them as a shell command with `(sh-run/i)`,
-finally redraws prompt and current lines.
+`(lineedit-key-cmd lctx cmd-name args ...)` echoes the strings `cmd-name args ...`
+then runs them as a shell job with [`(sh-run/i)`](../shell/job-control.md#sh-runi)
+finally redraws prompt and current lines.<br/>
+Returns job status.
+
+##### (lineedit-key-edit-input)
+`(lineedit-key-edit-input lctx [cmd-name args ...])` runs specified external editor,
+or shell builtin [`edit-text`](../shell/builtins.md#edit-text) by default,<br/>
+passing current input to it via a temporary file.<br/>
+If editor exits successfully, discards current input and reloads it from temporary file.<br/>
+Returns editor exit status, or `(failed #f)` if an error occurs before starting the editor.<br/>
+Added in 1.0.2
+
+##### (lineedit-key-sh-run)
+`(lineedit-key-sh-run lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
+then runs `job` with [`(sh-run)`](../shell/job-control.md#sh-run),
+displays job status, finally marks prompt and current lines as "need redraw".<br/>
+Returns job status.<br/>
+Added in 1.0.2
+
+This function is needed rarely - consider using [`(lineedit-key-sh-run/i)`](#lineedit-key-sh-runi) instead.
+
+Arguments are the same as [`(lineedit-key-sh-run/i)`](#lineedit-key-sh-runi).
 
 ##### (lineedit-key-sh-run/i)
-`(lineedit-key-cmd lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
-then runs `job` with `(sh-run/i)`, finally redraws prompt and current lines.<br/>
+`(lineedit-key-sh-run/i lctx job [job-string])` optionally echoes `job-string` (see below)<br/>
+then runs `job` with [`(sh-run/i)`](../shell/job-control.md#sh-runi)`,
+displays job status, finally marks prompt and current lines as "need redraw".<br/>
+Returns job status.<br/>
 Added in 1.0.2
 
 Mandatory argument `lctx` must be `linectx`.<br/>

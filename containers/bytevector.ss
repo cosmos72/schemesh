@@ -9,7 +9,7 @@
 (library (scheme2k containers bytevector (1 0 1))
   (export
     bytevector-append bytevector-compare bytevector-hash bytevector-index
-    bytevector<=? bytevector<? bytevector>=? bytevector>?
+    bytevector0? bytevector<=? bytevector<? bytevector>=? bytevector>?
 
     bytevector-iterate for-bytevector in-bytevector list->bytevector
 
@@ -194,6 +194,13 @@
       (in-bytevector bv start end 1))
     ((bv)
       (in-bytevector bv 0 (bytevector-length bv) 1))))
+
+
+;; return #t if x is a 0-terminated bytevector, otherwise return #f
+;; Added in 1.0.2
+(define (bytevector0? x)
+  (let ((len (if (bytevector? x) (bytevector-length x) 0)))
+    (and (fx>? len 0) (fxzero? (bytevector-u8-ref x (fx1- len))))))
 
 
 ;; compare the two bytevectors bvec1 and bvec2.

@@ -409,6 +409,7 @@
   ((top-level-value 'sh-cd) "..")
   (linectx-redraw-all lctx))
 
+
 (define (lineedit-key-cmd-cd-old-dir lctx)
   (when
     (try
@@ -417,6 +418,7 @@
       (catch (ex)
         #f))
     (linectx-redraw-all lctx)))
+
 
 (define (cmd-and-args->string l)
   (do ((tail l (cdr tail))
@@ -427,12 +429,14 @@
       (charspan-insert-right! csp #\space))
     (charspan-insert-right/string! csp (car tail))))
 
+
 (define (%sh-run* job run-proc)
   (with-exception-handler
     (base-exception-handler)
     (lambda ()
       (with-cooked-tty
         (run-proc job)))))
+
 
 (define (%sh-display obj)
   (unless (eq? (void) obj)
@@ -441,6 +445,11 @@
       (newline port)
       (flush-output-port port))))
 
+
+;; undraw current input, display job-string if truish, sh-run or sh-run/i job,
+;; mark current input as need redraw, display job status if not (void)
+;;
+;; return job status
 (define (lineedit-key-sh-run* lctx job job-string run-proc)
   (let* ((str  (cond
                  ((eq? #t job-string)     ((top-level-value 'sh-job->string) job))
@@ -454,15 +463,30 @@
     (linekey-cleanup-before-cmd lctx str start end)
     (let ((obj (%sh-run* job run-proc)))
       (linekey-cleanup-after-cmd lctx)
-      (%sh-display obj))))
+      (%sh-display obj)
+      obj)))
 
+
+;; undraw current input, display job-string if truish (default is #f), sh-run job,
+;; mark current input as need redraw, display job status if not (void)
+;;
+;; return job status
+;;
+;; Added in 1.0.2
 (define lineedit-key-sh-run
   (case-lambda
     ((lctx job job-string)
       (lineedit-key-sh-run* lctx job job-string (top-level-value 'sh-run)))
     ((lctx job)
-      (lineedit-key-sh-run/i lctx job #f))))
+      (lineedit-key-sh-run lctx job #f))))
 
+
+;; undraw current input, display job-string if truish (default is #f), sh-run/i job,
+;; mark current input as need redraw, display job status if not (void)
+;;
+;; return job status
+;;
+;; Added in 1.0.2
 (define lineedit-key-sh-run/i
   (case-lambda
     ((lctx job job-string)
@@ -479,6 +503,41 @@
 
 (define (lineedit-key-cmd-dir lctx)
   (lineedit-key-cmd lctx "dir" "-l"))
+
+
+;; run specified external editor, or shell builtin "edit-text" by default,
+;; passing current input to it via a temporary file.
+;; if editor exits successfully, discard current input and reload it from temporary file.
+;;
+;; return editor exit status, or (failed #f) if an error occurs before starting the editor.
+;;
+;; Added in 1.0.2
+(define lineedit-key-edit-input
+  (case-lambda
+    ((lctx cmd . args)
+      (let* ((bpath (string->utf8b "/tmp/schemesh_edit_XXXXXX\x0;"))
+             (fd    (file-mkstemp->fd bpath)))
+        (dynamic-wind
+          void
+          (lambda ()
+            (if fd
+              (begin
+                (fd-write-all fd (string->utf8b (vlines->string (linectx-vscreen lctx))))
+                (fd-seek fd 0 'seek-set)
+                (bytevector-truncate! bpath (fx1- (bytevector-length bpath)))
+                (let* ((args   (append args (list (utf8b->string bpath))))
+                       (status (lineedit-key-sh-run lctx ((top-level-value 'make-sh-cmd) (cons cmd args)))))
+                  (when (ok? status)
+                    (linectx-clear! lctx)
+                    (linectx-insert/string! lctx (utf8b->string (fd-read-all fd))))
+                  status))
+              (failed #f)))
+          (lambda ()
+            (when fd
+              (fd-close fd)
+              (set! fd #f))))))
+    ((lctx)
+      (lineedit-key-edit-input lctx "edit-text"))))
 
 
 (define (lineedit-navigate-history lctx delta-y)

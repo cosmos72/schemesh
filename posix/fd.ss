@@ -12,16 +12,17 @@
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-redirect fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set! fd-type
-    fds-close-on-fork file->fd pipe-fds)
+    fds-close-on-fork file->fd file-mkstemp->fd pipe-fds)
   (import
     (rnrs)
     (only (chezscheme)             foreign-procedure format logbit? void make-mutex procedure-arity-mask unlock-object with-mutex)
     (only (scheme2k bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
           (scheme2k containers bytespan)
-    (only (scheme2k containers hashtable) alist->eq-hashtable hash-for-each-key hashtable-transpose)
-    (only (scheme2k conversions)   transcoder-utf8)
-    (only (scheme2k posix base)    c-errno c-errno-einval raise-c-errno)
-    (only (scheme2k posix fs)      path->c-path0))
+    (only (scheme2k containers bytevector) bytevector0?)
+    (only (scheme2k containers hashtable)  alist->eq-hashtable hash-for-each-key hashtable-transpose)
+    (only (scheme2k conversions)           bytevector0->string transcoder-utf8)
+    (only (scheme2k posix base)            c-errno c-errno-einval raise-c-errno)
+    (only (scheme2k posix fs)              path->c-path0))
 
 
 (define c-errno-eio   ((foreign-procedure "c_errno_eio" () int)))    ; integer, not a procedure
@@ -384,11 +385,31 @@
         (fd-nonblock?-set! fd 'nonblock)))))
 
 
+;; create and open a temporary file with C mkstemp().
+;; Argument bpath0 must be a mutable, 0-terminated bytevector whose last 6 bytes are 88 i.e. #\X
+;; and will be updated in-place to contain the file path actually created and opened.
+;;
+;; return opened file descriptor if successful,
+;; otherwise raise condition.
+;;
+;; Added in 1.0.2
+(define file-mkstemp->fd
+  (let ((c-mkstemp (foreign-procedure "c_file_mkstemp_fd" (ptr) int)))
+    (lambda (bpath0)
+      (let ((ret (c-mkstemp bpath0)))
+        (if (>= ret 0)
+          ret
+          (raise-c-errno 'file-mkstemp->fd 'mkstemp (if (bytevector0? bpath0) (bytevector0->string bpath0) bpath0)))))))
+
+
 ;; open a file and returns its file descriptor.
 ;; Arguments:
 ;;   mandatory filepath must be string, bytevector, bytespan or charspan.
 ;;   mandatory direction must be one of the symbols: 'read 'write 'rw
 ;;   optional flags must be a list containing zero or more: 'create 'truncate 'append
+;;
+;; return opened file descriptor if successful,
+;; otherwise raise condition.
 (define file->fd
   (let ((c-open-file-fd (foreign-procedure "c_file_fd"
                           (ptr int int int int) int)))
