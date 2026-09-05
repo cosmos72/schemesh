@@ -123,10 +123,10 @@
 
 ;; the "exit" builtin: call current exit-handler, optionally with specified exit status.
 ;;
-;; Never returns normally.
+;; Returns normally only if there are stopped jobs that would be killed, and job control is enabled, and user was not warned yet
 (define (builtin-exit job prog-and-args options)
-  (let ((arg (list->integer-or-false (cdr prog-and-args))))
-    (exit (or arg 0))))
+  (let ((arg (or (list->integer-or-false (cdr prog-and-args)) 0)))
+    (sh-maybe-exit (if (zero? arg) (void) (failed arg)))))
 
 
 ;; the "export" builtin: show exported environment variables,

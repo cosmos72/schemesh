@@ -43,6 +43,36 @@
           (posix-exit status))))))
 
 
+(define sh-noexit-count (sh-make-parameter 2))
+
+
+(define (sh-noexit-count-inc!)
+  (let ((n (sh-noexit-count)))
+    (when (fx<? n 2)
+      (sh-noexit-count (fx1+ n)))))
+
+
+;; return #t if (sh-maybe-exit) can exit, otherwise return #f: caller should display warning message "There are stopped jobs.\n"
+(define (sh-can-exit?)
+  (if (and (fx>? (sh-noexit-count) 1) (tty-job-control?) (have-stopped-jobs?))
+    (begin
+      (sh-noexit-count 0)
+      #f)
+    #t))
+
+
+;; if job control is active, and there are stopped jobs that could be killed by exiting,
+;; either return normally (if user was not warned yet)
+;; or proceed exiting as described below (if user was already warned)
+;;
+;; serialize status to shared memory with (wire-shm-insert! ... (datum->wire status))
+;; then terminate process by calling (posix-exit status)
+(define (sh-maybe-exit status)
+  (if (sh-can-exit?)
+    (sh-exit status)
+    (put-string (console-error-port) "There are stopped jobs.\n")))
+
+
 ;; hashtable containing collected pid -> status
 ;; where status was saved to shared memory by child process with (sh-exit) above
 ;; and retrieved by main shell process via (wire-shm-delete!)

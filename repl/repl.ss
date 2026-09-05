@@ -46,7 +46,7 @@
     (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name linectx-parser-name-set!
                                           linectx-parsers linectx-parsers-set! linectx-prompt-end-x linectx-save-history linectx-width
                                           lineedit-clear! lineedit-flush lineedit-read
-                                          lineterm-write/u8)
+                                          lineterm-write/string lineterm-write/u8)
     (only (scheme2k io auto)         make-auto-reader)
     (only (scheme2k io csv)          make-csv-reader make-csv-writer)
     (only (scheme2k io field)        make-field-reader)
@@ -73,11 +73,11 @@
     (only (scheme2k reflect)         equiv? field field-values-if)
     (only (schemesh shell)
             c-username repl-args repl-args-linectx repl-history repl-restart repl-restart? sh-builtins sh-builtins-help
-            sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
+            sh-can-exit? sh-consume-signals sh-current-environment sh-current-job sh-current-job-kill sh-current-job-suspend sh-cwd
             sh-dynamic-wind sh-env-ref sh-eval sh-eval-file sh-eval-file sh-eval-port sh-eval-parsectx sh-eval-string
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
-            sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs
-            sh-inside-interrupt? sh-make-linectx sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
+            sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs sh-inside-interrupt?
+            sh-make-linectx sh-noexit-count-inc! sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
             with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (schemesh shell job)       sh-job-internal-start-helper)
     (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
@@ -233,6 +233,7 @@
 (define (repl-eval form env)
   ;; (debugf "repl-eval: ~s" form)
   (let ((uform (ast-unwrap form)))
+    (sh-noexit-count-inc!)
     (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
       (list (sh-run/i (sh-eval form env)))
       (values->list (sh-eval form env)))))
@@ -369,7 +370,12 @@
               (let ((obj (repl-once print-func lctx flush?)))
                 (case obj
                   ((#f) ; EOF
-                    (lineterm-write/u8 lctx 10))
+                    (if (sh-can-exit?)
+                      (lineterm-write/u8 lctx 10)
+                      (begin
+                        (lineedit-clear! lctx)
+                        (lineterm-write/string lctx "\rThere are stopped jobs.\x1b;[J\n")
+                        (%repl-loop #t))))
                   ((#t) ; waiting for more input
                     (%repl-loop #f))
                   (else

@@ -54,7 +54,7 @@
     sh-expr
 
     ;; exit.ss
-    sh-exit
+    sh-can-exit? sh-exit sh-maybe-exit sh-noexit-count-inc!
 
     ;; job.ss
     sh-consume-signals sh-cwd
@@ -509,13 +509,19 @@
 ;; return currently running jobs
 ;; as a span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
-  (let ((src (multijob-children (sh-globals)))
-        (dst (span)))
-    (span-iterate src
+  (let ((dst (span)))
+    (span-iterate (multijob-children (sh-globals))
       (lambda (job-id job)
         (when (sh-job? job)
           (span-insert-right! dst (cons job-id job)))))
     dst))
+
+
+;; return #t if some job among currently running ones is suspended
+(define (have-stopped-jobs?)
+  (span-iterate-any (multijob-children (sh-globals))
+    (lambda (job-id job)
+      (and (sh-job? job) (job-stopped? job)))))
 
 
 ;; Return the exception that terminated a job-or-id.

@@ -76,7 +76,7 @@
 
 
 ;; minimal procedure for enabling/disabling job control.
-;; for a more complete implementation, see (job-control-proc) in shell/params.ss
+;; for a more complete implementation, see (sh-job-control-set!) in shell/params.ss
 (define minimal-job-control-set!
   (let ((c-job-control-proc (foreign-procedure "c_job_control_set" (int) int)))
     (lambda (old-flag new-flag)
