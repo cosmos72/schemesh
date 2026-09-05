@@ -453,18 +453,15 @@ int main(int argc, const char* argv[]) {
     case QUIT_FAILED: /* exception in quit() */
       return 2;
   }
-
   on_exception = INIT_FAILED;
   schemesh_init(cmd.boot_dir, &handle_scheme_exception);
-  if ((err = scheme2k_register_c_functions()) != 0) {
-    goto finish;
-  }
-  if ((err = schemesh_load_library(cmd.library_dir)) != 0) {
+  Slock_object(minimal_command_line_list = make_string_list(argv, *argv ? 1 : 0));
+  if ((err = scheme2k_register_c_functions()) != 0 ||
+      (err = schemesh_load_library(cmd.library_dir)) != 0) {
     goto finish;
   }
 
   schemesh_import_all_libraries();
-  Slock_object(minimal_command_line_list = make_string_list(argv, *argv ? 1 : 0));
   Senable_expeditor(NULL);
   errno = 0;
 
