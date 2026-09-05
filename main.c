@@ -109,7 +109,7 @@ static void usage(const char* name, const int is_script) {
               "                            (default: start only if no files, strings\n"
               "                            or --version are specified)\n",
           "  -t TYPE, --type TYPE    set the type of any following FILE. Must be one of:\n"
-          "                            auto scheme shell compiled. Default is 'auto'\n"
+          "                            auto scheme shell library. Default is 'auto'\n"
           "  --version               display version information\n"
           "  -l, --login             ignored. accepted for compatibility with other shells\n"
           "  -p                      ignored. accepted for compatibility with other shells\n"
