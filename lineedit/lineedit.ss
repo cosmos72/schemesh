@@ -48,6 +48,7 @@
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
     ;; linekeys.ss
+    lineedit-cleanup-before-cmd lineedit-cleanup-after-cmd
     lineedit-key-autocomplete lineedit-key-nop
     lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol

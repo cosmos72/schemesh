@@ -378,7 +378,7 @@
   (void))
 
 
-(define linekey-cleanup-before-cmd
+(define lineedit-cleanup-before-cmd
   (case-lambda
     ((lctx str str-start str-end)
       (if str
@@ -392,13 +392,13 @@
           (linectx-redraw-set! lctx #t))
         (lineedit-undraw lctx #t)))
     ((lctx str)
-      (linekey-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))
+      (lineedit-cleanup-before-cmd lctx str (and str 0) (and str (string-length str))))
     ((lctx)
-      (linekey-cleanup-before-cmd lctx #f #f #f))))
+      (lineedit-cleanup-before-cmd lctx #f #f #f))))
 
 
 ;; make enough space after command output for prompt and current line(s)
-(define (linekey-cleanup-after-cmd lctx)
+(define (lineedit-cleanup-after-cmd lctx)
   (lineterm-soft-nl-unless-at-bol lctx)
   (repeat (linectx-vy lctx)
     (lineterm-write/u8 lctx 10))
@@ -460,9 +460,9 @@
          (trim? (not (or (fxzero? len) (string? job-string))))
          (start (if (and trim? (char=? #\{ (string-ref str 0))) 1 0))
          (end   (if (and trim? (char=? #\} (string-ref str (fx1- len)))) (fx1- len) len)))
-    (linekey-cleanup-before-cmd lctx str start end)
+    (lineedit-cleanup-before-cmd lctx str start end)
     (let ((obj (%sh-run* job run-proc)))
-      (linekey-cleanup-after-cmd lctx)
+      (lineedit-cleanup-after-cmd lctx)
       (%sh-display obj)
       obj)))
 

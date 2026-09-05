@@ -45,7 +45,7 @@
     (only (scheme2k containers utf8b)     bytespan-display-right/datum! bytespan-insert-right/string! utf8b-bytespan->string)
     (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name linectx-parser-name-set!
                                           linectx-parsers linectx-parsers-set! linectx-prompt-end-x linectx-save-history linectx-width
-                                          lineedit-clear! lineedit-flush lineedit-read
+                                          lineedit-cleanup-after-cmd lineedit-cleanup-before-cmd lineedit-clear! lineedit-flush lineedit-read
                                           lineterm-write/string lineterm-write/u8)
     (only (scheme2k io auto)         make-auto-reader)
     (only (scheme2k io csv)          make-csv-reader make-csv-writer)
@@ -232,8 +232,8 @@
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form env)
   ;; (debugf "repl-eval: ~s" form)
+  (sh-noexit-count-inc!)
   (let ((uform (ast-unwrap form)))
-    (sh-noexit-count-inc!)
     (if (and (pair? uform) (memq (car uform) '(shell shell-subshell shell-expr)))
       (list (sh-run/i (sh-eval form env)))
       (values->list (sh-eval form env)))))
@@ -370,11 +370,12 @@
               (let ((obj (repl-once print-func lctx flush?)))
                 (case obj
                   ((#f) ; EOF
+		    (sh-noexit-count-inc!)
                     (if (sh-can-exit?)
                       (lineterm-write/u8 lctx 10)
                       (begin
-                        (lineedit-clear! lctx)
-                        (lineterm-write/string lctx "\rThere are stopped jobs.\x1b;[J\n")
+                        (lineedit-cleanup-before-cmd lctx "\nThere are stopped jobs.")
+			(lineedit-cleanup-after-cmd lctx)
                         (%repl-loop #t))))
                   ((#t) ; waiting for more input
                     (%repl-loop #f))
