@@ -431,6 +431,7 @@
 
 
 (define (%sh-run* job run-proc)
+  ((top-level-value 'sh-noexit-count-inc!))
   (with-exception-handler
     (base-exception-handler)
     (lambda ()
