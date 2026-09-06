@@ -76,6 +76,7 @@
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
           (scheme2k bootstrap)
+    (only (scheme2k containers bytevector) bytevector-suffix?)
     (only (scheme2k containers bytespan) bytespan bytespan? bytespan-clear! bytespan-delete-left! bytespan-display-right/fixnum! bytespan-empty?
                                          bytespan-insert-right/bytespan! bytespan-insert-right/bytevector! bytespan-insert-right/u8! bytespan-length
                                          bytespan-peek-beg bytespan-peek-data bytespan-peek-end

@@ -522,16 +522,20 @@
           void
           (lambda ()
             (if fd
-              (begin
+              (let ((x (linectx-ix lctx))
+                    (y (linectx-iy lctx)))
                 (fd-write-all fd (string->utf8b (vlines->string (linectx-vscreen lctx))))
                 (fd-seek fd 0 'seek-set)
                 (bytevector-truncate! bpath (fx1- (bytevector-length bpath)))
                 (let* ((args   (append args (list (utf8b->string bpath))))
                        (status (lineedit-key-sh-run lctx ((top-level-value 'make-sh-cmd) (cons cmd args)))))
                   (when (ok? status)
-                    (linectx-clear! lctx)
-                    (linectx-insert/string! lctx (utf8b->string (fd-read-all fd)))
-                    (linectx-ixy-set! lctx 0 0))
+                    (let* ((bv  (fd-read-all fd))
+                           (len (bytevector-length bv))
+                           (end (if (bytevector-suffix? bv 10) (fx1- len) len)))
+                      (linectx-clear! lctx)
+                      (linectx-insert/string! lctx (utf8b->string bv 0 end)) ;; trim one final #\newline if present
+                      (linectx-ixy-set! lctx x y)))
                   status))
               (failed #f)))
           (lambda ()

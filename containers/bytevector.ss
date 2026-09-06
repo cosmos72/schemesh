@@ -10,6 +10,7 @@
   (export
     bytevector-append bytevector-compare bytevector-hash bytevector-index
     bytevector0? bytevector<=? bytevector<? bytevector>=? bytevector>?
+    bytevector-prefix? bytevector-suffix?
 
     bytevector-iterate for-bytevector in-bytevector list->bytevector
 
@@ -61,10 +62,9 @@
   (assert* 'subbytevector-compare (fx<=?* 0 start1 (fx+ start1 n) (bytevector-length bvec1)))
   (assert* 'subbytevector-compare (fx<=?* 0 start2 (fx+ start2 n) (bytevector-length bvec2)))
   (case n
-    ((0) 0)
-    ((1) (fxcompare (bytevector-u8-ref bvec1 start1) (bytevector-u8-ref bvec2 start2)))
-    (else
-      (c-subbytevector-compare bvec1 start1 bvec2 start2 n))))
+    ((0)  0)
+    ((1)  (fxcompare (bytevector-u8-ref bvec1 start1) (bytevector-u8-ref bvec2 start2)))
+    (else (c-subbytevector-compare bvec1 start1 bvec2 start2 n))))
 
 (define (subbytevector=? bvec1 start1 bvec2 start2 n)
   (fxzero? (subbytevector-compare bvec1 start1 bvec2 start2 n)))
@@ -99,6 +99,34 @@
   (if (null? bvs)
     retlen
     (sum-bytevectors-length (cdr bvs) (fx+ retlen (bytevector-length (car bvs))))))
+
+
+;; return #t if bytevector bv starts with specified prefix,
+;; otherwise return #f.
+;; Added in 1.0.2
+(define (bytevector-prefix? bv prefix-bv-or-u8)
+  (let ((len    (bytevector-length bv))
+        (prefix prefix-bv-or-u8))
+    (if (fixnum? prefix)
+      (and (not (fxzero? len))
+           (fx=? prefix (bytevector-u8-ref bv 0)))
+      (let ((prefix-len (bytevector-length prefix)))
+        (and (fx>=? len prefix-len)
+             (subbytevector=? bv 0 prefix 0 prefix-len))))))
+
+
+;; return #t if bytevector bv ends with specified suffix.
+;; otherwise return #f.
+;; Added in 1.0.2
+(define (bytevector-suffix? bv suffix-bv-or-u8)
+  (let* ((len    (bytevector-length bv))
+         (suffix suffix-bv-or-u8))
+    (if (fixnum? suffix)
+      (and (not (fxzero? len))
+           (fx=? suffix (bytevector-u8-ref bv (fx1- len))))
+      (let ((suffix-len (bytevector-length suffix)))
+        (and (fx>=? len suffix-len)
+             (subbytevector=? bv (fx- len suffix-len) suffix 0 suffix-len))))))
 
 
 ;; concatenate multiple bytevectors
