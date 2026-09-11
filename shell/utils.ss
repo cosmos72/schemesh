@@ -17,7 +17,7 @@
                        string->immutable-string)
           (scheme2k bootstrap)
     (only (scheme2k containers bytespan) bytespan-clear! bytespan-reserve-right!)
-    (only (scheme2k containers charspan) charspan=? charspan-insert-right/charspan! charspan-length string->charspan string->charspan*)
+    (only (scheme2k containers charspan) charspan=? charspan-copy! charspan-length charspan-ref charspan-set! make-charspan string->charspan*)
     (only (scheme2k containers span)     span-clear!)
     (only (scheme2k containers string)   string-iterate)
     (only (scheme2k containers utf8b)    bytespan-insert-right/char! bytespan-insert-right/charspan! bytespan-insert-right/string!)
@@ -200,16 +200,20 @@
 ;;
 ;; otherwise return path.
 (define (sh-home->~ path)
-  (let* ((ret path)
-         (home (sh-env-ref #t "HOME" #f))
-         (home-len (if (string? home) (string-length home) 0))
+  (let* ((home     (sh-env-ref #t "HOME" ""))
+         (home-len (string-length home))
          (path-len (charspan-length path)))
-    (when (and (not (fxzero? home-len))
-               (fx<=? home-len path-len)
-               (charspan=? (string->charspan* home) 0 path 0 home-len))
-      (set! ret (string->charspan "~"))
-      (charspan-insert-right/charspan! ret path home-len path-len))
-    ret))
+    (if (and (not (fxzero? home-len))
+             (fx<=? home-len path-len)
+             (charspan=? (string->charspan* home) 0 path 0 home-len)
+             (or (fx=? home-len path-len)
+                 (char=? #\/ (charspan-ref path home-len))))
+      (let* ((tail-len (fx- path-len home-len))
+             (ret      (make-charspan (fx1+ tail-len))))
+        (charspan-set! ret 0 #\~)
+        (charspan-copy! path home-len ret 1 tail-len)
+        ret)
+      path)))
 
 
 (define sh-make-linectx

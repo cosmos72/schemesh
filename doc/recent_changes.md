@@ -13,12 +13,17 @@
 
 * fix issue #62: update `(sh-env-ref)` and shell syntax "$PWD" to always synthetize the value of environment variable PWD
   from relevant job's current directory.
+* fix several glitches in shell parser.
 * on ELF systems, install wrappers for C functions `pthread_mutex_lock()` `pthread_mutex_timedlock()` `pthread_mutex_unlock()`
   and keep a per-thread count of how many mutexes are locked. Used to never suspend a thread as long as it owns some locked mutex.
 * add function `(sh-alias)` that accepts alias definition as either a list of strings or as a single-argument procedure.
   This allows defining aliases that execute arbitrary code.
+* add functions `(lineedit-key-sh-run)` `(lineedit-key-sh-run/i)` for starting jobs from a key binding
+* add function `(lineedit-key-edit-input)` sends current input lines to the preferred editor via a temporary file,
+  and loads them from file if editor exits successfully
 * no longer keep track of exited threads id, status and name.
-* intentionally ignore aliases for `command`
+* intentionally ignore aliases for shell builtin `command`
+* add shell builtin `bind`, it defines key bindings that executes a builtin, alias or command with `(sh-run/i)` i.e. with job control
 * add shell builtin `edit-text`, it launches the first available program among:
   `$VISUAL` `$EDITOR` `sensible-editor` `editor` `nano` `emacs` `vi`
 
