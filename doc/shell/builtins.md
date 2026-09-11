@@ -374,7 +374,7 @@ Return job exit status, or failure if job was not found.
 ### Structured Pipelines
 
 #### all
-Syntax: `first [OPTIONS]`
+Syntax: `all [OPTIONS]`
 <br/>Added in 1.0.1
 
 Read structured data from standard input,
