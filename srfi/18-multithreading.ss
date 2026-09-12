@@ -7,7 +7,7 @@
 
 #!r6rs
 
-;; define all the thread-related bindings required by SRFI 18 multithreading
+;; define several bindings required by R7RS SRFI 18 multithreading
 
 (library (srfi :18 multithreading (1 0 1))
   (export

@@ -47,42 +47,40 @@
   (apply proc (map (lambda (str) (string-ref str i)) str-list)))
 
 
-;; apply proc element-wise to the elements of the strings, stop at the first truish value returned by (proc elem ...) and return it.
-;; If all calls to (proc elem ...) return #f, then return #f.
-;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
-;; Proc must accept as many elements as there are strings, and must return a single value.
+
+(define (%to-pred caller char/char-set/pred)
+  (cond
+    ((char? char/char-set/pred)
+      (lambda (ch) (char=? ch char/char-set/pred)))
+    ((string? char/char-set/pred)
+      (lambda (ch) (and (string-index char/char-set/pred ch) #t)))
+    (else
+      (assert* caller (procedure? char/char-set/pred))
+      (assert* caller (logbit? 1 (procedure-arity-mask char/char-set/pred)))
+      char/char-set/pred)))
+
+;; for each element of string str:
+;;   if char/char-set/pred is character, it is tested for equality with the element
+;;   if char/char-set/pred is string, the element is tested for membership to it
+;;   if char/char-set/pred is procedure, it is invoked with the element as only argument
+;;
+;; If the test for an element returns truish, further elements are not tested
+;; and (string-any) returns the value produced by the last test.
+;; Otherwise (string-any) returns #f.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-any
   (case-lambda
-    ((proc)
-      #f)
-    ((proc str)
-      (let ((n (string-length str)))
-        (let %string-any ((i 0))
-          (if (fx<? i n)
-            (or (proc (string-ref str i))
-                (%string-any (fx1+ i)))
-            #f))))
-    ((proc str1 str2)
-      (let ((n (fxmin (string-length str1) (string-length str2))))
-        (let %string-any ((i 0))
-          (if (fx<? i n)
-            (or (proc (string-ref str1 i) (string-ref str2 i))
-                (%string-any (fx1+ i)))
-            #f))))
-    ((proc str1 str2 str3)
-      (let ((n (fxmin (string-length str1) (string-length str2) (string-length str3))))
-        (let %string-any ((i 0))
-          (if (fx<? i n)
-            (or (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))
-                (%string-any (fx1+ i)))
-            #f))))
-    ((proc . str-list)
-      (let ((n (apply fxmin (map string-length str-list))))
-        (let %string-any ((i 0))
-          (if (fx<? i n)
-            (or (%apply-proc proc str-list i)
-                (%string-any (fx1+ i)))
-            #f))))))
+    ((char/char-set/pred str start end)
+      (assert* 'string-any (fx<=?* 0 start end (string-length str)))
+      (let %string-any ((ret #f) (str str) (i start) (end end)
+                        (pred (%to-pred 'string-any char/char-set/pred)))
+        (if (or ret (fx>=? i end))
+          ret
+          (%string-any (pred (string-ref str i)) str (fx1+ i) end pred))))
+    ((char/char-set/pred str)
+      (string-any char/char-set/pred str 0 (string-length str)))))
 
 
 ;; apply proc element-wise to the elements of the strings, and count and return how many times (proc elem ...) evaluates to truish.
@@ -135,42 +133,28 @@
 (define (string-empty? str)
   (fxzero? (string-length str)))
 
-;; apply proc element-wise to the elements of the strings, stop at the first #f returned by (proc elem ...) and return it.
-;; If all calls to (proc elem ...) return truish, then return the value of last (proc elem ...) call.
-;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
-;; Proc must accept as many elements as there are strings, and must return a single value.
+
+;; for each element of string str:
+;;   if char/char-set/pred is character, it is tested for equality with the element
+;;   if char/char-set/pred is string, the element is tested for membership to it
+;;   if char/char-set/pred is procedure, it is invoked with the element as only argument
+;;
+;; if the test for an element returns #f, further elements are not tested and (string-every) returns #f
+;; otherwise (string-every) returns the value produced by the last test, or #t if str is empty.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-every
   (case-lambda
-    ((proc)
-      #t)
-    ((proc str)
-      (let %string-every ((ret #t) (i 0) (n (string-length str))
-                          (proc proc) (str str))
-        (if (and ret (fx<? i n))
-          (%string-every (proc (string-ref str i))
-                         (fx1+ i) n proc str)
+    ((char/char-set/pred str start end)
+      (assert* 'string-every (fx<=?* 0 start end (string-length str)))
+      (let %string-every ((ret #t) (str str) (i start) (end end)
+                          (pred (%to-pred 'string-every char/char-set/pred)))
+        (if (and ret (fx<? i end))
+          (%string-every (pred (string-ref str i)) str (fx1+ i) end pred)
           ret)))
-    ((proc str1 str2)
-      (let %string-every ((ret #t) (i 0) (n (fxmin (string-length str1) (string-length str2)))
-                          (proc proc) (str1 str1) (str2 str2))
-        (if (and ret (fx<? i n))
-          (%string-every (proc (string-ref str1 i) (string-ref str2 i))
-                         (fx1+ i) n proc str1 str2)
-          ret)))
-    ((proc str1 str2 str3)
-      (let %string-every ((ret #t) (i 0) (n (fxmin (string-length str1) (string-length str2) (string-length str3)))
-                          (proc proc) (str1 str1) (str2 str2) (str3 str3))
-        (if (and ret (fx<? i n))
-          (%string-every (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))
-                         (fx1+ i) n proc str1 str2 str3)
-          ret)))
-    ((proc str1 . str-list)
-      (let %string-every ((ret #t) (i 0) (n (apply fxmin (map string-length str-list)))
-                          (proc proc) (str-list (cons str1 (list-copy* str-list))))
-        (if (and ret (fx<? i n))
-          (%string-every (%apply-proc proc str-list i)
-                         (fx1+ i) n proc str-list)
-          ret)))))
+    ((char/char-set/pred str)
+      (string-every char/char-set/pred str 0 (string-length str)))))
 
 
 ;; apply proc element-wise to the elements of the strings, and return a string of the results.

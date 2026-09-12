@@ -111,7 +111,7 @@
 * modify functions `(file->port)` and `(sh-port)` to return textual ports by default
 * improve `(sh-eval)` to better handle forms containing `(begin ...)` followed by alternating functions and macros
 * add support for keywords `while` and `until` inside macros `(for)` `(for*)` `(for-...)` `(forever)` `(repeat)` `(until)` `(while)`
-* add more SRFI 18 compatible functions
+* add more R7RS SRFI 18 compatible functions
 * add key bindings for more xterm keys
 * allow calling `(sh-redirect)` on running jobs, and document its behavior in such case
 * subsume functions `(sh-binary-port)` and `(sh-textual-port)` into the new function `(sh-port)`

@@ -14,7 +14,7 @@
 ;;  (fork-thread) also sets the new thread's thread-local parameters to values returned by (thread-initial-bindings)
 ;;  (thread-join) also accepts an optional timeout and is interruptible
 ;;
-;; plus a subset of SRFI 18 multithreading functions:
+;; plus a subset of R7RS SRFI 18 multithreading functions:
 ;;  (current-thread) (make-thread) (thread-name) (thread-specific) (thread-specific-set!)
 ;;  (thread-sleep!) (thread-start!) (thread-terminate!) (thread-yield!)
 ;;

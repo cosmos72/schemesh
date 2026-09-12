@@ -81,7 +81,7 @@
 ;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 ;;
-;; Conforms to SRFI 1 List Library
+;; Conforms to R7RS SRFI 1 List Library
 (define any
   (case-lambda
     ((proc l)
@@ -119,7 +119,7 @@
 ;;
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 ;;
-;; Conforms to SRFI 1 List Library
+;; Conforms to R7RS SRFI 1 List Library
 (define count
   (case-lambda
     ((proc)
@@ -158,7 +158,7 @@
 ;;
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 ;;
-;; Conforms to SRFI 1 List Library
+;; Conforms to R7RS SRFI 1 List Library
 (define every
   (case-lambda
     ((proc)
@@ -250,7 +250,7 @@
 ;; Extension: if only one list is specified and proc is not a procedure,
 ;; search for first element eqv? to proc.
 ;;
-;; Conforms to SRFI 1 List Library
+;; Conforms to R7RS SRFI 1 List Library
 (define list-index
   (case-lambda
     ((proc l)

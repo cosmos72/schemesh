@@ -22,20 +22,20 @@ int scheme2k_thread_init(void) {
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
 
-  /* initialize thread_local variable c_mutex_locked_n before activating pthread_mutex_*lock() wrappers,
-     because thread_local initialization may acquire mutexes */
-  c_mutex_locked_n = 0;
+  /* initialize thread_local variable c_mutex_locked_n before activating pthread_mutex_*lock()
+     wrappers, because thread_local initialization may acquire mutexes */
+  c_mutex_locked_n     = 0;
   c_thread_initialized = 1;
-  
+
   return 0;
 }
 
-extern int __real_pthread_mutex_lock(pthread_mutex_t *m);
-extern int __real_pthread_mutex_timedlock(pthread_mutex_t *m, const struct timespec *p);
-extern int __real_pthread_mutex_trylock(pthread_mutex_t *m);
-extern int __real_pthread_mutex_unlock(pthread_mutex_t *m);
+extern int __real_pthread_mutex_lock(pthread_mutex_t* m);
+extern int __real_pthread_mutex_timedlock(pthread_mutex_t* m, const struct timespec* p);
+extern int __real_pthread_mutex_trylock(pthread_mutex_t* m);
+extern int __real_pthread_mutex_unlock(pthread_mutex_t* m);
 
-int __wrap_pthread_mutex_lock(pthread_mutex_t *m) {
+int __wrap_pthread_mutex_lock(pthread_mutex_t* m) {
   int err = __real_pthread_mutex_lock(m);
   /* thread_local initialization may acquire mutexes, */
   /* access c_mutex_locked_n only if scheme2k_thread_init() was called */
@@ -44,8 +44,8 @@ int __wrap_pthread_mutex_lock(pthread_mutex_t *m) {
   }
   return err;
 }
-    
-int __wrap_pthread_mutex_timedlock(pthread_mutex_t *m, const struct timespec *p) {
+
+int __wrap_pthread_mutex_timedlock(pthread_mutex_t* m, const struct timespec* p) {
   int err = __real_pthread_mutex_timedlock(m, p);
   /* thread_local initialization may acquire mutexes, */
   /* access c_mutex_locked_n only if scheme2k_thread_init() was called */
@@ -55,7 +55,7 @@ int __wrap_pthread_mutex_timedlock(pthread_mutex_t *m, const struct timespec *p)
   return err;
 }
 
-int __wrap_pthread_mutex_trylock(pthread_mutex_t *m) {
+int __wrap_pthread_mutex_trylock(pthread_mutex_t* m) {
   int err = __real_pthread_mutex_trylock(m);
   /* thread_local initialization may acquire mutexes, */
   /* access c_mutex_locked_n only if scheme2k_thread_init() was called */
@@ -65,7 +65,7 @@ int __wrap_pthread_mutex_trylock(pthread_mutex_t *m) {
   return err;
 }
 
-int __wrap_pthread_mutex_unlock(pthread_mutex_t *m) {
+int __wrap_pthread_mutex_unlock(pthread_mutex_t* m) {
   int err = __real_pthread_mutex_unlock(m);
   /* thread_local initialization may acquire mutexes, */
   /* access c_mutex_locked_n only if scheme2k_thread_init() was called */

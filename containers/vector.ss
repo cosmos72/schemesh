@@ -167,7 +167,7 @@
 ;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 ;;
-;; Conforms to SRFI 43 Vector Library
+;; Conforms to R7RS SRFI 43 Vector Library
 (define vector-any
   (case-lambda
     ((proc vec)
@@ -214,7 +214,7 @@
 ;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 ;;
-;; Conforms to SRFI 43 Vector Library
+;; Conforms to R7RS SRFI 43 Vector Library
 (define vector-every
   (case-lambda
     ((proc vec)
@@ -274,7 +274,7 @@
 ;; Extension: if only one vector is specified and proc is not a procedure,
 ;; search for first element eqv? to proc.
 ;;
-;; Conforms to SRFI 43 Vector Library
+;; Conforms to R7RS SRFI 43 Vector Library
 (define vector-index
   (case-lambda
     ((proc vec)
