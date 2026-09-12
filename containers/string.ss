@@ -83,50 +83,27 @@
       (string-any char/char-set/pred str 0 (string-length str)))))
 
 
-;; apply proc element-wise to the elements of the strings, and count and return how many times (proc elem ...) evaluates to truish.
-;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
-;; Proc must accept as many elements as there are strings, and must return a single value.
+;; for each element of string str:
+;;   if char/char-set/pred is character, it is tested for equality with the element
+;;   if char/char-set/pred is string, the element is tested for membership to it
+;;   if char/char-set/pred is procedure, it is invoked with the element as only argument
+;;
+;; Return the count of string element tests that produced a truish value.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-count
   (case-lambda
-    ((proc)
-      0)
-    ((proc str)
-      (let ((n (string-length str)))
-        (let %string-count ((i 0) (ret 0))
-          (if (fx<? i n)
-            (%string-count
-              (if (proc (string-ref str i))
-                (fx1+ ret)
-                ret)
-              (fx1+ i))
-            ret))))
-    ((proc str1 str2)
-      (let ((n (fxmin (string-length str1) (string-length str2))))
-        (let %string-count ((i 0) (ret 0))
-          (if (fx<? i n)
-            (%string-count (fx1+ i)
-              (if (proc (string-ref str1 i) (string-ref str2 i))
-                (fx1+ ret)
-                ret))
-            ret))))
-    ((proc str1 str2 str3)
-      (let ((n (fxmin (string-length str1) (string-length str2) (string-length str3))))
-        (let %string-count ((i 0) (ret 0))
-          (if (fx<? i n)
-            (%string-count (fx1+ i)
-              (if (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))
-                (fx1+ ret)
-                ret))
-            ret))))
-    ((proc . str-list)
-      (let ((n (apply fxmin (map string-length str-list))))
-        (let %string-count ((i 0) (ret 0))
-          (if (fx<? i n)
-            (%string-count (fx1+ i)
-              (if (%apply-proc proc str-list i)
-                (fx1+ ret)
-                ret))
-            ret))))))
+    ((char/char-set/pred str start end)
+      (assert* 'string-count (fx<=?* 0 start end (string-length str)))
+      (let %string-count ((ret 0) (str str) (i start) (end end)
+                          (pred (%to-pred 'string-count char/char-set/pred)))
+        (if (fx<? i end)
+          (%string-count (if (pred (string-ref str i)) (fx1+ ret) ret)
+                         str (fx1+ i) end pred)
+          ret)))
+    ((char/char-set/pred str)
+      (string-count char/char-set/pred str 0 (string-length str)))))
 
 
 ;; return #t if string has zero length, otherwise return #t
