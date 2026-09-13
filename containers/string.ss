@@ -15,7 +15,7 @@
     string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-join string-list? string-list-split-after-nuls
-    string-map string-prefix? string-count=
+    string-map string-map! string-prefix? string-count=
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
     string-split string-split-after-nuls string-suffix?
     string-trim-split-at-blanks
@@ -47,7 +47,6 @@
   (apply proc (map (lambda (str) (string-ref str i)) str-list)))
 
 
-
 (define (%to-pred caller char/char-set/pred)
   (cond
     ((char? char/char-set/pred)
@@ -58,6 +57,7 @@
       (assert* caller (procedure? char/char-set/pred))
       (assert* caller (logbit? 1 (procedure-arity-mask char/char-set/pred)))
       char/char-set/pred)))
+
 
 ;; for each element of string str:
 ;;   if char/char-set/pred is character, it is tested for equality with the element
@@ -134,41 +134,40 @@
       (string-every char/char-set/pred str 0 (string-length str)))))
 
 
-;; apply proc element-wise to the elements of the strings, and return a string of the results.
-;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
-;; Proc must accept as many elements as there are strings, and must return a character.
+;; apply proc element-wise to each element of string str, and return a string containing the transformed elements.
+;; Proc must accept one character and return a character.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-map
   (case-lambda
-    ((proc)
-      "")
+    ((proc str start end)
+      (assert* 'string-map (fx<=?* 0 start end (string-length str)))
+      (let %string-map ((i start) (ret (make-string (fx- end start))))
+        (if (fx<? i end)
+          (begin
+            (string-set! ret (fx- i start) (proc (string-ref str i)))
+            (%string-map (fx1+ i) ret))
+          ret)))
     ((proc str)
-      (let* ((n   (string-length str))
-             (ret (make-string n)))
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n)
-              ret)
-          (string-set! ret i (proc (string-ref str i))))))
-    ((proc str1 str2)
-      (let* ((n   (fxmin (string-length str1) (string-length str2)))
-             (ret (make-string n)))
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n)
-              ret)
-          (string-set! ret i (proc (string-ref str1 i) (string-ref str2 i))))))
-    ((proc str1 str2 str3)
-      (let* ((n   (fxmin (string-length str1) (string-length str2) (string-length str3)))
-             (ret (make-string n)))
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n)
-              ret)
-          (string-set! ret i (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))))))
-    ((proc . str-list)
-      (let* ((n   (apply fxmin (map string-length str-list)))
-             (ret (make-string n)))
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n)
-              ret)
-          (string-set! ret i (%apply-proc proc str-list i)))))))
+      (string-map proc str 0 (string-length str)))))
+
+
+;; apply proc element-wise to each element of string str, and modify str in place storing the transformed elements.
+;; Proc must accept one character and return a character.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define string-map!
+  (case-lambda
+    ((proc str start end)
+      (assert* 'string-map (fx<=?* 0 start end (string-length str)))
+      (let %string-map! ((i start))
+        (when (fx<? i end)
+          (string-set! str i (proc (string-ref str i)))
+          (%string-map! (fx1+ i)))))
+    ((proc str)
+      (string-map! proc str 0 (string-length str)))))
 
 
 ;; return #t if l is a (possibly empty) list of strings
