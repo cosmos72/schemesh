@@ -61,7 +61,6 @@
   (bytevector-compare #vu8(79) #vu8(78 0))         1
   (bytevector-append #vu8(0) #vu8(1 2) #vu8()
                      #vu8(3 4 5) #vu8(255))        #vu8(0 1 2 3 4 5 255)
-  (string-count= "qwertyuiop" 2 "_ertyuio7" 1 8)   7
 
   (let* ((n   9)
          (bv  (make-bytevector n)))
@@ -128,6 +127,7 @@
 
 
   ;; ----------------- containers string ---------------------------------------
+  (string-count= "qwertyuiop" 2 "_ertyuio7" 1 8)        7
   (string-index-right "\x0;\x0;\x0;\x0;/pro" #\/ 4 8)   4
   (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
   (string-split "" #\:)                                 ("")
@@ -137,6 +137,9 @@
   (string-split "ab:cdef::g" #\: 1 10)                  ("b" "cdef" "" "g")
   (string-trim-split-at-blanks "")                      ()
   (string-trim-split-at-blanks "\n\x0;ab c\x1f;")       ("ab" "c")
+  (string-unfold null? car cdr '(#\a #\B #\c #\D)
+    "<" (lambda (seed) ">"))                            "<aBcD>"
+
   (list-remove-consecutive-duplicates!
     (list "foo" "foo" "foo" "bar" "bar" "" "bar")
     string=?)                                           ("foo" "bar" "" "bar")

@@ -12,12 +12,11 @@
     assert-string-list? for-string in-string
     string-any string-contains string-count string-empty? string-every string-iterate
 
-    string-index string-index-right
+    string-count= string-fold string-fold-right string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer?
-    string-join string-list? string-list-split-after-nuls
-    string-map string-map! string-prefix? string-count=
+    string-join string-list? string-list-split-after-nuls string-map string-map! string-prefix?
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
-    string-split string-split-after-nuls string-suffix?
+    string-split string-split-after-nuls string-suffix? string-unfold
     string-trim-split-at-blanks
     substring=? substring<? substring-move!
 
@@ -182,6 +181,63 @@
       (string-fold-right kons knil str 0 (string-length str)))))
 
 
+;; return #t if character is a decimal digit 0..9
+(define (%char-is-decimal-digit? ch)
+  (char<=? #\0 ch #\9))
+
+
+;; return #t if obj is a non-empty string containing only decimal digits.
+(define string-is-unsigned-base10-integer?
+  (case-lambda
+    ((obj start end)
+      (and (string? obj) (fx<? start end)
+           (do ((i start (fx1+ i)))
+               ((or (fx>=? i end) (not (%char-is-decimal-digit? (string-ref obj i))))
+                 (fx>=? i end)))))
+    ((obj)
+      (and (string? obj) (string-is-unsigned-base10-integer? obj 0 (string-length obj))))))
+
+
+;; return #t if obj is a non-empty string containing only decimal digits, possibly prefixed by "-"
+(define (string-is-signed-base10-integer? obj)
+  (let ((n (string-length obj)))
+    (cond
+      ((fxzero? n)
+        #f)
+      ((char=? #\- (string-ref obj 0))
+        (string-is-unsigned-base10-integer? obj 1 n))
+      (else
+        (string-is-unsigned-base10-integer? obj 0 n)))))
+
+
+;; split a string at each #\x0, and cons each splitted fragment onto ret.
+;; return updated ret.
+(define (%string-split-after-nuls str ret)
+  (let %loop ((start 0) (end (string-length str)) (ret ret))
+    (let ((pos (string-index str #\x0 start end)))
+      (cond
+        (pos              (%loop (fx1+ pos) end (cons (substring str start pos) ret)))
+        ((fx<? start end) (cons (%substring/shared str start end) ret))
+        (else             ret)))))
+
+
+;; return #t if l is a (possibly empty) list of strings
+(define (string-list? l)
+  (do ((tail l (cdr tail)))
+      ((or (null? tail) (not (string? (car tail))))
+        (null? tail))))
+
+
+;; iterate on string-list l, and split each string after each #\x0
+;; return a string-list containing each produced fragment.
+(define (string-list-split-after-nuls l)
+  (let %loop ((l l) (ret '()))
+    (if (null? l)
+      (reverse! ret)
+      (%loop (cdr l) (%string-split-after-nuls (car l) ret)))))
+    ;; (debugf "builtin-split-at-0 args=~s split=~s" prog-and-args (reverse ret)
+
+
 ;; apply proc element-wise to each element of string str, and return a string containing the transformed elements.
 ;; Proc must accept one character and return a character.
 ;;
@@ -218,51 +274,6 @@
       (string-map! proc str 0 (string-length str)))))
 
 
-;; return #t if l is a (possibly empty) list of strings
-(define (string-list? l)
-  (do ((tail l (cdr tail)))
-      ((or (null? tail) (not (string? (car tail))))
-        (null? tail))))
-
-
-;; iterate on string-list l, and split each string after each #\x0
-;; return a string-list containing each produced fragment.
-(define (string-list-split-after-nuls l)
-  (let ((ret '()))
-    (for-list ((elem l))
-      (set! ret (%string-split-after-nuls elem ret)))
-    ; (debugf "builtin-split-at-0 args=~s split=~s" prog-and-args (reverse ret)
-    (reverse! ret)))
-
-
-;; split a string after each #\x0.
-;; return as string-list containing each produced fragment.
-(define (string-split-after-nuls str)
-  (reverse! (%string-split-after-nuls str '())))
-
-
-;; optimized version of (substring), avoids making a copy if extracting the whole string
-(define (substring/shared str start end)
-  (if (and (fxzero? start) (fx=? end (string-length str)))
-    str
-    (substring str start end)))
-
-
-;; split a string at each #\x0, and cons each splitted fragment onto ret.
-;; return updated ret.
-(define (%string-split-after-nuls str ret)
-  (let ((end (string-length str)))
-    (let %loop ((start 0) (ret ret))
-      (let ((pos (string-index str #\x0 start end)))
-        (if pos
-          (%loop
-            (fx1+ pos)
-            (cons (substring str start pos) ret))
-          (if (fx<? start end)
-            (cons (substring/shared str start end) ret)
-            ret))))))
-
-
 ;; destructively remove all consecutive trailing #\newline characters from string str.
 ;; return str.
 (define (string-rtrim-newlines! str)
@@ -272,33 +283,70 @@
       (string-truncate! str end))))
 
 
-;; return #t if character is a decimal digit 0..9
-(define (char-is-decimal-digit? ch)
-  (char<=? #\0 ch #\9))
+;; optimized version of (substring), avoids making a copy if extracting the whole string
+(define (%substring/shared str start end)
+  (if (and (fxzero? start) (fx=? end (string-length str)))
+    str
+    (substring str start end)))
 
 
-;; return #t if obj is a non-empty string containing only decimal digits.
-(define string-is-unsigned-base10-integer?
-  (case-lambda
-    ((obj start end)
-      (and (string? obj) (fx<? start end)
-           (do ((i start (fx1+ i)))
-               ((or (fx>=? i end) (not (char-is-decimal-digit? (string-ref obj i))))
-                 (fx>=? i end)))))
-    ((obj)
-      (and (string? obj) (string-is-unsigned-base10-integer? obj 0 (string-length obj))))))
+;; split a string after each #\x0.
+;; return as string-list containing each produced fragment.
+(define (string-split-after-nuls str)
+  (reverse! (%string-split-after-nuls str '())))
 
 
-;; return #t if obj is a non-empty string containing only decimal digits, possibly prefixed by "-"
-(define (string-is-signed-base10-integer? obj)
-  (let ((n (string-length obj)))
+(define (%string-grow/char! str pos ch)
+  (assert* 'string-unfold (char? ch))
+  (let ((cap (string-length str)))
     (cond
-      ((fxzero? n)
-        #f)
-      ((char=? #\- (string-ref obj 0))
-        (string-is-unsigned-base10-integer? obj 1 n))
+      ((fx<? pos cap)
+        (string-set! str pos ch)
+        str)
       (else
-        (string-is-unsigned-base10-integer? obj 0 n)))))
+        (assert* 'string-unfold (fx=? pos cap))
+        (let* ((new-cap (fxmax 8 (fx* 2 cap)))
+               (new-str (make-string new-cap)))
+          (string-copy! str 0 new-str 0 cap)
+          (string-set! new-str pos ch)
+          new-str)))))
+
+
+(define (%string-append! str pos final)
+  (assert* 'string-unfold (string? final))
+  (let* ((cap  (string-length str))
+         (flen (string-length final))
+         (len  (fx+ pos flen)))
+    (cond
+      ((fx>=? cap len)
+        (string-copy! final 0 str pos flen)
+        (string-truncate! str len)
+        str)
+      (else
+        (let ((new-str (make-string len)))
+          (string-copy! str 0 new-str pos pos)
+          (string-copy! final 0 new-str pos flen)
+          new-str)))))
+          
+
+;; create and return a string from characters obtained by repeatedly calling seed->char
+;;
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define string-unfold
+  (case-lambda
+    ((stop? seed->char seed->next seed prefix last-seed->string)
+      (assert* 'string-unfold (string? prefix))
+      (assert* 'string-unfold (procedure? last-seed->string))
+      (assert* 'string-unfold (logbit? 1 (procedure-arity-mask last-seed->string)))
+      (let %string-unfold ((seed seed) (pos (string-length prefix)) (str prefix))
+        (if (stop? seed)
+          (%string-append! str pos (last-seed->string seed))
+          (%string-unfold (seed->next seed) (fx1+ pos) (%string-grow/char! str pos (seed->char seed))))))
+    ((stop? seed->char seed->next seed)
+      (string-unfold stop? seed->char seed->next seed "" (lambda (seed) "")))))
+    
 
 
 ;; create and return a closure that iterates on elements of string str.
