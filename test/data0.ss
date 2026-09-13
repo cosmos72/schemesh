@@ -139,6 +139,8 @@
   (string-trim-split-at-blanks "\n\x0;ab c\x1f;")       ("ab" "c")
   (string-unfold null? car cdr '(#\a #\B #\c #\D)
     "<" (lambda (seed) ">"))                            "<aBcD>"
+  (string-unfold-right null? car cdr '(#\a #\B #\c #\D)
+    "<" (lambda (seed) ">"))                            ">DcBa<"
 
   (list-remove-consecutive-duplicates!
     (list "foo" "foo" "foo" "bar" "bar" "" "bar")

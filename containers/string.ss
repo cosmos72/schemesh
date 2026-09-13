@@ -12,11 +12,11 @@
     assert-string-list? for-string in-string
     string-any string-contains string-count string-empty? string-every string-iterate
 
-    string-count= string-fold string-fold-right string-index string-index-right
-    string-is-unsigned-base10-integer? string-is-signed-base10-integer?
+    string-count= string-fold string-fold-right r7rs:string-for-each r7rs:string-for-each-index
+    string-index string-index-right string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-join string-list? string-list-split-after-nuls string-map string-map! string-prefix?
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
-    string-split string-split-after-nuls string-suffix? string-unfold
+    string-split string-split-after-nuls string-suffix? string-unfold string-unfold-right
     string-trim-split-at-blanks
     substring=? substring<? substring-move!
 
@@ -181,6 +181,43 @@
       (string-fold-right kons knil str 0 (string-length str)))))
 
 
+(define (%string-for-each-assert* caller proc str start end)
+  (assert* caller (procedure? proc))
+  (assert* caller (logbit? 1 (procedure-arity-mask proc)))
+  (assert* caller (string? str))
+  (assert* caller (fx<=?* 0 start end (string-length str))))
+
+
+;; apply proc to each character in str, in increasing order
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define r7rs:string-for-each
+  (case-lambda
+    ((proc str start end)
+      (%string-for-each-assert* 'r7rs:string-for-each proc str start end)
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (proc (string-ref str i))))
+    ((proc str)
+      (r7rs:string-for-each proc str 0 (string-length str)))))
+
+
+;; apply proc to each index of charactes in str, in increasing order
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define r7rs:string-for-each-index
+  (case-lambda
+    ((proc str start end)
+      (%string-for-each-assert* 'r7rs:string-for-each-index proc str start end)
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (proc i)))
+    ((proc str)
+      (r7rs:string-for-each-index proc str 0 (string-length str)))))
+
+
 ;; return #t if character is a decimal digit 0..9
 (define (%char-is-decimal-digit? ch)
   (char<=? #\0 ch #\9))
@@ -296,57 +333,114 @@
   (reverse! (%string-split-after-nuls str '())))
 
 
-(define (%string-grow/char! str pos ch)
-  (assert* 'string-unfold (char? ch))
-  (let ((cap (string-length str)))
+(define (%string-insert-left/char! str offset ch)
+  (assert* 'string-unfold-right (char? ch))
+  (let ((cap      (string-length str))
+        (offset+1 (fx1+ offset)))
     (cond
-      ((fx<? pos cap)
-        (string-set! str pos ch)
+      ((fx<? offset cap)
+        (string-set! str (fx- cap offset+1) ch)
         str)
       (else
-        (assert* 'string-unfold (fx=? pos cap))
+        (assert* 'string-unfold-right (fx=? offset cap))
         (let* ((new-cap (fxmax 8 (fx* 2 cap)))
                (new-str (make-string new-cap)))
-          (string-copy! str 0 new-str 0 cap)
-          (string-set! new-str pos ch)
+          (string-copy! str 0 new-str (fx- new-cap cap) cap)
+          (string-set! new-str (fx- new-cap offset+1) ch)
           new-str)))))
 
 
-(define (%string-append! str pos final)
-  (assert* 'string-unfold (string? final))
+(define (%string-insert-right/char! str offset ch)
+  (assert* 'string-unfold (char? ch))
+  (let ((cap (string-length str)))
+    (cond
+      ((fx<? offset cap)
+        (string-set! str offset ch)
+        str)
+      (else
+        (assert* 'string-unfold (fx=? offset cap))
+        (let* ((new-cap (fxmax 8 (fx* 2 cap)))
+               (new-str (make-string new-cap)))
+          (string-copy! str 0 new-str 0 cap)
+          (string-set! new-str offset ch)
+          new-str)))))
+
+
+(define (%string-insert-left! str offset prefix)
+  (assert* 'string-unfold-right (string? prefix))
   (let* ((cap  (string-length str))
-         (flen (string-length final))
-         (len  (fx+ pos flen)))
+         (hlen (string-length prefix))
+         (len  (fx+ offset hlen)))
+    (cond
+      ((fx=? cap len)
+        (string-copy! prefix 0 str 0 hlen)
+        str)
+      (else
+        (let ((new-str (make-string len)))
+          (string-copy! prefix 0 new-str 0 hlen)
+          (string-copy! str (fx- cap offset) new-str hlen offset)
+          new-str)))))
+
+
+(define (%string-insert-right! str offset suffix)
+  (assert* 'string-unfold (string? suffix))
+  (let* ((cap  (string-length str))
+         (tlen (string-length suffix))
+         (len  (fx+ offset tlen)))
     (cond
       ((fx>=? cap len)
-        (string-copy! final 0 str pos flen)
+        (string-copy! suffix 0 str offset tlen)
         (string-truncate! str len)
         str)
       (else
         (let ((new-str (make-string len)))
-          (string-copy! str 0 new-str pos pos)
-          (string-copy! final 0 new-str pos flen)
+          (string-copy! str 0 new-str offset offset)
+          (string-copy! suffix 0 new-str offset tlen)
           new-str)))))
-          
+
+
+(define (%string-unfold-assert* caller stop? seed->char seed->next initial-string last-seed->final-string)
+  (assert* caller (procedure? stop?))
+  (assert* caller (procedure? seed->char))
+  (assert* caller (procedure? seed->next))
+  (assert* caller (string? initial-string))
+  (assert* caller (procedure? last-seed->final-string))
+  (assert* caller (logbit? 1 (procedure-arity-mask stop?)))
+  (assert* caller (logbit? 1 (procedure-arity-mask seed->char)))
+  (assert* caller (logbit? 1 (procedure-arity-mask seed->next)))
+  (assert* caller (logbit? 1 (procedure-arity-mask last-seed->final-string))))
+
 
 ;; create and return a string from characters obtained by repeatedly calling seed->char
-;;
 ;;
 ;; Conforms to R7RS SRFI 13 String Libraries
 ;; Added in 1.0.2
 (define string-unfold
   (case-lambda
-    ((stop? seed->char seed->next seed prefix last-seed->string)
-      (assert* 'string-unfold (string? prefix))
-      (assert* 'string-unfold (procedure? last-seed->string))
-      (assert* 'string-unfold (logbit? 1 (procedure-arity-mask last-seed->string)))
-      (let %string-unfold ((seed seed) (pos (string-length prefix)) (str prefix))
+    ((stop? seed->char seed->next seed prefix last-seed->suffix)
+      (%string-unfold-assert* 'string-unfold-right stop? seed->char seed->next prefix last-seed->suffix)
+      (let %string-unfold ((seed seed) (offset (string-length prefix)) (str prefix))
         (if (stop? seed)
-          (%string-append! str pos (last-seed->string seed))
-          (%string-unfold (seed->next seed) (fx1+ pos) (%string-grow/char! str pos (seed->char seed))))))
+          (%string-insert-right! str offset (last-seed->suffix seed))
+          (%string-unfold (seed->next seed) (fx1+ offset) (%string-insert-right/char! str offset (seed->char seed))))))
     ((stop? seed->char seed->next seed)
       (string-unfold stop? seed->char seed->next seed "" (lambda (seed) "")))))
     
+
+;; create and return a string from characters obtained by repeatedly calling seed->char
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define string-unfold-right
+  (case-lambda
+    ((stop? seed->char seed->next seed suffix last-seed->prefix)
+      (%string-unfold-assert* 'string-unfold-right stop? seed->char seed->next suffix last-seed->prefix)
+      (let %string-unfold-right ((seed seed) (offset (string-length suffix)) (str suffix))
+        (if (stop? seed)
+          (%string-insert-left! str offset (last-seed->prefix seed))
+          (%string-unfold-right (seed->next seed) (fx1+ offset) (%string-insert-left/char! str offset (seed->char seed))))))
+    ((stop? seed->char seed->next seed)
+      (string-unfold-right stop? seed->char seed->next seed "" (lambda (seed) "")))))
 
 
 ;; create and return a closure that iterates on elements of string str.
