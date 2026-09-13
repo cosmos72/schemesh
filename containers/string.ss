@@ -134,6 +134,54 @@
       (string-every char/char-set/pred str 0 (string-length str)))))
 
 
+;; left-fold map the kons procedure across the string from left to right
+;; i.e. returns
+;;
+;; (kons str[end-1] (kons str[end-2] (... (kons str[start+1] (kons str[start] knil)))))
+;;
+;; obeying the tail recursion
+;;
+;; (string-fold kons knil str start end) =
+;;   (string-fold kons (kons str[start] knil) start+1 end)
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define string-fold
+  (case-lambda
+    ((kons knil str start end)
+      (assert* 'string-fold (fx<=?* 0 start end (string-length str)))
+      (let %string-fold ((knil knil) (start start))
+        (if (fx<? start end)
+          (%string-fold (kons (string-ref str start) knil) (fx1+ start))
+          knil)))
+    ((kons knil str)
+      (string-fold kons knil str 0 (string-length str)))))
+        
+
+;; right-fold map the kons procedure across the string from right to left
+;; i.e. returns
+;;
+;; (kons str[start] (kons str[start+1] (... (kons str[end-2] (kons str[end-1] knil)))))
+;;
+;; obeying the tail recursion
+;;
+;; (string-fold-right kons knil str start end) =
+;;   (string-fold-right kons (kons str[end-1] knil) start end-1)
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define string-fold-right
+  (case-lambda
+    ((kons knil str start end)
+      (assert* 'string-fold-right (fx<=?* 0 start end (string-length str)))
+      (let %string-fold-right ((knil knil) (end-1 (fx1- end)))
+        (if (fx<=? start end-1)
+          (%string-fold-right (kons (string-ref str end-1) knil) (fx1- end-1))
+          knil)))
+    ((kons knil str)
+      (string-fold-right kons knil str 0 (string-length str)))))
+
+
 ;; apply proc element-wise to each element of string str, and return a string containing the transformed elements.
 ;; Proc must accept one character and return a character.
 ;;
