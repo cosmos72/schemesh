@@ -12,7 +12,7 @@
     assert-string-list? for-string in-string
     string-any string-contains string-count string-empty? string-every string-iterate
 
-    string-count= string-fold string-fold-right r7rs:string-for-each r7rs:string-for-each-index
+    string-count= string-fold string-fold-right r7rs:string-for-each string-for-each-index
     string-index string-index-right string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-join string-list? string-list-split-after-nuls string-map string-map! string-prefix?
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
@@ -207,15 +207,15 @@
 ;;
 ;; Conforms to R7RS SRFI 13 String Libraries
 ;; Added in 1.0.2
-(define r7rs:string-for-each-index
+(define string-for-each-index
   (case-lambda
     ((proc str start end)
-      (%string-for-each-assert* 'r7rs:string-for-each-index proc str start end)
+      (%string-for-each-assert* 'string-for-each-index proc str start end)
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
         (proc i)))
     ((proc str)
-      (r7rs:string-for-each-index proc str 0 (string-length str)))))
+      (string-for-each-index proc str 0 (string-length str)))))
 
 
 ;; return #t if character is a decimal digit 0..9
