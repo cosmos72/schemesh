@@ -14,7 +14,7 @@
     (rnrs)
     (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
     (only (scheme2k containers list)      for-list list-remove-consecutive-duplicates!)
-    (only (scheme2k containers string)    substring=? string-empty? string-prefix? string-split)
+    (only (scheme2k containers string)    substring=? string-null? string-prefix? string-split)
     (only (scheme2k containers hashtable) for-hash-keys)
     (scheme2k containers charspan)
     (scheme2k containers span)
@@ -110,7 +110,7 @@
          (slash    (charspan-index csp #\/ 1 len))
          ;; TODO: username may be the initial prefix of one or more existing usernames: autocomplete them
          (username (charspan->string csp 1 (if slash slash len)))
-         (userhome (if (string-empty? username) (sh-userhome) (sh-userhome username))))
+         (userhome (if (string-null? username) (sh-userhome) (sh-userhome username))))
     (cond
       ((not userhome)
         csp)
@@ -441,7 +441,7 @@
 
 (define (%list-directory dir prefix slash? quote-func completions)
   ;; (debugf "lineedit-shell-list/directory dir ~s, prefix ~s, quote-func ~s" dir prefix quote-func)
-  (let* ((dir?       (and slash? (not (string-empty? dir))))
+  (let* ((dir?       (and slash? (not (string-null? dir))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))

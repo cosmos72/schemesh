@@ -10,7 +10,7 @@
 (library (scheme2k containers string (1 0 1))
   (export
     assert-string-list? for-string in-string
-    string-any string-contains string-count string-empty? string-every string-iterate
+    string-any string-contains string-count string-null? string-every string-iterate
 
     string-count= string-fold string-fold-right r7rs:string-for-each string-for-each-index
     string-index string-index-right string-is-unsigned-base10-integer? string-is-signed-base10-integer?
@@ -105,8 +105,11 @@
       (string-count char/char-set/pred str 0 (string-length str)))))
 
 
-;; return #t if string has zero length, otherwise return #t
-(define (string-empty? str)
+;; return #t if string has zero length, otherwise return #f
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Added in 1.0.2
+(define (string-null? str)
   (fxzero? (string-length str)))
 
 
@@ -804,30 +807,58 @@
         (string-contains str key 0 (string-length str) 0 (string-length key))))))
 
 
-;; return #t if string str starts with specified prefix,
+;; return #t if string s1 starts with specified prefix,
 ;; otherwise return #f.
-(define (string-prefix? str prefix-str-or-char)
-  (let ((len    (string-length str))
-        (prefix prefix-str-or-char))
-    (if (char? prefix)
-      (and (not (fxzero? len))
-           (char=? prefix (string-ref str 0)))
-      (let ((prefix-len (string-length prefix)))
-        (and (fx>=? len prefix-len)
-             (substring=? str 0 prefix 0 prefix-len))))))
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
+(define string-prefix?
+  (case-lambda
+    ((s1 prefix-str-or-char)
+      (let ((len1 (string-length s1))
+            (s2   prefix-str-or-char))
+        (if (char? s2)
+          (and (not (fxzero? len1))
+               (char=? s2 (string-ref s1 0)))
+          (let ((len2 (string-length s2)))
+            (and (fx>=? len1 len2)
+                 (substring=? s1 0 s2 0 len2))))))
+    ((s1 s2 start1 end1 start2 end2)
+      (assert* 'string-prefix? (string? s1))
+      (assert* 'string-prefix? (string? s2))
+      (assert* 'string-prefix? (fx<=?* 0 start1 end1 (string-length s1)))
+      (assert* 'string-prefix? (fx<=?* 0 start2 end2 (string-length s2)))
+      (let ((len1 (fx- end1 start1))
+            (len2 (fx- end2 start2)))
+        (and (fx>=? len1 len2)
+             (substring=? s1 start1 s2 start2 len2))))))
 
 
-;; return #t if string str ends with specified suffix.
+;; return #t if string s1 ends with specified suffix.
 ;; otherwise return #f.
-(define (string-suffix? str suffix-str-or-char)
-  (let* ((len    (string-length str))
-         (suffix suffix-str-or-char))
-    (if (char? suffix)
-      (and (not (fxzero? len))
-           (char=? suffix (string-ref str (fx1- len))))
-      (let ((suffix-len (string-length suffix)))
-        (and (fx>=? len suffix-len)
-             (substring=? str (fx- len suffix-len) suffix 0 suffix-len))))))
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
+(define string-suffix?
+  (case-lambda
+    ((s1 suffix-str-or-char)
+      (let* ((len1 (string-length s1))
+             (s2   suffix-str-or-char))
+        (if (char? s2)
+          (and (not (fxzero? len1))
+               (char=? s2 (string-ref s1 (fx1- len1))))
+          (let ((len2 (string-length s2)))
+            (and (fx>=? len1 len2)
+                 (substring=? s1 (fx- len1 len2) s2 0 len2))))))
+    ((s1 s2 start1 end1 start2 end2)
+      (assert* 'string-suffix? (string? s1))
+      (assert* 'string-suffix? (string? s2))
+      (assert* 'string-suffix? (fx<=?* 0 start1 end1 (string-length s1)))
+      (assert* 'string-suffix? (fx<=?* 0 start2 end2 (string-length s2)))
+      (let ((len1 (fx- end1 start1))
+            (len2 (fx- end2 start2)))
+        (and (fx>=? len1 len2)
+             (substring=? s1 (fx- end1 len2) s2 start2 len2))))))
 
 
 ;; if string str begins with string old-prefix, create and return a copy of str
