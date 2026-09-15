@@ -129,6 +129,14 @@
   ;; ----------------- containers string ---------------------------------------
   (string-count= "qwertyuiop" 2 "_ertyuio7" 1 8)        7
   (string-index-right "\x0;\x0;\x0;\x0;/pro" #\/ 4 8)   4
+  (string-index "abcdabcd" #\b)                         1
+  (string-index "abcdabcd" "c")                         2
+  (string-index "abcdabcd" "bd")                        1
+  (string-index "abcdeabcde" "edc")                     2
+  (string-index-right "abcdaceg" #\a)                   4
+  (string-index-right "abcdaceg" "b")                   1
+  (string-index-right "abcdaceg" "bd")                  3
+  (string-index-right "abcdaceg" "edc")                 6
   (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
   (string-split "" #\:)                                 ("")
   (string-split ":" #\:)                                ("" "")

@@ -146,9 +146,9 @@ ptr scheme2k_Sbytevector(const char bytes[], size_t len) {
 /******************************************************************************/
 
 /**
- * find first character equal to ch in string range,
- * and return its position in the range [start, end)
- * return #f if no such character was found.
+ * Scan string str range [start, end) and find first character equal to ch.
+ * Return its position in the range [start, end),
+ * or #f if no such character was found.
  */
 static ptr c_string_index_ch(ptr str, ptr ch, iptr start, iptr end) {
   if (Sstringp(str) && Scharp(ch) && 0 <= start && start < end && end <= Sstring_length(str)) {
@@ -163,9 +163,9 @@ static ptr c_string_index_ch(ptr str, ptr ch, iptr start, iptr end) {
 }
 
 /**
- * find last character equal to ch in string range,
- * and return its position in the range [start, end)
- * return #f if no such character was found.
+ * Scan string str range [start, end) and find last character equal to ch.
+ * Return its position in the range [start, end),
+ * or #f if no such character was found.
  */
 static ptr c_string_index_right_ch(ptr str, ptr ch, iptr start, iptr end) {
   if (Sstringp(str) && Scharp(ch) && 0 <= start && start < end && end <= Sstring_length(str)) {
@@ -174,6 +174,84 @@ static ptr c_string_index_right_ch(ptr str, ptr ch, iptr start, iptr end) {
       if (Sstring_ref(str, --end) == c) {
         return Sfixnum(end);
       }
+    }
+  }
+  return Sfalse;
+}
+
+/**
+ * Scan string str range [start, end) and find first character also present in chars.
+ * Return its position in the range [start, end),
+ * or #f if no such character was found.
+ */
+static ptr c_string_index_chars(ptr str, ptr chars, iptr start, iptr end) {
+  if (Sstringp(str) && Sstringp(chars) && 0 <= start && start < end && end <= Sstring_length(str)) {
+    const iptr  n = Sstring_length(chars);
+    string_char c0, c1;
+    switch (n) {
+      case 0:
+        break;
+      case 1:
+        return c_string_index_ch(str, Schar(Sstring_ref(chars, 0)), start, end);
+      case 2:
+        c0 = Sstring_ref(chars, 0);
+        c1 = Sstring_ref(chars, 1);
+        for (; start < end; ++start) {
+          const string_char si = Sstring_ref(str, start);
+          if (si == c0 || si == c1) {
+            return Sfixnum(start);
+          }
+        }
+        break;
+      default:
+        c0 = Sstring_ref(chars, 0);
+        c1 = Sstring_ref(chars, 1);
+        for (; start < end; ++start) {
+          const string_char si = Sstring_ref(str, start);
+          if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
+            return Sfixnum(start);
+          }
+        }
+        break;
+    }
+  }
+  return Sfalse;
+}
+
+/**
+ * Scan string str range [start, end) and find last character also present in chars.
+ * Return its position in the range [start, end),
+ * or #f if no such character was found.
+ */
+static ptr c_string_index_right_chars(ptr str, ptr chars, iptr start, iptr end) {
+  if (Sstringp(str) && Sstringp(chars) && 0 <= start && start < end && end <= Sstring_length(str)) {
+    const iptr  n = Sstring_length(chars);
+    string_char c0, c1;
+    switch (n) {
+      case 0:
+        break;
+      case 1:
+        return c_string_index_right_ch(str, Schar(Sstring_ref(chars, 0)), start, end);
+      case 2:
+        c0 = Sstring_ref(chars, 0);
+        c1 = Sstring_ref(chars, 1);
+        for (--end; end >= start; --end) {
+          string_char si = Sstring_ref(str, end);
+          if (si == c0 || si == c1) {
+            return Sfixnum(end);
+          }
+        }
+        break;
+      default:
+        c0 = Sstring_ref(chars, 0);
+        c1 = Sstring_ref(chars, 1);
+        for (--end; end >= start; --end) {
+          string_char si = Sstring_ref(str, end);
+          if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
+            return Sfixnum(end);
+          }
+        }
+        break;
     }
   }
   return Sfalse;
@@ -988,7 +1066,9 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_subbytevector_compare", &c_subbytevector_compare);
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_string_index_ch", &c_string_index_ch);
+  Sregister_symbol("c_string_index_chars", &c_string_index_chars);
   Sregister_symbol("c_string_index_right_ch", &c_string_index_right_ch);
+  Sregister_symbol("c_string_index_right_chars", &c_string_index_right_chars);
   Sregister_symbol("c_string_count_equal", &c_string_count_equal);
   Sregister_symbol("c_string_contains", &c_string_contains);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
