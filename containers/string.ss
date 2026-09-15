@@ -527,60 +527,70 @@
 
 
 ;; search string range [start, end) and return index of first character
-;; that matches char-or-pred
+;; that matches char/char-set/pred
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-index
   (let ((c-string-index-ch (foreign-procedure "c_string_index_ch" (ptr ptr fixnum fixnum) ptr)))
     (case-lambda
-      ((str char-or-pred start end)
+      ((str char/char-set/pred start end)
         (assert* 'string-index (string? str))
         (assert* 'string-index (fx<=?* 0 start end (string-length str)))
-        (cond
-          ((char? char-or-pred)
+        (let ((key char/char-set/pred))
+          (if (char? key)
             (if (fx<? (fx- end start) 4)
               (do ((i start (fx1+ i)))
-                  ((or (fx>=? i end) (char=? char-or-pred (string-ref str i)))
+                  ((or (fx>=? i end) (char=? key (string-ref str i)))
                     (and (fx<? i end) i)))
-              (c-string-index-ch str char-or-pred start end)))
-          (else
-            (assert* 'string-index (procedure? char-or-pred))
-            (assert* 'string-index (logbit? 1 (procedure-arity-mask char-or-pred)))
-            (do ((i start (fx1+ i)))
-              ((or (fx>=? i end) (char-or-pred (string-ref str i)))
-                (and (fx<? i end) i))))))
-      ((str char-or-pred)
-        (string-index str char-or-pred 0 (string-length str))))))
+              (c-string-index-ch str key start end))
+            (let ((pred (if (string? key)
+                          (lambda (ch) (string-contains key ch))
+                          key)))
+              (assert* 'string-index (procedure? pred))
+              (assert* 'string-index (logbit? 1 (procedure-arity-mask pred)))
+              (do ((i start (fx1+ i)))
+                ((or (fx>=? i end) (pred (string-ref str i)))
+                  (and (fx<? i end) i)))))))
+      ((str char/char-set/pred)
+        (string-index str char/char-set/pred 0 (string-length str))))))
 
 
 ;; search string range [start, end) and return index of last character
-;; that matches char-or-pred
+;; that matches char/char-set/pred
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
+;;
+;; Conforms to R7RS SRFI 13 String Libraries
+;; Modified in 1.0.2
 (define string-index-right
   (let ((c-string-index-right-ch (foreign-procedure "c_string_index_right_ch" (ptr ptr fixnum fixnum) ptr)))
     (case-lambda
-      ((str char-or-pred start end)
-        ;; (debugf "string-index-right str ~s, char-or-pred ~s, start ~s, end ~s" str char-or-pred start end)
+      ((str char/char-set/pred start end)
+        ;; (debugf "string-index-right str ~s, char/char-set/pred ~s, start ~s, end ~s" str char/char-set/pred start end)
         (assert* 'string-index-right (string? str))
         (assert* 'string-index-right (fx<=?* 0 start end (string-length str)))
-        (cond
-          ((char? char-or-pred)
+        (let ((key char/char-set/pred))
+          (if (char? key)
             (if (fx<? (fx- end start) 4)
               (do ((i (fx1- end) (fx1- i)))
-                  ((or (fx<? i start) (char=? char-or-pred (string-ref str i)))
+                  ((or (fx<? i start) (char=? key (string-ref str i)))
                     (and (fx>=? i start) i)))
-              (c-string-index-right-ch str char-or-pred start end)))
-          (else
-            (assert* 'string-index-right (procedure? char-or-pred))
-            (assert* 'string-index-right (logbit? 1 (procedure-arity-mask char-or-pred)))
-            (do ((i (fx1- end) (fx1- i)))
-                ((or (fx<? i start) (char-or-pred (string-ref str i)))
-                  (and (fx>=? i start) i))))))
-      ((str char-or-pred)
-        (string-index-right str char-or-pred 0 (string-length str))))))
+              (c-string-index-right-ch str key start end))
+            (let ((pred (if (string? key)
+                          (lambda (ch) (string-contains key ch))
+                          key)))
+              (assert* 'string-index-right (procedure? pred))
+              (assert* 'string-index-right (logbit? 1 (procedure-arity-mask pred)))
+              (do ((i (fx1- end) (fx1- i)))
+                  ((or (fx<? i start) (pred (string-ref str i)))
+                    (and (fx>=? i start) i)))))))
+      ((str char/char-set/pred)
+        (string-index-right str char/char-set/pred 0 (string-length str))))))
 
 
 ;; destructively replace each occurrence of old-char with new-char in string str.
