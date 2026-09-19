@@ -260,8 +260,7 @@ static ptr c_string_index_right_chars(ptr str, ptr chars, iptr start, iptr end) 
 /**
  * compare the range [lstart, lstart + n) of left string
  * with the range [rstart, rstart + n) of right string.
- * return the leftmost position, starting from 0, containing different characters,
- * or n if the two ranges contain the same characters
+ * return the number of initial, consecutive equal characters in the two substrings, in [0, n]
  */
 static iptr c_string_count_equal(ptr left, iptr lstart, ptr right, iptr rstart, iptr n) {
   iptr llen, rlen;
