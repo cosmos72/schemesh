@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers string (1 0 1))
+(library (scheme2k containers string (1 0 2))
   (export
     assert-string-list? for-string in-string
     string-any string-contains string-count string-null? string-every string-iterate

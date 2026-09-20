@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k lineedit parenmatcher (1 0 1))
+(library (scheme2k lineedit parenmatcher (1 0 2))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
     parenmatcher-paren parenmatcher-maybe-update!

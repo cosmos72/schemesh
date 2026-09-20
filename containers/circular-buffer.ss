@@ -11,7 +11,7 @@
 ;;;;;;;;;;;          define Scheme type "circular-buffer"        ;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (scheme2k containers circular-buffer (1 0 1))
+(library (scheme2k containers circular-buffer (1 0 2))
   (export
     circular-buffer          circular-buffer?        make-circular-buffer    vector->circular-buffer*
     circular-buffer-length   circular-buffer-clear!  circular-buffer-empty?  circular-buffer-full?

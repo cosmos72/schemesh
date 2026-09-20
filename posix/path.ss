@@ -9,7 +9,7 @@
 
 ;; TODO: remove "sh-" prefix
 ;; TODO: accept bytevector, bytespan, string or charspan in all functions
-(library (scheme2k posix path (1 0 1))
+(library (scheme2k posix path (1 0 2))
   (export sh-path sh-path? sh-path-absolute? sh-path-relative?
           sh-path-append sh-path-append! sh-path-iterate
           sh-subpath sh-subpath? sh-path->subpath text->sh-path*)

@@ -623,7 +623,7 @@ sudo apt update
 sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v1.0.1
+git checkout -f v1.0.2
 make -j
 
 # try schemesh without installing it
@@ -647,7 +647,7 @@ then replace the command `make -j` with `make -j CC='gcc -fno-lto'`
 sudo dnf install gcc make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v1.0.1
+git checkout -f v1.0.2
 make -j
 
 # try schemesh without installing it
@@ -671,7 +671,7 @@ then execute the following:
 apt install build-essential git liblz4 ncurses zlib
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v1.0.1
+git checkout -f v1.0.2
 make -j prefix="$PREFIX/local"
 
 # try schemesh without installing it
@@ -693,7 +693,7 @@ for the selected Linux distribution.
 pkg install chez-scheme gcc git gmake  # must be executed as root
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v1.0.1
+git checkout -f v1.0.2
 gmake -j
 
 # try schemesh without installing it
@@ -710,7 +710,7 @@ gmake install  # must be executed as root
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
 brew install chezscheme lz4
 git clone https://github.com/cosmos72/schemesh
-git checkout -f v1.0.1
+git checkout -f v1.0.2
 cd schemesh
 make -j
 
@@ -736,7 +736,7 @@ nix-build && ./result/bin/schemesh
 let
   schemesh = pkgs.fetchgit {
     url = "https://github.com/cosmos72/schemesh.git";
-    rev = "refs/tags/v1.0.1"; # or: "refs/heads/main"
+    rev = "refs/tags/v1.0.2"; # or: "refs/heads/main"
     sha256 = ""; # insert sha256 when ready
   };
 {

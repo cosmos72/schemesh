@@ -9,7 +9,7 @@
 
 ;;; base64 encoding and decoding procedures.
 ;;;
-(library (scheme2k io base64 (1 0 1))
+(library (scheme2k io base64 (1 0 2))
   (export base64-string->bytevector bytevector->base64-string bytespan-insert-right/base64! put-base64)
   (import
     (rnrs)

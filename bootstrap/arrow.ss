@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k bootstrap arrow (1 0 1))
+(library (scheme2k bootstrap arrow (1 0 2))
   (export ==> ~>)
   (import
     (rnrs)

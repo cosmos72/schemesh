@@ -8,7 +8,7 @@
 
 #!r6rs
 
-(library (scheme2k containers time (1 0 1))
+(library (scheme2k containers time (1 0 2))
   (export
       (rename (make-time-duration duration))
       make-time-duration make-time-monotonic make-time-utc make-time-process make-time-thread make-time-collector-cpu make-time-collector-real

@@ -142,7 +142,7 @@ static void usage(const char* name, const int is_script) {
 }
 
 static void display_version(void) {
-  fputs("1.0.1\n", stdout);
+  fputs("1.0.2\n", stdout);
   fflush(stdout);
 }
 

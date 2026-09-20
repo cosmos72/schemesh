@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (scheme2k io name0 (1 0 1))
+(library (scheme2k io name0 (1 0 2))
   (export
     make-name0-reader name0-reader name0-reader? name0-reader-port)
   (import

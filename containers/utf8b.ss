@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers utf8b (1 0 1))
+(library (scheme2k containers utf8b (1 0 2))
   (export
     ;; utf8b.ss
     codepoint? codepoint-utf8b? integer->char* string->utf8b string->utf8b/0

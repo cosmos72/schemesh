@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh parser (1 0 1))
+(library (schemesh parser (1 0 2))
   (export
     ;; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
