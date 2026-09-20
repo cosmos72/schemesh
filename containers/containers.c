@@ -204,12 +204,14 @@ static ptr c_string_index_chars(ptr str, ptr chars, iptr start, iptr end) {
         }
         break;
       default:
-        c0 = Sstring_ref(chars, 0);
-        c1 = Sstring_ref(chars, 1);
-        for (; start < end; ++start) {
-          const string_char si = Sstring_ref(str, start);
-          if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
-            return Sfixnum(start);
+        if (n > 0) {
+          c0 = Sstring_ref(chars, 0);
+          c1 = Sstring_ref(chars, 1);
+          for (; start < end; ++start) {
+            const string_char si = Sstring_ref(str, start);
+            if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
+              return Sfixnum(start);
+            }
           }
         }
         break;
@@ -243,12 +245,14 @@ static ptr c_string_index_right_chars(ptr str, ptr chars, iptr start, iptr end) 
         }
         break;
       default:
-        c0 = Sstring_ref(chars, 0);
-        c1 = Sstring_ref(chars, 1);
-        for (--end; end >= start; --end) {
-          string_char si = Sstring_ref(str, end);
-          if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
-            return Sfixnum(end);
+        if (n > 0) {
+          c0 = Sstring_ref(chars, 0);
+          c1 = Sstring_ref(chars, 1);
+          for (--end; end >= start; --end) {
+            string_char si = Sstring_ref(str, end);
+            if (si == c0 || si == c1 || c_string_index_ch(chars, Schar(si), 2, n) != Sfalse) {
+              return Sfixnum(end);
+            }
           }
         }
         break;
@@ -264,9 +268,9 @@ static ptr c_string_index_right_chars(ptr str, ptr chars, iptr start, iptr end) 
  */
 static iptr c_string_count_equal(ptr left, iptr lstart, ptr right, iptr rstart, iptr n) {
   iptr llen, rlen;
-  if (Sstringp(left) && 0 <= lstart && lstart <= (llen = Sstring_length(left))) {
-    if (Sstringp(right) && 0 <= rstart && rstart <= (rlen = Sstring_length(right))) {
-      if (n <= llen - lstart && n <= rlen - rstart) {
+  if (Sstringp(left) && lstart >= 0 && lstart < (llen = Sstring_length(left))) {
+    if (Sstringp(right) && rstart >= 0 && rstart < (rlen = Sstring_length(right))) {
+      if (n > 0 && n <= llen - lstart && n <= rlen - rstart) {
         if (left != right || lstart != rstart) {
           iptr i;
           for (i = 0; i < n; i++) {
