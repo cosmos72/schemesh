@@ -9,23 +9,59 @@
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
 
-### main branch
+### release v1.0.2, 2026-09-20
 
-* fix issue #62: update `(sh-env-ref)` and shell syntax "$PWD" to always synthetize the value of environment variable PWD
-  from relevant job's current directory.
-* fix several glitches in shell parser.
+* fix issue #62: update `(sh-env-ref)` and shell environment variable `$PWD` to always return the relevant job's current directory
+* fix issues #67 #68 #69 #71 #72: several glitches in shell parser
+* fix issue #74: infinite recursion in UTF-8b output ports when writing to the underlying binary port repeatedly fails
+* fix issue #80: >& had no effect
+* fix issue #82: file descriptor leak caused hang when piping the output of a redirected command
+* fix issue #83: (sh-run/bytevector) and friends caused scroll and prompt redraw if called from linectx key bindings,
+  because they tried to show status changes of a silent job
+* fix issue #84: source code was displayed without quoting/escaping in conditions raised by syntax errors
 * on ELF systems, install wrappers for C functions `pthread_mutex_lock()` `pthread_mutex_timedlock()` `pthread_mutex_unlock()`
   and keep a per-thread count of how many mutexes are locked. Used to never suspend a thread as long as it owns some locked mutex.
-* add function `(sh-alias)` that accepts alias definition as either a list of strings or as a single-argument procedure.
-  This allows defining aliases that execute arbitrary code.
-* add functions `(lineedit-key-sh-run)` `(lineedit-key-sh-run/i)` for starting jobs from a key binding
-* add function `(lineedit-key-edit-input)` sends current input lines to the preferred editor via a temporary file,
-  and loads them from file if editor exits successfully
-* no longer keep track of exited threads id, status and name.
-* intentionally ignore aliases for shell builtin `command`
+* no longer keep track of exited threads id, status and name - fixes several deadlocks in thread-related functions
+* shell builtin `command` now cannot be shadowed by an alias
+* fix `(sh-home->~)` not to shorten paths that merely share a prefix with user's home, as for example `/home/user_foobar`
+* harden command line file evalation, REPL and linectx against tty I/O errors
+* improve REPL behavior: flush current and console ports after each evaluation
+* if some stopped job is present, display once the message `"There are stopped jobs."` instead of exiting immediately
+  from shell builtin `exit` and upon `EOF` at REPL. Fixes issue #65
+* rename library `(schemesh shell paths)` -> `(scheme2k posix path)` and change its license GPL v2+ -> LGPL v2+
+* improve Android Termux support in `Makefile`
+* improve functions `(sh-eval-file...)`, they now can also load compiled Scheme libraries
+* add command line options `--file FILE` and `--script FILE [ARG...]` that can load files in Scheme or shell syntax,
+  and also compiled Scheme libraries.
+* add command line options `-t TYPE` and `--type TYPE` for setting the type of subsequent files in command line
+  to one of: `auto` `scheme` `shell` `library`
+* add shell special variables `$0` `$1` ... `$9` and `${NNN}` for accessing runtime arguments
+* add executable `schemesh-script` for simplifying running scripts with runtime arguments:
+  it can be used by putting an initial line `#!/usr/bin/env schemesh-script` in a Scheme/shell script,
+  and running `schemesh-script [OPTIONS] FILE [ARG...]` is equivalent to `schemesh-script [OPTIONS] --script FILE [ARG...]`
 * add shell builtin `bind`, it defines key bindings that executes a builtin, alias or command with `(sh-run/i)` i.e. with job control
 * add shell builtin `edit-text`, it launches the first available program among:
   `$VISUAL` `$EDITOR` `sensible-editor` `editor` `nano` `emacs` `vi`
+* add function `(sh-alias)` that accepts alias definition as either a list of strings or as a single-argument procedure.
+  This allows defining aliases that execute arbitrary code.
+* im
+* add function `(sh-job-verbose?)` and `(sh-job-verbose?-set!)` for getting/setting a job's verbose flag:
+  REPL shows job status changes notifications only for verbose jobs i.e. if `(sh-job-verbose?)` is truish
+* add functions `(lineedit-key-sh-run)` `(lineedit-key-sh-run/i)` for starting jobs from a key binding
+* add functions `(lineedit-cleanup-before-cmd)` and `(lineedit-cleanup-after-cmd)` for coordinating line editing
+  with key bindings that arbitrarily modify input lines or write to the terminal, for example because they run jobs.
+  They are also used internally by `(lineedit-key-cmd)` `(lineedit-key-sh-run)` and `(lineedit-key-sh-run/i)` 
+* add function `(lineedit-key-edit-input)` for editing input lines with an external editor:
+  writes current input lines to a temporary file,
+  runs `edit-text` for launching the preferred editor on the temporary file,
+  and reloads current input lines from file if editor exits successfully
+* add functions `(bytevector0?)` `(bytevector-prefix?)` `(bytevector-suffix?)`
+* add or refactor more functions conforming to R7RS SRFI 13 String Libraries:
+  `(string-any)` `(string-count)` `(string-every)` `(string-fold)` `(string-fold-right)` `(string-for-each-index)` `(r7rs:string-for-each)`
+  `(string-index)` `(string-index-right)` `(string-map)` `(string-map!)` `(string-null?)` `(string-prefix?)` `(string-suffix?)` `(string-unfold)`
+* add function `(file-mkstemp->fd)` for atomically creating and opening a temporary file via C function `mkstemp()`
+* add function `(values->status)` that wraps arbitrary values into a single status:
+  uses the same algorithm already employed by Scheme jobs.
 
 
 ### release v1.0.1, 2026-07-11
