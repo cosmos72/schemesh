@@ -750,6 +750,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
   Sregister_symbol("c_mkdir", &c_mkdir);
+  Sregister_symbol("c_umask", &c_umask);
 
   Sregister_symbol("c_fd_open_max", &c_fd_open_max);
   Sregister_symbol("c_fd_close", &c_fd_close);

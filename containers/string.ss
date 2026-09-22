@@ -158,7 +158,7 @@
           knil)))
     ((kons knil str)
       (string-fold kons knil str 0 (string-length str)))))
-        
+
 
 ;; right-fold map the kons procedure across the string from right to left
 ;; i.e. returns
@@ -428,7 +428,7 @@
           (%string-unfold (seed->next seed) (fx1+ offset) (%string-insert-right/char! str offset (seed->char seed))))))
     ((stop? seed->char seed->next seed)
       (string-unfold stop? seed->char seed->next seed "" (lambda (seed) "")))))
-    
+
 
 ;; create and return a string from characters obtained by repeatedly calling seed->char
 ;;

@@ -9,6 +9,10 @@
 * investigate more serialization formats: CBOR, MessagePack, possible ZeroMQ-compatible framing
 
 
+### main branch
+* add shell builtin `umask` and scheme function `(c-umask)`. Contributed by @xofyarg
+
+
 ### release v1.0.2, 2026-09-20
 
 * fix issue #62: update `(sh-env-ref)` and shell environment variable `$PWD` to always return the relevant job's current directory
@@ -50,7 +54,7 @@
 * add functions `(lineedit-key-sh-run)` `(lineedit-key-sh-run/i)` for starting jobs from a key binding
 * add functions `(lineedit-cleanup-before-cmd)` and `(lineedit-cleanup-after-cmd)` for coordinating line editing
   with key bindings that arbitrarily modify input lines or write to the terminal, for example because they run jobs.
-  They are also used internally by `(lineedit-key-cmd)` `(lineedit-key-sh-run)` and `(lineedit-key-sh-run/i)` 
+  They are also used internally by `(lineedit-key-cmd)` `(lineedit-key-sh-run)` and `(lineedit-key-sh-run/i)`
 * add function `(lineedit-key-edit-input)` for editing input lines with an external editor:
   writes current input lines to a temporary file,
   runs `edit-text` for launching the preferred editor on the temporary file,

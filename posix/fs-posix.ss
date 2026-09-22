@@ -18,6 +18,31 @@
 (define c-dev-major (foreign-procedure "c_dev_major" (unsigned-64) unsigned))
 (define c-dev-minor (foreign-procedure "c_dev_minor" (unsigned-64) unsigned))
 
+;; With no arguments, return current C umask() as an exact integer.
+;;
+;; With one argument, set current C umask() and return previous value.
+;; Argument must be an exact integer in 0 ... #o777
+;;
+;; Note: internally caches current value, because querying it with C umask()
+;; requires temporarily changing it, which creates a race with file creation from other threads.
+;;
+;; To guarantee that cached value is accurate, NEVER directly invoke C umask():
+;; ALL such calls must go through this Scheme function (c-umask)
+;;
+;; Added in 1.0.3
+(define c-umask
+  (let* ((%c-umask (foreign-procedure "c_umask" (int) int))
+         (current  (%c-umask -1))) ; cache current value
+    (case-lambda
+      (()
+        current)
+      ((new-umask)
+        (assert* 'c-umask (fixnum? new-umask))
+        (assert* 'c-umask (fx<=? 0 new-umask #o777))
+        (let ((prev (%c-umask new-umask)))
+          (set! current new-umask)
+          prev)))))
+
 
 (define chez-cd-wrapper
   (let ((chez-cd (let ()

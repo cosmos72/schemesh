@@ -49,6 +49,7 @@ In shell syntax, the following shell builtins are recognized:
 * [`to`](#to) copy structured data from stdin to stdout, writing it with specified format
 * [`true`](#true) do nothing and return success, ignoring all arguments
 * [`ulimit`](#ulimit) display or modify shell resource limits
+* [`umask`](#umask) display or modify the file creation mask
 * [`unalias`](#unalias) remove specified aliases
 * [`unexport`](#unexport) mark specified environment variables as not exported
 * [`unset`](#unset) remove specified environment variables
@@ -342,6 +343,22 @@ Syntax: `true [ARGS ...]`
 Same as [:](#colon)
 
 Do nothing and return success. Ignores all arguments.
+
+#### umask
+Syntax: `umask [MASK]`
+<br/>Added in 1.0.3
+
+Without arguments, display the current file creation mask as four octal digits, for example `0022`.
+
+With one argument, set the mask to the specified octal value between `000` and `777`.
+Only digits `0` through `7` are accepted; symbolic modes and options such as `-S` are not supported.
+
+The mask affects the current process and is inherited by child processes.
+For example, `umask 022` normally produces new files with permissions `644`
+and new directories with permissions `755`, while `umask 077` produces `600`
+and `700`, respectively. Existing files and directories are unaffected.
+
+Return success, or failure for invalid arguments, leaving the mask unchanged.
 
 #### unalias
 Syntax: `unalias [NAME ...]`

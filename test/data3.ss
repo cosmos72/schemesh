@@ -441,6 +441,39 @@
   (sh-run (shell-subshell "false"))                    ,(failed 1)
   (sh-run (shell-subshell "echo0"))                    ,@"#<void>"
   (sh-run (shell-subshell "status" "213"))             ,(failed 213)
+
+  ;; test umask: restore the original umask even if a test raises an exception.
+  (let ((saved (c-umask)))
+    (dynamic-wind
+      void
+      (lambda ()
+        (map (lambda (mask)
+               (and (sh-run/ok? (sh-cmd "umask" mask))
+                    (sh-run/string {umask})))
+             '("0" "0022" "077" "777" "0000027")))
+      (lambda () (c-umask saved))))
+                                                       ("0000\n" "0022\n" "0077\n" "0777\n" "0027\n")
+
+  (let ((saved (c-umask)))
+    (dynamic-wind
+      void
+      (lambda ()
+        (sh-run {umask 027})
+        (list
+          (for-list arg '("" "089" "1000" "-1" "+22" "#o22" "2/2" "2.0" " 22" "22 " "u=rwx" "-S")
+            (and (equal? (sh-run (sh-cmd* "umask" arg 2 '> "/dev/null")) (failed 1))
+                 (fx=? (c-umask) #o027)
+                 (string=? (sh-run/string {umask}) "0027\n")))
+          (sh-run {umask 022 077 2>/dev/null})
+          (sh-run/string {umask})
+          ;; A subshell inherits the mask, but cannot change its parent's mask.
+          (sh-run/string {[umask
+                           umask 077
+                           umask]})
+          (sh-run/string {umask})))
+      (lambda () (c-umask saved))))
+                                                       ,(#t (failed 1) "0027\n" "0027\n0077\n" "0027\n")
+
   ;; (sh-run/string)
   (sh-run/string (shell "echo"
     (shell-wildcard (shell-env "FOO") "=123" )))       "=123\n"

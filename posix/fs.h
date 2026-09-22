@@ -138,6 +138,24 @@ static int c_mkdir(ptr bytevec0, int mode) {
   return c_errno_set(EINVAL);
 }
 
+/**
+ * Set the process file creation mask, or query it when mask is negative.
+ * Querying temporarily changes the process-wide mask, so concurrent file
+ * creation must be coordinated by the caller.
+ *
+ * Luckily, umask() is documented to never fail.
+ *
+ * Note: Scheme wrapper (c-umask) caches current value,
+ * to avoid non-atomic querying it.
+ */
+static int c_umask(int mask) {
+  mode_t previous = umask(mask < 0 ? 0022 : (mode_t)mask);
+  if (mask < 0) {
+    umask(previous);
+  }
+  return (int)previous;
+}
+
 #ifdef _DIRENT_HAVE_D_TYPE
 static e_type dtypeToFileType(unsigned char d_type) {
   switch (d_type) {

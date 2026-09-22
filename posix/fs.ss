@@ -9,7 +9,7 @@
 
 (library (scheme2k posix fs (1 0 2))
   (export
-      c-make-dev c-dev-major c-dev-minor path->c-path0
+      c-make-dev c-dev-major c-dev-minor c-umask path->c-path0
 
       dir-entry-path dir-entry-name dir-entry-type dir-entry-size dir-entry-link dir-entry-depth
       dir-entry-modified dir-entry-accessed dir-entry-status-changed
