@@ -420,6 +420,30 @@
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 
 
+(define %umask (foreign-procedure "c_umask" (int) int))
+
+;; The "umask" builtin changes the process-wide file creation mask.
+(define (builtin-umask job prog-and-args options)
+  (let ((args (cdr prog-and-args)))
+    (cond
+      ((null? args)
+        (let ((digits (number->string (%umask -1) 8)))
+          (sh-echo (string-append (make-string (- 4 (string-length digits)) #\0)
+                                  digits))))
+      ((not (null? (cdr args)))
+        (write-builtin-error "umask" "too many arguments"))
+      (else
+        (let* ((arg (car args))
+               (mask
+                 (and (positive? (string-length arg))
+                      (string-every (lambda (ch) (char<=? #\0 ch #\7)) arg)
+                      (let ((n (string->number arg 8)))
+                        (and n (<= n #o777) n)))))
+          (if mask
+            (begin (%umask mask) (void))
+            (write-builtin-error "umask" "expected an octal mask between 000 and 777" arg)))))))
+
+
 ;; the "unexport" builtin: unexport zero or more environment variables of parent job
 ;;
 ;; As all builtins do, must return job status.

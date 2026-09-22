@@ -141,6 +141,7 @@
     (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
     (hashtable-set! bt "status"     builtin-status)
+    (hashtable-set! bt "umask"      builtin-umask)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unset"      builtin-unset)
@@ -338,6 +339,14 @@
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "status"   (string->utf8 " [ARG ...]
     return ARG value specified as first argument, or success if no arguments.\n"))
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    (hashtable-set! t "umask" (string->utf8 " [MASK]
+    display the file creation mask as four octal digits, or set it to MASK.
+    MASK must contain only octal digits and be between 000 and 777.
+    the mask affects the current process and is inherited by child processes.
+
+    return success, or failure for invalid arguments.\n"))
 
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     (hashtable-set! t "unalias"    (string->utf8 " [name ...]

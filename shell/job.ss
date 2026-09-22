@@ -124,7 +124,7 @@
                                            plist? plist-delete/pred plist-ref)
     (only (scheme2k containers sort)       span-sort! subvector-sort!)
           (scheme2k containers span)       ;; produces smaller libschemesh than listing each imported symbol
-    (only (scheme2k containers string)     assert-string-list? string-index string-is-signed-base10-integer? string-is-unsigned-base10-integer?
+    (only (scheme2k containers string)     assert-string-list? string-every string-index string-is-signed-base10-integer? string-is-unsigned-base10-integer?
                                            string-list? string-list-split-after-nuls string-rtrim-newlines!
                                            string-split-after-nuls string-prefix? string-suffix?)
     (only (scheme2k containers utf8b)      bytespan-insert-right/string! bytespan-insert-right/charspan!
