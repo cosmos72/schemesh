@@ -149,7 +149,7 @@ static int c_mkdir(ptr bytevec0, int mode) {
  * to avoid non-atomic querying it.
  */
 static int c_umask(int mask) {
-  mode_t previous = umask(mask < 0 ? 0022 : (mode_t)mask);
+  mode_t previous = umask(mask < 0 ? 0777 : (mode_t)mask);
   if (mask < 0) {
     umask(previous);
   }
