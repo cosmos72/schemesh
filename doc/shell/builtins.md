@@ -88,6 +88,17 @@ By design, defining an alias intentionally shadows any command or builtin with t
 
 Exception: for sanity, any alias named "builtin" or "command" is ignored.
 
+Note: as per shell parsing rules, any shell syntax in `NAME [EXPANSION ...]` is executed **immediately**.
+Wildcards, environment variables, command substitution etc. are executed when the alias is defined,
+**not** each time is later used. Example:
+```shell
+alias t cd $TMPDIR
+```
+defines `t` as an alias for `cd /tmp` or whatever is the value of `$TMPDIR` when the alias is defined.
+Any later change to `$TMPDIR` is not picked up by the alias.
+
+For defining aliases that can execute arbitrary code and/or commands, you need `(sh-alias)` - not documented yet.
+
 Return success, or failure if `alias NAME` is executed and no such alias is defined.
 
 #### bg
