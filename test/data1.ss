@@ -213,6 +213,40 @@
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen 9 30 "abcdefgh0" "12\n" "qwerty"))
 
+  ;; ---------------------- lineedit --------------------------------------
+  ;; History integrations can replace the input, retain the prefix cursor,
+  ;; and request a full redraw. At exact screen widths, the trailing empty
+  ;; row must be reached before clearing it or moving back to the prefix.
+  (parameterize ((linectx-prompt0-proc #f)
+                 (linectx-prompt-proc
+                   (lambda (ctx)
+                     (linectx-prompt-set! ctx (bytevector->bytespan #vu8(36 32)))
+                     (linectx-prompt-length-set! ctx 2))))
+    (map
+      (lambda (input prefix-length)
+        (let* ((ctx (make-linectx))
+               (screen (linectx-vscreen ctx)))
+          (vscreen-resize! screen 8 24)
+          (linectx-redraw-all ctx)
+          (bytespan-clear! (linectx-wbuf ctx))
+          (linectx-clear! ctx)
+          (linectx-insert/string! ctx input)
+          (vscreen-cursor-move/left! screen (- (string-length input) prefix-length))
+          (lineedit-key-redraw ctx)
+          (linectx-redraw-all ctx)
+          (list (utf8b->string (bytespan->bytevector (linectx-wbuf ctx)))
+                (linectx-term-x ctx) (linectx-term-y ctx)
+                (vlines->string screen))))
+      '("abcde" "abcdef" "abcdefg" "abcdefghijklmn" "abcdef\n" "abcdef" "abcdef")
+      '(0 0 0 0 0 2 6)))
+    (("\r$ abcde\x1b;[J\x1b;[5D" 2 0 "abcde")
+     ("\r$ abcdef \x8;\x1b;[J\x1b;[A\x1b;[2C" 2 0 "abcdef")
+     ("\r$ abcdefg\x1b;[J\x1b;[A\x1b;[C" 2 0 "abcdefg")
+     ("\r$ abcdefghijklmn \x8;\x1b;[J\x1b;[2A\x1b;[2C" 2 0 "abcdefghijklmn")
+     ("\r$ abcdef \x8;\x1b;[K\n\x1b;[J\x1b;[2A\x1b;[2C" 2 0 "abcdef\n")
+     ("\r$ abcdef \x8;\x1b;[J\x1b;[A\x1b;[4C" 4 0 "abcdef")
+     ("\r$ abcdef \x8;\x1b;[J" 0 1 "abcdef"))
+
   ;; ---------------------- reflect ---------------------------------------
   ;; test array-...
   (list

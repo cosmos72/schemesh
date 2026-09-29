@@ -49,18 +49,25 @@
 (define (linectx-draw-lines lctx)
   (let* ((screen (linectx-vscreen lctx))
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
-         (nl?    #f))
+         ;; Assume the previous line ended with a newline, so the first line has no pending wrap.
+         (nl?    #t))
     ; (debugf "linectx-draw-lines ~s" screen)
     (vlines-iterate screen
       (lambda (y line)
         (let ((len (fx- (vline-length line)
                         (if (vline-nl? line) 1 0))))
-        (lineterm-write/vline lctx line 0 len)
-        (when (fx<? y ymax)
-          (when (fx<? len (vscreen-width-at-y screen y))
-            (lineterm-clear-to-eol lctx))
-          (when (vline-nl? line)
-            (lineterm-write/u8 lctx 10))))))
+          ;; A full line only wraps when the next printable character is written.
+          ;; An empty line (including a lone newline) cannot trigger that wrap:
+          ;; force it before erasing or moving the cursor, then erase the space.
+          (when (and (not nl?) (fxzero? len))
+            (lineterm-write/bytevector lctx #vu8(32 8))) ; SPACE BACKSPACE
+          (lineterm-write/vline lctx line 0 len)
+          (set! nl? (vline-nl? line))
+          (when (fx<? y ymax)
+            (when (fx<? len (vscreen-width-at-y screen y))
+              (lineterm-clear-to-eol lctx))
+            (when nl?
+              (lineterm-write/u8 lctx 10))))))
     (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos lctx)))
 
