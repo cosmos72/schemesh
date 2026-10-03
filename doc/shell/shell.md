@@ -91,3 +91,18 @@ wildcards, substitutions, negation, pipelines, and, or, list.
 
 Scheme job `$(some-scheme-func arg1 arg2)` is parsed to `(shell-expr (some-scheme-func arg1 arg2))`
 and can appear both in shell syntax and in Scheme syntax.
+
+
+### Functions
+
+##### (sh-login?)
+`(sh-login?)` returns `#t` if current process is marked as a login shell, otherwise returns `#f`
+
+`(sh-login? flag)` marks the current process as a login shell if `flag` is truish,
+otherwise mark the current process as a **non** login shell.
+
+At startup, and before executing any other code, `schemesh` sets `(sh-login?)` to `#t` in two cases:
+* if command line option `-l` or `--login` is specified
+* if the process name received by C `main()` starts with character `-` as most login systems do
+
+This is useful for adding login-specific behaviour to startup file `~/.config/schemesh/repl_init.ss`

@@ -47,10 +47,11 @@ typedef struct {
 typedef struct {
   const char* boot_dir;
   const char* library_dir;
+  char        force_repl;
   char        have_file;
   char        have_string;
+  char        is_login_shell;
   char        is_script;
-  char        force_repl;
 } cmdline;
 
 static int drop_privileges(void) {
@@ -111,7 +112,7 @@ static void usage(const char* name, const int is_script) {
           "  -t TYPE, --type TYPE    set the type of any following FILE. Must be one of:\n"
           "                            auto scheme shell library. Default is 'auto'\n"
           "  --version               display version information\n"
-          "  -l, --login             ignored. accepted for compatibility with other shells\n"
+          "  -l, --login             mark as login shell: (sh-login?) will return #t\n"
           "  -p                      ignored. accepted for compatibility with other shells\n"
 #ifdef SCHEMESH_STATIC
           "  --boot-dir DIR          ignored in this build. set Chez Scheme boot directory\n"
@@ -271,6 +272,9 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
   const char* argi;
   int         i;
 
+  if (argc > 0 && argv[0][0] == '-') {
+    cmd->is_login_shell = 1;
+  }
   if (argc > 0 && chars_end_with(chars_from_c(argv[0]), CHARS("-script"))) {
     cmd->is_script = 1;
   }
@@ -330,9 +334,10 @@ static void parse_command_line(int argc, const char* argv[], cmdline* cmd) {
       usage(argv[0], cmd->is_script);
     } else if (chars_equal(arg, CHARS("-i")) || chars_equal(arg, CHARS("--repl"))) {
       cmd->force_repl = 1;
-    } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("--login")) ||
-               chars_equal(arg, CHARS("-p"))) {
-      /* nop */
+    } else if (chars_equal(arg, CHARS("-l")) || chars_equal(arg, CHARS("--login"))) {
+      cmd->is_login_shell = 1;
+    } else if (chars_equal(arg, CHARS("-p"))) {
+      /* nop*/
     } else if (chars_equal(arg, CHARS("-t")) || chars_equal(arg, CHARS("--type"))) {
       if (!arg2) {
         missing_option_argument(argv[0], argi);
@@ -472,6 +477,7 @@ int main(int argc, const char* argv[]) {
    * when writing to stderr fails
    */
   install_exception_handler();
+  scheme2k_call1("sh-login?", cmd.is_login_shell ? Strue : Sfalse);
   if (cmd.have_file || cmd.have_string) {
     run_files_and_strings(argc, argv, &cmd);
   }

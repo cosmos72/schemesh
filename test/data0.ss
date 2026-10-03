@@ -26,6 +26,10 @@
      (plus 3 4 5))                                 12
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
+  (sh-login?)                                      #f
+  (parameterize ((sh-login? 'foo))
+    (sh-login?))                                   #t
+  (sh-login?)                                      #f
 
   ;; arrows
   (==> + 1 2 => / 4)                               3/4
