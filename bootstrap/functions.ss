@@ -321,6 +321,7 @@
 
 
 ;; boolean parameter: is this process a login shell?
+;; Added in 1.0.3
 (define sh-login? (sh-make-parameter #f (lambda (flag?) (and flag? #t))))
 
 ;; return three values: scheme2k version MAJOR, MINOR and PATCH fixnums

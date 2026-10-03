@@ -96,10 +96,10 @@ and can appear both in shell syntax and in Scheme syntax.
 ### Functions
 
 ##### (sh-login?)
-`(sh-login?)` returns `#t` if current process is marked as a login shell, otherwise returns `#f`
-
-`(sh-login? flag)` marks the current process as a login shell if `flag` is truish,
-otherwise mark the current process as a **non** login shell.
+Without arguments, `(sh-login?)` returns `#t` if current process is marked as a login shell, otherwise returns `#f`.<br/>
+With one argument, `(sh-login? flag)` marks the current process as a login shell if `flag` is truish,
+otherwise mark the current process as a **non** login shell.<br/>
+Added in 0.9.3
 
 At startup, and before executing any other code, `schemesh` sets `(sh-login?)` to `#t` in two cases:
 * if command line option `-l` or `--login` is specified
