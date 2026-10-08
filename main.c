@@ -26,10 +26,12 @@
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 typedef enum {
-  NOP         = 0,
-  INIT_FAILED = 1,
-  EVAL_FAILED = 2,
-  QUIT_FAILED = 3,
+  STEP_NOP       = 0,
+  STEP_INIT      = 1,
+  STEP_EVAL_INIT = 2,
+  STEP_EVAL      = 3,
+  STEP_EVAL_QUIT = 4,
+  STEP_QUIT      = 5,
 } jmp_arg;
 
 typedef enum {
@@ -80,10 +82,10 @@ static int drop_privileges(void) {
 }
 
 static jmp_buf jmp_env;
-static int     on_exception = 0;
+static int     step = 0;
 
 static void handle_scheme_exception(void) {
-  longjmp(jmp_env, on_exception);
+  longjmp(jmp_env, step);
 }
 
 static void usage(const char* name, const int is_script) {
@@ -395,6 +397,14 @@ static void install_exception_handler(void) {
                  Stop_level_value(Sstring_to_symbol("repl-exception-handler")));
 }
 
+static void eval_xdg_config_file_if_exists(const char filename[]) {
+  ptr lambda = scheme2k_eval("(lambda (path)\n"
+                             "  (let ((path (xdg-config-home/ path)))\n"
+                             "    (sh-try-catch path\n"
+                             "      (lambda () (sh-eval-file path)))))\n");
+  Scall1(lambda, scheme2k_Sstring_utf8b(filename, -1));
+}
+
 static void run_files_and_strings(int argc, const char* argv[], const cmdline* cmd) {
   const char* argi;
   int         i;
@@ -447,30 +457,36 @@ int main(int argc, const char* argv[]) {
   parse_command_line(argc, argv, &cmd);
 
   switch (setjmp(jmp_env)) {
-    case NOP: /* first call to setjmp: continue initialization */
+    case STEP_NOP: /* first call to setjmp: continue initialization */
       break;
-    case INIT_FAILED: /* init() failed */
+    case STEP_INIT: /* init() failed */
       err = 1;
-      goto finish;
-    case EVAL_FAILED: /* exception in eval() */
+      goto quit;
+    case STEP_EVAL_INIT: /* eval_file("schemesh/init.ss") failed */
       err = 0;
-      goto again;
-    case QUIT_FAILED: /* exception in quit() */
-      return 2;
+      goto eval;
+    case STEP_EVAL: /* exception in eval() */
+      err = 0;
+      goto eval_quit;
+    case STEP_EVAL_QUIT: /* eval_file("schemesh/quit.ss") failed */
+      err = 2;
+      goto quit;
+    case STEP_QUIT: /* exception in quit() */
+      return 3;
   }
-  on_exception = INIT_FAILED;
+  step = STEP_INIT;
   schemesh_init(cmd.boot_dir, &handle_scheme_exception);
   Slock_object(minimal_command_line_list = make_string_list(argv, *argv ? 1 : 0));
   if ((err = scheme2k_register_c_functions()) != 0 ||
       (err = schemesh_load_library(cmd.library_dir)) != 0) {
-    goto finish;
+    goto quit;
   }
 
   schemesh_import_all_libraries();
   Senable_expeditor(NULL);
   errno = 0;
 
-  on_exception = EVAL_FAILED;
+  step = STEP_EVAL_INIT;
   /**
    * install the same exception handler use use for REPL,
    * because Chez Scheme default exception handler sometimes causes infinite loops
@@ -478,17 +494,20 @@ int main(int argc, const char* argv[]) {
    */
   install_exception_handler();
   scheme2k_call1("sh-login?", cmd.is_login_shell ? Strue : Sfalse);
+  eval_xdg_config_file_if_exists("schemesh/init.ss");
+
+eval:
+  step = STEP_EVAL;
   if (cmd.have_file || cmd.have_string) {
     run_files_and_strings(argc, argv, &cmd);
   }
 
-again:
   if (cmd.force_repl == 0 && (cmd.have_file || cmd.have_string)) {
-    goto finish;
+    goto eval_quit;
   }
-#if 1
   /* store only program name, not the arguments we parsed above */
   set_command_line_list(minimal_command_line_list);
+#if 1
   do {
     ptr ret = scheme2k_call0("repl");
 
@@ -498,8 +517,13 @@ again:
 #else
   Sscheme_start(argc, argv);
 #endif /*0*/
-finish:
-  on_exception = QUIT_FAILED;
+
+eval_quit:
+  step = STEP_EVAL_QUIT;
+  eval_xdg_config_file_if_exists("schemesh/quit.ss");
+
+quit:
+  step = STEP_QUIT;
   scheme2k_quit();
 
   return err;

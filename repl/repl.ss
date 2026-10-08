@@ -78,7 +78,7 @@
             sh-exception-handler sh-fd sh-foreground-pgid sh-help
             sh-job-pgid sh-job-pid sh-job-status sh-job->string sh-jobs sh-inside-interrupt?
             sh-make-linectx sh-noexit-count-inc! sh-port sh-run/i sh-schemesh-reload-count sh-start/fd1 sh-stdio-flush
-            with-sh-resource xdg-cache-home/ xdg-config-home/)
+            sh-try-catch with-sh-resource xdg-cache-home/ xdg-config-home/)
     (only (schemesh shell job)       sh-job-internal-start-helper)
     (only (scheme2k vscreen)         vlines->string vhistory-path-set!))
 
@@ -391,22 +391,7 @@
 
 
 (define (try-eval-file path)
-  (and (string? path) (symbol? (file-type path '(catch)))
-    (try
-      (sh-eval-file path)
-      #t
-      (catch (ex)
-        (catch-all
-          (void)
-          (let ((out (console-error-port)))
-            (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
-            (put-datum  out path)
-            (put-string out ": ")
-            (display-condition ex out)
-            (put-string out "\x1b;[m\n")
-            (flush-output-port out))
-          (void))
-        #f))))
+  (sh-try-catch path (lambda () (sh-eval-file path))))
 
 
 ;; top-level interactive repl with all arguments mandatory

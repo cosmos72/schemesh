@@ -13,22 +13,24 @@
     sh-eval-file sh-eval-fd sh-eval-port sh-eval-parsectx sh-eval-string
     sh-read-file sh-read-fd sh-read-port sh-read-parsectx sh-read-string
 
-    sh-dynamic-wind)
+    sh-dynamic-wind sh-try-catch)
   (import
     (except (rnrs)                     command-line)
           (rnrs mutable-pairs)
-    (only (chezscheme)                 annotation? annotation-stripped command-line command-line-arguments
-                                       compile-to-port load-compiled-from-port parameterize void)
-    (only (scheme2k bootstrap) assert* raise-errorf until)
+    (only (chezscheme)                 annotation? annotation-stripped command-line command-line-arguments compile-to-port
+                                       console-error-port display-condition load-compiled-from-port parameterize void)
+    (only (scheme2k bootstrap) assert* catch catch-all raise-errorf try until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
     (only (scheme2k containers utf8b)  utf8b->string)
+    (only (scheme2k conversions)       text? text->string)
     (only (scheme2k posix fd)          fd-close fd-read-all fd-write-all file->fd)
+    (only (scheme2k posix fs)          file-type)
     (only (scheme2k posix io)          fd->port file->port)
     (only (scheme2k posix status)      ok failed values->status)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
-    (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-job-on-finish sh-fd))
+    (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-job-on-finish sh-fd sh-stdio-flush))
 
 
 (define (default-parser-for-file path)
@@ -63,9 +65,36 @@
     (string-append (if dot (substring path 0 dot) path) new-extension)))
 
 
+;; if path exists on file system, call (thunk) and return #t
+;; on exception catch it, write it to (console-error-port) and return #f
+;;
+;; path must be a bytevector, string, bytespan or charspan
+(define (sh-try-catch path thunk)
+  (try
+    (and (text? path)
+         (symbol? (file-type path '(catch)))
+         (thunk)
+         (sh-stdio-flush)
+         #t)
+    (catch (ex)
+      (catch-all
+        (void)
+        (let ((out (console-error-port)))
+          (sh-stdio-flush)
+          (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
+          (put-datum  out (text->string path))
+          (put-string out ": ")
+          (display-condition ex out)
+          (put-string out "\x1b;[m\n")
+          (flush-output-port out))
+        (void))
+      #f)))
+
 ;; open specified file path, parse its multi-language source contents with (sh-read-port)
 ;; and return the parsed source form.
 ;;
+;; mandatory arguments:
+;;   path - the file path to read. must be a string, bytevector, bytespan or charspan.
 ;; optional arguments:
 ;;   initial-parser - one of the symbols: 'auto 'scheme 'shell 'r6rs.
 ;;                    default: autodetect from file name's extension.
@@ -282,7 +311,8 @@
 ;; and eval the parsed source form.
 ;;
 ;; mandatory arguments:
-;;   path            - the filesystem path to read from
+;;   path            - the filesystem path to read from.
+;;                     must be a string, bytevector, bytespan or charspan.
 ;; optional arguments:
 ;;   initial-parser  - one of the symbols: 'auto 'scheme 'shell 'r6rs 'library
 ;;   enabled-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs

@@ -212,12 +212,13 @@
 ;; create and return a binary or textual input and/or output port that reads from/writes to
 ;; specified file path.
 ;;
-;; Arguments:
-;;   mandatory path           must be a string, bytevector, bytespan or charspan.
-;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'read
-;;   optional flags           must be a list containing zero or more: 'create 'truncate 'append
-;;   optional transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
-;;   optional b-mode          must be a buffer-mode and defaults to 'block
+;; Mandatory arguments:
+;;   path            the file path to open. must be a string, bytevector, bytespan or charspan.
+;; Optional arguments:
+;;   dir             must be one of: 'read 'write 'rw and defaults to 'read
+;;   flags           must be a list containing zero or more: 'create 'truncate 'append
+;;   transcoder-sym  must be one of: 'binary 'textual 'utf8b and defaults to 'textual
+;;   b-mode          must be a buffer-mode and defaults to 'block
 (define file->port
   (case-lambda
     ((path dir flags transcoder-sym b-mode)

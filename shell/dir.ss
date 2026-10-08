@@ -240,33 +240,33 @@
       (c-get-userhome (text->bytevector0 username)))))
 
 
-;; if subpath is specified, return (string-append (xdg-cache-home) "/" subpath)
+;; if subpath is specified, return (string-append (xdg-cache-home) "/" (text->string subpath))
 ;; otherwise return (string-append (xdg-cache-home) "/")
 (define xdg-cache-home/
   (case-lambda
     (()         (string-append (xdg-cache-home) "/"))
-    ((subpath)  (string-append (xdg-cache-home) "/" subpath))))
+    ((subpath)  (string-append (xdg-cache-home) "/" (text->string subpath)))))
 
 
-;; if subpath is specified, return (string-append (xdg-config-home) "/" subpath)
+;; if subpath is specified, return (string-append (xdg-config-home) "/" (text->string subpath))
 ;; otherwise return (string-append (xdg-config-home) "/")
 (define xdg-config-home/
   (case-lambda
     (()         (string-append (xdg-config-home) "/"))
-    ((subpath)  (string-append (xdg-config-home) "/" subpath))))
+    ((subpath)  (string-append (xdg-config-home) "/" (text->string subpath)))))
 
 
 ;; return string containing environment variable $XDG_CACHE_HOME
 ;; or $HOME/.cache if the former is not set.
 (define (xdg-cache-home)
   (or
-    (sh-env-ref #t "XDG_CACHE_HOME" #f)
-    (string-append (sh-env-ref #t "HOME" "") "/.cache")))
+    (sh-env-ref #f "XDG_CACHE_HOME" #f)
+    (string-append (sh-env-ref #f "HOME" "") "/.cache")))
 
 
 ;; return string containing environment variable $XDG_CONFIG_HOME
 ;; or $HOME/.config if the former is not set.
 (define (xdg-config-home)
   (or
-    (sh-env-ref #t "XDG_CONFIG_HOME" #f)
-    (string-append (sh-env-ref #t "HOME" "") "/.config")))
+    (sh-env-ref #f "XDG_CONFIG_HOME" #f)
+    (string-append (sh-env-ref #f "HOME" "") "/.config")))
