@@ -148,12 +148,12 @@ static int c_mkdir(ptr bytevec0, int mode) {
  * Note: Scheme wrapper (c-umask) caches current value,
  * to avoid non-atomic querying it.
  */
-static int c_umask(int mask) {
+static iptr c_umask(iptr mask) {
   mode_t previous = umask(mask < 0 ? 0777 : (mode_t)mask);
   if (mask < 0) {
     umask(previous);
   }
-  return (int)previous;
+  return (iptr)previous;
 }
 
 #ifdef _DIRENT_HAVE_D_TYPE

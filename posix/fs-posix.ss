@@ -26,12 +26,12 @@
 ;; Note: internally caches current value, because querying it with C umask()
 ;; requires temporarily changing it, which creates a race with file creation from other threads.
 ;;
-;; To guarantee that cached value is accurate, NEVER directly invoke C umask():
+;; To guarantee that cached value remains accurate, NEVER directly invoke C umask():
 ;; ALL such calls must go through this Scheme function (c-umask)
 ;;
 ;; Added in 1.0.3
 (define c-umask
-  (let* ((%c-umask (foreign-procedure "c_umask" (int) int))
+  (let* ((%c-umask (foreign-procedure "c_umask" (fixnum) fixnum))
          (current  (%c-umask -1))) ; cache current value
     (case-lambda
       (()
