@@ -45,22 +45,30 @@
   ; (debugf "linectx-draw-prompt: prompt = ~s" (linectx-prompt lctx))
   (lineterm-write/bytespan lctx (linectx-prompt lctx)))
 
+
+(define (linectx-draw-after-line lctx line len vwidth)
+  (when (fx<? len vwidth)
+    (lineterm-clear-to-eol lctx))
+  ;; work around wrapglitch:
+  ;; if line ends exactly at right border and contains no newline,
+  ;; cursor stays there. instead we want cursor at beginning of next line
+  (when (or (fx=? len vwidth) (vline-nl? line))
+    (lineterm-write/u8 lctx 10)))
+
+
 ;; unconditionally draw all lines. does not update term-x, term-y
 (define (linectx-draw-lines lctx)
   (let* ((screen (linectx-vscreen lctx))
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
-    ; (debugf "linectx-draw-lines ~s" screen)
+    ;; (debugf "linectx-draw-lines ~s" screen)
     (vlines-iterate screen
       (lambda (y line)
         (let ((len (fx- (vline-length line)
                         (if (vline-nl? line) 1 0))))
-        (lineterm-write/vline lctx line 0 len)
-        (when (fx<? y ymax)
-          (when (fx<? len (vscreen-width-at-y screen y))
-            (lineterm-clear-to-eol lctx))
-          (when (vline-nl? line)
-            (lineterm-write/u8 lctx 10))))))
+          (lineterm-write/vline lctx line 0 len)
+          (when (fx<? y ymax)
+            (linectx-draw-after-line lctx line len (vscreen-width-at-y screen y))))))
     (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos lctx)))
 
