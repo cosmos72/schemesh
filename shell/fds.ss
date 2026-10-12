@@ -76,23 +76,21 @@
       (s-fd (fx+ fd-min index)))))
 
 
-;; decrease by one the reference count of an s-fd,
-;; unreserve it if reference count becomes <= zero
-;; return #t if if reference count becomes <= zero
+;; decrease by one the reference count of an s-fd.
+;; if reference count becomes <= zero, unreserve it and return #t
+;; otherwise return #f
 (define (s-fd-release fd)
   (assert* 's-fd-release (s-fd? fd))
   (let ((refcount   (fx1- (%s-fd-refcount fd)))
         (fd-int     (s-fd->int fd)))
     (when (fx>=? refcount 0)
       (%s-fd-refcount-set! fd refcount))
-    (if (fx>=? fd-int 0)
-      (let ((unreserve? (fx<=? refcount 0)))
-        (when unreserve?
-          (let ((index (fx- fd-int fd-min)))
-            (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
-            (bitmap-set! fd-bitmap index 0)))
-        unreserve?)
-      #f))) ;; never close file descriptor -1
+    (and (fx>=? fd-int 0) ;; never release nor close file descriptor -1
+         (fx<=? refcount 0)
+         (let ((index (fx- fd-int fd-min)))
+           (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
+           (bitmap-set! fd-bitmap index 0)
+           #t))))
 
 
 ;; customize how "s-fd" objects are printed

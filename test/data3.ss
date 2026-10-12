@@ -641,6 +641,11 @@ B=2})                                                  ,@"#<void>"
        echo c} |
      $(get-string-all)}))                              ,(ok "a\nb\nc\n")
 
+
+  ;; test issue #90: >&- was bugged and had no effect
+  (sh-run/string {command echo ok >&- 2>/dev/null})    ""
+
+
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string "#!/some/path some-arg\n\
     (display (+ 1 2)) {hjk}" 'scheme #t 'plain)        (begin (display (+ 1 2)) (sh-run (shell "hjk")))
