@@ -62,13 +62,18 @@
   fd)
 
 
+;; an s-fd indicating "close this file descriptor"
+(define s-fd-1 (%make-s-fd -1 0))
+
 ;; reserve a fd, return its number wrapped inside a s-fd
-(define (s-fd-allocate)
-  (let ((index (bitmap-last-zero fd-bitmap)))
-    (when (fx<? index 0)
-      (raise-errorf 's-fd-allocate "too many reserved fds: ~s" index))
-    (bitmap-set! fd-bitmap index 1)
-    (s-fd (fx+ fd-min index))))
+(define (s-fd-allocate to-fd-or-bytevector)
+  (if (eqv? -1 to-fd-or-bytevector)
+    s-fd-1
+    (let ((index (bitmap-last-zero fd-bitmap)))
+      (when (fx<? index 0)
+        (raise-errorf 's-fd-allocate "too many reserved fds: ~s" index))
+      (bitmap-set! fd-bitmap index 1)
+      (s-fd (fx+ fd-min index)))))
 
 
 ;; decrease by one the reference count of an s-fd,
@@ -76,14 +81,18 @@
 ;; return #t if if reference count becomes <= zero
 (define (s-fd-release fd)
   (assert* 's-fd-release (s-fd? fd))
-  (let* ((refcount   (fx1- (%s-fd-refcount fd)))
-         (unreserve? (fx<=? refcount 0)))
-    (%s-fd-refcount-set! fd refcount)
-    (when unreserve?
-      (let ((index (fx- (s-fd->int fd) fd-min)))
-        (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
-        (bitmap-set! fd-bitmap index 0)))
-    unreserve?))
+  (let ((refcount   (fx1- (%s-fd-refcount fd)))
+        (fd-int     (s-fd->int fd)))
+    (when (fx>=? refcount 0)
+      (%s-fd-refcount-set! fd refcount))
+    (if (fx>=? fd-int 0)
+      (let ((unreserve? (fx<=? refcount 0)))
+        (when unreserve?
+          (let ((index (fx- fd-int fd-min)))
+            (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
+            (bitmap-set! fd-bitmap index 0)))
+        unreserve?)
+      #f))) ;; never close file descriptor -1
 
 
 ;; customize how "s-fd" objects are printed

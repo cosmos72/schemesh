@@ -592,7 +592,7 @@
          (fd                   (span-ref redirects index))
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
-         (remap-fd             (s-fd-allocate)))
+         (remap-fd             (s-fd-allocate to-fd-or-bytevector0)))
     ;; (debugf "job-remap-fd! job=~s fd=~s dir=~s remap-fd=~s to=~s" job fd direction-ch remap-fd to-fd-or-bytevector0)
     (let* ((fd-int (s-fd->int remap-fd))
            (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?

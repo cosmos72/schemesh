@@ -104,10 +104,13 @@
 (define fd-redirect
   (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int)))
     (lambda (from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)
-      (let ((ret (c-fd-redirect from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)))
-        (when (and close-on-exec? (>= ret 0))
-          (fds-close-on-fork-insert! from-fd))
-        ret))))
+      (if (fx=? -1 from-fd)
+        ;; from-fd is "close this file descriptor", ignore it
+        0
+        (let ((ret (c-fd-redirect from-fd direction-ch to-fd-or-bytevector0 close-on-exec?)))
+          (when (and close-on-exec? (>= ret 0))
+            (fds-close-on-fork-insert! from-fd))
+          ret)))))
 
 
 (define (int64? obj)
