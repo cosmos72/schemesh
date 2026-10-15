@@ -20,8 +20,8 @@
     span-sort! span-sort-by! subvector-sort! subvector-sort-by!) ; R6RS already defines (vector-sort!)
   (import
     (rnrs)
-    (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
-                       mutable-vector? optimize-level pariah procedure-arity-mask void)
+    (only (chezscheme)         eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
+                               mutable-vector? optimize-level pariah procedure-arity-mask void)
     (only (scheme2k bootstrap) assert* fx<=?*)
     (scheme2k containers span))
 
@@ -228,11 +228,35 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(define (skip-comparable-elements compare v start end)
-  (do ((i (fx1+ start) (fx1+ i)))
-      ((or (fx>=? i end)
-           (not (compare (vector-ref v (fx1- i)) (vector-ref v i))))
-       i)))
+;; collect a whole connected component of mutually comparable elements at v[start...]
+;; return 1+ index of last element in first connected component,
+;; which may be = end if there is only one connected component.
+(define (collect-comparable-elements compare v start end)
+  (if (fx<? start end)
+    (let ((e  (vector-ref v start))
+          (hi (fx1- end)))
+      (vector-set! v start (vector-ref v hi))
+      (let %loop ((lo start) (hi hi))
+        ;; invariant: lo <= hi
+        ;; invariant: v[hi] is unused and writable
+        ;; (debugf "e ~s, lo ~s, hi ~s, v ~s" e lo hi v)
+        (cond
+          ((fx=? lo hi)
+            ;; store e at unused place v[hi] and return hi+1
+            (vector-set! v hi e)
+            (fx1+ hi))
+          ((compare e (vector-ref v lo))
+            ;; v[lo] is comparable with e, keep it there
+            (%loop (fx1+ lo) hi))
+          (else
+            ;; v[lo] is NOT comparable with e, move it to v[hi]
+            ;; and move v[hi-1] to v[lo]
+            (let ((e1 (vector-ref v lo))
+                  (e2 (vector-ref v (fx1- hi))))
+              (vector-set! v hi e1)
+              (vector-set! v lo e2))
+            (%loop lo (fx1- hi))))))
+    start))
 
 
 ;; in-place sort elements of a vector, using specified compare procedure,
@@ -274,7 +298,7 @@
                           (end end)
                           (is<? (lambda (a b) (eqv? -1 (compare a b)))))
         (when (fx<? start (fx1- end))
-          (let ((pos (skip-comparable-elements compare v start end)))
+          (let ((pos (collect-comparable-elements compare v start end)))
             (%vector-sort! is<? v start pos)
             (%sort-by-loop compare v pos end is<?)))))
     ((compare v)

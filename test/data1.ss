@@ -253,10 +253,23 @@
           (unordered? a b)))                           (-1 #t #t #f #f #f #f)
 
 
+  ;; (compare-type-and-value) tries really hard to order elements
+  ;; even if they have different types => tests total ordering
   (let ((sp (span -3 0 1 1.2 (eof-object) (date 1970 1 1 +0)
                   (void) 4/5 #\a "b" 'c #t #f )))
     (span-sort-by! compare-type-and-value sp)
     sp)                                                ,@"(span #f #t a -3 0 4/5 1 1.2 c b (date 1970 01 01 +0) #<void> #!eof)"
+
+
+  ;; (compare) returns #f i.e. not comparable if two elements
+  ;; have different type => tests sorting multiple connected components.
+  ;; order or returned connected components depends on algorithm internal details,
+  ;; but each connected components must be sorted correctly
+  (let ((sp (span 2.0 (date 1970 12 31 +0) #t "foo"
+                  1.0 0+3i (date 1970 1 1 +0) #f "bar")))
+    (span-sort-by! compare sp)
+    sp)                                                ,@"(span 1.0 2.0 #f #t (date 1970 01 01 +0) (date 1970 12 31 +0) 0+3i bar foo)"
+
 
   ;; test (field) (field-names) (fields->plist) (in-fields)
   (field-names (make-vscreen))                         #(<type> left right dirty-start-y dirty-end-y dirty? width height

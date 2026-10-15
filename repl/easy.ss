@@ -183,7 +183,7 @@
     make-fs-reader))
 
 
-;; easy wrapper for (get-line) (reader-skip)
+;; easy wrapper for (get-line) and (reader-skip)
 ;; always returns one value:
 ;;   #t if one element was skipped,
 ;;   or #f if reader is exhausted
