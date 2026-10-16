@@ -232,31 +232,27 @@
 ;; return 1+ index of last element in first connected component,
 ;; which may be = end if there is only one connected component.
 (define (collect-comparable-elements compare v start end)
-  (if (fx<? start end)
-    (let ((e  (vector-ref v start))
-          (hi (fx1- end)))
-      (vector-set! v start (vector-ref v hi))
-      (let %loop ((lo start) (hi hi))
-        ;; invariant: lo <= hi
-        ;; invariant: v[hi] is unused and writable
+  (let ((lo (fx1+ start)) ;; index of second element
+        (hi (fx1- end)))  ;; index of last element
+    (if (fx<=? lo hi)
+      ;; at least two elements are present:
+      ;; compare e = v[start] against all other elements
+      (let %loop ((lo lo) (hi hi) (e (vector-ref v start)))
+        ;; invariant: lo <= hi+1
+        ;; invariant: all elements v[start ... lo-1] are mutually comparable
         ;; (debugf "e ~s, lo ~s, hi ~s, v ~s" e lo hi v)
         (cond
-          ((fx=? lo hi)
-            ;; store e at unused place v[hi] and return hi+1
-            (vector-set! v hi e)
-            (fx1+ hi))
+          ((fx>? lo hi)
+            lo)
           ((compare e (vector-ref v lo))
             ;; v[lo] is comparable with e, keep it there
-            (%loop (fx1+ lo) hi))
+            (%loop (fx1+ lo) hi e))
           (else
-            ;; v[lo] is NOT comparable with e, move it to v[hi]
-            ;; and move v[hi-1] to v[lo]
-            (let ((e1 (vector-ref v lo))
-                  (e2 (vector-ref v (fx1- hi))))
-              (vector-set! v hi e1)
-              (vector-set! v lo e2))
-            (%loop lo (fx1- hi))))))
-    start))
+            ;; v[lo] is NOT comparable with e, swap it with v[hi]
+            (%vector-swap! v lo hi)
+            (%loop lo (fx1- hi) e))))
+      ;; at most one element, return end
+      end)))
 
 
 ;; in-place sort elements of a vector, using specified compare procedure,

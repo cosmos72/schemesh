@@ -263,12 +263,12 @@
 
   ;; (compare) returns #f i.e. not comparable if two elements
   ;; have different type => tests sorting multiple connected components.
-  ;; order or returned connected components depends on algorithm internal details,
+  ;; order of returned connected components depends on algorithm internal details,
   ;; but each connected components must be sorted correctly
   (let ((sp (span 2.0 (date 1970 12 31 +0) #t "foo"
                   1.0 0+3i (date 1970 1 1 +0) #f "bar")))
     (span-sort-by! compare sp)
-    sp)                                                ,@"(span 1.0 2.0 #f #t (date 1970 01 01 +0) (date 1970 12 31 +0) 0+3i bar foo)"
+    sp)                                                ,@"(span 1.0 2.0 bar foo (date 1970 01 01 +0) (date 1970 12 31 +0) 0+3i #f #t)"
 
 
   ;; test (field) (field-names) (fields->plist) (in-fields)
