@@ -8,8 +8,8 @@
 #!r6rs
 
 (library (scheme2k io table (1 0 2))
-  (export make-table-writer table-writer table-writer?
-          table-reflect-info-set!)
+  (export make-table-writer table-writer table-writer? table-reflect-info-set!
+          string-quote)
   (import
     (rnrs)
     (only (chezscheme)                       current-date date? date-year date-month date-day date-hour date-minute date-second date-zone-offset
@@ -24,6 +24,7 @@
     (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
     (only (scheme2k containers string)       string-index)
     (only (scheme2k containers time)         time->string)
+    (only (scheme2k containers utf8b)        string-quote string-quote? integer->char*)
     (only (scheme2k io obj)                  writer writer-put writer-eof? writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
 
@@ -456,13 +457,15 @@
       (date->year-month-day        tx d))))
 
 
-;; FIXME: use reflection recursively and create nested tables?
+;; DECIDE: use reflection recursively and create nested tables?
 (define (datum->string tx datum)
   (cond
     ((eq? (void) datum)
       "")
     ((string? datum)
-      datum)
+      (if (string-quote? datum)
+        (string-quote datum)
+        datum))
     ((date? datum)
       (date->string datum))
     ((and (integer? datum) (exact? datum))

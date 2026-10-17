@@ -324,6 +324,7 @@
       (writer-close tx))
     (utf8->string (to-bytevector)))                     "[{\"foo\":1,\"bar\":\"2\"},\n{\"<type>\":\"date\",\"value\":\"1970-01-01T00:00:00Z\"},\n{\"<type>\":\"time-utc\",\"value\":1234.000005678}]\n"
 
+
   ;; ---------------------------- lineedit io ----------------------------------
   (read
     (open-vlines-input-port

@@ -10,8 +10,8 @@
 (library (scheme2k containers utf8b (1 0 2))
   (export
     ;; utf8b.ss
-    codepoint? codepoint-utf8b? integer->char* string->utf8b string->utf8b/0
-    utf8b->string utf8b->string-copy! utf8b-bytespan->string
+    codepoint? codepoint-utf8b? integer->char* char-quote? string-quote? string-quote
+    string->utf8b string->utf8b/0 utf8b->string utf8b->string-copy! utf8b-bytespan->string
 
     ;; utf8b-utils.ss
     bytevector-char-ref bytevector-char-set! char->utf8b-length
@@ -31,7 +31,7 @@
     (only (scheme2k containers bytevector) subbytevector-fill!)
           (scheme2k containers bytespan)
           (scheme2k containers charspan)
-    (only (scheme2k containers string)     string-index-right))
+    (only (scheme2k containers string)     string-any string-index-right))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -76,6 +76,75 @@
   (and (fixnum? n)
        (or (fx<=?      0 n #xD7FF)
            (fx<=? #xE000 n #x10FFFF))))
+
+
+
+(define surrogate-lo (integer->char* #xDC80))
+(define surrogate-hi (integer->char* #xDCFF))
+
+
+(define (char-quote? ch)
+  (or (char<? ch #\space)
+      (char<=? surrogate-lo ch surrogate-hi)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;    some additional string functions   ;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (string-quote? str)
+  (string-any char-quote? str))
+
+
+(define (%integer->hex-digit n)
+  (integer->char (fx+ n (if (fx<? n 10) 48 55))))
+
+
+(define (%charspan-insert-right-quoted-hex! csp ch)
+  (charspan-insert-right/string! csp "\\x")
+  (let* ((start  (charspan-length csp))
+         (n      (char->integer ch))
+         (digits (cond ((fx<? n 255)   (if (fx<? n 15)      1 2))
+                       ((fx<? n 65536) (if (fx<? n 4096)    3 4))
+                       (else           (if (fx<? n 1048576) 5 6)))))
+    (charspan-resize-right! csp (fx+ (fx1+ start) digits))
+    (do ((i (fx1- digits) (fx1- i))
+         (n n (fx>> n 4)))
+        ((fx<? i 0)
+         (charspan-set! csp (fx+ start digits) #\;))
+      (charspan-set! csp (fx+ start i) (%integer->hex-digit (fxand n #xF))))))
+                    
+
+(define (%charspan-insert-right-quoted! csp ch)
+  (cond
+    ((char<? ch #\space)
+      (cond
+        ((char<=? #\alarm ch #\return)
+          (charspan-insert-right! csp #\\)
+          (charspan-insert-right! csp (string-ref "abtnvfr" (fx- (char->integer ch) 7))))
+        (else
+          (%charspan-insert-right-quoted-hex! csp ch))))
+    ((char<=? surrogate-lo ch surrogate-hi)
+      (%charspan-insert-right-quoted-hex! csp ch))
+    (else
+      (when (or (char=? ch #\") (char=? ch #\\))
+        (charspan-insert-right! csp #\\))
+      (charspan-insert-right! csp ch))))
+
+
+(define (string-quote str)
+  (let* ((end (string-length str))
+         (csp (make-charspan (fx+ end 8))))
+    (charspan-clear! csp)
+    (charspan-insert-right! csp #\")
+    (do ((i 0 (fx1+ i))
+         (end end))
+        ((fx>=? i end)
+         (begin
+           (charspan-insert-right! csp #\")
+           (charspan->string*! csp)))
+      (%charspan-insert-right-quoted! csp (string-ref str i)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
