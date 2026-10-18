@@ -22,9 +22,9 @@
     (only (scheme2k containers ordered-hash) for-ordered-hash in-ordered-hash make-eq-ordered-hash ordered-hash-delete!
                                              ordered-hash-empty? ordered-hash-ref ordered-hash-set!)
     (only (scheme2k containers span)         for-span span span-empty? span-insert-right! span-length span-ref)
-    (only (scheme2k containers string)       string-index)
+    (only (scheme2k containers string)       string-index string-prefix?)
     (only (scheme2k containers time)         time->string)
-    (only (scheme2k containers utf8b)        string-quote string-quote? integer->char*)
+    (only (scheme2k containers utf8b)        string-quote string-quote?)
     (only (scheme2k io obj)                  writer writer-put writer-eof? writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
 
@@ -463,7 +463,8 @@
     ((eq? (void) datum)
       "")
     ((string? datum)
-      (if (string-quote? datum)
+      (if (or (string-prefix? datum "\"")
+	      (string-quote? datum))
         (string-quote datum)
         datum))
     ((date? datum)
