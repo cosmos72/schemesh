@@ -9,7 +9,7 @@ The preferred Android command-line environment for running schemesh is [Termux](
 Chez Scheme is required to compile and run schemesh. To build it from sources, install its prerequisites:
 ```shell
 apt update
-apt install build-essential liblz4 ncurses wget zlib
+apt install build-essential git ncurses
 ```
 
 then download latest Chez Scheme sources:
