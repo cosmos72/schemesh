@@ -12,20 +12,20 @@ apt update
 apt install build-essential liblz4 ncurses wget zlib
 ```
 
-then download Chez Scheme sources:
+then download latest Chez Scheme sources:
+Note: it's recommended to download **latest** Chez Scheme from github
+because version 1.4.0 lacks some fixes for Android, especially for 32-bit systems.
 ```shell
-wget https://github.com/cisco/ChezScheme/releases/download/v10.3.0/csv10.3.0.tar.gz
-tar xzf csv10.3.0.tar.gz
+git clone --filter=blob:none https://github.com/cisco/ChezScheme
 ```
 
-and compile them:<br/>
+Compile them:<br/>
 Note: if environment variable `$PREFIX` is not set, run `export PREFIX=/data/data/com.termux/files/usr`
 ```shell
-cd csv10.3.0
-./configure --prefix="$PREFIX/local" --disable-iconv --disable-x11 LZ4=-llz4 ZLIB=-lz
+cd ChezScheme
+./configure --prefix="$PREFIX/local" --disable-iconv --disable-x11
 make -j `nproc`
 ```
-
 
 finally, install it:
 ```shell
@@ -34,12 +34,12 @@ make install
 
 Recommended: test that Chez Scheme installation works. Type `scheme` and it should display
 ```
-Chez Scheme Version 10.3.0
+Chez Scheme Version 10.5.0-pre-release.1
 Copyright 1984-2025 Cisco Systems, Inc.
 
 >
 ```
-Type `(exit)` to quit it.
+Type `(exit)` or CTRL+D to quit it.
 
 You can now build schemesh as described below
 
@@ -48,10 +48,9 @@ You can now build schemesh as described below
 Having installed Chez Scheme as described above, schemesh can be installed with:
 ```shell
 apt update
-apt install build-essential git liblz4 ncurses zlib
+apt install build-essential git ncurses
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v1.0.0
 make -j prefix="$PREFIX/local"
 
 # try schemesh without installing it
