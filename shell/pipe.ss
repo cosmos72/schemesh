@@ -78,14 +78,25 @@
     (raise-errorf who "~s is not a sh-job or a pipe symbol '| '|&" arg)))
 
 
+;; insert redirects from span sp to the left of job's redirections,
+;; and mark them as temporary redirections
+(define (job-redirect-temp-span! job sp)
+  (span-insert-left/span! (job-redirects job) sp)
+  (job-redirects-temp-n-set! job (fx+ (span-length sp) (job-redirects-temp-n job))))
+
+
 ;; Internal function stored in (job-start-proc job) by (sh-pipe) and (sh-pipe*),
 ;; and called by (sh-start) to actually start a pipe multijob.
 (define (mj-pipe-start mj options)
   ;; this runs in the main process, not in a subprocess.
+
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
   (job-remap-fds! mj)
   (job-env/apply-lazy! mj 'export)
+
+  ;; (debugf "mj-pipe-start: options ~s, redirects ~s" options (job-redirects mj))
+
   ; Do not yet assign a job-id.
   (let ((pgid (options->process-group-id options))
         (n    (span-length (multijob-children mj)))
@@ -119,7 +130,10 @@
          (options       '(catch? #t spawn? #t))
          (options       (sh-options (if pgid (cons* 'process-group-id pgid options) options))))
 
-    ; Apply redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.
+    ;; (debugf "mj-pipe-start-i: i ~s, options ~s, redirects ~s" i options (job-redirects job))
+    ;; (file-stat "/proc/self/fd/1" '(catch symlinks))
+
+    ; Apply pipeline redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect-temp-fd! job 0 '<& in-pipe-fd))
@@ -132,6 +146,9 @@
         (when redirect-err?
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect-temp-fd! job 2 '>& fd/write))))
+
+    ;; Apply redirections inherited from parent job
+    (job-redirect-temp-span! job (job-redirects mj))
 
     ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
 

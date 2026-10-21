@@ -646,6 +646,8 @@ B=2})                                                  ,@"#<void>"
   ;; test issue #90: >&- was bugged and had no effect
   (sh-run/string {command echo ok >&- 2>/dev/null})    ""
 
+  ;; test issue #95: echo `echo abc | cat` did not capture pipeline output
+  (sh-run/string {echo `echo abc | cat`})              "abc\n"
 
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string "#!/some/path some-arg\n\

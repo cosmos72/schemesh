@@ -165,7 +165,8 @@
 
           (lambda () ; body
             (let ((options (job-redirect-temp-fds! job redirections fdv 0 options)))
-              ;; always start job in a subprocess, see above for reason.
+              ;; job-redirect-temp-fds! adds 'spawn #t to options,
+              ;; which always starts job in a subprocess. see above for reason.
               (sh-start job options))
 
             ;; close the fds we don't use: needed to detect eof on read fds
