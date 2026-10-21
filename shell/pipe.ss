@@ -92,7 +92,8 @@
 
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
-  (job-remap-fds! mj)
+  ;; unneeded, mj does no I/O and all children run in subprocesses
+  ;; (job-remap-fds! mj)
   (job-env/apply-lazy! mj 'export)
 
   ;; (debugf "mj-pipe-start: options ~s, redirects ~s" options (job-redirects mj))
@@ -148,7 +149,8 @@
           (job-redirect-temp-fd! job 2 '>& fd/write))))
 
     ;; Apply redirections inherited from parent sh-pipe job.
-    ;; fixes issue #95: backquotes did not capture pipeline output
+    ;; Fixes issue #95: backquotes did not capture pipeline output
+    ;; Needed because sh-pipe jobs ignore the option 'spawn #t and their redirections are not applied
     (job-redirect-temp-span! job (job-redirects mj))
 
     ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
