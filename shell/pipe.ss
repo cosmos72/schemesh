@@ -147,7 +147,8 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect-temp-fd! job 2 '>& fd/write))))
 
-    ;; Apply redirections inherited from parent job
+    ;; Apply redirections inherited from parent sh-pipe job.
+    ;; fixes issue #95: backquotes did not capture pipeline output
     (job-redirect-temp-span! job (job-redirects mj))
 
     ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
