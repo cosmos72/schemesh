@@ -78,13 +78,6 @@
     (raise-errorf who "~s is not a sh-job or a pipe symbol '| '|&" arg)))
 
 
-;; insert redirects from span sp to the left of job's redirections,
-;; and mark them as temporary redirections
-(define (job-redirect-temp-span! job sp)
-  (span-insert-left/span! (job-redirects job) sp)
-  (job-redirects-temp-n-set! job (fx+ (span-length sp) (job-redirects-temp-n job))))
-
-
 ;; Internal function stored in (job-start-proc job) by (sh-pipe) and (sh-pipe*),
 ;; and called by (sh-start) to actually start a pipe multijob.
 (define (mj-pipe-start mj options)
