@@ -462,8 +462,8 @@
 
 ;; customize how "hash-cursor" objects are printed
 (record-writer (record-type-descriptor %hash-cursor)
-  (lambda (iter out writer)
-    (put-string out "#<hash-cursor>" out)))
+  (lambda (cursor out writer)
+    (put-string out "#<hash-cursor>")))
 
 
 ;; customize how eq-hashtable objects are printed

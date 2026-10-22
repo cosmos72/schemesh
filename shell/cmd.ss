@@ -210,7 +210,7 @@
              (ret (c-cmd-exec
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
-                    (job-make-c-redirect-vector c)
+                    (job-make-c-fd-remap-fxvector c)
                     (sh-env->argv c 'export))))
         ; (c-cmd-exec) returns only if it failed
         (failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
@@ -226,7 +226,7 @@
              (ret (c-cmd-spawn
                     (list->argv prog-and-args)
                     (if job-dir (text->bytevector0 job-dir) #f)
-                    (job-make-c-redirect-vector c)
+                    (job-make-c-fd-remap-fxvector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1)
                     (if editor? 1 0))))
@@ -252,73 +252,47 @@
 
 
 ;; internal function called by (cmd-spawn)
-;; creates and fills a vector with job's redirections and its parents redirections
-(define (job-make-c-redirect-vector job)
-  (let* ((child-dir (job-cwd-if-set job))
-         (n (job-count-c-redirect-vector job 0))
-         (v (make-vector n)))
-    (do ((parent job (job-parent parent)))
-        ((not parent))
-      (set! n (job-fill-c-redirect-vector/norecurse parent child-dir v n)))
-    ; (debugf "job-make-c-redirect-vector job=~s redirects=~s fds-to-remap=~s c-redirect-vector=~s" job (job-redirects job) (job-fds-to-remap job) v)
+;; creates and fills a fxvector with job's remaps and its parents remaps
+(define (job-make-c-fd-remap-fxvector job)
+  (let* ((n (fx* 2 (job-count-c-fd-remaps job 0)))
+         (v (make-fxvector n)))
+    (let %loop ((job job) (n n))
+      (if job
+        (%loop (job-parent job) (job-fill-c-fd-remap-fxvector/norecurse job v n))
+        n))
+    (debugf "job-make-c-fd-remap-fxvector job=~s redirects=~s fds-to-remap=~s c-fd-remap-fxvector=~s" job (job-redirects job) (job-fds-to-remap job) v)
     v))
 
 
-;; count and return the total number of redirections (* 4) of a job,
-;; including its parents redirections
-(define (job-count-c-redirect-vector job n)
+;; count and return the total number of fd remaps of a job,
+;; including its parents remaps
+(define (job-count-c-fd-remaps job n)
   (if job
-    ; add job's redirect count to n, and recurse to parent
-    (job-count-c-redirect-vector (job-parent job) (fx+ n (span-length (job-redirects job))))
+    ; add job's fd-remap size to n, and recurse to parent
+    (let ((remaps (job-fds-to-remap job)))
+      (job-count-c-fd-remaps (job-parent job) (if remaps (fx+ n (hashtable-size remaps)) n)))
     n))
 
 
-;; copy job's redirections to vector v, without recursing to job's parents.
+;; copy job's remaps to fxvector v, without recursing to job's parents.
 ;; returns (fx- pos (number-of-copied-elements))
-(define (job-fill-c-redirect-vector/norecurse job child-dir v end-pos)
-  (let ((parent-dir (job-cwd-if-set job))
-        (n          (span-length (job-redirects job))))
-    (do ((index (fx- n 4)  (fx- index 4))
-         (pos   end-pos    (fx- pos 4)))
-        ((fx<? index 0) pos)
-      (job-fill-c-redirect-vector/at job parent-dir child-dir v index (fx- pos 4)))))
+(define (job-fill-c-fd-remap-fxvector/norecurse job v end-pos)
+  (let ((remaps (job-fds-to-remap job)))
+    (if remaps
+      (let ((start-pos (fx- end-pos (fx* 2 (hashtable-size remaps)))))
+        (for ((from-fd to-sfd (in-hash remaps))
+              (pos            (in-range start-pos end-pos 2)))
+          (job-fill-c-fd-remap-fxvector/at job v pos from-fd to-sfd))
+        start-pos)
+      end-pos)))
 
 
-;; copy a single job redirection to vector v, at v[pos] ... v[pos+3]
-;;
-;; note: must prefix any relative path with job's working directory,
-;; because job may be a parent job with a different working directory
-(define (job-fill-c-redirect-vector/at job parent-dir child-dir v index pos)
-  (let* ((dir           (%parent-dir-if-different parent-dir child-dir))
-         (redirects     (job-redirects job))
-         (fd            (span-ref redirects index))
-         (direction-ch  (span-ref redirects (fx1+ index)))
-         (remap-fd      (job-remap-find-fd/norecurse job fd))
-                        ;; if fd is remapped in THIS job, it takes precedence over any redirection
-         (to            (or remap-fd (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)))
-         (remap-to      (if (or (not (fixnum? to)) (redirects-contain-from-fd? redirects pos to))
-                          ;; if there's a previous redirection for "to" in THIS job redirections, use it
-                          to
-                          ;; search for remappings for to, including inherited ones.
-                          ;; no need to search for inherited redirections, because parents are multijobs
-                          ;; and their redirections are translated into remappings.
-                          (job-remap-find-fd job to))))
-    ;; (debugf "job-fill-c-redirect-vector job=~s redirects=~s fd=~s -> fd=~s, remapped-fd = ~s" job redirects fd to remapped-fd)
-    (vector-set! v pos fd)
-    (vector-set! v (fx1+  pos) direction-ch)
-    ;; to-fd must be placed at pos + 2
-    (vector-set! v (fx+ 2 pos) (if (fixnum? remap-to) remap-to #f))
-    ;; to-bytevector0 must be placed at pos + 3
-    (vector-set! v (fx+ 3 pos) (if (fixnum? remap-to) #f remap-to))
-    ;;#44 (debugf "job-fill-c-redirect-vector job=~s redirects=~s remaps=~s fd=~s remap-fd=~s to=~s remap-to=~s pos=~s v=~s" job redirects (job-fds-to-remap job) fd remap-fd to remap-to pos v)
-    ))
-
-
-;; return #t if job's redirects span contains specified fd at some index < pos
-(define (redirects-contain-from-fd? redirects pos fd)
-  (do ((index 0 (fx+ index 4)))
-      ((or (fx>=? index pos) (fx=? fd (span-ref redirects index)))
-        (fx<? index pos))))
+;; copy a single job fd remap to fxvector v, at v[pos] ... v[pos+3]
+(define (job-fill-c-fd-remap-fxvector/at job v pos from-fd to-sfd)
+  (fxvector-set! v pos from-fd)
+  (fxvector-set! v (fx1+  pos) (s-fd->int to-sfd))
+  ;; (debugf "job-fill-c-redirect-vector job=~s v=~s pos=~s from-fd=~s to-sfd=~s" v pos from-fd to-sfd)
+  )
 
 
 ;; prefix remap fds and redirect to-fds of specified job onto list l.
@@ -334,16 +308,16 @@
           (set! l (cons to l)))))))
 
 
-;; return parent-dir if different from child-dir, otherwise return #f
-;; Note: parent-dir and child-dir may be #f
-(define (%parent-dir-if-different parent-dir child-dir)
+;; return parent-cwd if different from child-cwd, otherwise return #f
+;; Note: parent-cwd and child-cwd may be #f
+(define (%parent-cwd-if-different parent-cwd child-cwd)
   (cond
-    ((and parent-dir child-dir)
-      (if (charspan=? parent-dir child-dir) #f parent-dir))
-    (child-dir
+    ((and parent-cwd child-cwd)
+      (if (charspan=? parent-cwd child-cwd) #f parent-cwd))
+    (child-cwd
       (sh-cwd))
     (else
-      parent-dir)))
+      parent-cwd)))
 
 
 ;; executed in subprocesses for setting up their parameters:
@@ -402,6 +376,15 @@
       (fds-close-on-fork fds))))
 
 
+(define (job-fds-to-remap-clear/recursive! job)
+  (job-default-parents-iterate job
+    (lambda (job)
+      (let ((remaps (job-fds-to-remap job)))
+        ;; do not clear (sh-globals)
+        (when (and remaps (job-default-parent job))
+          (hashtable-clear! remaps))))))
+
+
 ;; Fork a new subprocess, and in the *child* subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
@@ -437,7 +420,7 @@
 
       (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid
-                                 (job-make-c-redirect-vector job)
+                                 (job-make-c-fd-remap-fxvector job)
                                  (or process-group-id -1))))
         (cond
           ((< ret 0) ; fork() failed
@@ -450,6 +433,8 @@
                 (lambda () ; body
                   (options->call-fd-close options)
                   (fds-close-on-fork-unused-by job)
+                  ;; (c-fork-pid) already applied fd remapping, forget them
+                  (job-fds-to-remap-clear/recursive! job)
 
                   ;c (debugf "> [child] spawn-job-procedure job=~s subprocess calling proc ~s" job proc)
                   (proc job (options-filter-out options '(fd-close spawn?)))

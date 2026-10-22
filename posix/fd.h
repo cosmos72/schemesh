@@ -273,9 +273,9 @@ enum read_write_mask {
  */
 static int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
   struct pollfd entry;
-  entry.fd     = fd;
-  entry.events = (rw_mask & mask_READ ? POLLIN : 0) | /*                                         */
-                 (rw_mask & mask_WRITE ? POLLOUT : 0);
+  entry.fd      = fd;
+  entry.events  = (rw_mask & mask_READ ? POLLIN : 0) | /*                                         */
+                  (rw_mask & mask_WRITE ? POLLOUT : 0);
   entry.revents = 0;
   if (poll(&entry, 1, timeout_milliseconds) < 0) {
     /** do NOT retry on EINTR, return it instead */
@@ -460,30 +460,35 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
   }
 }
 
-/** redirect a single fd as indicated in vector_fds_redirect[i...i+3]. return < 0 on error */
-static int c_fds_redirect_i(ptr vector_fds_redirect, iptr i, ptr close_on_exec) {
-  /* element at i + 3 contains to_bytevector0 or Sfalse  */
-  ptr to = Svector_ref(vector_fds_redirect, i + 3);
-  if (to == Sfalse) {
-    /* element at i + 2 contains to_fd, string, or closure  */
-    to = Svector_ref(vector_fds_redirect, i + 2);
+/** remap a single fd as indicated in fxvector_remap_fds[i...i+1]. return < 0 on error */
+static int c_fd_remap(ptr fxvector_fds_remap, iptr i, ptr close_on_exec) {
+  /* element at i contains from_fd  */
+  int from_fd = Sfixnum_value(Sfxvector_ref(fxvector_fds_remap, i));
+  int to_fd   = Sfixnum_value(Sfxvector_ref(fxvector_fds_remap, i + 1));
+  int err     = 0;
+  if (from_fd == to_fd) {
+    /* nothing to do */
+  } else if (to_fd < 0) {
+    close(from_fd);
+  } else {
+    err = dup2_close_on_exec(to_fd, from_fd, close_on_exec);
   }
-  return c_fd_redirect(Svector_ref(vector_fds_redirect, i + 0),
-                       Svector_ref(vector_fds_redirect, i + 1),
-                       to,
-                       close_on_exec);
+  if (err < 0) {
+    return write_c_errno(err);
+  }
+  return 0;
 }
 
-/** redirect fds as indicated in vector_fds_redirect. return < 0 on error */
-static int c_fds_redirect(ptr vector_fds_redirect, ptr close_on_exec) {
+/** redirect fds as indicated in fxvector_fds_remap. return < 0 on error */
+static int c_fds_remap(ptr fxvector_fds_remap, ptr close_on_exec) {
   iptr i, n;
   int  err = 0;
-  if (!Svectorp(vector_fds_redirect) || ((n = Svector_length(vector_fds_redirect)) & 3)) {
-    write_invalid_redirection("vector_fds_redirect", vector_fds_redirect);
+  if (!Sfxvectorp(fxvector_fds_remap) || ((n = Sfxvector_length(fxvector_fds_remap)) & 1)) {
+    write_invalid_redirection("fxvector_fds_remap", fxvector_fds_remap);
     return -EINVAL;
   }
-  for (i = 0; err == 0 && i + 4 <= n; i += 4) {
-    err = c_fds_redirect_i(vector_fds_redirect, i, close_on_exec);
+  for (i = 0; err == 0 && i + 2 <= n; i += 2) {
+    err = c_fd_remap(fxvector_fds_remap, i, close_on_exec);
   }
   return err;
 }

@@ -84,7 +84,7 @@ static int c_pid_kill(int pid, int sig, int pause_if_successful) {
  * if existing_pgid == 0 create a new process id (numerically equal to the process id)
  *                       and move process into it
  */
-static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
+static int c_fork_pid(ptr fxvector_remap_fds, int existing_pgid) {
   /**
    * fix issue #26: all open FILE* streams, such as stdout and stderr,
    * must be flushed before fork(), because any buffered data will survive the fork()
@@ -104,7 +104,7 @@ static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
       int err;
       if ((err = c_pgid_set(0, existing_pgid)) >= 0) {
         if ((err = c_signals_setdefault()) >= 0) { /* keeps SICHLD handler */
-          err = c_fds_redirect(vector_fds_redirect, Sfalse);
+          err = c_fds_remap(fxvector_remap_fds, Sfalse);
         }
       }
 
@@ -190,7 +190,7 @@ typedef enum {
  */
 static int c_cmd_spawn_or_exec(ptr        vector_of_bytevector0_cmdline,
                                ptr        bytevector0_chdir_or_false,
-                               ptr        vector_fds_redirect,
+                               ptr        fxvector_remap_fds,
                                ptr        vector_of_bytevector0_environ,
                                int        existing_pgid,
                                spawn_opts options) {
@@ -267,7 +267,7 @@ static int c_cmd_spawn_or_exec(ptr        vector_of_bytevector0_cmdline,
       }
       if ((bytevector0_chdir_or_false != Sfalse &&
            (err = c_chdir(bytevector0_chdir_or_false) < 0)) ||
-          (err = c_fds_redirect(vector_fds_redirect, Sfalse)) < 0) {
+          (err = c_fds_remap(fxvector_remap_fds, Sfalse)) < 0) {
         goto child_out;
       }
       if (envp) {
@@ -312,12 +312,12 @@ out:
  */
 static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
                       ptr bytevector0_chdir_or_false,
-                      ptr vector_fds_redirect,
+                      ptr fxvector_remap_fds,
                       ptr vector_of_bytevector0_environ) {
 
   return c_cmd_spawn_or_exec(vector_of_bytevector0_cmdline,
                              bytevector0_chdir_or_false,
-                             vector_fds_redirect,
+                             fxvector_remap_fds,
                              vector_of_bytevector0_environ,
                              -1, /* do not set pgid */
                              is_exec);
@@ -341,14 +341,14 @@ static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
  */
 static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
                        ptr bytevector0_chdir_or_false,
-                       ptr vector_fds_redirect,
+                       ptr fxvector_remap_fds,
                        ptr vector_of_bytevector0_environ,
                        int existing_pgid,
                        int is_editor) {
 
   return c_cmd_spawn_or_exec(vector_of_bytevector0_cmdline,
                              bytevector0_chdir_or_false,
-                             vector_fds_redirect,
+                             fxvector_remap_fds,
                              vector_of_bytevector0_environ,
                              existing_pgid,
                              is_spawn | (is_editor ? start_editor : 0));
