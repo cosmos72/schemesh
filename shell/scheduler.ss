@@ -74,8 +74,12 @@
         proc       ; run   body
         (lambda () ; after body
           ;; foreground job may have created some other foreground pgid:
-          ;; detect it and save inside job, in case user wants to resume it later
-          (%job-pgid-fg-set! job (foreground-pgid-get))
+          ;;   detect it and save inside job, in case user wants to resume it later.
+          ;; special case: refuse our own pgid,
+          ;;   because it prevents resuming the job in foreground.
+          (let ((fg-pgid (foreground-pgid-get)))
+            (unless (eqv? fg-pgid our-pgid)
+              (%job-pgid-fg-set! job fg-pgid)))
           ;; try really hard to restore (sh-globals) as the foreground process group
           ;;53 (debugf "< call-with-foreground-job restoring main pgid=~s" our-pgid)
           (%foreground-pgid-cas -1 our-pgid)))
