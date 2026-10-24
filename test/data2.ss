@@ -37,8 +37,10 @@
         '${echo hi})        #| shell backquote |#      ((shell-expr (display "hello"))
                                                         (sh-run/string-rtrim-newlines (shell "echo" "hi")))
 
+  (sh-eval-string "(list 'a 'b 'c)")                  (a b c)
+
   (try
-    (sh-eval-string "(begin \"\\x0E;\"" 'scheme)
+    (sh-eval-string "(begin \"\\x0E;\"")
     (catch (ex)
       (with-output-to-string
         (lambda ()

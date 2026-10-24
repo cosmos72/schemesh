@@ -194,7 +194,9 @@
     ((fd initial-parser enabled-parsers)
       (sh-read-fd initial-parser enabled-parsers 'plain))
     ((fd initial-parser)
-      (sh-read-fd initial-parser #t 'plain))))
+      (sh-read-fd initial-parser #t 'plain))
+    ((fd)
+      (sh-read-fd 'scheme #t 'plain))))
 
 
 ;; read and parse multi-language source contents from specified textual input port,
@@ -218,7 +220,9 @@
     ((in initial-parser enabled-parsers)
       (sh-read-port in initial-parser enabled-parsers 'plain))
     ((in initial-parser)
-      (sh-read-port in initial-parser #t 'plain))))
+      (sh-read-port in initial-parser #t 'plain))
+    ((in)
+      (sh-read-port in 'scheme #t 'plain))))
 
 
 ;; parse multi-language source contents of specified parsectx, and return parsed form.
@@ -226,9 +230,13 @@
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
 ;;                     and whether to annotate parsed forms or not
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
-(define (sh-read-parsectx pctx initial-parser)
-  (let-values (((forms updated-parser) (parse-forms pctx initial-parser)))
-    (wrap-forms-sh-run! forms)))
+(define sh-read-parsectx
+  (case-lambda
+    ((pctx initial-parser)
+      (let-values (((forms updated-parser) (parse-forms pctx initial-parser)))
+	(wrap-forms-sh-run! forms)))
+    ((pctx)
+      (sh-read-parsectx pctx 'scheme))))
 
 
 ;; parse multi-language source contained in specified string, and return parsed form.
@@ -249,7 +257,9 @@
     ((str initial-parser enabled-parsers)
       (sh-read-string str initial-parser enabled-parsers 'plain))
     ((str initial-parser)
-      (sh-read-string str initial-parser #t 'plain))))
+      (sh-read-string str initial-parser #t 'plain))
+    ((str)
+      (sh-read-string str 'scheme #t 'plain))))
 
 
 ;; if enabled-parsers is #t, return (parsers)
@@ -355,7 +365,9 @@
     ((fd initial-parser enabled-parsers)
       (sh-eval-fd fd initial-parser enabled-parsers 'annotations))
     ((fd initial-parser)
-      (sh-eval-fd fd initial-parser #t 'annotations))))
+      (sh-eval-fd fd initial-parser #t 'annotations))
+    ((fd)
+      (sh-eval-fd fd 'scheme #t 'annotations))))
 
 
 ;; read and parse multi-language source contents of specified textual input port,
@@ -378,7 +390,9 @@
     ((in initial-parser enabled-parsers)
       (sh-eval-port in initial-parser enabled-parsers 'annotations))
     ((in initial-parser)
-      (sh-eval-port in initial-parser #t 'annotations))))
+      (sh-eval-port in initial-parser #t 'annotations))
+    ((in)
+      (sh-eval-port in 'scheme #t 'annotations))))
 
 
 ;; read and parse multi-language source contents of specified parsectx,
@@ -387,8 +401,12 @@
 ;; arguments:
 ;;   pctx            - the parsectx to read from. also contains the enabled parsers.
 ;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
-(define (sh-eval-parsectx pctx initial-parser)
-  (sh-eval (sh-read-parsectx pctx initial-parser)))
+(define sh-eval-parsectx
+  (case-lambda
+    ((pctx initial-parser)
+      (sh-eval (sh-read-parsectx pctx initial-parser)))
+    ((pctx)
+      (sh-eval-parsectx pctx 'scheme))))
 
 
 ;; read and parse multi-language source contained in specified string,
@@ -407,7 +425,9 @@
     ((str initial-parser enabled-parsers)
       (sh-eval (sh-read-string str initial-parser enabled-parsers 'annotations)))
     ((str initial-parser)
-      (sh-eval-string str initial-parser #t))))
+      (sh-eval-string str initial-parser #t))
+    ((str)
+      (sh-eval-string str 'scheme #t))))
 
 
 ;; extension of (dynamic-wind):
