@@ -69,7 +69,7 @@
     (if our-pgid
       (dynamic-wind
         (lambda () ; before body
-          ;;53 (debugf "> call-with-foreground-job setting fg job pgid=~s" new-pgid)
+          ;;53 (debugf "> call-with-foreground-job our pgid=~s, setting fg job pgid=~s" our-pgid new-pgid)
           (%foreground-pgid-cas our-pgid new-pgid))
         proc       ; run   body
         (lambda () ; after body
@@ -77,11 +77,12 @@
           ;;   detect it and save inside job, in case user wants to resume it later.
           ;; special case: refuse our own pgid,
           ;;   because it prevents resuming the job in foreground.
-          (let ((fg-pgid (foreground-pgid-get)))
-            (unless (eqv? fg-pgid our-pgid)
-              (%job-pgid-fg-set! job fg-pgid)))
+	  (unless (job-finished? job)
+            (let ((fg-pgid (foreground-pgid-get)))
+              (unless (eqv? fg-pgid our-pgid)
+		(%job-pgid-fg-set! job fg-pgid))))
           ;; try really hard to restore (sh-globals) as the foreground process group
-          ;;53 (debugf "< call-with-foreground-job restoring main pgid=~s" our-pgid)
+          ;;53 (debugf "< call-with-foreground-job restoring main pgid=~s, job pgid =~s" our-pgid (job-pgid-fg job))
           (%foreground-pgid-cas -1 our-pgid)))
       (proc))))
 
