@@ -64,7 +64,7 @@
 ;; Returned value is always an immutable string or the specified default
 (define sh-env-ref
   (case-lambda
-    ((name)                   (sh-env-ref* (sh-job #f) name empty-string))
+    ((name)                   (sh-env-ref* #f name empty-string))
     ((job-or-id name)         (sh-env-ref* job-or-id name empty-string))
     ((job-or-id name default) (sh-env-ref* job-or-id name default))))
 
@@ -136,7 +136,7 @@
 (define sh-env-set!
   (case-lambda
    ((name val)
-    (sh-env-set*! (sh-job #f) name val 'maintain))
+    (sh-env-set*! #f name val 'maintain))
    ((job-or-id name val)
     (sh-env-set*! job-or-id name val 'maintain))
    ((job-or-id name val visibility)
@@ -182,7 +182,7 @@
 	(assert* 'sh-env-delete! (string? name))
 	(hashtable-set! vars name (cons 'delete empty-string))))
     ((name)
-      (sh-env-delete! (sh-job #f) name))))
+      (sh-env-delete! #f name))))
 
 
 ;; Iterate on environment variables for specified job,
@@ -315,24 +315,32 @@
 ;; In both cases, job-env-lazy is included too.
 ;;
 ;; Implementation note: always synthetizes environment variable PWD.
-(define (sh-env-copy job-or-id which)
-  (assert* 'sh-env-copy (memq which '(export all)))
-  (let* ((vars           (make-hashtable string-hash string=?))
-         (also-private?  (eq? 'all which))
-         (only-exported? (not also-private?)))
-    (for-list ((job (job-parents-revlist job-or-id)))
-      (sh-env-iterate/direct job
-        (lambda (name val visibility)
-          ; (debugf "sh-env-copy name=~s\tval=~s\tvisibility=~s" name val visibility)
-          (cond
-            ((or (eq? 'delete visibility)
-                 (and only-exported? (eq? 'private visibility)))
-              (hashtable-delete! vars name))
-            ((or (eq? 'export visibility)
-                 (and also-private? (eq? 'private visibility)))
-              (hashtable-set! vars name val))))))
-    (hashtable-set! vars "PWD" (sh-env-pwd job-or-id))
-    vars))
+(define sh-env-copy
+  (case-lambda
+    ((job-or-id which)
+      (assert* 'sh-env-copy (memq which '(export all)))
+      (let* ((vars           (make-hashtable string-hash string=?))
+             (also-private?  (eq? 'all which))
+             (only-exported? (not also-private?)))
+	(for-list ((job (job-parents-revlist job-or-id)))
+	  (sh-env-iterate/direct job
+	    (lambda (name val visibility)
+	      ;; (debugf "sh-env-copy name=~s\tval=~s\tvisibility=~s" name val visibility)
+              (cond
+                ((or (eq? 'delete visibility)
+                     (and only-exported? (eq? 'private visibility)))
+		  (hashtable-delete! vars name))
+		((or (eq? 'export visibility)
+                     (and also-private? (eq? 'private visibility)))
+		  (hashtable-set! vars name val))))))
+	(hashtable-set! vars "PWD" (sh-env-pwd job-or-id))
+	vars))
+    ((job-or-id-or-which)
+      (let* ((arg    job-or-id-or-which)
+	     (which? (symbol? arg)))
+	(sh-env-copy (if which? #f arg) (if which? arg 'all))))
+    (()
+      (sh-env-copy #f 'all))))
 
 
 ;; Extract environment variables from specified job and all its parents,
@@ -347,8 +355,10 @@
   (case-lambda
     ((job-or-id which)
       (string-hashtable->argv (sh-env-copy job-or-id which)))
-    ((which)
-      (sh-env->argv (sh-job #f) which))))
+    ((job-or-id-or-which)
+      (string-hashtable->argv (sh-env-copy job-or-id-or-which)))
+    (()
+      (string-hashtable->argv (sh-env-copy)))))
 
 
 ;; Copy overridden environment variables from specified job to its parent.
