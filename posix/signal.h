@@ -349,7 +349,7 @@ static int c_countdown(ptr duration_inout) {
     return 0;
   }
   /* macOS lacks clock_nanosleep(). How to test for clock_nanosleep() availability? */
-#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
+#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__) && !defined(__OpenBSD__)
   err = clock_nanosleep(CLOCK_MONOTONIC, 0, &duration, &left);
 #else
   if ((err = nanosleep(&duration, &left)) != 0) {

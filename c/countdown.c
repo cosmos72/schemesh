@@ -60,7 +60,7 @@ static int c_countdown(timespec interval) {
     c_sigtstp_sethandler();
 
     /* macOS lacks clock_nanosleep(). How to test for clock_nanosleep() availability? */
-#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
+#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__) && !defined(__OpenBSD__)
     err = clock_nanosleep(CLOCK_MONOTONIC, 0, &interval, &left);
 #else
     if ((err = nanosleep(&interval, &left)) != 0) {
@@ -70,7 +70,7 @@ static int c_countdown(timespec interval) {
     if (err == 0) {
       break;
     } else if (err != EINTR) {
-#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
+#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__) && !defined(__OpenBSD__)
       return c_fail("clock_nanosleep(CLOCK_MONOTONIC)", err);
 #else
       return c_fail("nanosleep()", err);

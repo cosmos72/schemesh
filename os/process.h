@@ -46,7 +46,7 @@ size_t scheme2k_os_pagesize(void) {
 #endif
 
     /*else */ {
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
       n = getpagesize();
 #elif defined(PAGESIZE) && PAGESIZE > 0
       n = PAGESIZE;

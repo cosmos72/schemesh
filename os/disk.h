@@ -30,6 +30,8 @@ enum {
 #include "disk_macos.h"
 #elif defined(__FreeBSD__)
 #include "disk_freebsd.h"
+#elif defined(__OpenBSD__)
+#include "disk_openbsd.h"
 #else
 
 #include "disk_unsupported.h"
