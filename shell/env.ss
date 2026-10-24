@@ -45,8 +45,12 @@
 
 ;; synthetize and return the value of environment variable PWD,
 ;; which always contains job's current directory
-(define (sh-env-pwd job-or-id)
-  (string->immutable-string (charspan->string*! (sh-cwd job-or-id))))
+(define sh-env-pwd
+  (case-lambda
+    ((job-or-id)
+      (string->immutable-string (charspan->string*! (sh-cwd job-or-id))))
+    (()
+      (sh-env-pwd (sh-job #f)))))
 
 
 ;; Return string value of environment variable named "name" for specified job.
@@ -60,6 +64,7 @@
 ;; Returned value is always an immutable string or the specified default
 (define sh-env-ref
   (case-lambda
+    ((name)                   (sh-env-ref* (sh-job #f) name empty-string))
     ((job-or-id name)         (sh-env-ref* job-or-id name empty-string))
     ((job-or-id name default) (sh-env-ref* job-or-id name default))))
 
@@ -130,6 +135,8 @@
 ;;       or creates the variable as 'private if it does not exist.
 (define sh-env-set!
   (case-lambda
+   ((name val)
+    (sh-env-set*! (sh-job #f) name val 'maintain))
    ((job-or-id name val)
     (sh-env-set*! job-or-id name val 'maintain))
    ((job-or-id name val visibility)
@@ -168,10 +175,14 @@
 ;; Implementation note: inserts an entry with visibility 'delete,
 ;; in order to override any parent job's environment variable
 ;; with the same name.
-(define (sh-env-delete! job-or-id name)
-  (let ((vars (job-direct-env job-or-id)))
-    (assert* 'sh-env-delete! (string? name))
-    (hashtable-set! vars name (cons 'delete empty-string))))
+(define sh-env-delete!
+  (case-lambda
+    ((job-or-id name)
+      (let ((vars (job-direct-env job-or-id)))
+	(assert* 'sh-env-delete! (string? name))
+	(hashtable-set! vars name (cons 'delete empty-string))))
+    ((name)
+      (sh-env-delete! (sh-job #f) name))))
 
 
 ;; Iterate on environment variables for specified job,
@@ -332,8 +343,12 @@
 ;;   'all    - private variables are returned too.
 ;;
 ;; In both cases, job-env-lazy is included too.
-(define (sh-env->argv job-or-id which)
-  (string-hashtable->argv (sh-env-copy job-or-id which)))
+(define sh-env->argv
+  (case-lambda
+    ((job-or-id which)
+      (string-hashtable->argv (sh-env-copy job-or-id which)))
+    ((which)
+      (sh-env->argv (sh-job #f) which))))
 
 
 ;; Copy overridden environment variables from specified job to its parent.
