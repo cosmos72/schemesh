@@ -50,6 +50,8 @@ static int c_errno(void) {
 #include "util_macos.h"
 #elif defined(__FreeBSD__)
 #include "util_freebsd.h"
+#elif defined(__OpenBSD__)
+#include "util_openbsd.h"
 #endif
 
 #endif /* SCHEME2K_OS_UTIL_H */
