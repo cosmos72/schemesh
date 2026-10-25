@@ -13,7 +13,7 @@
 
 (define (put/bytevector bsp obj)
   (let ((n (bytevector-length obj)))
-    (put/count bsp n major-bytestring)
+    (put/count bsp major-bytestring n)
     (let ((pos (grow bsp n)))
       (bytevector-copy! obj 0 (bytes bsp) pos n))))
 
@@ -30,7 +30,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (put/string bsp obj)
-  (put/count bsp (string->utf8b-length obj) major-utf8string)
+  (put/count bsp major-utf8string (string->utf8b-length obj))
   (bytespan-insert-right/string! bsp obj))
 
 #|
@@ -47,7 +47,7 @@
 (define (put/flvector bsp obj)
   ;; TODO: put a flvector tag
   (let ((n (flvector-length obj)))
-    (put/count bsp n major-array)
+    (put/count bsp major-array n)
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (put/flonum bsp (flvector-ref obj i)))))
@@ -70,7 +70,7 @@
 (define (put/fxvector bsp obj)
   ;; TODO: put a fxvector tag
   (let ((n (fxvector-length obj)))
-    (put/count bsp n major-array)
+    (put/count bsp major-array n)
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (put/integer bsp (fxvector-ref obj i)))))
@@ -100,7 +100,7 @@
 
 (define (put/vector bsp obj)
   (let ((n (vector-length obj)))
-    (put/count bsp n major-array)
+    (put/count bsp major-array n)
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (put/any bsp (vector-ref obj i)))))

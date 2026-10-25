@@ -29,67 +29,39 @@
 (define minor-indefinite   31)
 
 
-#|
-(define tag-0         0)
-(define tag-1         1)
-(define tag-2         2)
-(define tag-3         3)
-(define tag-4         4)
-(define tag-5         5)
-(define tag-6         6)
-(define tag-7         7)
-(define tag-8         8)
-(define tag-9         9)
-(define tag-10       10)
-(define tag--5       11)
-(define tag--4       12)
-(define tag--3       13)
-(define tag--2       14)
-(define tag--1       15)
-(define tag-s8       16) ; exact integer, signed, 8 bit
-(define tag-s16      17) ; exact integer, signed, 16 bit, little endian
-(define tag-s24      18) ; exact integer, signed, 24 bit, little endian
-(define tag-s32      19) ; exact integer, signed, 32 bit, little endian
-(define tag-sint     20) ; vlen followed by: exact integer, signed, vlen bytes, little endian
-(define tag-ratio    21) ; exact ratio
-(define tag-complex  22) ; exact complex
-(define tag-flonum   23)
-(define tag-cflonum  24)
-(define tag-f        25)
-(define tag-t        26)
-(define tag-nil      27)
-(define tag-void     28)
-(define tag-eof      29)
-(define tag-bwp      30)
-(define tag-char8    31) ; char, 8 bit
-(define tag-char16   32) ; char, 16 bit, little endian
-(define tag-char24   33) ; char, 24 bit, little endian
-(define tag-box      34)
-(define tag-pair     35)
-(define tag-list1    36)
-(define tag-list*    37)
-(define tag-list     38)
-(define tag-vector   39)
-(define tag-bytevector 40)
-(define tag-string8    41)
-(define tag-string16   42)
-(define tag-string24   43)
-(define tag-fxvector   44)
-(define tag-flvector   45)
-(define tag-symbol8    46)
-(define tag-symbol16   47)
-(define tag-symbol24   48)
+(define misc-eof    #xF2) ; major-misc + 18, unofficial
+(define misc-bwp    #xF3) ; major-misc + 19, unofficial
+(define misc-false  #xF4) ; major-misc + 20
+(define misc-true   #xF5) ; major-misc + 21
+(define misc-nil    #xF6) ; major-misc + 22
+(define misc-void   #xF7) ; major-misc + 23, actually means "undefined"
 
+;; for officially assigned CBOR tags, see https://www.iana.org/assignments/cbor-tags
+
+(define tag-ratio    30) ;; see http://peteroupc.github.io/CBOR/rational.html
+(define tag-symbol   39) ;; see https://github.com/lucas-clemente/cbor-specs/blob/master/id.md 
+;; an alternative is 280 ;; see https://github.com/mishoo/cbor.lisp/blob/e1428a5/clext-spec.txt
+
+(define tag-box      22098) ;; see http://cbor.schmorp.de/indirection
+   ;; an alternative is 128 ;; unofficial, in unassigned range 128.199
+
+(define tag-complex  43000) ;; see https://www.iana.org/assignments/cbor-tags
+   ;; an alternative is 129 ;; unofficial, in unassigned range 128.199
+
+(define tag-list     281) ;; see https://github.com/mishoo/cbor.lisp/blob/e1428a5/clext-spec.txt
+(define tag-char     282) ;; see https://github.com/mishoo/cbor.lisp/blob/e1428a5/clext-spec.txt
+(define tag-object   283) ;; see https://github.com/mishoo/cbor.lisp/blob/e1428a5/clext-spec.txt
+
+(define tag-time     1001) ;; see https://www.iana.org/go/rfc9581#section-3
+(define tag-duration 1002) ;; see https://www.iana.org/go/rfc9581#section-4
+
+#|
 (define tag-eq-hashtable  49)
 (define tag-eqv-hashtable 50)
 (define tag-hashtable     51)
 (define tag-eq-ord-hash   52)
 (define tag-eqv-ord-hash  53)
 (define tag-ord-hash      54)
-
-(define min-tag-to-allocate   95)
-(define next-tag-to-allocate 240)
-(define max-tag-to-allocate  253)
 
 (define tag-disk-entry    241) ; implemented in os/disk.ss
 (define tag-process-entry 242) ; implemented in os/process.ss
@@ -112,12 +84,12 @@
 
 (define known-sym
   (eq-hashtable
-    '<type> 55 'block-device 56 'boolean=? 57
-    'bytevector=? 58 'bytevector-hash 59
-    'cfl= 60
-    'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
-    'char-device 64
-    'date 65 'dir 66 'dir-entry 67
+    '<type> 0 'block-device 1 'boolean=? 2
+    'bytevector=? 3 'bytevector-hash 4
+    'cfl= 5
+    'char=? 6 'char-ci=? 7 'char->integer 8 ; usable as hash function for char=?
+    'char-device 9
+    'date 10 'dir 1 'dir-entry 12
     'enum-set=? 68
     'eq? 69 'eqv? 70 'equal? 71 'equal-hash 72
     'file 73 'fifo 74 'fl=? 75 'fx=? 76

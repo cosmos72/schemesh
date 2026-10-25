@@ -9,10 +9,6 @@
 
 ;; this file should be included only by file io/cbor/cbor.ss
 
-#|
-(define (symbol->tag sym)
-  (hashtable-ref known-sym sym #f))
-|#
 
 (define (grow bsp n)
   (let ((len (bytespan-length bsp)))
@@ -80,10 +76,10 @@
           (put/u16 bsp obj))))))
 
 
-(define (%put/bignum bsp obj major-minor)
+(define (%put/bignum bsp obj tag-major-minor)
   (let ((byte-n (fxsra (fx+ (integer-length obj) 7) 3)))
-    (put/u8 bsp major-minor)
-    (put/count bsp byte-n major-bytestring)
+    (put/u8 bsp tag-major-minor)
+    (put/count bsp major-bytestring byte-n)
     (let ((pos (grow bsp byte-n)))
       (bytevector-uint-set*! (bytes bsp) pos obj endian byte-n))))
 
@@ -125,25 +121,25 @@
       (put/large-negative bsp obj))))
 
 
-(define (put/count bsp len major)
-  (assert* 'cbor-writer (fixnum? len))
-  (assert* 'cbor-writer (fx>=? len 0))
+(define (put/count bsp major n)
+  (assert* 'cbor-writer (fixnum? n))
+  (assert* 'cbor-writer (fx>=? n 0))
   (cond
-    ((fx<=? len 23)
-      (put/u8 bsp (fxior major len)))
-    ((fx<=? len 255)
+    ((fx<=? n 23)
+      (put/u8 bsp (fxior major n)))
+    ((fx<=? n 255)
       (put/u8 bsp (fxior major minor-1byte))
-      (put/u8 bsp len))
-    ((fx<=? len #xFFFF)
+      (put/u8 bsp n))
+    ((fx<=? n #xFFFF)
       (put/u8 bsp (fxior major minor-2byte))
-      (put/u16 bsp len))
-    ((meta-cond ((fixnum? #xFFFFFFFF) (fx<=? len #xFFFFFFFF))
+      (put/u16 bsp n))
+    ((meta-cond ((fixnum? #xFFFFFFFF) (fx<=? n #xFFFFFFFF))
                  (else                #t))
       (put/u8 bsp (fxior major minor-4byte))
-      (put/u32 bsp len))
+      (put/u32 bsp n))
     (else
       (put/u8 bsp (fxior major minor-8byte))
-      (put/u64 bsp len))))
+      (put/u64 bsp n))))
 
 
 #|
@@ -169,13 +165,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; obj is an exact ratio
 (define (put/ratio bsp obj)
-  ;; TODO
-  (void))
+  (put/count bsp major-tag tag-ratio)
+  (put/count bsp major-array 2)
+  (put/integer bsp (numerator obj))
+  (put/integer bsp (denominator obj)))
 
+
+;; obj is an exact or inexact complex
 (define (put/complex bsp obj)
-  ;; TODO
-  (void))
+  (put/count bsp major-tag tag-complex)
+  (put/count bsp major-array 2)
+  (put/number bsp (real-part obj))
+  (put/number bsp (imag-part obj)))
+
 
 (define (put/flonum bsp obj)
   (put/u8 bsp (fxior major-misc minor-8byte))
@@ -189,10 +193,6 @@
     (bytevector-ieee-double-ref bsp endian)
     (fx+ pos len-flonum)))
 |#
-
-(define (put/cflonum bsp obj)
-  ;; TODO
-  (void))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -208,23 +208,21 @@
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
       (put/flonum bsp obj)
-      (put/cflonum bsp obj))))
+      (put/complex bsp obj))))
 
 
 ;; write tag and one character into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/char bsp obj)
-  ;; TODO put tag "char"
+  (put/count bsp major-tag tag-char)
   (put/integer bsp (char->integer obj)))
 
 
-#|
 (define (put/box bsp obj)
-  (let* ((pos (put/tag bsp tag-box))
-         (pos (put/any bsp (unbox obj))))
-    pos))
+  (put/count bsp major-tag tag-box)
+  (put/any bsp (unbox obj)))
 
-
+#|
 ;; 1-element proper list
 (define (put/list1 bsp obj)
   (let* ((end0 (put/tag bsp tag-list1))
@@ -270,19 +268,16 @@
           end2))))
   |#
 
-(define (put/symbol bsp obj)
-  ;; TODO
-  (void))
-#|
-  (let ((tag (symbol->tag obj)))
-    (if tag
-      (put/tag bsp tag)
-      (let* ((end (put/string bsp (symbol->string obj)))
-             (old-tag (%get/tag bsp))
-             (new-tag (fx+ old-tag (fx- tag-symbol8 tag-string8))))
-        (put/tag bsp new-tag)
-        end))))
 
+(define (put/symbol bsp obj)
+  (put/count bsp major-tag tag-symbol)
+  (let ((val (hashtable-ref known-sym obj #f)))
+    (if val
+      (put/small-fixnum bsp val)
+      (put/string bsp (symbol->string obj)))))
+
+
+#|
 (define (htable->cmp-sym obj)
   (hashtable-ref known-cmp-sym (hashtable-equivalence-function obj) #f))
 
@@ -338,19 +333,19 @@
 ;; return updated position, or #f on errors.
 (define (put/any bsp obj)
   (cond
-    ((fixnum? obj)       (put/integer    bsp obj))
-    ((char?   obj)       (put/char       bsp obj))
-    ((pair?   obj)       (put/pair       bsp obj))
-    ((symbol? obj)       (put/symbol     bsp obj))
-    ((flonum? obj)       (put/flonum     bsp obj))
-    ;((null? obj)         (put/tag bsp tag-nil))  ; only tag, datum is 0 bytes
-    ;((boolean? obj)      (put/tag bsp (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
-    ;((eq? (void) obj)    (put/tag bsp tag-void)) ; only tag, datum is 0 bytes
-    ;((eof-object? obj)   (put/tag bsp tag-eof))  ; only tag, datum is 0 bytes
-    ;((bwp-object? obj)   (put/tag bsp tag-bwp))  ; only tag, datum is 0 bytes
+    ((fixnum? obj)       (put/integer bsp obj))
+    ((char?   obj)       (put/char    bsp obj))
+    ((pair?   obj)       (put/pair    bsp obj))
+    ((symbol? obj)       (put/symbol  bsp obj))
+    ((flonum? obj)       (put/flonum  bsp obj))
+    ((null? obj)         (put/u8      bsp misc-nil))
+    ((boolean? obj)      (put/u8      bsp (if obj misc-true misc-false)))
+    ((eq? (void) obj)    (put/u8      bsp misc-void))
+    ((eof-object? obj)   (put/u8      bsp misc-eof))
+    ((bwp-object? obj)   (put/u8      bsp misc-bwp))
     ((procedure? obj)    #f)
     ;; these are slower to check
-    ;((box?    obj)       (put/box        bsp obj))
+    ((box?    obj)       (put/box        bsp obj))
     ((number? obj)       (put/number     bsp obj))
     ((vector? obj)       (put/vector     bsp obj))
     ((bytevector? obj)   (put/bytevector bsp obj))
