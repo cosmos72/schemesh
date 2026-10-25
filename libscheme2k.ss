@@ -73,9 +73,10 @@
   (include "io/stdio.ss")
   (include "io/json/json.ss")       ; requires io/stdio.ss posix/fs.ss
   (include "io/port.ss")            ; requires io/stdio.ss
+  (include "io/cbor/cbor.ss")       ; requires io/port.ss posix/status.ss posix/fs.ss
   (include "io/table/table.ss")     ; requires reflect/reflect.ss
   (include "io/text0.ss")           ; requires reflect/reflect.ss
-  (include "io/wire/wire.ss")       ; requires io/posix/status.ss io/posix/fs.ss
+  (include "io/wire/wire.ss")       ; requires io/port.ss posix/status.ss posix/fs.ss
   (include "io/auto.ss")            ; requires io/json/json.ss io/wire/wire.ss
   (include "io/io.ss")
 
