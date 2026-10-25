@@ -650,6 +650,11 @@ B=2})                                                  ,@"#<void>"
   (sh-run/string {echo `echo abc | cat`})              "abc\n"
   (sh-run/string {echo `{echo abc | cat}`})            "abc\n"
 
+  ;; test redirecting some fds of a pipe multijob
+  (sh-run/string
+    {{echo abc 1>&2 | echo def 1>&2} 2>DEL_ME &&
+     cat DEL_ME && rm DEL_ME})                         "abc\ndef\n"
+
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string "#!/some/path some-arg\n\
     (display (+ 1 2)) {hjk}")                          (begin (display (+ 1 2)) (sh-run (shell "hjk")))

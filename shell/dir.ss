@@ -9,7 +9,6 @@
 
 ;; this file should be included only by file shell/job.ss
 
-
 ;; return charspan containing current directory of specified job.
 ;; if job's cwd is not set, recursively retrieve it from parent job
 ;;

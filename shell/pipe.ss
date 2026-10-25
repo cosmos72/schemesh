@@ -78,13 +78,6 @@
     (raise-errorf who "~s is not a sh-job or a pipe symbol '| '|&" arg)))
 
 
-;; insert redirects from span sp to the left of job's redirections,
-;; and mark them as temporary redirections
-(define (job-redirect-temp-span! job sp)
-  (span-insert-left/span! (job-redirects job) sp)
-  (job-redirects-temp-n-set! job (fx+ (span-length sp) (job-redirects-temp-n job))))
-
-
 ;; Internal function stored in (job-start-proc job) by (sh-pipe) and (sh-pipe*),
 ;; and called by (sh-start) to actually start a pipe multijob.
 (define (mj-pipe-start mj options)
@@ -92,11 +85,10 @@
 
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
-  ;; unneeded, mj does no I/O and all children run in subprocesses
-  ;; (job-remap-fds! mj)
+  (job-remap-fds! mj)
   (job-env/apply-lazy! mj 'export)
 
-  ;; (debugf "mj-pipe-start: options ~s, redirects ~s" options (job-redirects mj))
+  ;; (debugf "mj-pipe-start: options=~s fds-to-remap=~s" options (job-fds-to-remap mj))
 
   ; Do not yet assign a job-id.
   (let ((pgid (options->process-group-id options))
@@ -148,10 +140,7 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect-temp-fd! job 2 '>& fd/write))))
 
-    ;; Apply redirections inherited from parent sh-pipe job.
-    ;; Fixes issue #95: backquotes did not capture pipeline output
-    ;; Needed because sh-pipe jobs ignore the option 'spawn #t and their redirections are not applied
-    (job-redirect-temp-span! job (job-redirects mj))
+    (job-remap-fds! job)
 
     ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
 

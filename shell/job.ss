@@ -100,14 +100,14 @@
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
-                       foreign-procedure format fx1+ fx1- fxarithmetic-shift-right get-thread-id
+                       foreign-procedure format fx1+ fx1- fxarithmetic-shift-right fxvector-set! get-thread-id
                        hashtable-cell hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
-                       make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
+                       make-continuation-condition make-format-condition make-fxvector meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string->immutable-string string-truncate!
                        textual-port-output-index threaded? void with-interrupts-disabled)
-    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts dynamic-catch-all nop parameter-swapper
-                                           raise-assert1 raise-assertf raise-errorf second-value
+    (only (scheme2k bootstrap)             assert* assert-not* catch check-interrupts debugf dynamic-catch-all for nop
+                                           parameter-swapper raise-assert1 raise-assertf raise-errorf second-value
                                            sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter
                                            sh-version-number try until warnf while)
     (only (scheme2k containers bytespan)   bytespan bytespan->bytevector bytespan->bytevector*! bytespan-capacity-right bytespan-clear!
@@ -119,7 +119,8 @@
     (only (scheme2k containers charspan)   charspan charspan? charspan=? charspan-copy charspan-empty? charspan-insert-right! charspan-insert-right/string!
                                            charspan->string charspan->string*! string->charspan*)
     (only (scheme2k containers gbuffer)    gbuffer-length gbuffer-ref)
-    (only (scheme2k containers hashtable)  eqv-hashtable for-hash for-hash-cells for-hash-values plist->hashtable)
+    (only (scheme2k containers hashtable)  eqv-hashtable for-hash for-hash-cells for-hash-values in-hash plist->hashtable)
+    (only (scheme2k containers iterator)   in-range)
     (only (scheme2k containers list)       any every for-alist for-list for-plist list-quoteq! list-remove-consecutive-duplicates!
                                            plist? plist-delete/pred plist-ref)
     (only (scheme2k containers sort)       span-sort! subvector-sort!)
