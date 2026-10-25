@@ -230,30 +230,26 @@
 
 ;; convert a string to UTF-8b bytes and append them to bytespan.
 (define bytespan-insert-right/string!
-  (let ((c-string->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
-                                  (ptr fixnum fixnum ptr fixnum) ptr))
-        (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
-                                  (ptr fixnum fixnum) fixnum)))
-    (case-lambda
-      ((bsp str start end)
-        (assert* 'bytespan-insert-right/string! (fx<=?* 0 start end (string-length str)))
-        (case (fx- end start)
-          ((0)
-            (void))
-          ((1)
-            (bytespan-insert-right/char! bsp (string-ref str start)))
-          (else
-            (let* ((old-len (bytespan-length bsp))
-                   (byte-n  (c-string->utf8b-length str start end))
-                   (new-len (fx+ old-len byte-n)))
-              (bytespan-resize-right! bsp new-len)
-              (let* ((vec (bytespan-peek-data bsp))
-                     (pos (fx+ old-len (bytespan-peek-beg bsp)))
-                     (written-end (c-string->utf8b-append str start end vec pos)))
-                (unless (and (fixnum? written-end) (fx=? new-len written-end))
-                  (raise-utf8b-error 'bytespan-insert-right/string! new-len written-end)))))))
-      ((bsp str)
-        (bytespan-insert-right/string! bsp str 0 (string-length str))))))
+  (case-lambda
+    ((bsp str start end)
+      (assert* 'bytespan-insert-right/string! (fx<=?* 0 start end (string-length str)))
+      (case (fx- end start)
+        ((0)
+          (void))
+        ((1)
+          (bytespan-insert-right/char! bsp (string-ref str start)))
+        (else
+          (let* ((old-len (bytespan-length bsp))
+                 (byte-n  (c-string->utf8b-length str start end))
+                 (new-len (fx+ old-len byte-n)))
+            (bytespan-resize-right! bsp new-len)
+            (let* ((vec (bytespan-peek-data bsp))
+                   (pos (fx+ old-len (bytespan-peek-beg bsp)))
+                   (written-end (c-string->utf8b-append str start end vec pos)))
+              (unless (and (fixnum? written-end) (fx=? new-len written-end))
+                (raise-utf8b-error 'bytespan-insert-right/string! new-len written-end)))))))
+    ((bsp str)
+      (bytespan-insert-right/string! bsp str 0 (string-length str)))))
 
 
 ;; convert a charspan to UTF-8b bytes and append them to bytespan.

@@ -10,8 +10,9 @@
 (library (scheme2k containers utf8b (1 0 2))
   (export
     ;; utf8b.ss
-    codepoint? codepoint-utf8b? integer->char* char-quote? string-quote? string-quote
-    string->utf8b string->utf8b/0 utf8b->string utf8b->string-copy! utf8b-bytespan->string
+    codepoint? codepoint-utf8b? integer->char* char-quote?
+    string-quote? string-quote string->utf8b string->utf8b/0 string->utf8b-length
+    utf8b->string utf8b->string-copy! utf8b-bytespan->string
 
     ;; utf8b-utils.ss
     bytevector-char-ref bytevector-char-set! char->utf8b-length
@@ -158,38 +159,51 @@
     (raise-assertf caller "invalid arguments, expecting conversion to end at byte position ~s, got ~s" expected-end err)))
 
 
+(define c-string->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
+                                 (ptr fixnum fixnum ptr fixnum) ptr))
+
+(define c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
+                                 (ptr fixnum fixnum) fixnum))
+
+(define string->utf8b-length
+  (case-lambda
+    ((str start end)
+      (assert* 'string->utf8b (string? str))
+      (assert* 'string->utf8b (fx<=?* 0 start end (string-length str)))
+      (c-string->utf8b-length str start end))
+    ((str)
+      (assert* 'string->utf8b (string? str))
+      (c-string->utf8b-length str 0 (string-length str)))))
+
+
 ;; convert a portion of a string to UTF-8b, and return bytevector containing the conversion result.
 ;;
 ;; For a definition of UTF-8b, see
 ;;   https://peps.python.org/pep-0383
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define string->utf8b
-  (let ((c-string->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
-                                  (ptr fixnum fixnum ptr fixnum) ptr))
-        (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
-                                  (ptr fixnum fixnum) fixnum)))
-    (case-lambda
-      ((str start end zeropad-byte-n)
-        (assert* 'string->utf8b (fx<=?* 0 start end (string-length str)))
-        (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
-        (if (fx<? start end)
-          (let ((byte-n (c-string->utf8b-length str start end)))
-            (assert* 'string->utf8b (fixnum? byte-n))
-            (let* ((bvec      (make-bytevector (fx+ byte-n zeropad-byte-n)))
-                   (written-n (c-string->utf8b-append str start end bvec 0)))
-              (unless (and (fixnum? written-n) (fx=? byte-n written-n))
-                (raise-utf8b-error 'string->utf8b byte-n written-n))
-              (when (fx>? zeropad-byte-n 0)
-                (subbytevector-fill! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
-              bvec))
-          ; (fx>=? start end)
-          (if (fxzero? zeropad-byte-n)
-            #vu8()
-            (make-bytevector zeropad-byte-n 0))))
-      ((str start end)
-        (string->utf8b str start end 0))
-      ((str)
-        (string->utf8b str 0 (string-length str) 0)))))
+  (case-lambda
+    ((str start end zeropad-byte-n)
+      (assert* 'string->utf8b (fx<=?* 0 start end (string-length str)))
+      (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
+      (if (fx<? start end)
+        (let ((byte-n (c-string->utf8b-length str start end)))
+          (assert* 'string->utf8b (fixnum? byte-n))
+          (let* ((bvec      (make-bytevector (fx+ byte-n zeropad-byte-n)))
+                 (written-n (c-string->utf8b-append str start end bvec 0)))
+            (unless (and (fixnum? written-n) (fx=? byte-n written-n))
+              (raise-utf8b-error 'string->utf8b byte-n written-n))
+            (when (fx>? zeropad-byte-n 0)
+              (subbytevector-fill! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
+            bvec))
+        ; (fx>=? start end)
+        (if (fxzero? zeropad-byte-n)
+          #vu8()
+          (make-bytevector zeropad-byte-n 0))))
+    ((str start end)
+      (string->utf8b str start end 0))
+    ((str)
+      (string->utf8b str 0 (string-length str) 0))))
 
 
 ;; convert a string to UTF-8b, append an additional byte 0 to conversion if not already present,

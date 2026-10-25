@@ -14,11 +14,11 @@
 
 (define major-unsigned   0)
 (define major-negative   #x20)
-(define major-bytevector #x40)
-(define major-string     #x60)
+(define major-bytestring #x40)
+(define major-utf8string #x60)
 (define major-array      #x80)
 (define major-map        #xA0)
-(define major-tagged     #xC0)
+(define major-tag        #xC0)
 (define major-misc       #xE0)
 
 
@@ -129,10 +129,6 @@
     'time=? 86 'time-collector-cpu 87 'time-collector-real 88 'time-duration 89
     'time-monotonic 90 'time-process 91 'time-thread 92 'time-utc 93
     'unlimited 94))
-
-
-(define len-flonum   8) ;; each flonum is encoded as 8 bytes
-(define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
 
 
 ;; (define tags-string (vector tag-string8 tag-string16 tag-string24))
