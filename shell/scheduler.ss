@@ -77,10 +77,14 @@
           ;;   detect it and save inside job, in case user wants to resume it later.
           ;; special case: refuse our own pgid,
           ;;   because it prevents resuming the job in foreground.
+	  ;;
 	  (unless (job-finished? job)
             (let ((fg-pgid (foreground-pgid-get)))
               (unless (eqv? fg-pgid our-pgid)
-		(%job-pgid-fg-set! job fg-pgid))))
+		;; fix race condition: we can be interrupted by SIGCHLD signal handler which can mark job as finished
+		(with-interrupts-disabled
+		  (unless (job-finished? job)
+		    (%job-pgid-fg-set! job fg-pgid))))))
           ;; try really hard to restore (sh-globals) as the foreground process group
           ;;53 (debugf "< call-with-foreground-job restoring main pgid=~s, job pgid =~s" our-pgid (job-pgid-fg job))
           (%foreground-pgid-cas -1 our-pgid)))
