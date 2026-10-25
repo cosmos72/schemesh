@@ -9,6 +9,8 @@
 
 ;; this file should be included only by file io/wire/wire.ss
 
+(define-syntax endian (identifier-syntax (endianness little)))
+
 (define min-len-vlen 1) ; vlen is encoded as 1 or 4 bytes
 (define max-len-vlen 4) ; vlen is encoded as 1 or 4 bytes
 
@@ -126,8 +128,6 @@
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
 (define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
-
-(define endian (endianness little))
 
 (define tags-string (vector tag-string8 tag-string16 tag-string24))
 

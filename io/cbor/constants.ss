@@ -9,6 +9,26 @@
 
 ;; this file should be included only by file io/cbor/cbor.ss
 
+
+(define-syntax endian (identifier-syntax (endianness big)))
+
+(define major-unsigned   0)
+(define major-negative   #x20)
+(define major-bytevector #x40)
+(define major-string     #x60)
+(define major-array      #x80)
+(define major-map        #xA0)
+(define major-tagged     #xC0)
+(define major-misc       #xE0)
+
+
+(define minor-1byte        24)
+(define minor-2byte        25)
+(define minor-4byte        26)
+(define minor-8byte        27)
+(define minor-indefinite   31)
+
+
 #|
 (define tag-0         0)
 (define tag-1         1)
@@ -114,7 +134,6 @@
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
 (define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
 
-(define endian (endianness big))
 
 ;; (define tags-string (vector tag-string8 tag-string16 tag-string24))
 

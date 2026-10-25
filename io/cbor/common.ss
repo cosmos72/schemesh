@@ -14,32 +14,139 @@
   (hashtable-ref known-sym sym #f))
 |#
 
+(define (put/u8 bv pos u8)
+  (bytevector-u8-set! bv pos u8)
+  (fx1+ pos))
+
+(define (put/u16 bv pos u16)
+  (bytevector-u16-set! bv pos u16 endian)
+  (fx+ pos 2))
+
+(define (put/u32 bv pos u32)
+  (bytevector-u32-set! bv pos u32 endian)
+  (fx+ pos 4))
+
+(define (put/u64 bv pos u64)
+  (bytevector-u64-set! bv pos u64 endian)
+  (fx+ pos 8))
+
+
+(define (get/u8 bv pos)
+  (values (bytevector-u8-ref bv pos)
+          (fx1+ pos)))
+
+(define (get/u16 bv pos)
+  (values (bytevector-u16-ref bv pos endian)
+          (fx+ pos 2)))
+
+(define (get/u32 bv pos)
+  (values (bytevector-u32-ref bv pos endian)
+          (fx+ pos 4)))
+
+(define (get/u64 bv pos u64)
+  (values (bytevector-u64-ref bv pos endian)
+          (fx+ pos 8)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (small-fixnum? obj)
+  (and (fixnum? obj) (fx<=? #x-10000 obj #xFFFF)))
+
+
+(define (len/small-fixnum pos obj)
+  (let ((obj (if (fx<? obj 0) (fxnot obj) obj)))
+    (cond
+      ((fx<=? obj 23)   (fx1+ pos))
+      ((fx<=? obj 255)  (fx+ pos 2))
+      (else             (fx+ pos 3)))))
+
+
 (define (len/unsigned pos obj)
-  pos)
+  (cond
+    ((<= obj #xFFFFFFFF)
+      (fx+ pos 5))
+    ((<= obj #xFFFFFFFF)
+      (fx+ pos 9))
+    (else
+      pos))) ;; TODO: unsigned bignum
+
 
 (define (len/negative pos obj)
-  pos)
+  (len/unsigned pos (bitwise-not obj)))
+
 
 (define (len/integer pos obj)
-  (if (>= obj 0)
-    (len/unsigned pos obj)
-    (len/negative pos obj)))
+  (cond
+    ((small-fixnum? obj)
+      (len/small-fixnum pos obj))
+    ((>= obj 0)
+      (len/unsigned pos obj))
+    (else
+      (len/negative pos obj))))
 
 
-(define (put/unsigned bsp pos obj)
-  ;; (bytevector-s8-set! bv pos s8)
-  (fx1+ pos))
+(define (put/small-fixnum bv pos obj)
+  (if (fx>=? obj 0)
+    (cond
+      ((fx<=? obj 23)
+        (let ((pos (put/u8 bv pos (fxior major-unsigned obj))))
+          pos))
+      ((fx<=? obj 255)
+        (let ((pos (put/u8 bv pos (fxior major-unsigned minor-1byte))))
+          (put/u8 bv pos obj)))
+      (else
+        (let ((pos (put/u8 bv pos (fxior major-unsigned minor-2byte))))
+          (put/u16 bv pos obj))))
+    (let ((obj (fxnot obj)))
+      (cond
+        ((fx<=? obj 23)
+          (let ((pos (put/u8 bv pos (fxior major-negative obj))))
+            pos))
+        ((fx<=? obj 255)
+          (let ((pos (put/u8 bv pos (fxior major-negative minor-1byte))))
+            (put/u8 bv pos obj)))
+        (else
+          (let ((pos (put/u8 bv pos (fxior major-negative minor-2byte))))
+            (put/u16 bv pos obj)))))))
+
+
+(define (put/unsigned bv pos obj)
+  (cond
+    ((<= obj #xFFFFFFFF)
+      (let ((pos (put/u8 bv pos (fxior major-unsigned minor-4byte))))
+        (put/u32 bv pos obj)))
+    ((<= obj #xFFFFFFFFFFFFFFFF)
+      (let ((pos (put/u8 bv pos (fxior major-unsigned minor-8byte))))
+        (put/u64 bv pos obj)))
+    (else
+      pos))) ;; TODO: unsigned bignum
+
 
 (define (put/negative bv pos obj)
-  ;; (bytevector-u8-set! bv pos u8)
-  (fx1+ pos))
+  (let ((obj (bitwise-not obj)))
+    (cond
+      ((<= obj #xFFFFFFFF)
+        (let ((pos (put/u8 bv pos (fxior major-negative minor-4byte))))
+          (put/u32 bv pos obj)))
+      ((<= obj #xFFFFFFFFFFFFFFFF)
+        (let ((pos (put/u8 bv pos (fxior major-negative minor-8byte))))
+          (put/u64 bv pos obj)))
+      (else
+        pos)))) ;; TODO: negative bignum
+
 
 ;; write an exact integer into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/integer bv pos obj)
-  (if (>= obj 0)
-    (put/unsigned bv pos obj)
-    (put/negative bv pos obj)))
+  (cond
+    ((small-fixnum? obj)
+      (put/small-fixnum bv pos obj))
+    ((>= obj 0)
+      (put/unsigned bv pos obj))
+    (else
+      (put/negative bv pos obj))))
 
 
 (define (get/unsigned bv pos end)
