@@ -115,7 +115,7 @@
         ((fx<? i 0)
          (charspan-set! csp (fx+ start digits) #\;))
       (charspan-set! csp (fx+ start i) (%integer->hex-digit (fxand n #xF))))))
-                    
+
 
 (define (%charspan-insert-right-quoted! csp ch)
   (cond

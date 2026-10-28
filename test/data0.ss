@@ -142,6 +142,7 @@
   (string-index-right "abcdaceg" "bd")                  3
   (string-index-right "abcdaceg" "edc")                 6
   (string-replace-all "abcdbacdabcd" "ab" "0")          "0cdbacd0cd"
+  (string-replace-left "bubabbabbabab" "ba" "." 3)      "bu.b.b.bab"
   (string-split "" #\:)                                 ("")
   (string-split ":" #\:)                                ("" "")
   (string-split "x:" #\:)                               ("x" "")

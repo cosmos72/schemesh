@@ -15,9 +15,9 @@
     string-count= string-fold string-fold-right r7rs:string-for-each string-for-each-index
     string-index string-index-right string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-join string-list? string-list-split-after-nuls string-map string-map! string-prefix?
-    string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
-    string-split string-split-after-nuls string-suffix? string-unfold string-unfold-right
-    string-trim-split-at-blanks
+    string-replace-all string-replace-left string-replace-prefix string-replace-suffix string-replace/char!
+    string-rtrim-newlines! string-split string-split-after-nuls string-suffix?
+    string-unfold string-unfold-right string-trim-split-at-blanks
     substring=? substring<? substring-move!
 
     display-procedure-name)
@@ -597,19 +597,6 @@
         (string-index-right str char/char-set/pred 0 (string-length str))))))
 
 
-;; destructively replace each occurrence of old-char with new-char in string str.
-;; return str, modified in-place.
-(define (string-replace/char! str old-char new-char)
-  (assert* 'string-replace/char (string? str))
-  (assert* 'string-replace/char (char? old-char))
-  (assert* 'string-replace/char (char? new-char))
-  (let ((end (string-length str)))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i end) str)
-      (when (char=? old-char (string-ref str i))
-        (string-set! str i new-char)))))
-
-
 ;; concatenate the strings in str-list, which must be a list of strings,
 ;; inserting string sep between each pair of strings in str-list.
 ;; Notes:
@@ -638,6 +625,76 @@
               (string-copy! sep  0 ret pos sep-len)
               (string-copy! elem 0 ret (fx+ pos sep-len) elem-len)
               (%copy-string-list! (cdr l) (fx+ (fx+ pos sep-len) elem-len)))))))))
+
+
+
+;; destructively replace each occurrence of old-char with new-char in string str.
+;; return str, modified in-place.
+(define (string-replace/char! str old-char new-char)
+  (assert* 'string-replace/char (string? str))
+  (assert* 'string-replace/char (char? old-char))
+  (assert* 'string-replace/char (char? new-char))
+  (let ((end (string-length str)))
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i end) str)
+      (when (char=? old-char (string-ref str i))
+        (string-set! str i new-char)))))
+
+
+(define (%string-replace-max-length input-len old-len new-len)
+  (if (fx>=? old-len new-len)
+    input-len
+    (let-values (((quo rem) (fxdiv-and-mod input-len old-len)))
+      (fx+ rem (fx* quo new-len)))))
+
+
+;; create and return a copy of str, where:
+;; 1. characters before start are copied verbatim
+;; 2. characters at end or later are copied verbatim
+;; 3. for all other characters, the leftmost replace-n occurrences of old-str are replaced by new-str
+(define %string-replace-left
+  (let ((c-string-replace-left (foreign-procedure "c_string_replace_left" (ptr ptr ptr ptr fixnum fixnum fixnum) fixnum)))
+    (lambda (str old-str new-str replace-n start end caller)
+      (assert* caller (fx<=?* 0 start end (string-length str)))
+      (assert* caller (string? old-str))
+      (assert* caller (string? new-str))
+      (assert* caller (fx>=? replace-n 0))
+      (assert* caller (fx>=? (string-length old-str) 0))
+      (let* ((end-start (fx- end start))
+             ;; characters outside [start...end) are copied verbatim
+             (max-len   (fx+ (fx- (string-length str) end-start)
+                             (%string-replace-max-length end-start (string-length old-str) (string-length new-str))))
+             (dst       (make-string max-len))
+             (len       (c-string-replace-left dst str old-str new-str replace-n start end)))
+        (assert* caller (fx>=? len 0))
+        (string-truncate! dst len)
+        dst))))
+
+
+;; create and return a copy of str, where:
+;; 1. characters before start are copied verbatim
+;; 2. characters at end or later are copied verbatim
+;; 3. for all other characters, all occurrences of old-str are replaced by new-str
+(define string-replace-all
+  (case-lambda
+    ((str old-str new-str start end)
+      (%string-replace-left str old-str new-str (greatest-fixnum) start end 'string-replace-all))
+    ((str old-str new-str)
+      (%string-replace-left str old-str new-str (greatest-fixnum) 0 (string-length str) 'string-replace-all))))
+
+
+;; create and return a copy of str, where:
+;; 1. characters before start are copied verbatim
+;; 2. characters at end or later are copied verbatim
+;; 3. for all other characters, the leftmost replace-n (1 by default) occurrences of old-str are replaced by new-str
+(define string-replace-left
+  (case-lambda
+    ((str old-str new-str replace-n start end)
+      (%string-replace-left str old-str new-str replace-n start end 'string-replace-left))
+    ((str old-str new-str replace-n)
+      (%string-replace-left str old-str new-str replace-n 0 (string-length str) 'string-replace-left))
+    ((str old-str new-str)
+      (%string-replace-left str old-str new-str 1 0 (string-length str) 'string-replace-left))))
 
 
 (define (%sum-strings-length-plus-separator l sep-len ret)

@@ -26,9 +26,8 @@
     charspan-insert-left/string! charspan-insert-right/string!
     charspan-delete-left!         charspan-delete-right! charspan-iterate in-charspan
     charspan-index charspan-index-right
-    charspan-peek-data charspan-peek-beg charspan-peek-end
+    charspan-peek-data charspan-peek-beg charspan-peek-end)
 
-    string-replace-all) ; requires (charspan...)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -511,41 +510,6 @@
         (and pos (fx- pos offset))))
     ((sp char-or-pred)
       (charspan-index-right sp char-or-pred 0 (charspan-length sp)))))
-
-
-;; create and return a copy of str, where all occurrences of old-str have been replaced by new-str.
-(define string-replace-all
-  (case-lambda
-    ((str old-str new-str start end)
-      (assert* 'string-replace-all (fx<=?* 0 start end (string-length str)))
-      (assert* 'string-replace-all (string? old-str))
-      (assert* 'string-replace-all (string? new-str))
-      (assert-not* 'string-replace-all (fxzero? (string-length old-str)))
-      (let ((dst (charspan))
-            (ch0 (string-ref old-str 0))
-            (old-len (string-length old-str)))
-        (charspan-insert-right/string! dst str 0 start)
-        (let %loop ((i start))
-          (let ((pos (string-index str ch0 i end)))
-            ;; (debugf "string-replace-all dst=~s str=~s i=~s pos=~s end=~s old=~s new=~s" (charspan->string dst) str i pos end old-str new-str)
-            (cond
-              ((and pos
-                    (fx<=? pos (fx- end old-len))
-                    (substring=? str pos old-str 0 old-len))
-                ;; found a match, replace it
-                (charspan-insert-right/string! dst str i pos)
-                (charspan-insert-right/string! dst new-str)
-                (%loop (fx+ pos old-len)))
-              (pos
-                ;; (string-ref str pos) matches ch0, but following characters don't match
-                (charspan-insert-right/string! dst str i (fx1+ pos))
-                (%loop (fx1+ pos)))
-              (else
-                ;; no match, copy all remaining characters from str to dst
-                (charspan-insert-right/string! dst str i end)
-                (charspan->string*! dst)))))))
-    ((str old-str new-str)
-      (string-replace-all str old-str new-str  0 (string-length str)))))
 
 
 ;; customize how charspan objects are printed

@@ -146,6 +146,65 @@ ptr scheme2k_Sbytevector(const char bytes[], size_t len) {
 /******************************************************************************/
 
 /**
+ * compare the range [lstart, lstart + n) of left string
+ * with the range [rstart, rstart + n) of right string.
+ * return the number of initial, consecutive equal characters in the two substrings, in [0, n]
+ */
+static iptr c_string_count_equal(ptr left, iptr lstart, ptr right, iptr rstart, iptr n) {
+  iptr llen, rlen;
+  if (Sstringp(left) && lstart >= 0 && lstart < (llen = Sstring_length(left))) {
+    if (Sstringp(right) && rstart >= 0 && rstart < (rlen = Sstring_length(right))) {
+      if (n > 0 && n <= llen - lstart && n <= rlen - rstart) {
+        if (left != right || lstart != rstart) {
+          iptr i;
+          for (i = 0; i < n; i++) {
+            if (Sstring_ref(left, lstart + i) != Sstring_ref(right, rstart + i)) {
+              return i;
+            }
+          }
+        }
+        return n;
+      }
+    }
+  }
+  return 0;
+}
+
+/**
+ * if string str contains specified string key, return index of the first occurrence,
+ * otherwise return #f.
+ *
+ * considers only matches that lie entirely in the range [sstart, send),
+ * and the returned index is either #f or a fixnum in such range.
+ */
+static ptr c_string_contains(ptr str, ptr key, iptr sstart, iptr send, iptr kstart, iptr kend) {
+  if (Sstringp(str) && 0 <= sstart && sstart <= send && send <= Sstring_length(str)) {
+    if (Sstringp(key) && 0 <= kstart && kstart <= kend && kend <= Sstring_length(key)) {
+      iptr slen = send - sstart;
+      iptr klen = kend - kstart;
+      if (klen == 0) {
+        return Sfixnum(sstart);
+      } else if (klen > slen) {
+        return Sfalse;
+      } else if (str == key && sstart == kstart) {
+        return Sfixnum(sstart);
+      } else {
+        iptr        i, n = slen - klen;
+        string_char k0 = Sstring_ref(key, kstart);
+        for (i = 0; i <= n; i++) {
+          if (Sstring_ref(str, sstart + i) == k0) {
+            if (c_string_count_equal(str, sstart + i, key, kstart, klen) == klen) {
+              return Sfixnum(sstart + i);
+            }
+          }
+        }
+      }
+    }
+  }
+  return Sfalse;
+}
+
+/**
  * Scan string str range [start, end) and find first character equal to ch.
  * Return its position in the range [start, end),
  * or #f if no such character was found.
@@ -262,62 +321,87 @@ static ptr c_string_index_right_chars(ptr str, ptr chars, iptr start, iptr end) 
 }
 
 /**
- * compare the range [lstart, lstart + n) of left string
- * with the range [rstart, rstart + n) of right string.
- * return the number of initial, consecutive equal characters in the two substrings, in [0, n]
+ * return 0 on success,
+ * or -1 if arguments are invalid or out of range
  */
-static iptr c_string_count_equal(ptr left, iptr lstart, ptr right, iptr rstart, iptr n) {
-  iptr llen, rlen;
-  if (Sstringp(left) && lstart >= 0 && lstart < (llen = Sstring_length(left))) {
-    if (Sstringp(right) && rstart >= 0 && rstart < (rlen = Sstring_length(right))) {
-      if (n > 0 && n <= llen - lstart && n <= rlen - rstart) {
-        if (left != right || lstart != rstart) {
-          iptr i;
-          for (i = 0; i < n; i++) {
-            if (Sstring_ref(left, lstart + i) != Sstring_ref(right, rstart + i)) {
-              return i;
-            }
-          }
-        }
-        return n;
-      }
-    }
+static int c_string_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr n) {
+  iptr src_len, dst_len;
+  if (!Sstringp(src) || (src_len = Sstring_length(src)) < 0 || /**/
+      !Sstringp(dst) || (dst_len = Sstring_length(dst)) < 0 || /**/
+      src_start < 0 || src_start > src_len ||                  /**/
+      dst_start < 0 || dst_start > dst_len ||                  /**/
+      n < 0 || n > src_len - src_start || n > dst_len - dst_start) {
+    return -1;
+  }
+
+  for (iptr i = 0; i < n; i++) {
+    Sstring_set(dst, dst_start + i, Sstring_ref(src, src_start + i));
   }
   return 0;
 }
 
 /**
- * if string str contains specified string key, return index of the first occurrence,
- * otherwise return #f.
- *
- * considers only matches that lie entirely in the range [sstart, send),
- * and the returned index is either #f or a fixnum in such range.
+ * Scan string src range [start, end) and replace the first replace_n occurrences of old_str with
+ * new_str, writing the results to dst. Verbatim copy characters outside [start, end) from src to
+ * dst. Return number of characters copied to dst
  */
-static ptr c_string_contains(ptr str, ptr key, iptr sstart, iptr send, iptr kstart, iptr kend) {
-  if (Sstringp(str) && 0 <= sstart && sstart <= send && send <= Sstring_length(str)) {
-    if (Sstringp(key) && 0 <= kstart && kstart <= kend && kend <= Sstring_length(key)) {
-      iptr slen = send - sstart;
-      iptr klen = kend - kstart;
-      if (klen == 0) {
-        return Sfixnum(sstart);
-      } else if (klen > slen) {
-        return Sfalse;
-      } else if (str == key && sstart == kstart) {
-        return Sfixnum(sstart);
-      } else {
-        iptr        i, n = slen - klen;
-        string_char k0 = Sstring_ref(key, kstart);
-        for (i = 0; i <= n; i++) {
-          if (Sstring_ref(str, sstart + i) == k0) {
-            if (c_string_count_equal(str, sstart + i, key, kstart, klen) == klen) {
-              return Sfixnum(sstart + i);
-            }
-          }
-        }
+static iptr c_string_replace_left(
+    ptr dst, ptr src, ptr old_str, ptr new_str, iptr replace_n, iptr start, iptr end) {
+
+  iptr dst_len, src_len, old_len, new_len;
+  iptr ipos, opos, search_end;
+  ptr  ch0;
+  if (!Sstringp(dst) || (dst_len = Sstring_length(dst)) < 0 ||          /**/
+      !Sstringp(src) || (src_len = Sstring_length(src)) < 0 ||          /**/
+      !Sstringp(old_str) || (old_len = Sstring_length(old_str)) <= 0 || /**/
+      !Sstringp(new_str) || (new_len = Sstring_length(new_str)) < 0 ||  /**/
+      replace_n < 0 ||                                                  /**/
+      start < 0 || end < start || end > src_len ||                      /**/
+      dst_len < src_len - (end - start)) {
+
+    return -1; /* Caller will raise an exception */
+  }
+  if (c_string_copy(src, 0, dst, 0, start) < 0) {
+    return -1;
+  }
+  ch0        = Schar(Sstring_ref(old_str, 0));
+  search_end = end - old_len + 1;
+  ipos       = start;
+  opos       = start;
+  while (ipos < search_end && replace_n > 0) {
+    const ptr ppos = c_string_index_ch(src, ch0, ipos, search_end);
+    iptr      pos;
+    iptr      equal_len, copy_len;
+    if (!Sfixnump(ppos)) {
+      break; /* no more matches */
+    }
+    pos       = Sfixnum_value(ppos);
+    equal_len = c_string_count_equal(src, pos, old_str, 0, old_len);
+    copy_len  = pos - ipos + (iptr)(equal_len < old_len);
+
+    if (c_string_copy(src, ipos, dst, opos, copy_len) < 0) {
+      return ~ipos; /* Caller will raise an exception */
+    }
+    ipos += copy_len;
+    opos += copy_len;
+    if (equal_len >= old_len) {
+      /* replace match */
+      if (c_string_copy(new_str, 0, dst, opos, new_len) < 0) {
+        return ~ipos;
       }
+      ipos += old_len;
+      opos += new_len;
+      replace_n--;
     }
   }
-  return Sfalse;
+  {
+    const iptr copy_len = src_len - ipos;
+    if (c_string_copy(src, ipos, dst, opos, copy_len) < 0) {
+      return ~ipos;
+    }
+    opos += copy_len;
+  }
+  return opos;
 }
 
 /**
@@ -421,7 +505,7 @@ static iptr c_string_to_utf8b_length(ptr string, iptr start, iptr end) {
     const iptr len  = Sstring_length(string);
     iptr       i    = start < len ? start : len;
     const iptr iend = (end < len) ? end : len;
-    for (; i < iend; ++i) {
+    for (; i < iend; i++) {
       result += c_codepoint_to_utf8b_length(Sstring_ref(string, i));
     }
   }
@@ -1075,6 +1159,7 @@ void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_string_count_equal", &c_string_count_equal);
   Sregister_symbol("c_string_contains", &c_string_contains);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
+  Sregister_symbol("c_string_replace_left", &c_string_replace_left);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
 #if 0

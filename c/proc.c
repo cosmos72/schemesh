@@ -50,7 +50,7 @@ static e_proc_flags parse_proc_flags(int argc, char* argv[]) {
   int          i;
   int          options = 1;
   e_proc_flags flags   = e_proc_flag_default;
-  for (i = 1; i < argc; ++i) {
+  for (i = 1; i < argc; i++) {
     if (!(arg = argv[i])) {
       break;
     } else if (options && arg[0] == '-') {

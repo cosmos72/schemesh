@@ -39,7 +39,7 @@
 ;; for officially assigned CBOR tags, see https://www.iana.org/assignments/cbor-tags
 
 (define tag-ratio    30) ;; see http://peteroupc.github.io/CBOR/rational.html
-(define tag-symbol   39) ;; see https://github.com/lucas-clemente/cbor-specs/blob/master/id.md 
+(define tag-symbol   39) ;; see https://github.com/lucas-clemente/cbor-specs/blob/master/id.md
 ;; an alternative is 280 ;; see https://github.com/mishoo/cbor.lisp/blob/e1428a5/clext-spec.txt
 
 (define tag-box      22098) ;; see http://cbor.schmorp.de/indirection

@@ -442,7 +442,7 @@ static e_dir_flags parse_dir_flags(int argc, char* argv[]) {
   char*       arg;
   int         i;
   e_dir_flags flags = e_dir_flag_default;
-  for (i = 1; i < argc; ++i) {
+  for (i = 1; i < argc; i++) {
     if (!(arg = argv[i]) || !strcmp(arg, "--")) {
       break;
     } else if (arg[0] != '-') {
@@ -468,7 +468,7 @@ static int count_args(int argc, char* argv[]) {
   int   i;
   int   n       = 0;
   int   options = 1;
-  for (i = 1; i < argc; ++i) {
+  for (i = 1; i < argc; i++) {
     if (!(arg = argv[i])) {
       break;
     } else if (options && arg[0] == '-') {
