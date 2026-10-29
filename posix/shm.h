@@ -18,6 +18,30 @@
 #error "posix/shm.h should only be #included by posix/posix.c"
 #endif
 
+#ifdef __OpenBSD__
+#undef SHM_MUTEX
+#define shm_attr_init /*      */ pthread_rwlockattr_init
+#define shm_attr_setpshared /**/ pthread_rwlockattr_setpshared
+#define shm_attr_destroy /*   */ pthread_rwlockattr_destroy
+#define shm_mutex_init /*     */ pthread_rwlock_init
+#define shm_mutex_lock /*     */ pthread_rwlock_wrlock
+#define shm_mutex_trylock /*  */ pthread_rwlock_trywrlock
+#define shm_mutex_unlock /*   */ pthread_rwlock_unlock
+typedef pthread_rwlock_t     shm_mutex;
+typedef pthread_rwlockattr_t shm_attr;
+#else
+#define SHM_MUTEX
+#define shm_attr_init /*      */ pthread_mutexattr_init
+#define shm_attr_setpshared /**/ pthread_mutexattr_setpshared
+#define shm_attr_destroy /*   */ pthread_mutexattr_destroy
+#define shm_mutex_init /*     */ pthread_mutex_init
+#define shm_mutex_lock /*     */ pthread_mutex_lock
+#define shm_mutex_trylock /*  */ pthread_mutex_trylock
+#define shm_mutex_unlock /*   */ pthread_mutex_unlock
+typedef pthread_mutex_t /*    */ shm_mutex;
+typedef pthread_mutexattr_t /**/ shm_attr;
+#endif
+
 /* for exposition only, shm_entry instances are unaligned */
 typedef struct {
   /* data: len bytes, followed by: */
@@ -26,10 +50,10 @@ typedef struct {
 } shm_entry;
 
 typedef struct {
-  pthread_mutex_t mutex;
-  size_t          entry_n;
-  size_t          free_pos;
-  size_t          capacity; /* redundant? */
+  shm_mutex mutex;
+  size_t    entry_n;
+  size_t    free_pos;
+  size_t    capacity; /* redundant? */
   /* followed by entry_n elements, each a shm_entry */
 } shm_head;
 
@@ -49,13 +73,13 @@ static int c_shm_mmap_init(shm_ctx* ctx, size_t length) {
 #endif
   if ((addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) !=
       MAP_FAILED) {
-    pthread_mutexattr_t attr;
+    shm_attr attr;
 
     shm_head* head = ctx->head = (shm_head*)addr;
     ctx->mmapped_size          = sz;
-    if ((err = pthread_mutexattr_init(&attr)) == 0) {
-      if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
-#ifdef PTHREAD_MUTEX_ROBUST
+    if ((err = shm_attr_init(&attr)) == 0) {
+      if ((err = shm_attr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+#if defined(SHM_MUTEX) && defined(PTHREAD_MUTEX_ROBUST)
           && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
 #endif
       ) {
@@ -63,9 +87,9 @@ static int c_shm_mmap_init(shm_ctx* ctx, size_t length) {
         head->free_pos = sizeof(shm_head);
         head->capacity = sz;
 
-        err = pthread_mutex_init(&head->mutex, &attr);
+        err = shm_mutex_init(&head->mutex, &attr);
       }
-      (void)pthread_mutexattr_destroy(&attr);
+      (void)shm_attr_destroy(&attr);
     }
   } else {
     err = c_errno();
@@ -105,12 +129,12 @@ static int c_shm_lock(shm_ctx* ctx) {
   if (ctx == NULL || ctx->head == NULL) {
     return -EINVAL;
   }
-  err = pthread_mutex_lock(&ctx->head->mutex);
-#ifdef PTHREAD_MUTEX_ROBUST
+  err = shm_mutex_lock(&ctx->head->mutex);
+#if defined(SHM_MUTEX) && defined(PTHREAD_MUTEX_ROBUST)
   if (err == EOWNERDEAD) {
     err = pthread_mutex_consistent(&ctx->head->mutex);
     if (err != 0) {
-      (void)pthread_mutex_unlock(&ctx->head->mutex);
+      (void)shm_mutex_unlock(&ctx->head->mutex);
     }
   }
 #endif
@@ -121,7 +145,7 @@ static int c_shm_unlock(shm_ctx* ctx) {
   if (ctx == NULL || ctx->head == NULL) {
     return -EINVAL;
   }
-  return -pthread_mutex_unlock(&ctx->head->mutex);
+  return -shm_mutex_unlock(&ctx->head->mutex);
 }
 
 /*
@@ -150,7 +174,7 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
   cap  = ctx->mmapped_size;
 
   if (slen > cap || pos > slen - cap) {
-    (void)pthread_mutex_unlock(&head->mutex);
+    (void)shm_mutex_unlock(&head->mutex);
     return -ENOSPC; /* FIXME: implement shm resizing */
   }
 
@@ -195,8 +219,8 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
   if (ctx == NULL || (head = ctx->head) == NULL) {
     return Sinteger(-EINVAL);
   }
-  if ((err = pthread_mutex_trylock(&head->mutex)) == 0) {
-    (void)pthread_mutex_unlock(&head->mutex);
+  if ((err = shm_mutex_trylock(&head->mutex)) == 0) {
+    (void)shm_mutex_unlock(&head->mutex);
     return Sinteger(-err);
   }
   if (head->entry_n == 0) {
