@@ -11,9 +11,7 @@
 
 
 ;; shared memory for receiving arbitrary exit status from subprocesses
-(define shm-from-children
-  (let ((shm (wire-shm-open)))
-    (and (wire-shm? shm) shm)))
+(define shm-from-children #f)
 
 ;; shared memory for sending arbitrary exit status to parent process.
 ;; Only set in subprocesses

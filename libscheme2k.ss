@@ -80,6 +80,7 @@
   (include "io/auto.ss")            ; requires io/json/json.ss io/wire/wire.ss
   (include "io/io.ss")
 
+  (include "ipc/fds.ss")
   (include "ipc/fifo.ss")
   (include "ipc/queue.ss")
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss posix/socket.ss

@@ -18,9 +18,11 @@
   (import
     (rnrs)
     (only (chezscheme)                 box foreign-procedure record-writer)
+    (only (scheme2k bootstrap)         debugf)
     (only (scheme2k posix base)        c-errno-einval raise-c-errno)
     (only (scheme2k posix fd)          pipe-fds)
     (only (scheme2k posix socket)      socketpair-fds)
+    (only (scheme2k ipc fds)           s-fd-allocate s-fd-release s-fd->int)
     (only (scheme2k io wire)           make-wire-reader make-wire-writer))
 
 
@@ -80,18 +82,24 @@
 ;; or < 0 on error.
 ;; never throws
 (define wire-shm-open
-  (let ((c-shm-open (foreign-procedure __collect_safe "c_shm_open" (size_t) ptr)))
+  (let ((c-shm-open (foreign-procedure __collect_safe "c_shm_open" (size_t fixnum) ptr)) ; procedure
+        (need-fd?   ((foreign-procedure __collect_safe "c_shm_need_fd" () ptr))))     ; boolean
     (case-lambda
       ((length)
-        (let ((ret (and (c-size-t? length) (c-shm-open length))))
+        (let* ((sfd (and need-fd? (s-fd-allocate #t)))
+               (fd  (if sfd (s-fd->int sfd) -1))
+               (ret (and (c-size-t? length) (c-shm-open length fd))))
           (cond
             ((not (and (integer? ret) (exact? ret)))
+               (and sfd (s-fd-release sfd))
                c-errno-einval)
             ((> ret 0)
                (make-wire-shm ret))
             ((< ret 0)
+               (and sfd (s-fd-release sfd))
                ret)
             (else
+               (and sfd (s-fd-release sfd))
                c-errno-einval))))
       (()
         (wire-shm-open 262144)))))

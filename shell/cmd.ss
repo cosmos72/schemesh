@@ -398,8 +398,7 @@
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (plist? options))
 
-      ;; ensure we have an shm for collecting arbitrary exit status from subprocesses:
-      ;; it may be missing if this is a subprocess of the main shell
+      ;; ensure we have an shm for collecting arbitrary exit status from subprocesses
       (unless shm-from-children
         (set! shm-from-children (let ((shm (wire-shm-open)))
                                   (and (wire-shm? shm) shm))))

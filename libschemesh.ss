@@ -77,6 +77,7 @@
   (include "io/auto.ss")            ; requires io/json/json.ss io/wire/wire.ss
   (include "io/io.ss")
 
+  (include "ipc/fds.ss")
   (include "ipc/fifo.ss")
   (include "ipc/queue.ss")
   (include "ipc/wire.ss")           ; requires io/wire/wire.ss posix/fd.ss posix/socket.ss
@@ -102,7 +103,6 @@
 
   (include "shell/parameter1.ss")
   (include "shell/parameters.ss")
-  (include "shell/fds.ss")
   (include "shell/job.ss")
   (include "shell/eval.ss")
   (include "shell/macros.ss")

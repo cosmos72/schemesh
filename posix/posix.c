@@ -39,7 +39,7 @@
 #include <stddef.h>       /* size_t, NULL */
 #include <stdint.h>       /* int64_t, uint64_t */
 #include <stdio.h>        /* remove(), rename() ... */
-#include <stdlib.h>       /* getenv(), strtoul() */
+#include <stdlib.h>       /* getenv(), mkstemp(), strtoul() */
 #include <string.h>       /* strlen(), strerror_r() */
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
 #include <sys/mman.h>     /* mmap(), mremap(), shm_open(), shm_unlink() */
@@ -51,7 +51,6 @@
 #include <sys/wait.h>     /* waitpid(), W... */
 #include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep(), time() */
 #include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
-
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
 #else
@@ -62,6 +61,15 @@
 #include <asm/termbits.h> /* struct termios, incompatible with <termios.h> */
 #else
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
+#endif
+
+#ifdef __OpenBSD__
+#define SHM_FLOCK
+#undef SHM_MUTEX
+#include <sys/file.h> /* flock() */
+#else
+#undef SHM_FLOCK
+#define SHM_MUTEX
 #endif
 
 #ifndef CHEZ_SCHEME_DIR
@@ -817,6 +825,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_stat", &c_file_stat);
   Sregister_symbol("c_file_type", &c_file_type);
 
+  Sregister_symbol("c_shm_need_fd", &c_shm_need_fd);
   Sregister_symbol("c_shm_open", &c_shm_open);
   Sregister_symbol("c_shm_close", &c_shm_close);
   Sregister_symbol("c_shm_insert", &c_shm_insert);

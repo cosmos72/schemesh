@@ -12,7 +12,6 @@
   (import
     (schemesh shell autocomplete)
     (schemesh shell eval)
-    (schemesh shell fds)
     (except (schemesh shell job) sh-job-internal-start-helper)
     (schemesh shell macros)
     (schemesh shell parameters)

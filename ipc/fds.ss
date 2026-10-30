@@ -1,9 +1,9 @@
 ;;; Copyright (C) 2023-2026 by Massimiliano Ghilardi
 ;;;
-;;; This program is free software; you can redistribute it and/or modify
-;;; it under the terms of the GNU General Public License as published by
-;;; the Free Software Foundation; either version 2 of the License, or
-;;; (at your option) any later version.
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
 
 #!r6rs
 
@@ -11,15 +11,15 @@
 ;; Define the record-type (s-fd) containing a reference-counted file descriptor
 
 
-(library (schemesh shell fds (1 0 2))
+(library (scheme2k ipc fds (1 0 2))
   (export
     s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release)
   (import
-    (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer)
-    (only (scheme2k bootstrap) assert* raise-errorf)
-    (scheme2k containers bitmap)
-    (only (scheme2k posix fd) fd-open-max))
+          (rnrs)
+    (only (chezscheme)                 fx1+ fx1- record-writer)
+    (only (scheme2k bootstrap)         assert* raise-errorf)
+          (scheme2k containers bitmap)
+    (only (scheme2k posix fd)          fd-open-max))
 
 
 ;; 1+ highest reserved fd

@@ -18,30 +18,6 @@
 #error "posix/shm.h should only be #included by posix/posix.c"
 #endif
 
-#ifdef __OpenBSD__
-#undef SHM_MUTEX
-#define shm_attr_init /*      */ pthread_rwlockattr_init
-#define shm_attr_setpshared /**/ pthread_rwlockattr_setpshared
-#define shm_attr_destroy /*   */ pthread_rwlockattr_destroy
-#define shm_mutex_init /*     */ pthread_rwlock_init
-#define shm_mutex_lock /*     */ pthread_rwlock_wrlock
-#define shm_mutex_trylock /*  */ pthread_rwlock_trywrlock
-#define shm_mutex_unlock /*   */ pthread_rwlock_unlock
-typedef pthread_rwlock_t     shm_mutex;
-typedef pthread_rwlockattr_t shm_attr;
-#else
-#define SHM_MUTEX
-#define shm_attr_init /*      */ pthread_mutexattr_init
-#define shm_attr_setpshared /**/ pthread_mutexattr_setpshared
-#define shm_attr_destroy /*   */ pthread_mutexattr_destroy
-#define shm_mutex_init /*     */ pthread_mutex_init
-#define shm_mutex_lock /*     */ pthread_mutex_lock
-#define shm_mutex_trylock /*  */ pthread_mutex_trylock
-#define shm_mutex_unlock /*   */ pthread_mutex_unlock
-typedef pthread_mutex_t /*    */ shm_mutex;
-typedef pthread_mutexattr_t /**/ shm_attr;
-#endif
-
 /* for exposition only, shm_entry instances are unaligned */
 typedef struct {
   /* data: len bytes, followed by: */
@@ -50,19 +26,24 @@ typedef struct {
 } shm_entry;
 
 typedef struct {
-  shm_mutex mutex;
-  size_t    entry_n;
-  size_t    free_pos;
-  size_t    capacity; /* redundant? */
+#ifdef SHM_MUTEX
+  pthread_mutex_t mutex;
+#endif
+  size_t entry_n;
+  size_t free_pos;
+  size_t capacity; /* redundant? */
   /* followed by entry_n elements, each a shm_entry */
 } shm_head;
 
 typedef struct {
   shm_head* head;
   size_t    mmapped_size;
+#ifdef SHM_FLOCK
+  int lock_fd;
+#endif
 } shm_ctx;
 
-static int c_shm_mmap_init(shm_ctx* ctx, size_t length) {
+static int c_shm_mmap_init(shm_ctx* ctx, size_t length, int reserve_fd) {
   void*  addr;
   size_t pagesz = scheme2k_os_pagesize();
   size_t sz     = (length + pagesz - 1) & ~(pagesz - 1);
@@ -73,35 +54,78 @@ static int c_shm_mmap_init(shm_ctx* ctx, size_t length) {
 #endif
   if ((addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) !=
       MAP_FAILED) {
-    shm_attr attr;
 
     shm_head* head = ctx->head = (shm_head*)addr;
     ctx->mmapped_size          = sz;
-    if ((err = shm_attr_init(&attr)) == 0) {
-      if ((err = shm_attr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
-#if defined(SHM_MUTEX) && defined(PTHREAD_MUTEX_ROBUST)
-          && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
+
+#ifdef SHM_MUTEX
+    (void)reserve_fd;
+    {
+      pthread_mutexattr_t attr;
+      if ((err = pthread_mutexattr_init(&attr)) == 0) {
+        if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+#ifdef PTHREAD_MUTEX_ROBUST
+            && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
 #endif
-      ) {
+        ) {
+          head->entry_n  = 0;
+          head->free_pos = sizeof(shm_head);
+          head->capacity = sz;
+
+          err = pthread_mutex_init(&head->mutex, &attr);
+        }
+        (void)pthread_mutexattr_destroy(&attr);
+      }
+    }
+#else  /* SHM_FLOCK */
+    if (reserve_fd < 0) {
+      err = -EINVAL;
+    } else {
+      char template[] = "/tmp/schemesh_shm_lock.XXXXXXXXXXXX";
+      int lock_fd     = mkstemp(template);
+      if (lock_fd < 0 ||                   /**/
+          unlink(template) < 0 ||          /**/
+          dup2(lock_fd, reserve_fd) < 0 || /**/
+          fcntl(reserve_fd, F_SETFD, FD_CLOEXEC) < 0) {
+        err = c_errno();
+      } else {
         head->entry_n  = 0;
         head->free_pos = sizeof(shm_head);
         head->capacity = sz;
-
-        err = shm_mutex_init(&head->mutex, &attr);
+        ctx->lock_fd   = reserve_fd;
+        err            = 0;
       }
-      (void)shm_attr_destroy(&attr);
+      if (err && reserve_fd >= 0) {
+        (void)close(reserve_fd);
+        reserve_fd = -1;
+      }
+      if (lock_fd >= 0) {
+        close(lock_fd); /* lock_fd is no longer needed */
+      }
     }
+#endif /* SHM_FLOCK */
   } else {
     err = c_errno();
   }
-  return -err;
+  if (err && addr != MAP_FAILED) {
+    (void)munmap(addr, sz);
+  }
+  return err <= 0 ? err : -err;
 }
 
-static ptr c_shm_open(size_t length) {
+static ptr c_shm_need_fd(void) {
+#ifdef SHM_FLOCK
+  return Strue;
+#else
+  return Sfalse;
+#endif
+}
+
+static ptr c_shm_open(size_t length, iptr reserve_fd) {
   shm_ctx* ctx = NULL;
   int      err;
   if ((ctx = (shm_ctx*)calloc(1, sizeof(shm_ctx))) != NULL) {
-    if ((err = c_shm_mmap_init(ctx, length)) == 0) {
+    if ((err = c_shm_mmap_init(ctx, length, (int)reserve_fd)) == 0) {
       return Sunsigned64((uintptr_t)(void*)ctx);
     }
   } else {
@@ -117,6 +141,12 @@ static int c_shm_close(shm_ctx* ctx) {
   if (ctx == NULL) {
     return -EINVAL;
   }
+#ifdef SHM_FLOCK
+  if (ctx->lock_fd >= 0) {
+    (void)close(ctx->lock_fd);
+    ctx->lock_fd = -1;
+  }
+#endif
   errno = 0;
   if (ctx->head) {
     munmap(ctx->head, ctx->mmapped_size);
@@ -124,28 +154,46 @@ static int c_shm_close(shm_ctx* ctx) {
   return c_errno();
 }
 
+/* return 0 on success, < 0 on error */
 static int c_shm_lock(shm_ctx* ctx) {
-  int err;
   if (ctx == NULL || ctx->head == NULL) {
     return -EINVAL;
   }
-  err = shm_mutex_lock(&ctx->head->mutex);
-#if defined(SHM_MUTEX) && defined(PTHREAD_MUTEX_ROBUST)
-  if (err == EOWNERDEAD) {
-    err = pthread_mutex_consistent(&ctx->head->mutex);
-    if (err != 0) {
-      (void)shm_mutex_unlock(&ctx->head->mutex);
+
+#ifdef SHM_MUTEX
+  {
+    int err = pthread_mutex_lock(&ctx->head->mutex);
+#ifdef PTHREAD_MUTEX_ROBUST
+    if (err == EOWNERDEAD) {
+      err = pthread_mutex_consistent(&ctx->head->mutex);
+      if (err != 0) {
+        (void)pthread_mutex_unlock(&ctx->head->mutex);
+      }
     }
+#endif /* PTHREAD_MUTEX_ROBUST */
+    return -err;
   }
-#endif
-  return -err;
+#else  /* SHM_FLOCK */
+  if (flock(ctx->lock_fd, LOCK_EX) < 0) {
+    return c_errno();
+  }
+  return 0;
+#endif /* SHM_FLOCK */
 }
 
+/* return 0 on success, < 0 on error */
 static int c_shm_unlock(shm_ctx* ctx) {
   if (ctx == NULL || ctx->head == NULL) {
     return -EINVAL;
   }
-  return -shm_mutex_unlock(&ctx->head->mutex);
+#ifdef SHM_MUTEX
+  return -pthread_mutex_unlock(&ctx->head->mutex);
+#else  /* SHM_FLOCK */
+  if (flock(ctx->lock_fd, LOCK_UN) < 0) {
+    return c_errno();
+  }
+  return 0;
+#endif /* SHM_FLOCK */
 }
 
 /*
@@ -165,7 +213,7 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
     return -ENOSPC;
   }
   if ((err = c_shm_lock(ctx)) != 0) {
-    return -err;
+    return err;
   }
   head = ctx->head;
   len  = (size_t)ilen;
@@ -174,8 +222,8 @@ static int c_shm_insert(shm_ctx* ctx, uint64_t key, ptr value) {
   cap  = ctx->mmapped_size;
 
   if (slen > cap || pos > slen - cap) {
-    (void)shm_mutex_unlock(&head->mutex);
-    return -ENOSPC; /* FIXME: implement shm resizing */
+    (void)c_shm_unlock(ctx);
+    return -ENOSPC; /* shm resizing is NOT implemented */
   }
 
   dst = (char*)head + pos;
@@ -214,15 +262,16 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
   ptr       value;
   size_t    free_pos;
   size_t    len;
-  int       err;
 
   if (ctx == NULL || (head = ctx->head) == NULL) {
     return Sinteger(-EINVAL);
   }
-  if ((err = shm_mutex_trylock(&head->mutex)) == 0) {
-    (void)shm_mutex_unlock(&head->mutex);
-    return Sinteger(-err);
+#ifdef SHM_MUTEX
+  if (pthread_mutex_trylock(&head->mutex) == 0) {
+    (void)pthread_mutex_unlock(&head->mutex);
+    return Sinteger(-EINVAL);
   }
+#endif /* SHM_MUTEX */
   if (head->entry_n == 0) {
     return Snil;
   }
