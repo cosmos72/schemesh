@@ -64,8 +64,9 @@
 
 (define-record-type wire-shm
   (fields
-    (mutable c-handle))
-  (nongenerative wire-shm-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (mutable c-handle)
+    (mutable sfd))
+  (nongenerative wire-shm-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; return #t if obj is an exact integer representable by a C size_t
@@ -94,7 +95,7 @@
                (and sfd (s-fd-release sfd))
                c-errno-einval)
             ((> ret 0)
-               (make-wire-shm ret))
+               (make-wire-shm ret sfd))
             ((< ret 0)
                (and sfd (s-fd-release sfd))
                ret)
@@ -114,8 +115,12 @@
   (let ((c-shm-close (foreign-procedure __collect_safe "c_shm_close" (void*) int)))
     (lambda (shm)
       (if (wire-shm? shm)
-        (let ((handle (wire-shm-c-handle shm)))
+        (let ((handle (wire-shm-c-handle shm))
+              (sfd    (wire-shm-sfd shm)))
           (wire-shm-c-handle-set! shm 0)
+          (wire-shm-sfd-set! shm #f)
+          (when sfd
+            (s-fd-release sfd))
           (if (zero? handle)
             0
             (c-shm-close handle)))
