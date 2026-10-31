@@ -23,10 +23,6 @@ ifeq ($(OS), Linux)
   OS:=$(strip $(shell uname -o))
 endif
 
-ifeq ($(OS), OpenBSD)
-  LDFLAGS+=-L/usr/local/lib -z wxneeded
-endif
-
 # required libraries
 LIBS_TERMINFO:=-ltinfo
 ifeq ($(OS), Android)
@@ -43,11 +39,12 @@ endif
 
 LIBS_COMMON:=$(CHEZ_SCHEME_KERNEL) -lz -llz4 $(LIBS_TERMINFO) $(LIBS_UTIL)
 LIBS_OS:=-lm -lpthread
-ifneq ($(OS), OpenBSD)
+ifeq ($(OS), OpenBSD)
+  LDFLAGS_EXTRA=-L/usr/local/lib -z wxneeded
+else
   LIBS_OS+=-ldl
 endif
 LIBS:=$(LIBS_COMMON) $(LIBS_OS)
-
 
 # installation directories. Names and values are taken from GNU Makefile conventions
 # and can be overridden from 'make' command line
@@ -150,10 +147,10 @@ test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
 schemesh: main.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
 schemesh-test: test.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
 schemesh_so: $(SCHEMESH_SO)
 
@@ -190,7 +187,7 @@ asm_embed.o: asm_embed.S $(SCHEMESH_SO)
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 schemesh-embed: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
 # alternative schemesh executables: schemesh-static
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
@@ -198,10 +195,10 @@ schemesh-embed: main_embed.o asm_embed.o $(OBJS)
 #   also links against system-wide static libraries where feasible
 ifeq ($(OS), $(filter $(OS), FreeBSD OpenBSD))
   schemesh-static: main_embed.o asm_embed.o $(OBJS_WRAP)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS) -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=pthread_mutex_timedlock -Wl,--wrap=pthread_mutex_trylock -Wl,--wrap=pthread_mutex_unlock
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS) -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=pthread_mutex_timedlock -Wl,--wrap=pthread_mutex_trylock -Wl,--wrap=pthread_mutex_unlock
 else # Android, GNU/Linux
   schemesh-static: main_embed.o asm_embed.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
 endif
 
 install_schemesh_embed: schemesh-embed installdirs
