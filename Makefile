@@ -193,10 +193,10 @@ schemesh-embed: main_embed.o asm_embed.o $(OBJS)
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 #   also links against system-wide static libraries where feasible
-ifeq ($(OS), $(filter $(OS), FreeBSD OpenBSD))
+ifeq ($(OS), FreeBSD)
   schemesh-static: main_embed.o asm_embed.o $(OBJS_WRAP)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' -static $(LIBS) -Wl,--wrap=pthread_mutex_lock -Wl,--wrap=pthread_mutex_timedlock -Wl,--wrap=pthread_mutex_trylock -Wl,--wrap=pthread_mutex_unlock
-else # Android, GNU/Linux
+else # Android, GNU/Linux, OpenBSD
   schemesh-static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
 endif
