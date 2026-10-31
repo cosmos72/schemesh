@@ -17,8 +17,8 @@
           wire-shm? wire-shm-open wire-shm-close wire-shm-insert! wire-shm-delete!)
   (import
     (rnrs)
-    (only (chezscheme)                 box foreign-procedure record-writer)
-    (only (scheme2k bootstrap)         debugf)
+    (only (chezscheme)                 box foreign-procedure meta-cond record-writer void)
+    (only (scheme2k bootstrap)         catch-all)
     (only (scheme2k posix base)        c-errno-einval raise-c-errno)
     (only (scheme2k posix fd)          pipe-fds)
     (only (scheme2k posix socket)      socketpair-fds)
@@ -72,8 +72,21 @@
 ;; return #t if obj is an exact integer representable by a C size_t
 ;; otherwise return #f
 (define (c-size-t? obj)
-  (and (integer? obj) (exact? obj)
-       (<= 0 obj (if (fixnum? #xffffffff) #xffffffffffffffff #xffffffff))))
+  (if (fixnum? obj)
+    (fx>=? obj 0)
+    (and (integer? obj) (exact? obj)
+         (<= 0 obj (meta-cond ((fixnum? #xffffffff) #xffffffffffffffff)
+                   (else                 #xffffffff))))))
+
+
+(define (s-fd-allocate/nothrow need-fd?)
+  (and need-fd?
+       (catch-all (void) (s-fd-allocate #t) #f)))
+
+
+(define (s-fd-release/nothrow sfd)
+  (when sfd
+    (catch-all (void) (s-fd-release sfd) (void))))
 
 
 ;; optional arguments:
@@ -87,21 +100,23 @@
         (need-fd?   ((foreign-procedure __collect_safe "c_shm_need_fd" () ptr))))     ; boolean
     (case-lambda
       ((length)
-        (let* ((sfd (and need-fd? (s-fd-allocate #t)))
-               (fd  (if sfd (s-fd->int sfd) -1))
-               (ret (and (c-size-t? length) (c-shm-open length fd))))
-          (cond
-            ((not (and (integer? ret) (exact? ret)))
-               (and sfd (s-fd-release sfd))
-               c-errno-einval)
-            ((> ret 0)
-               (make-wire-shm ret sfd))
-            ((< ret 0)
-               (and sfd (s-fd-release sfd))
-               ret)
-            (else
-               (and sfd (s-fd-release sfd))
-               c-errno-einval))))
+        (if (not (c-size-t? length))
+          c-errno-einval
+          (let* ((sfd (s-fd-allocate/nothrow need-fd?))
+                 (fd  (if sfd (s-fd->int sfd) -1))
+                 (ret (c-shm-open length fd)))
+            (cond
+              ((not (and (integer? ret) (exact? ret)))
+                 (s-fd-release/nothrow sfd)
+                 c-errno-einval)
+              ((> ret 0)
+                 (make-wire-shm ret sfd))
+              ((< ret 0)
+                 (s-fd-release/nothrow sfd)
+                 ret)
+              (else
+                 (s-fd-release/nothrow sfd)
+                 c-errno-einval)))))
       (()
         (wire-shm-open 262144)))))
 

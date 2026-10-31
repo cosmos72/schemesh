@@ -43,74 +43,55 @@ typedef struct {
 #endif
 } shm_ctx;
 
-static int c_shm_mmap_init(shm_ctx* ctx, size_t length, int reserve_fd) {
-  void*  addr;
-  size_t pagesz = scheme2k_os_pagesize();
-  size_t sz     = (length + pagesz - 1) & ~(pagesz - 1);
-  int    err;
-
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-  if ((addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0)) !=
-      MAP_FAILED) {
-
-    shm_head* head = ctx->head = (shm_head*)addr;
-    ctx->mmapped_size          = sz;
+/* return 0 on success, < 0 on error */
+static int c_shm_mmap_init(shm_ctx* ctx, int reserve_fd) {
+  shm_head* head;
+  int       err = EINVAL;
 
 #ifdef SHM_MUTEX
-    (void)reserve_fd;
-    {
-      pthread_mutexattr_t attr;
-      if ((err = pthread_mutexattr_init(&attr)) == 0) {
-        if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+  pthread_mutexattr_t attr;
+  /* we do NOT want reserve_fd: check that caller did not provide a valid file descriptor */
+  if (ctx && reserve_fd < 0 && (head = ctx->head) && (err = pthread_mutexattr_init(&attr)) == 0) {
+    if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
 #ifdef PTHREAD_MUTEX_ROBUST
-            && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
+        && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
 #endif
-        ) {
-          head->entry_n  = 0;
-          head->free_pos = sizeof(shm_head);
-          head->capacity = sz;
+    ) {
+      head->entry_n  = 0;
+      head->free_pos = sizeof(shm_head);
+      head->capacity = ctx->mmapped_size;
 
-          err = pthread_mutex_init(&head->mutex, &attr);
-        }
-        (void)pthread_mutexattr_destroy(&attr);
-      }
+      err = pthread_mutex_init(&head->mutex, &attr);
     }
+    (void)pthread_mutexattr_destroy(&attr);
+  }
 #else  /* SHM_FLOCK */
-    if (reserve_fd < 0) {
-      err = -EINVAL;
-    } else {
-      char template[] = "/tmp/schemesh_shm_lock.XXXXXXXXXXXX";
-      int lock_fd     = mkstemp(template);
-      if (lock_fd < 0 ||                   /**/
-          unlink(template) < 0 ||          /**/
-          dup2(lock_fd, reserve_fd) < 0 || /**/
-          fcntl(reserve_fd, F_SETFD, FD_CLOEXEC) < 0) {
-        err = c_errno();
-      } else {
-        head->entry_n  = 0;
-        head->free_pos = sizeof(shm_head);
-        head->capacity = sz;
-        ctx->lock_fd   = reserve_fd;
-        err            = 0;
-      }
-      if (err && reserve_fd >= 0) {
-        (void)close(reserve_fd);
-        reserve_fd = -1;
-      }
-      if (lock_fd >= 0) {
-        close(lock_fd); /* lock_fd is no longer needed */
-      }
+  /* we NEED reserve_fd: check that caller provided a valid file descriptor */
+  if (ctx && reserve_fd >= 0 && (head = ctx->head)) {
+    char template[] = "/tmp/schemesh_shm_lock.XXXXXX";
+    int temp_fd     = mkstemp(template);
+    int lock_fd     = -1;
+    if (temp_fd >= 0 &&                             /**/
+        unlink(template) >= 0 &&                    /**/
+        dup2(temp_fd, lock_fd = reserve_fd) >= 0 && /**/
+        fcntl(lock_fd, F_SETFD, FD_CLOEXEC) >= 0) {
+      head->entry_n  = 0;
+      head->free_pos = sizeof(shm_head);
+      head->capacity = ctx->mmapped_size;
+      ctx->lock_fd   = lock_fd;
+      (void)close(temp_fd); /* temp_fd is no longer needed */
+      return 0;
     }
+    err = errno; /* > 0 */
+    if (lock_fd >= 0) {
+      (void)close(lock_fd);
+    }
+    if (temp_fd >= 0) {
+      (void)close(temp_fd);
+    }
+  }
 #endif /* SHM_FLOCK */
-  } else {
-    err = c_errno();
-  }
-  if (err && addr != MAP_FAILED) {
-    (void)munmap(addr, sz);
-  }
-  return err <= 0 ? err : -err;
+  return -err;
 }
 
 static ptr c_shm_need_fd(void) {
@@ -123,15 +104,23 @@ static ptr c_shm_need_fd(void) {
 
 static ptr c_shm_open(size_t length, iptr reserve_fd) {
   shm_ctx* ctx = NULL;
-  int      err;
+  int      err = -ENOMEM;
   if ((ctx = (shm_ctx*)calloc(1, sizeof(shm_ctx))) != NULL) {
-    if ((err = c_shm_mmap_init(ctx, length, (int)reserve_fd)) == 0) {
-      return Sunsigned64((uintptr_t)(void*)ctx);
+    size_t pagesz = scheme2k_os_pagesize();
+    size_t sz     = (length + pagesz - 1) & ~(pagesz - 1);
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+    void* addr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (addr != MAP_FAILED) {
+      ctx->head         = (shm_head*)addr;
+      ctx->mmapped_size = sz;
+
+      if ((err = c_shm_mmap_init(ctx, (int)reserve_fd)) == 0) {
+        return Sunsigned64((uintptr_t)(void*)ctx);
+      }
+      (void)munmap(addr, sz);
     }
-  } else {
-    err = -ENOMEM;
-  }
-  if (ctx) {
     free(ctx);
   }
   return Sinteger(err);
