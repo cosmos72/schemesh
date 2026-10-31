@@ -140,7 +140,7 @@ thread_wrap.o: posix/thread_wrap.c posix/thread.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 
-os.o: os/os.c os/os.h os/disk.h os/disk_freebsd.h os/disk_linux.h os/disk_macos.h os/disk_openbsd.h os/disk_unsupported.h os/process.h os/process_freebsd.h os/process_linux.h os/process_macos.h os/process_unsupported.h
+os.o: os/os.c os/os.h os/disk.h os/disk_bsd.h os/disk_linux.h os/disk_macos.h os/disk_unsupported.h os/process.h os/process_freebsd.h os/process_linux.h os/process_macos.h os/process_unsupported.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h

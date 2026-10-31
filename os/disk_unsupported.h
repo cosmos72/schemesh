@@ -11,7 +11,7 @@
 #define SCHEME2K_OS_DISK_UNSUPPORTED_H
 
 /**
- * on success, return scheme unsigned number containing C DIR*
+ * on success, return some Scheme object for accessing list of mounted file systems
  * on error, return c_errno() < 0
  */
 static ptr c_disk_open(void) {
@@ -23,7 +23,7 @@ static void c_disk_close(ptr disk_s) {
 }
 
 /**
- * skip one process pid in /proc.
+ * skip one mounted file system.
  *   on success, return 1
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0
@@ -33,8 +33,8 @@ static int c_disk_skip(ptr disk_s) {
   return 0;
 }
 
-/*
- * read one process from /proc.
+/**
+ * read one mounted file system.
  *   on success, return pair (device_name . mountpoint) and fill bvec.
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0

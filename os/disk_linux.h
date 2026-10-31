@@ -116,13 +116,14 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
   if (ok) {
     struct statvfs entry;
     if (statvfs(mountpoint, &entry) == 0) {
-      set_uint64(vec, e_disk_size_total, entry.f_bsize * entry.f_blocks);
-      set_uint64(vec, e_disk_size_free, entry.f_bsize * entry.f_bfree);
-      set_uint64(vec, e_disk_size_avail, entry.f_bsize * entry.f_bavail);
+      uint64_t bsize = entry.f_bsize;
+      set_uint64(vec, e_disk_size_total, bsize * entry.f_blocks);
+      set_uint64(vec, e_disk_size_free, bsize * entry.f_bfree);
+      set_uint64(vec, e_disk_size_avail, bsize * entry.f_bavail);
       set_uint64(vec, e_disk_inode_total, entry.f_files);
       set_uint64(vec, e_disk_inode_free, entry.f_ffree);
       set_uint64(vec, e_disk_inode_avail, entry.f_favail);
-      set_uint64(vec, e_disk_blocksize, entry.f_bsize);
+      set_uint64(vec, e_disk_blocksize, bsize);
       set_uint64(vec, e_disk_dev, makedev(major, minor));
       set_uint64(vec, e_disk_flags, entry.f_flag);
       return Scons(scheme2k_Sstring_utf8b(device_name, (size_t)-1),
