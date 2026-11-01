@@ -176,7 +176,7 @@ uninstall_schemesh:
 
 # requires asm_embed.o
 main_embed.o: main.c containers/containers.h eval.h load.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'  -DSCHEMESH_STATIC
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_STATIC
 
 # requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so

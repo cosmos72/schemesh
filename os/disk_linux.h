@@ -26,22 +26,26 @@ static unsigned c_dev_minor(uint64_t dev) {
 }
 
 /**
- * on success, return a pair (0 . content_bytevector0) containing the bytes read from
+ * on success, return a bytevector0 containing the bytes read from
  *   /proc/self/mountinfo
  * on error, return c_errno() < 0
  */
 static ptr c_disk_open(void) {
-  const size_t src_len = 65536;
-  ptr          bsrc    = Smake_bytevector(src_len, 0);
-  if (read_file_at(AT_FDCWD, "/proc/self/mountinfo", Sbytevector_data(bsrc), src_len, NULL, NULL) ==
-      NULL) {
-    return Sinteger(c_errno_set(ENOENT)); /* < 0 */
+  const size_t   bvec_cap = 65536;
+  const iptr     head_len = 4;
+  ptr            bsrc     = Smake_bytevector(head_len + bvec_cap, 0);
+  unsigned char* start    = Sbytevector_data(bsrc) + head_len;
+  unsigned char* end = read_file_at(AT_FDCWD, "/proc/self/mountinfo", start, bvec_cap, NULL, NULL);
+  if (end != NULL) {
+    const uint16_t len = end - start;
+    memcpy(start - 2, &len, 2);
+    return bsrc;
   }
-  return Scons(Sfixnum(0), bsrc);
+  return Sinteger(c_errno_set(ENOENT)); /* < 0 */
 }
 
-static void c_disk_close(ptr pair) {
-  (void)pair;
+static void c_disk_close(ptr bsrc) {
+  (void)bsrc;
 }
 
 /**
@@ -50,68 +54,78 @@ static void c_disk_close(ptr pair) {
  *   on end-of-dir, return 0
  *   on error, return c_errno() < 0
  */
-static int c_disk_skip(ptr pair) {
-  ptr                  bsrc, foffset;
+static int c_disk_skip(ptr bsrc) {
   const unsigned char* src;
-  iptr                 offset;
-  iptr                 src_len;
+  iptr                 bsrc_len;
+  const iptr           head_len = 4;
   size_t               skipped;
+  uint16_t             pos, len;
 
-  if (!Spairp(pair) || !Sfixnump(foffset = Scar(pair)) || (offset = Sfixnum_value(foffset)) < 0 ||
-      !Sbytevectorp(bsrc = Scdr(pair)) || (src_len = Sbytevector_length(bsrc)) <= 0 ||
-      offset >= src_len || (src = Sbytevector_data(bsrc))[src_len - 1] != '\0') {
+  if (!Sbytevectorp(bsrc) || (bsrc_len = Sbytevector_length(bsrc)) < head_len ||
+      (src = Sbytevector_data(bsrc))[bsrc_len - 1] != '\0') {
     return c_errno_set(EINVAL);
   }
-  src += offset;
+  memcpy(&pos, src, 2);
+  memcpy(&len, src + 2, 2);
+  if (pos >= len || (iptr)len >= bsrc_len - head_len) {
+    return 0;
+  }
+  src += head_len + pos;
   skipped = skip_until(&src, '\n');
   if (skipped == 0) {
     return 0;
   }
-  Sset_car(pair, Sfixnum(offset + skipped)); /* update offset */
+  pos += skipped;
+  memcpy(Sbytevector_data(bsrc), &pos, 2); /* update pos stored in bsrc[0..1] */
   return 1;
 }
 
 /**
- * read one mounted filesystem from /proc/self/mountinfo, represented as a pair
- * (content_bytevector0 . offset)
+ * read one mounted filesystem from /proc/self/mountinfo, represented as a bytevector0 bsrc
  *
- * On success, return cons (device_name . mount_point), fill bvec and update offset.
+ * On success, return cons (dev_name . mount_point), fill bvec and update offset.
  * On end-of-file, return 0
  * On I/O error, return c_errno() < 0
  * On parsing errors, return #f
  */
-static ptr c_disk_get(ptr pair, ptr bvec) {
+static ptr c_disk_get(ptr bsrc, ptr bvec) {
   char                 mountpoint[4096];
   char                 fs_type[256];
-  char                 device_name[256];
-  uint64_t             major, minor;
-  ptr                  bsrc, foffset;
+  char                 dev_name[256];
+  uint64_t             dev_major, dev_minor;
   const unsigned char* src;
-  unsigned char*       vec;
-  iptr                 offset;
-  iptr                 src_len;
+  unsigned char *      bsrc_data, *vec;
+  iptr                 bsrc_len;
+  const iptr           head_len = 4;
+  uint16_t             pos, len;
   uint8_t              ok;
   char                 colon;
 
-  if (!Spairp(pair) || !Sfixnump(foffset = Scar(pair)) || (offset = Sfixnum_value(foffset)) < 0 ||
-      !Sbytevectorp(bsrc = Scdr(pair)) || (src_len = Sbytevector_length(bsrc)) <= 0 ||
-      offset >= src_len || (src = Sbytevector_data(bsrc))[src_len - 1] != '\0' ||
+  if (!Sbytevectorp(bvec) || (bsrc_len = Sbytevector_length(bsrc)) < head_len ||
+      (bsrc_data = Sbytevector_data(bsrc))[bsrc_len - 1] != '\0' || /**/
       !Sbytevectorp(bvec) || Sbytevector_length(bvec) != e_disk_byte_n) {
     return Sinteger(c_errno_set(EINVAL));
   }
-  src += offset;
+  memcpy(&pos, bsrc_data, 2);
+  memcpy(&len, bsrc_data + 2, 2);
+  if (pos >= len || (iptr)len >= bsrc_len - head_len) {
+    return 0;
+  }
+  src = bsrc_data + head_len + pos;
+
   vec = Sbytevector_data(bvec);
   memset(vec, '\0', e_disk_byte_n);
 
   ok = parse_uint64(&src, vec, e_disk_id) > 0 && parse_uint64(&src, NULL, 0 /*parent_id*/) > 0 &&
-       parse_uint64(&src, &major, 0) && parse_char(&src, &colon) && colon == ':' &&
-       parse_uint64(&src, &minor, 0) && parse_string(&src, NULL, 4096 /*root*/) &&
+       parse_uint64(&src, &dev_major, 0) && parse_char(&src, &colon) && colon == ':' &&
+       parse_uint64(&src, &dev_minor, 0) && parse_string(&src, NULL, 4096 /*root*/) &&
        parse_string(&src, mountpoint, sizeof(mountpoint)) && skip_until(&src, '-') &&
        parse_string(&src, fs_type, sizeof(fs_type)) &&
-       parse_string(&src, device_name, sizeof(device_name));
+       parse_string(&src, dev_name, sizeof(dev_name));
   skip_until(&src, '\n');
 
-  Sset_car(pair, Sfixnum(src - Sbytevector_data(bsrc))); /* update offset */
+  pos = src - (bsrc_data + head_len);
+  memcpy(bsrc_data, &pos, 2); /* update pos stored in bsrc[0..1] */
 
   if (ok) {
     struct statvfs entry;
@@ -124,9 +138,9 @@ static ptr c_disk_get(ptr pair, ptr bvec) {
       set_uint64(vec, e_disk_inode_free, entry.f_ffree);
       set_uint64(vec, e_disk_inode_avail, entry.f_favail);
       set_uint64(vec, e_disk_blocksize, bsize);
-      set_uint64(vec, e_disk_dev, makedev(major, minor));
+      set_uint64(vec, e_disk_dev, makedev(dev_major, dev_minor));
       set_uint64(vec, e_disk_flags, entry.f_flag);
-      return Scons(scheme2k_Sstring_utf8b(device_name, (size_t)-1),
+      return Scons(scheme2k_Sstring_utf8b(dev_name, (size_t)-1),
                    scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));
     }
   }

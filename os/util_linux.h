@@ -233,16 +233,17 @@ static size_t parse_string(const unsigned char** src, char* dst, size_t dstlen) 
  * @return number of skipped characters.
  */
 static size_t skip_until(const unsigned char** src, const char find_ch) {
-  size_t        len = 0;
-  unsigned char ch;
-  while ((ch = **src) != '\0') {
-    ++*src;
-    ++len;
+  const unsigned char* data = *src;
+  size_t               i    = 0;
+  unsigned char        ch;
+  while ((ch = data[i]) != '\0') {
+    ++i;
     if (ch == find_ch) {
       break;
     }
   }
-  return len;
+  *src = data + i;
+  return i;
 }
 
 static int string_is_decimal_number(const char* str) {
