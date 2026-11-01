@@ -198,7 +198,6 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_int64(vec, e_proc_gid, KP(groups[0]));
   set_int64(vec, e_proc_ppid, KP(ppid));
   set_int64(vec, e_proc_sid, KP(sid));
-  set_int64(vec, e_proc_nice, (int)KP(nice) - 20);
 
 #if defined(__FreeBSD__)
   set_int64(vec, e_proc_pgid, KP(pgid));
@@ -207,6 +206,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_timeval(vec, e_proc_start_time, KP(start));
   set_timeval(vec, e_proc_user_time, KP(rusage.ru_utime));
   set_timeval(vec, e_proc_sys_time, KP(rusage.ru_stime));
+  set_int64(vec, e_proc_nice, (int)KP(nice));
   set_int64(vec, e_proc_num_thread, KP(numthreads));
   set_uint64(vec, e_proc_min_fault, KP(rusage.ru_minflt));
   set_uint64(vec, e_proc_maj_fault, KP(rusage.ru_majflt));
@@ -217,6 +217,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_timeval2(vec, e_proc_start_time, KP(ustart_sec), KP(ustart_usec));
   set_timeval2(vec, e_proc_user_time, KP(uutime_sec), KP(uutime_usec));
   set_timeval2(vec, e_proc_sys_time, KP(ustime_sec), KP(ustime_usec));
+  set_int64(vec, e_proc_nice, (int)KP(nice) - 20);
   // set_int64(vec, e_proc_num_thread, KP(numthreads)); // not available
   set_uint64(vec, e_proc_min_fault, KP(uru_minflt));
   set_uint64(vec, e_proc_maj_fault, KP(uru_majflt));
