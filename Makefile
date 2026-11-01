@@ -154,7 +154,7 @@ thread_wrap.o: posix/thread_wrap.c posix/thread.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 
-os.o: os/os.c os/os.h os/disk.h os/disk_bsd.h os/disk_linux.h os/disk_macos.h os/disk_unsupported.h os/process.h os/process_bsd.h os/process_linux.h os/process_macos.h os/process_unsupported.h os/util.h os/util_bsd.h os/util_linux.h os/util_macos.h
+os.o: os/os.c os/os.h os/disk.h os/disk_bsd.h os/disk_linux.h os/disk_macos.h os/disk_unsupported.h os/process.h os/process_bsd.h os/process_linux.h os/process_macos.h os/process_unsupported.h os/util.h os/util_linux.h os/util_macos.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h
@@ -165,11 +165,11 @@ test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
 
 schemesh: main.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
-	$(POST_LINK_WX) $@
+	@$(POST_LINK_WX) $@
 
 schemesh-test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
-	$(POST_LINK_WX) $@
+	@$(POST_LINK_WX) $@
 
 schemesh_so: $(SCHEMESH_SO)
 
@@ -207,7 +207,7 @@ asm_embed.o: asm_embed.S $(SCHEMESH_SO)
 #   embeds Chez Scheme boot files petite.boot and scheme.boot, plus libschemesh_VERSION.so
 schemesh-embed: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
-	$(POST_LINK_WX) $@
+	@$(POST_LINK_WX) $@
 
 # alternative schemesh executables: schemesh-static
 #   requires Chez Scheme >= 10.0.0, GNU or CLANG assembler, and GNU ld or CLANG lld
@@ -219,7 +219,7 @@ ifeq ($(OS), FreeBSD)
 else # Android, GNU/Linux, OpenBSD, NetBSD
   schemesh-static: main_embed.o asm_embed.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDFLAGS_EXTRA) -L'$(CHEZ_SCHEME_DIR)' -Wl,-Bstatic $(LIBS_COMMON) $(LIBS_EXTRA_STATIC) -Wl,-Bdynamic $(LIBS_OS)
-	$(POST_LINK_WX) $@
+	@$(POST_LINK_WX) $@
 endif
 
 install_schemesh_embed: schemesh-embed installdirs

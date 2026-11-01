@@ -10,9 +10,28 @@
 #ifndef SCHEME2K_OS_DISK_BSD_H
 #define SCHEME2K_OS_DISK_BSD_H
 
+#include <sys/types.h> /* makedev(), major(), minor() */
+
+#ifdef __NetBSD__
+
+#include <sys/statvfs.h>/* getvfsstat() */
+#define c_disk_getfsstat getvfsstat
+typedef struct statvfs c_statfs;
+
+#else /* !__NetBSD__ */
+
 #include <sys/mount.h> /* getfsstat() */
 #include <sys/param.h> /* getfsstat() */
-#include <sys/types.h> /* makedev(), major(), minor() */
+#define c_disk_getfsstat getfsstat
+typedef struct statfs c_statfs;
+
+#endif /* !__NetBSD__ */
+
+typedef struct {
+  size_t   pos;
+  size_t   len;
+  c_statfs vec[1];
+} c_disk;
 
 static uint64_t c_make_dev(unsigned major, unsigned minor) {
   return (uint64_t)makedev((int)major, (int)minor);
@@ -26,26 +45,18 @@ static unsigned c_dev_minor(uint64_t dev) {
   return (unsigned)minor((dev_t)dev);
 }
 
-typedef struct statfs c_statfs;
-
-typedef struct {
-  size_t   pos;
-  size_t   len;
-  c_statfs vec[1];
-} c_disk;
-
 /**
  * on success, return some Scheme object for accessing list of mounted file systems
  * on error, return c_errno() < 0
  */
 static ptr c_disk_open(void) {
-  int ret = getfsstat(NULL, 0, MNT_WAIT);
+  int ret = c_disk_getfsstat(NULL, 0, MNT_WAIT);
   if (ret >= 0) {
     const size_t head_len = sizeof(c_disk) - sizeof(c_statfs);
     const size_t sz       = (size_t)ret * sizeof(c_statfs);
     c_disk*      disk     = (c_disk*)malloc(sz + head_len);
     if (disk) {
-      if ((ret = getfsstat(disk->vec, sz, MNT_WAIT)) >= 0) {
+      if ((ret = c_disk_getfsstat(disk->vec, sz, MNT_WAIT)) >= 0) {
         disk->pos = 0;
         disk->len = ret;
         return Sunsigned((uintptr_t)disk);
@@ -95,7 +106,13 @@ static ptr c_disk_fill(const c_statfs* entry, ptr bvec) {
   unsigned char* vec   = Sbytevector_data(bvec);
   memset(vec, '\0', e_disk_byte_n);
 
+#ifdef __NetBSD__
+  set_uint64(vec, e_disk_id, entry->f_fsid);
+  set_uint64(vec, e_disk_flags, entry->f_flag);
+#else
   set_uint64(vec, e_disk_id, entry->f_fsid.val[0] | (uint64_t)entry->f_fsid.val[1] << 32);
+  set_uint64(vec, e_disk_flags, entry->f_flags);
+#endif
   set_uint64(vec, e_disk_size_total, bsize * entry->f_blocks);
   set_uint64(vec, e_disk_size_free, bsize * entry->f_bfree);
   set_uint64(vec, e_disk_size_avail, bsize * entry->f_bavail);
@@ -108,7 +125,6 @@ static ptr c_disk_fill(const c_statfs* entry, ptr bvec) {
 #endif
   set_uint64(vec, e_disk_blocksize, bsize);
   set_uint64(vec, e_disk_dev, makedev(0, 0));
-  set_uint64(vec, e_disk_flags, entry->f_flags);
   return Scons(C_SSTRING_UTF8b(entry->f_mntfromname),
                Scons(C_SSTRING_UTF8b(entry->f_mntonname), /**/
                      C_SSTRING_UTF8b(entry->f_fstypename)));

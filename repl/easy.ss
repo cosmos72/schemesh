@@ -874,8 +874,8 @@
            (rx   (if (some-string-is? options "-a")
                    rx
                    (make-filter-reader rx (lambda (elem cache)
-                                            (let ((total (field elem 'bytes-total cache)))
-                                              (and (number? total) (not (zero? total)))))
+                                            (let ((total (field elem 'byte-total cache)))
+                                              (and (real? total) (> total 4096))))
                                        'close-inner))))
       (to-stdout rx options))))
 

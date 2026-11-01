@@ -57,9 +57,7 @@ static ptr c_Sstring_utf8b(const char bytes[], size_t maxlen) {
 
 #define C_SSTRING_UTF8b(array) c_Sstring_utf8b((array), sizeof(array))
 
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
-#include "util_bsd.h"
-#elif defined(__linux__)
+#if defined(__linux__)
 #include "util_linux.h"
 #elif defined(__APPLE__)
 #include "util_macos.h"

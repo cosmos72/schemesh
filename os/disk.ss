@@ -77,19 +77,19 @@
 ;; TODO validate args in (make-disk-entry)
 (define-record-type disk-entry
   (fields
-    (mutable id)            ; (void) or exact integer
-    (mutable device)        ; (void) or string
-    (mutable mount-point)   ; (void) or string
-    (mutable type)          ; (void) or string, file system type
-    (mutable bytes-total)   ; (void) or exact integer
-    (mutable bytes-free)    ; (void) or exact integer
-    (mutable bytes-avail)   ; (void) or exact integer
-    (mutable inodes-total)  ; (void) or exact integer
-    (mutable inodes-free)   ; (void) or exact integer
-    (mutable inodes-avail)  ; (void) or exact integer
-    (mutable block-size)    ; (void) or exact integer
-    (mutable dev)           ; (void) or exact integer
-    (mutable flags))        ; (void) or exact integer
+    (mutable id)           ; (void) or exact integer
+    (mutable device)       ; (void) or string
+    (mutable mount-point)  ; (void) or string
+    (mutable type)         ; (void) or string, file system type
+    (mutable byte-total)   ; (void) or exact integer
+    (mutable byte-free)    ; (void) or exact integer
+    (mutable byte-avail)   ; (void) or exact integer
+    (mutable inode-total)  ; (void) or exact integer
+    (mutable inode-free)   ; (void) or exact integer
+    (mutable inode-avail)  ; (void) or exact integer
+    (mutable block-size)   ; (void) or exact integer
+    (mutable dev)          ; (void) or exact integer
+    (mutable flags))       ; (void) or exact integer
   (nongenerative %disk-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
@@ -99,19 +99,19 @@
          (mount-point (and rest? (cadr l)))
          (type        (and rest? (cddr l))))
     (make-disk-entry
-      (bvec-ref/u64 bvec 0)           ; id,           uint64
-      (or device      "")             ; device,       string
-      (or mount-point "")             ; mount-point,  string
-      (or type        "")             ; type,         string
-      (bvec-ref/u64 bvec (fx* 1 8))   ; bytes-total,  uint64
-      (bvec-ref/u64 bvec (fx* 2 8))   ; bytes-free,   uint64
-      (bvec-ref/u64 bvec (fx* 3 8))   ; bytes-avail,  uint64
-      (bvec-ref/u64 bvec (fx* 4 8))   ; inodes-total, uint64
-      (bvec-ref/u64 bvec (fx* 5 8))   ; inodes-free,  uint64
-      (bvec-ref/u64 bvec (fx* 6 8))   ; inodes-avail, uint64
-      (bvec-ref/u64 bvec (fx* 7 8))   ; block-size,   uint64
-      (bvec-ref/u64 bvec (fx* 8 8))   ; dev,          uint64
-      (bvec-ref/u64 bvec (fx* 9 8))))); flags,        uint64
+      (bvec-ref/u64 bvec 0)           ; id,          uint64
+      (or device      "")             ; device,      string
+      (or mount-point "")             ; mount-point, string
+      (or type        "")             ; type,        string
+      (bvec-ref/u64 bvec (fx* 1 8))   ; byte-total,  uint64
+      (bvec-ref/u64 bvec (fx* 2 8))   ; byte-free,   uint64
+      (bvec-ref/u64 bvec (fx* 3 8))   ; byte-avail,  uint64
+      (bvec-ref/u64 bvec (fx* 4 8))   ; inode-total, uint64
+      (bvec-ref/u64 bvec (fx* 5 8))   ; inode-free,  uint64
+      (bvec-ref/u64 bvec (fx* 6 8))   ; inode-avail, uint64
+      (bvec-ref/u64 bvec (fx* 7 8))   ; block-size,  uint64
+      (bvec-ref/u64 bvec (fx* 8 8))   ; dev,         uint64
+      (bvec-ref/u64 bvec (fx* 9 8))))); flags,       uint64
 
 (define (deserialize-disk-entry plist)
   plist)
