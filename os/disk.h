@@ -31,15 +31,7 @@ enum {
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)
 #include "disk_bsd.h"
 #else
-
 #include "disk_unsupported.h"
-static unsigned c_dev_major(uint64_t dev) {
-  return dev >> 32;
-}
-static unsigned c_dev_minor(uint64_t dev) {
-  return dev & 0xffffffff;
-}
-
 #endif
 
 #endif /* SCHEME2K_OS_DISK_H */

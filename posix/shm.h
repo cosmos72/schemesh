@@ -52,7 +52,12 @@ static int c_shm_mmap_init(shm_ctx* ctx, int reserve_fd) {
   pthread_mutexattr_t attr;
   /* we do NOT want reserve_fd: check that caller did not provide a valid file descriptor */
   if (ctx && reserve_fd < 0 && (head = ctx->head) && (err = pthread_mutexattr_init(&attr)) == 0) {
-    if ((err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+    if (
+#ifdef __NetBSD__
+        1
+#else
+        (err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED)) == 0
+#endif
 #ifdef PTHREAD_MUTEX_ROBUST
         && (err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST)) == 0
 #endif

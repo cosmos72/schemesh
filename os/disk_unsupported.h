@@ -10,6 +10,17 @@
 #ifndef SCHEME2K_OS_DISK_UNSUPPORTED_H
 #define SCHEME2K_OS_DISK_UNSUPPORTED_H
 
+static uint64_t c_make_dev(unsigned major, unsigned minor) {
+  return (uint64_t)major << 32 | (uint32_t)minor;
+}
+
+static unsigned c_dev_major(uint64_t dev) {
+  return dev >> 32;
+}
+static unsigned c_dev_minor(uint64_t dev) {
+  return dev & 0xffffffff;
+}
+
 /**
  * on success, return some Scheme object for accessing list of mounted file systems
  * on error, return c_errno() < 0
