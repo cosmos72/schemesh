@@ -51,7 +51,7 @@ static int c_errno(void) {
  */
 static ptr c_Sstring_utf8b(const char bytes[], size_t maxlen) {
   const char*  end = bytes && maxlen ? memchr(bytes, '\0', maxlen) : 0;
-  const size_t len = end ? end - bytes : maxlen;
+  const size_t len = end ? (size_t)(end - bytes) : maxlen;
   return scheme2k_Sstring_utf8b(bytes, len);
 }
 

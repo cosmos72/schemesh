@@ -380,7 +380,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
   DIR*                 dir;
   struct dirent*       entry;
   uint64_t             user_time_ticks, sys_time_ticks, start_time_ticks;
-  int64_t              uid, gid, tty_nr;
+  int64_t              uid, gid, tty_nr, priority;
   int                  buf_written;
   char                 state;
   uint8_t              ok;
@@ -414,7 +414,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
        parse_uint64(&src, vec, e_proc_maj_fault) &&
        parse_uint64(&src, NULL, 0 /*child_maj_fault*/) && parse_uint64(&src, &user_time_ticks, 0) &&
        parse_uint64(&src, &sys_time_ticks, 0) && parse_int64(&src, NULL, 0 /*child_user_time*/) &&
-       parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, vec, e_proc_priority) &&
+       parse_int64(&src, NULL, 0 /*child_sys_time*/) && parse_int64(&src, &priority, 0) &&
        parse_int64(&src, NULL, 0 /*nice*/) && parse_int64(&src, vec, e_proc_num_thread) &&
        parse_int64(&src, NULL, 0 /*obsolete*/) && parse_uint64(&src, &start_time_ticks, 0) &&
        parse_uint64(&src, vec, e_proc_mem_virt) && parse_uint64(&src, vec, e_proc_mem_rss);
@@ -435,6 +435,7 @@ static ptr c_process_get(ptr dir_s, ptr bvec) {
 
     set_int64(vec, e_proc_uid, uid);
     set_int64(vec, e_proc_gid, gid);
+    set_int64(vec, e_proc_nice, priority - 20);
 
     /* convert mem_resident from pages to bytes */
     uint64_multiply(vec, e_proc_mem_rss, scheme2k_os_pagesize());

@@ -451,7 +451,7 @@ print_process(DIR* dir, const struct dirent* entry, writer* w, e_proc_flags flag
   ts = ticks_to_timespec(iowait_time_ticks, tick_per_s);
   put_timespec(w, flags & e_proc_flag_iowait_time, ts, CHARS(",\"iowait-time\":"));
 
-  put_int64(w, flags & e_proc_flag_priority, priority, CHARS(",\"priority\":"));
+  put_int64(w, flags & e_proc_flag_nice, priority - 20, CHARS(",\"nice\":"));
   put_int64(w, flags & e_proc_flag_threads, threads, CHARS(",\"threads\":"));
   put_int64(w, flags & e_proc_flag_min_fault, min_fault, CHARS(",\"min-fault\":"));
   put_int64(w, flags & e_proc_flag_maj_fault, maj_fault, CHARS(",\"maj-fault\":"));

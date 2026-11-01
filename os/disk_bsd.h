@@ -48,7 +48,7 @@ static ptr c_disk_open(void) {
       if ((ret = getfsstat(disk->vec, sz, MNT_WAIT)) >= 0) {
         disk->pos = 0;
         disk->len = ret;
-        return Sunsigned64((Suint64_t)disk);
+        return Sunsigned((uintptr_t)disk);
       }
       ret = c_errno();
       free(disk);
@@ -63,7 +63,7 @@ static ptr c_disk_open(void) {
 
 static void c_disk_close(ptr disk_s) {
   if (Sfixnump(disk_s) || Sbignump(disk_s)) {
-    free((void*)Sunsigned64_value(disk_s));
+    free((void*)Sunsigned_value(disk_s));
   }
 }
 
@@ -75,7 +75,7 @@ static void c_disk_close(ptr disk_s) {
  */
 static int c_disk_skip(ptr disk_s) {
   if (Sfixnump(disk_s) && Sfixnump(disk_s)) {
-    c_disk* disk = (c_disk*)Sunsigned64_value(disk_s);
+    c_disk* disk = (c_disk*)Sunsigned_value(disk_s);
     size_t  pos;
     if (disk && (pos = disk->pos) < disk->len) {
       disk->pos = pos + 1;
@@ -123,7 +123,7 @@ static ptr c_disk_fill(const c_statfs* entry, ptr bvec) {
 static ptr c_disk_get(ptr disk_s, ptr bvec) {
   if ((Sfixnump(disk_s) || Sbignump(disk_s)) && /**/
       Sbytevectorp(bvec) && Sbytevector_length(bvec) == e_disk_byte_n) {
-    c_disk* disk = (c_disk*)Sunsigned64_value(disk_s);
+    c_disk* disk = (c_disk*)Sunsigned_value(disk_s);
     size_t  pos;
     if (disk && (pos = disk->pos) < disk->len) {
       disk->pos = pos + 1;

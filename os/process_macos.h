@@ -195,7 +195,7 @@ static ptr c_process_get(ptr cs_s, ptr bvec) {
   set_timespec(vec, e_proc_user_time, c->user_time);
   set_timespec(vec, e_proc_sys_time, c->sys_time);
   /* set_timespec(vec, e_proc_iowait_time, ...); unimplemented */
-  set_int64(vec, e_proc_priority, c->priority);
+  set_int64(vec, e_proc_nice, -c->priority);
   set_int64(vec, e_proc_num_thread, c->num_thread);
   set_uint64(vec, e_proc_min_fault, c->min_fault);
   set_uint64(vec, e_proc_maj_fault, c->maj_fault);

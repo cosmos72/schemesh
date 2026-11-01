@@ -94,11 +94,11 @@
     (mutable user-time)     ; (void) or time-duration
     (mutable sys-time)      ; (void) or time-duration
     (mutable iowait-time)   ; (void) or time-duration
-    (mutable priority)      ; (void) or exact integer
+    (mutable nice)          ; (void) or exact integer
     (mutable threads)       ; (void) or exact integer
     (mutable min-fault)     ; (void) or exact integer
     (mutable maj-fault))    ; (void) or exact integer
-  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+  (nongenerative %process-entry-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 (define (if-uid->username rx uid)
@@ -163,7 +163,7 @@
       (make-time 'time-duration
         (bvec-ref/u64 bvec (fx* 14 8))  ; iowait-time, ns
         (bvec-ref/s64 bvec (fx* 15 8))) ; iowait-time, s
-      (bvec-ref/s64 bvec (fx* 16 8))    ; priority,     int64
+      (bvec-ref/s64 bvec (fx* 16 8))    ; nice,         int64
       (bvec-ref/s64 bvec (fx* 17 8))    ; threads,      int64
       (bvec-ref/u64 bvec (fx* 18 8))    ; min-fault,    uint64
       (bvec-ref/u64 bvec (fx* 19 8))))) ; maj-fault,    uint64

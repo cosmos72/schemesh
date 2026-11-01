@@ -25,7 +25,7 @@ enum {
   e_proc_user_time   = 10, /* duration, timespec */
   e_proc_sys_time    = 12, /* duration, timespec */
   e_proc_iowait_time = 14, /* duration, timespec */
-  e_proc_priority    = 16, /* int64  */
+  e_proc_nice        = 16, /* int64  */
   e_proc_num_thread  = 17, /* int64  */
   e_proc_min_fault   = 18, /* uint64 */
   e_proc_maj_fault   = 19, /* uint64 */
@@ -59,12 +59,12 @@ size_t scheme2k_os_pagesize(void) {
   return n;
 }
 
-#if defined(__linux__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#include "process_bsd.h"
+#elif defined(__linux__)
 #include "process_linux.h"
 #elif defined(__APPLE__)
 #include "process_macos.h"
-#elif defined(__FreeBSD__)
-#include "process_freebsd.h"
 #else
 #include "process_unsupported.h"
 #endif

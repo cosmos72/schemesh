@@ -112,7 +112,7 @@ static void print_process(const struct kinfo_proc* kp, writer* w, e_proc_flags f
   if (flags & e_proc_flag_iowait_time) {
     w_put_literal(w, ",\"iowait-time\":null");
   }
-  put_int64(w, flags & e_proc_flag_priority, 20 - (int)kp->ki_nice, CHARS(",\"priority\":"));
+  put_int64(w, flags & e_proc_flag_nice, (int)kp->ki_nice - 20, CHARS(",\"nice\":"));
   put_int64(w, flags & e_proc_flag_threads, kp->ki_numthreads, CHARS(",\"threads\":"));
   put_int64(w, flags & e_proc_flag_min_fault, kp->ki_rusage.ru_minflt, CHARS(",\"min-fault\":"));
   put_int64(w, flags & e_proc_flag_maj_fault, kp->ki_rusage.ru_minflt, CHARS(",\"maj-fault\":"));

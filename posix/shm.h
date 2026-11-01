@@ -117,7 +117,7 @@ static ptr c_shm_open(size_t length, iptr reserve_fd) {
       ctx->mmapped_size = sz;
 
       if ((err = c_shm_mmap_init(ctx, (int)reserve_fd)) == 0) {
-        return Sunsigned64((uintptr_t)(void*)ctx);
+        return Sunsigned((uintptr_t)(void*)ctx);
       }
       (void)munmap(addr, sz);
     }
