@@ -80,6 +80,7 @@
     (mutable id)            ; (void) or exact integer
     (mutable device)        ; (void) or string
     (mutable mount-point)   ; (void) or string
+    (mutable type)          ; (void) or string, file system type
     (mutable bytes-total)   ; (void) or exact integer
     (mutable bytes-free)    ; (void) or exact integer
     (mutable bytes-avail)   ; (void) or exact integer
@@ -89,23 +90,28 @@
     (mutable block-size)    ; (void) or exact integer
     (mutable dev)           ; (void) or exact integer
     (mutable flags))        ; (void) or exact integer
-  (nongenerative %disk-entry-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+  (nongenerative %disk-entry-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 (define (c->disk-entry rx l bvec)
-  (make-disk-entry
-    (bvec-ref/u64 bvec 0)           ; id,           uint64
-    (or (car l) "")                 ; device,       string or (void)
-    (or (cdr l) "")                 ; mount-point,  string or (void)
-    (bvec-ref/u64 bvec (fx* 1 8))   ; bytes-total,  uint64
-    (bvec-ref/u64 bvec (fx* 2 8))   ; bytes-free,   uint64
-    (bvec-ref/u64 bvec (fx* 3 8))   ; bytes-avail,  uint64
-    (bvec-ref/u64 bvec (fx* 4 8))   ; inodes-total, uint64
-    (bvec-ref/u64 bvec (fx* 5 8))   ; inodes-free,  uint64
-    (bvec-ref/u64 bvec (fx* 6 8))   ; inodes-avail, uint64
-    (bvec-ref/u64 bvec (fx* 7 8))   ; block-size,   uint64
-    (bvec-ref/u64 bvec (fx* 8 8))   ; dev,          uint64
-    (bvec-ref/u64 bvec (fx* 9 8)))) ; flags,        uint64
+  (let* ((device      (car l))
+         (rest?       (pair? (cdr l)))
+         (mount-point (and rest? (cadr l)))
+         (type        (and rest? (cddr l))))
+    (make-disk-entry
+      (bvec-ref/u64 bvec 0)           ; id,           uint64
+      (or device      "")             ; device,       string
+      (or mount-point "")             ; mount-point,  string
+      (or type        "")             ; type,         string
+      (bvec-ref/u64 bvec (fx* 1 8))   ; bytes-total,  uint64
+      (bvec-ref/u64 bvec (fx* 2 8))   ; bytes-free,   uint64
+      (bvec-ref/u64 bvec (fx* 3 8))   ; bytes-avail,  uint64
+      (bvec-ref/u64 bvec (fx* 4 8))   ; inodes-total, uint64
+      (bvec-ref/u64 bvec (fx* 5 8))   ; inodes-free,  uint64
+      (bvec-ref/u64 bvec (fx* 6 8))   ; inodes-avail, uint64
+      (bvec-ref/u64 bvec (fx* 7 8))   ; block-size,   uint64
+      (bvec-ref/u64 bvec (fx* 8 8))   ; dev,          uint64
+      (bvec-ref/u64 bvec (fx* 9 8))))); flags,        uint64
 
 (define (deserialize-disk-entry plist)
   plist)

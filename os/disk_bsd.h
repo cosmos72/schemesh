@@ -26,38 +26,44 @@ static unsigned c_dev_minor(uint64_t dev) {
   return (unsigned)minor((dev_t)dev);
 }
 
+typedef struct statfs c_statfs;
+
+typedef struct {
+  size_t   pos;
+  size_t   len;
+  c_statfs vec[1];
+} c_disk;
+
 /**
  * on success, return some Scheme object for accessing list of mounted file systems
  * on error, return c_errno() < 0
  */
 static ptr c_disk_open(void) {
-  int err;
-  if ((err = getfsstat(NULL, 0, MNT_WAIT)) >= 0) {
-    const size_t   sz  = (size_t)err * sizeof(struct statfs);
-    struct statfs* buf = (struct statfs*)malloc(sz);
-    if (buf) {
-      if ((err = getfsstat(buf, sz, MNT_WAIT)) >= 0) {
-        return Scons(Sfixnum(0), Scons(Sfixnum(err), Sunsigned64((Suint64_t)buf)));
-      } else {
-        err = c_errno();
+  int ret = getfsstat(NULL, 0, MNT_WAIT);
+  if (ret >= 0) {
+    const size_t head_len = sizeof(c_disk) - sizeof(c_statfs);
+    const size_t sz       = (size_t)ret * sizeof(c_statfs);
+    c_disk*      disk     = (c_disk*)malloc(sz + head_len);
+    if (disk) {
+      if ((ret = getfsstat(disk->vec, sz, MNT_WAIT)) >= 0) {
+        disk->pos = 0;
+        disk->len = ret;
+        return Sunsigned64((Suint64_t)disk);
       }
-      free(buf);
+      ret = c_errno();
+      free(disk);
     } else {
-      err = -ENOMEM;
+      ret = c_errno_set(ENOMEM);
     }
   } else {
-    err = c_errno();
+    ret = c_errno();
   }
-  return Sinteger(err);
+  return Sinteger(ret);
 }
 
 static void c_disk_close(ptr disk_s) {
-  ptr obj;
-  if (Spairp(disk_s) && Spairp(obj = Scdr(disk_s))) {
-    ptr sbuf = Scdr(obj);
-    if (Sfixnump(sbuf) || Sbignump(sbuf)) {
-      free((void*)Sunsigned64_value(sbuf));
-    }
+  if (Sfixnump(disk_s) || Sbignump(disk_s)) {
+    free((void*)Sunsigned64_value(disk_s));
   }
 }
 
@@ -68,28 +74,23 @@ static void c_disk_close(ptr disk_s) {
  *   on error, return c_errno() < 0
  */
 static int c_disk_skip(ptr disk_s) {
-  ptr obj;
-  if (Spairp(disk_s) && Spairp(obj = Scdr(disk_s))) {
-    ptr spos = Scar(disk_s);
-    ptr sn   = Scar(obj);
-    if (Sfixnump(spos) && Sfixnump(sn)) {
-      iptr pos = Sfixnum_value(spos);
-      iptr n   = Sfixnum_value(sn);
-      if (pos < n) {
-        Sset_car(disk_s, Sfixnum(pos + 1));
-        return 1;
-      }
-      return 0; /* EOF */
+  if (Sfixnump(disk_s) && Sfixnump(disk_s)) {
+    c_disk* disk = (c_disk*)Sunsigned64_value(disk_s);
+    size_t  pos;
+    if (disk && (pos = disk->pos) < disk->len) {
+      disk->pos = pos + 1;
+      return 1;
     }
+    return 0; /* EOF */
   }
-  return -EINVAL;
+  return c_errno_set(EINVAL);
 }
 
 /**
  * copy one mounted file system info to bvec.
  * return Scons(device_name . mountpoint)
  */
-static ptr c_disk_fill(const struct statfs* entry, ptr bvec) {
+static ptr c_disk_fill(const c_statfs* entry, ptr bvec) {
   const uint64_t bsize = entry->f_bsize;
   unsigned char* vec   = Sbytevector_data(bvec);
   memset(vec, '\0', e_disk_byte_n);
@@ -109,7 +110,8 @@ static ptr c_disk_fill(const struct statfs* entry, ptr bvec) {
   set_uint64(vec, e_disk_dev, makedev(0, 0));
   set_uint64(vec, e_disk_flags, entry->f_flags);
   return Scons(scheme2k_Sstring_utf8b(entry->f_mntfromname, (size_t)-1),
-               scheme2k_Sstring_utf8b(entry->f_mntonname, (size_t)-1));
+               Scons(scheme2k_Sstring_utf8b(entry->f_mntonname, (size_t)-1),
+                     scheme2k_Sstring_utf8b(entry->f_fstypename, (size_t)-1)));
 }
 
 /**
@@ -119,22 +121,15 @@ static ptr c_disk_fill(const struct statfs* entry, ptr bvec) {
  *   on error, return c_errno() < 0
  */
 static ptr c_disk_get(ptr disk_s, ptr bvec) {
-  ptr obj;
-  if (Spairp(disk_s) && Spairp(obj = Scdr(disk_s)) && /**/
+  if ((Sfixnump(disk_s) || Sbignump(disk_s)) && /**/
       Sbytevectorp(bvec) && Sbytevector_length(bvec) == e_disk_byte_n) {
-
-    ptr spos = Scar(disk_s);
-    ptr sn   = Scar(obj);
-    ptr sbuf = Scdr(obj);
-    if (Sfixnump(spos) && Sfixnump(sn) && (Sfixnump(sbuf) || Sbignump(sbuf))) {
-      iptr pos = Sfixnum_value(spos);
-      iptr n   = Sfixnum_value(sn);
-      if (pos < n) {
-        Sset_car(disk_s, Sfixnum(pos + 1));
-        return c_disk_fill((const struct statfs*)Sunsigned64_value(sbuf) + pos, bvec);
-      }
-      return Sfixnum(0); /* EOF */
+    c_disk* disk = (c_disk*)Sunsigned64_value(disk_s);
+    size_t  pos;
+    if (disk && (pos = disk->pos) < disk->len) {
+      disk->pos = pos + 1;
+      return c_disk_fill(disk->vec + pos, bvec);
     }
+    return Sfixnum(0); /* EOF */
   }
   return Sinteger(c_errno_set(EINVAL));
 }

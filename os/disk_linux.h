@@ -83,7 +83,7 @@ static int c_disk_skip(ptr bsrc) {
 /**
  * read one mounted filesystem from /proc/self/mountinfo, represented as a bytevector0 bsrc
  *
- * On success, return cons (dev_name . mount_point), fill bvec and update offset.
+ * On success, return list (dev_name mount_point . fs_type), fill bvec and update offset.
  * On end-of-file, return 0
  * On I/O error, return c_errno() < 0
  * On parsing errors, return #f
@@ -141,7 +141,8 @@ static ptr c_disk_get(ptr bsrc, ptr bvec) {
       set_uint64(vec, e_disk_dev, makedev(dev_major, dev_minor));
       set_uint64(vec, e_disk_flags, entry.f_flag);
       return Scons(scheme2k_Sstring_utf8b(dev_name, (size_t)-1),
-                   scheme2k_Sstring_utf8b(mountpoint, (size_t)-1));
+                   Scons(scheme2k_Sstring_utf8b(mountpoint, (size_t)-1),
+                         scheme2k_Sstring_utf8b(fs_type, (size_t)-1)));
     }
   }
   return *src ? Sfalse : Sfixnum(0);
