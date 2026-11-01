@@ -109,9 +109,9 @@ static ptr c_disk_fill(const c_statfs* entry, ptr bvec) {
   set_uint64(vec, e_disk_blocksize, bsize);
   set_uint64(vec, e_disk_dev, makedev(0, 0));
   set_uint64(vec, e_disk_flags, entry->f_flags);
-  return Scons(scheme2k_Sstring_utf8b(entry->f_mntfromname, (size_t)-1),
-               Scons(scheme2k_Sstring_utf8b(entry->f_mntonname, (size_t)-1),
-                     scheme2k_Sstring_utf8b(entry->f_fstypename, (size_t)-1)));
+  return Scons(C_SSTRING_UTF8b(entry->f_mntfromname),
+               Scons(C_SSTRING_UTF8b(entry->f_mntonname), /**/
+                     C_SSTRING_UTF8b(entry->f_fstypename)));
 }
 
 /**

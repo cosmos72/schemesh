@@ -13,7 +13,7 @@
 #include <errno.h>
 #include <stddef.h> /* size_t */
 #include <stdint.h> /* int64_t, uint64_t */
-#include <string.h> /* memcpy() */
+#include <string.h> /* memchr(), memcpy() */
 
 typedef char sizeof_int64_is_8[sizeof(int64_t) == 8 ? 1 : -1];
 typedef char sizeof_uint64_is_8[sizeof(uint64_t) == 8 ? 1 : -1];
@@ -44,14 +44,25 @@ static int c_errno(void) {
   return -errno;
 }
 
-#if defined(__linux__)
+/**
+ * convert a C byte[] from UTF-8b to Scheme string and return it.
+ * If out of memory, or required string length > maximum string length, raises condition.
+ * If a char '\0' is present before maxlen, assume it ends the string (and do NOT copy it).
+ */
+static ptr c_Sstring_utf8b(const char bytes[], size_t maxlen) {
+  const char*  end = bytes && maxlen ? memchr(bytes, '\0', maxlen) : 0;
+  const size_t len = end ? end - bytes : maxlen;
+  return scheme2k_Sstring_utf8b(bytes, len);
+}
+
+#define C_SSTRING_UTF8b(array) c_Sstring_utf8b((array), sizeof(array))
+
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#include "util_bsd.h"
+#elif defined(__linux__)
 #include "util_linux.h"
 #elif defined(__APPLE__)
 #include "util_macos.h"
-#elif defined(__FreeBSD__)
-#include "util_freebsd.h"
-#elif defined(__OpenBSD__)
-#include "util_openbsd.h"
 #endif
 
 #endif /* SCHEME2K_OS_UTIL_H */

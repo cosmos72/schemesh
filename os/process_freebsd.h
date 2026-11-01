@@ -149,7 +149,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_uint64(vec, e_proc_maj_fault, kp->ki_rusage.ru_majflt);
   vec[e_proc_state * 8] = (uint8_t)state_to_char(kp->ki_stat);
 
-  return Scons(scheme2k_Sstring_utf8b(kp->ki_comm, (size_t)-1), make_tty_name(kp->ki_tdev));
+  return Scons(C_SSTRING_UTF8b(kp->ki_comm), make_tty_name(kp->ki_tdev));
 }
 
 #endif /* SCHEME2K_OS_PROCESS_FREEBSD_H */

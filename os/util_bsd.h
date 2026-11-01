@@ -7,7 +7,7 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#ifndef SCHEME2K_OS_UTIL_OPENBSD_H
-#define SCHEME2K_OS_UTIL_OPENBSD_H
+#ifndef SCHEME2K_OS_UTIL_BSD_H
+#define SCHEME2K_OS_UTIL_BSD_H
 
-#endif /* SCHEME2K_OS_UTIL_OPENBSD_H */
+#endif /* SCHEME2K_OS_UTIL_BSD_H */

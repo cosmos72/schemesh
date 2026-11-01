@@ -140,9 +140,9 @@ static ptr c_disk_get(ptr bsrc, ptr bvec) {
       set_uint64(vec, e_disk_blocksize, bsize);
       set_uint64(vec, e_disk_dev, makedev(dev_major, dev_minor));
       set_uint64(vec, e_disk_flags, entry.f_flag);
-      return Scons(scheme2k_Sstring_utf8b(dev_name, (size_t)-1),
-                   Scons(scheme2k_Sstring_utf8b(mountpoint, (size_t)-1),
-                         scheme2k_Sstring_utf8b(fs_type, (size_t)-1)));
+      return Scons(C_SSTRING_UTF8b(dev_name),
+                   Scons(C_SSTRING_UTF8b(mountpoint), /**/
+                         C_SSTRING_UTF8b(fs_type)));
     }
   }
   return *src ? Sfalse : Sfixnum(0);
