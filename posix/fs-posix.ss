@@ -259,7 +259,7 @@
       ((path options)
         (let* ((vec       (make-dir-entry-vector))
                (symlinks? (memq 'symlinks options))
-               (err       (c-file-stat (path->c-path0 path) (if symlinks? #x6ffe #x2ffe) vec))
+               (err       (c-file-stat (path->c-path0 path) (if symlinks? #x7ffe #x3ffe) vec))
                (path      (text->string path)))
           (cond
             ((and (fixnum? err) (fx>=? err 0))
