@@ -26,6 +26,7 @@
 (define %eq-hashtable-rtd  (record-rtd (make-eq-hashtable)))
 (define %eqv-hashtable-rtd (record-rtd (make-eqv-hashtable)))
 (define %gen-hashtable-rtd (record-rtd (make-hashtable equal-hash equal?)))
+(define %sym-hashtable-rtd (record-rtd (make-hashtable symbol-hash symbol=?)))
 
 (define %eqv-hashtable->eq-hashtable
     (record-accessor-byname %eqv-hashtable-rtd 'eqht))

@@ -460,6 +460,15 @@
     (writer val out)))
 
 
+(define (display-hashtable ht out writer)
+  (put-string out "(hashtable ")
+  (display-procedure-name (hashtable-hash-function ht) out)
+  (put-char out #\space)
+  (display-procedure-name (hashtable-equivalence-function ht) out)
+  (display-hashtable-content ht out writer)
+  (put-string out ")"))
+
+
 ;; customize how "hash-cursor" objects are printed
 (record-writer (record-type-descriptor %hash-cursor)
   (lambda (cursor out writer)
@@ -483,13 +492,7 @@
 
 
 ;; customize how hashtable objects are printed
-(record-writer %gen-hashtable-rtd
-  (lambda (ht out writer)
-    (put-string out "(hashtable ")
-    (display-procedure-name (hashtable-hash-function ht) out)
-    (put-char out #\space)
-    (display-procedure-name (hashtable-equivalence-function ht) out)
-    (display-hashtable-content ht out writer)
-    (put-string out ")")))
+(record-writer %gen-hashtable-rtd display-hashtable)
+(record-writer %sym-hashtable-rtd display-hashtable)
 
 ) ; close library
