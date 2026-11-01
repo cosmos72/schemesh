@@ -972,7 +972,7 @@
     str))
 
 
-;; try to extract and display name of a procedure object
+;; try to extract and display the name of a procedure object
 (define (display-procedure-name proc out)
   (if (procedure? proc)
     (let* ((str (format #f "~a" proc))
@@ -980,7 +980,7 @@
       (if (and (fx>? len 13)
                (string-prefix? str "#<procedure ")
                (string-suffix? str ">"))
-        (display (substring str 12 (fx1- len)) out)
+        (put-string out (substring str 12 (fx1- len)))
         (display proc out)))
     (display proc out)))
 

@@ -437,12 +437,12 @@
       (lambda (cell1 cell2) (< (car cell1) (car cell2)))
       ret))                                            ((1.0 . A) (2.1 . B) (3 . C))
 
-  (let ((str (format #f "~a" (hashtable equal-hash equal? 1 'a "2" 'b))))
-    (or (string=? str "(hashtable equal-hash equal? 1 a 2 b)")
-        (string=? str "(hashtable equal-hash equal? 2 b 1 a)")))
+  (let ((str (format #f "~s" (hashtable equal-hash equal? 1 'a "2" 'b))))
+    (or (string=? str "(hashtable equal-hash equal? 1 a \"2\" b)")
+        (string=? str "(hashtable equal-hash equal? \"2\" b 1 a)")))
                                                        #t
 
-  (format #f "~a"
+  (format #f "~s"
     (hashtable symbol-hash symbol=? 'x 789))           "(hashtable symbol-hash symbol=? x 789)"
 
   ;; ------------------------ ordered-hash -----------------------------------
