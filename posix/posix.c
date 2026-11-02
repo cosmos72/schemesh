@@ -51,25 +51,22 @@
 #include <sys/wait.h>     /* waitpid(), W... */
 #include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep(), time() */
 #include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
-#ifdef __linux__
-#define SCHEMESH_USE_TTY_IOCTL
-#else
-#undef SCHEMESH_USE_TTY_IOCTL
-#endif
 
-#ifdef SCHEMESH_USE_TTY_IOCTL
+#ifdef __linux__
+#define SCHEME2K_USE_TTY_IOCTL
 #include <asm/termbits.h> /* struct termios, incompatible with <termios.h> */
 #else
+#undef SCHEME2K_USE_TTY_IOCTL
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
 #endif
 
 #ifdef __OpenBSD__
-#define SHM_FLOCK
-#undef SHM_MUTEX
+#define SCHEME2K_USE_SHM_FLOCK
+#undef SCHEME2K_USE_SHM_MUTEX
 #include <sys/file.h> /* flock() */
 #else
-#undef SHM_FLOCK
-#define SHM_MUTEX
+#undef SCHEME2K_USE_SHM_FLOCK
+#define SCHEME2K_USE_SHM_MUTEX
 #endif
 
 #ifndef CHEZ_SCHEME_DIR
@@ -93,7 +90,7 @@
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 
-#define SCHEME2K_POSIX_POSIX_C /* tell who we are to posix/signal.h  */
+#define SCHEME2K_POSIX_POSIX_C /* tell who we are to #included files  */
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 

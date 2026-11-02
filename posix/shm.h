@@ -26,19 +26,18 @@ typedef struct {
 } shm_entry;
 
 typedef struct {
-#ifdef SHM_MUTEX
+#ifdef SCHEME2K_USE_SHM_MUTEX
   pthread_mutex_t mutex;
 #endif
   size_t entry_n;
   size_t free_pos;
-  size_t capacity; /* redundant? */
   /* followed by entry_n elements, each a shm_entry */
 } shm_head;
 
 typedef struct {
   shm_head* head;
   size_t    mmapped_size;
-#ifdef SHM_FLOCK
+#ifdef SCHEME2K_USE_SHM_FLOCK
   int lock_fd;
 #endif
 } shm_ctx;
@@ -48,7 +47,7 @@ static int c_shm_mmap_init(shm_ctx* ctx, int reserve_fd) {
   shm_head* head;
   int       err = EINVAL;
 
-#ifdef SHM_MUTEX
+#ifdef SCHEME2K_USE_SHM_MUTEX
   pthread_mutexattr_t attr;
   /* we do NOT want reserve_fd: check that caller did not provide a valid file descriptor */
   if (ctx && reserve_fd < 0 && (head = ctx->head) && (err = pthread_mutexattr_init(&attr)) == 0) {
@@ -64,25 +63,23 @@ static int c_shm_mmap_init(shm_ctx* ctx, int reserve_fd) {
     ) {
       head->entry_n  = 0;
       head->free_pos = sizeof(shm_head);
-      head->capacity = ctx->mmapped_size;
 
       err = pthread_mutex_init(&head->mutex, &attr);
     }
     (void)pthread_mutexattr_destroy(&attr);
   }
-#else  /* SHM_FLOCK */
-  /* we NEED reserve_fd: check that caller provided a valid file descriptor */
+#else  /* SCHEME2K_USE_SHM_FLOCK */
+  /* we need reserve_fd: check that caller provided a valid file descriptor */
   if (ctx && reserve_fd >= 0 && (head = ctx->head)) {
     char template[] = "/tmp/schemesh_shm_lock.XXXXXX";
     int temp_fd     = mkstemp(template);
     int lock_fd     = -1;
-    if (temp_fd >= 0 &&                             /**/
-        unlink(template) >= 0 &&                    /**/
-        dup2(temp_fd, lock_fd = reserve_fd) >= 0 && /**/
-        fcntl(lock_fd, F_SETFD, FD_CLOEXEC) >= 0) {
+    if (temp_fd >= 0 &&                   /**/
+        unlink(template) >= 0 &&          /**/
+        dup2(temp_fd, reserve_fd) >= 0 && /**/
+        fcntl(lock_fd = reserve_fd, F_SETFD, FD_CLOEXEC) >= 0) {
       head->entry_n  = 0;
       head->free_pos = sizeof(shm_head);
-      head->capacity = ctx->mmapped_size;
       ctx->lock_fd   = lock_fd;
       (void)close(temp_fd); /* temp_fd is no longer needed */
       return 0;
@@ -95,12 +92,12 @@ static int c_shm_mmap_init(shm_ctx* ctx, int reserve_fd) {
       (void)close(temp_fd);
     }
   }
-#endif /* SHM_FLOCK */
+#endif /* SCHEME2K_USE_SHM_FLOCK */
   return -err;
 }
 
 static ptr c_shm_need_fd(void) {
-#ifdef SHM_FLOCK
+#ifdef SCHEME2K_USE_SHM_FLOCK
   return Strue;
 #else
   return Sfalse;
@@ -135,7 +132,7 @@ static int c_shm_close(shm_ctx* ctx) {
   if (ctx == NULL) {
     return -EINVAL;
   }
-#ifdef SHM_FLOCK
+#ifdef SCHEME2K_USE_SHM_FLOCK
   if (ctx->lock_fd >= 0) {
     (void)close(ctx->lock_fd);
     ctx->lock_fd = -1;
@@ -154,7 +151,7 @@ static int c_shm_lock(shm_ctx* ctx) {
     return -EINVAL;
   }
 
-#ifdef SHM_MUTEX
+#ifdef SCHEME2K_USE_SHM_MUTEX
   {
     int err = pthread_mutex_lock(&ctx->head->mutex);
 #ifdef PTHREAD_MUTEX_ROBUST
@@ -167,12 +164,12 @@ static int c_shm_lock(shm_ctx* ctx) {
 #endif /* PTHREAD_MUTEX_ROBUST */
     return -err;
   }
-#else  /* SHM_FLOCK */
+#else  /* SCHEME2K_USE_SHM_FLOCK */
   if (flock(ctx->lock_fd, LOCK_EX) < 0) {
     return c_errno();
   }
   return 0;
-#endif /* SHM_FLOCK */
+#endif /* SCHEME2K_USE_SHM_FLOCK */
 }
 
 /* return 0 on success, < 0 on error */
@@ -180,14 +177,14 @@ static int c_shm_unlock(shm_ctx* ctx) {
   if (ctx == NULL || ctx->head == NULL) {
     return -EINVAL;
   }
-#ifdef SHM_MUTEX
+#ifdef SCHEME2K_USE_SHM_MUTEX
   return -pthread_mutex_unlock(&ctx->head->mutex);
-#else  /* SHM_FLOCK */
+#else  /* SCHEME2K_USE_SHM_FLOCK */
   if (flock(ctx->lock_fd, LOCK_UN) < 0) {
     return c_errno();
   }
   return 0;
-#endif /* SHM_FLOCK */
+#endif /* SCHEME2K_USE_SHM_FLOCK */
 }
 
 /*
@@ -260,12 +257,12 @@ static ptr c_shm_locked_delete(shm_ctx* ctx) {
   if (ctx == NULL || (head = ctx->head) == NULL) {
     return Sinteger(-EINVAL);
   }
-#ifdef SHM_MUTEX
+#ifdef SCHEME2K_USE_SHM_MUTEX
   if (pthread_mutex_trylock(&head->mutex) == 0) {
     (void)pthread_mutex_unlock(&head->mutex);
     return Sinteger(-EINVAL);
   }
-#endif /* SHM_MUTEX */
+#endif /* SCHEME2K_USE_SHM_MUTEX */
   if (head->entry_n == 0) {
     return Snil;
   }

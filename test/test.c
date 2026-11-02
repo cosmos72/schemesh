@@ -19,9 +19,9 @@
 #include <unistd.h> /* chdir() */
 
 #if !defined(__GNUC__) || defined(__OPTIMIZE__)
-#define SCHEME_OPTIMIZE
+#define SCHEME2K_OPTIMIZE
 #else
-#undef SCHEME_OPTIMIZE
+#undef SCHEME2K_OPTIMIZE
 #endif
 
 #define LIBSCHEME2K_SO "libscheme2k_1.0.2.so"
@@ -91,14 +91,14 @@ static int compile_schemesh_so(const char* source_dir) {
             strerror(err));
     return err;
   }
-#ifdef SCHEME_OPTIMIZE
+#ifdef SCHEME2K_OPTIMIZE
   ret =
       scheme2k_eval("(parameterize ((optimize-level 2))\n"
                     "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
                     "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
                     "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
                     "    #t\n)");
-#else /* !SCHEME_OPTIMIZE */
+#else /* !SCHEME2K_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (debug-level    3)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
@@ -129,14 +129,14 @@ static int compile_scheme2k_so(const char* source_dir) {
             strerror(err));
     return err;
   }
-#ifdef SCHEME_OPTIMIZE
+#ifdef SCHEME2K_OPTIMIZE
   ret =
       scheme2k_eval("(parameterize ((optimize-level 2))\n"
                     "  (compile-file \"libscheme2k.ss\" \"libscheme2k_temp.so\")\n"
                     "  (strip-fasl-file \"libscheme2k_temp.so\" \"" LIBSCHEME2K_SO "\"\n"
                     "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
                     "    #t\n)");
-#else /* !SCHEME_OPTIMIZE */
+#else /* !SCHEME2K_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (debug-level    3)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"

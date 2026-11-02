@@ -38,7 +38,7 @@ static void c_tty_quit(void) {
 }
 
 static int c_tty_getattr(int fd, struct termios* conf) {
-#ifdef SCHEMESH_USE_TTY_IOCTL
+#ifdef SCHEME2K_USE_TTY_IOCTL
   return ioctl(fd, TCGETS, conf);
 #else
   return tcgetattr(fd, conf);
@@ -46,7 +46,7 @@ static int c_tty_getattr(int fd, struct termios* conf) {
 }
 
 static int c_tty_setattr(int fd, const struct termios* conf) {
-#ifdef SCHEMESH_USE_TTY_IOCTL
+#ifdef SCHEME2K_USE_TTY_IOCTL
   return ioctl(fd, TCSETSW, conf);
 #else
   return tcsetattr(fd, TCSADRAIN, conf);

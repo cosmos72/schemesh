@@ -12,6 +12,8 @@
 
 #if defined(__FreeBSD__)
 
+#define SCHEME2K_USE_PROC_KINFO
+#undef SCHEME2K_USE_PROC_KVM
 #include <libutil.h> /* kinfo_getallproc() */
 #include <sys/time.h>
 #include <sys/types.h>
@@ -19,6 +21,8 @@
 
 #elif defined(__OpenBSD__)
 
+#undef SCHEME2K_USE_PROC_KINFO
+#define SCHEME2K_USE_PROC_KVM
 #include <fcntl.h>
 #include <kvm.h>
 #include <sys/param.h>
@@ -26,6 +30,15 @@
 #include <sys/sysctl.h>
 
 #endif
+
+typedef struct {
+  struct kinfo_proc* kp;
+  int                pos;
+  int                count;
+#ifdef SCHEME2K_USE_PROC_KVM
+  kvm_t* kvm;
+#endif
+} kprocs;
 
 static char state_to_char(int state) {
   switch (state) {
@@ -65,7 +78,7 @@ static void set_timeval2(void* dst, size_t i, int64_t sec, int32_t usec) {
   set_int64(dst, i + 1, sec);
 }
 
-#ifdef __FreeBSD__
+#ifdef SCHEME2K_USE_PROC_KINFO
 static void set_timeval(void* dst, size_t i, struct timeval t) {
   set_timeval2(dst, i, t.tv_sec, t.tv_usec);
 }
@@ -83,15 +96,6 @@ static ptr make_tty_name(dev_t tty) {
     return Smake_string(0, 0); /* no controlling tty */
   }
 }
-
-typedef struct {
-  struct kinfo_proc* kp;
-  int                pos;
-  int                count;
-#ifdef __OpenBSD__
-  kvm_t* kvm;
-#endif
-} kprocs;
 
 /** convert Scheme exact integer to C kprocs* */
 static kprocs* to_kprocs(ptr addr) {
@@ -112,11 +116,11 @@ static ptr c_process_open(void) {
     return Sinteger(c_errno()); /* < 0 */
   }
   procs->pos = 0;
-#if defined(__FreeBSD__)
+#if defined(SCHEME2K_USE_PROC_KINFO)
   procs->kp = kinfo_getallproc(&procs->count);
   if (procs->kp == NULL || procs->count < 0) {
     free(procs->kp);
-#elif defined(__OpenBSD__)
+#elif defined(SCHEME2K_USE_PROC_KVM)
   procs->kvm = kvm_open(NULL, NULL, NULL, KVM_NO_FILES, NULL);
   procs->kp =
       procs->kvm ?
@@ -139,9 +143,9 @@ static ptr c_process_open(void) {
 static void c_process_close(ptr addr) {
   kprocs* procs = to_kprocs(addr);
   if (procs) {
-#if defined(__FreeBSD__)
+#if defined(SCHEME2K_USE_PROC_KINFO)
     free(procs->kp);
-#elif defined(__OpenBSD__)
+#elif defined(SCHEME2K_USE_PROC_KVM)
     kvm_close(procs->kvm);
 #endif
     free(procs);
@@ -186,9 +190,9 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   }
   vec = Sbytevector_data(bvec);
 
-#if defined(__FreeBSD__)
+#if defined(SCHEME2K_USE_PROC_KINFO)
 #define KP(field) kp->ki_##field
-#elif defined(__OpenBSD__)
+#elif defined(SCHEME2K_USE_PROC_KVM)
 #define KP(field) kp->p_##field
 #endif
 
@@ -199,7 +203,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_int64(vec, e_proc_ppid, KP(ppid));
   set_int64(vec, e_proc_sid, KP(sid));
 
-#if defined(__FreeBSD__)
+#if defined(SCHEME2K_USE_PROC_KINFO)
   set_int64(vec, e_proc_pgid, KP(pgid));
   set_uint64(vec, e_proc_mem_rss, (uint64_t)KP(rssize) * pagesz);
   set_uint64(vec, e_proc_mem_virt, (uint64_t)KP(size));
@@ -210,7 +214,7 @@ static ptr c_process_get(ptr addr, ptr bvec) {
   set_int64(vec, e_proc_num_thread, KP(numthreads));
   set_uint64(vec, e_proc_min_fault, KP(rusage.ru_minflt));
   set_uint64(vec, e_proc_maj_fault, KP(rusage.ru_majflt));
-#elif defined(__OpenBSD__)
+#elif defined(SCHEME2K_USE_PROC_KVM)
   set_int64(vec, e_proc_pgid, KP(_pgid));
   set_uint64(vec, e_proc_mem_rss, (uint64_t)KP(vm_rssize) * pagesz);
   set_uint64(vec, e_proc_mem_virt, ((uint64_t)KP(vm_tsize) + KP(vm_dsize) + KP(vm_ssize)) * pagesz);

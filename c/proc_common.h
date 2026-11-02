@@ -146,7 +146,7 @@ static size_t c_pagesize(void) {
 #endif
 
     /*else */ {
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
       n = getpagesize();
 #elif defined(PAGESIZE) && PAGESIZE > 0
       n = PAGESIZE;
