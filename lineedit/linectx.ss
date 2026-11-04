@@ -44,6 +44,7 @@
 (define flag-sigwinch? 4)
 (define flag-redraw?     8)
 (define flag-mark-not-bol? 16)
+(define flag-bracketed-paste? 32)
 
 (define (linectx-flag? lctx bit)
   (not (fxzero? (fxand bit (linectx-flags lctx)))))
@@ -66,6 +67,8 @@
   (linectx-flag? lctx flag-redraw?))
 (define (linectx-mark-not-bol? lctx)
   (linectx-flag? lctx flag-mark-not-bol?))
+(define (linectx-bracketed-paste? lctx)
+  (linectx-flag? lctx flag-bracketed-paste?))
 
 (define (linectx-eof-set! lctx flag?)
   (linectx-flag-set! lctx flag-eof? flag?))
@@ -77,6 +80,9 @@
   (linectx-flag-set! lctx flag-redraw? flag?))
 (define (linectx-mark-not-bol-set! lctx flag?)
   (linectx-flag-set! lctx flag-mark-not-bol? flag?))
+(define (linectx-bracketed-paste-set! lctx flag?)
+  (linectx-flag-set! lctx flag-bracketed-paste? flag?))
+
 
 ;; return number of vlines
 (define (linectx-end-y lctx)

@@ -466,6 +466,9 @@
   (%add t lineedit-key-history-prev  #vu8(27 91 53 126) #vu8(27 91 49 59 53 65)) ; PGUP   \e[5~  CTRL+Up   \e[1;5A
   (%add t lineedit-key-history-next  #vu8(27 91 54 126) #vu8(27 91 49 59 53 66)) ; PGDWN  \e[6~  CTRL+Dpwn \e[1;5B
 
+  (%add t lineedit-key-bracketed-paste-begin #vu8(27 91 50 48 48 126)) ; \e[200~
+  (%add t lineedit-key-bracketed-paste-end   #vu8(27 91 50 48 49 126)) ; \e[201~
+
   (%add t lineedit-key-nop #vu8(27 91 91 65)     #vu8(27 91 91 66)      ; F1..F2
     #vu8(27 91 91 67)      #vu8(27 91 91 68)     #vu8(27 91 91 69)      ; F3..F4
     #vu8(27 91 49 53 126)  #vu8(27 91 49 55 126) #vu8(27 91 49 56 126)  ; F4..F7

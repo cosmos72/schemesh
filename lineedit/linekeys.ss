@@ -78,6 +78,11 @@
     (linectx-eof-set! lctx #t)
     (lineedit-key-del-right lctx)))
 
+(define (lineedit-key-bracketed-paste-begin lctx)
+  (linectx-bracketed-paste-set! lctx #t))
+
+(define (lineedit-key-bracketed-paste-end lctx)
+  (linectx-bracketed-paste-set! lctx #f))
 
 ;; transpose character under cursor with previous one,
 ;; then move cursor one position to the right
@@ -167,7 +172,7 @@
 
 (define (lineedit-key-enter lctx)
   (linectx-paren-update/force! lctx)
-  (if (linectx-paren-recursive-ok? lctx)
+  (if (and (not (linectx-bracketed-paste? lctx)) (linectx-paren-recursive-ok? lctx))
     (linectx-return-set! lctx #t)
     (lineedit-key-newline-left lctx)))
 

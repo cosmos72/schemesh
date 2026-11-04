@@ -43,10 +43,10 @@
                                           span-reader span-ref span-set!)
     (only (scheme2k containers string)    string-contains string-prefix? string-suffix? string-is-unsigned-base10-integer?)
     (only (scheme2k containers utf8b)     bytespan-display-right/datum! bytespan-insert-right/string! utf8b-bytespan->string)
-    (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-history linectx-parser-name linectx-parser-name-set!
+    (only (scheme2k lineedit lineedit)    linectx? linectx-load-history! linectx-flush linectx-history linectx-parser-name linectx-parser-name-set!
                                           linectx-parsers linectx-parsers-set! linectx-prompt-end-x linectx-save-history linectx-width
                                           lineedit-cleanup-after-cmd lineedit-cleanup-before-cmd lineedit-clear! lineedit-flush lineedit-read
-                                          lineterm-write/string lineterm-write/u8)
+                                          lineterm-write/bytevector lineterm-write/string lineterm-write/u8)
     (only (scheme2k io auto)         make-auto-reader)
     (only (scheme2k io csv)          make-csv-reader make-csv-writer)
     (only (scheme2k io field)        make-field-reader)
@@ -307,7 +307,7 @@
 ;; Returns updated parser to use, or #f if got end-of-file.
 ;;
 ;; Implementation note:
-;;   some forms we may eval, as (break) (debug) (inspect) ...
+;;   some forms we may eval, as (sh-run) (break) (debug) (inspect) ...
 ;;   expect the tty to be in canonical mode, not in raw mode.
 ;;
 ;;   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
@@ -316,7 +316,7 @@
 ;;
 ;;   For these reasons, the loop evaluating each form
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-once print-func lctx flush?)
+(define (repl-once print-func lctx tty-bracketed-paste flush?)
   ;; (debugf "repl-once ready")
   (let ((obj (repl-lineedit lctx flush?)))
     (case obj
@@ -332,13 +332,18 @@
             (let ((forms (ast-unwrap1 forms)))
               (when (pair? forms)
                 (dynamic-wind
-                  tty-restore!
+                  (lambda ()
+                    (tty-bracketed-paste #f)
+                    (linectx-flush lctx)
+                    (tty-restore!))
                   (lambda ()
                     (do ((tail forms (cdr tail)))
                         ((null? tail))
-                      (print-func ((repl-current-eval) (car tail) (sh-current-environment))))
-                    (sh-stdio-flush))
-                  tty-setraw!)))
+                      (print-func ((repl-current-eval) (car tail) (sh-current-environment)))))
+                  (lambda ()
+                    (tty-setraw!)
+                    (tty-bracketed-paste #t)
+                    (sh-stdio-flush)))))
             (void)))))))
 
 
@@ -350,7 +355,15 @@
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((my-repl-args (list print-func lctx #f #f))
-        (reload-count (sh-schemesh-reload-count)))
+        (reload-count (sh-schemesh-reload-count))
+        (tty-bracketed-paste (let ((val #f))
+                               (case-lambda
+                                 (() val)
+                                 ((new-val)
+                                   (unless (eq? new-val val)
+                                     (lineterm-write/bytevector lctx (if new-val #vu8(27 91 63 50 48 48 52 104)
+                                                                                 #vu8(27 91 63 50 48 48 52 108)))
+                                     (set! val new-val)))))))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
@@ -361,21 +374,22 @@
                          (lambda break-args
                            (repl-break-handler break-args my-repl-args)))
                        (exit-handler k-exit)
-                       (reset-handler (reset-handler)))
+                       (reset-handler (reset-handler))
+                       (tty-bracketed-paste #t))
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ;; when the (reset-handler) we installed is called, resume from here
             (let %repl-loop ((flush? #t))
-              (let ((obj (repl-once print-func lctx flush?)))
+              (let ((obj (repl-once print-func lctx tty-bracketed-paste flush?)))
                 (case obj
                   ((#f) ; EOF
-		    (sh-noexit-count-inc!)
+                    (sh-noexit-count-inc!)
                     (if (sh-can-exit?)
                       (lineterm-write/u8 lctx 10)
                       (begin
                         (lineedit-cleanup-before-cmd lctx "\nThere are stopped jobs.")
-			(lineedit-cleanup-after-cmd lctx)
+                        (lineedit-cleanup-after-cmd lctx)
                         (%repl-loop #t))))
                   ((#t) ; waiting for more input
                     (%repl-loop #f))

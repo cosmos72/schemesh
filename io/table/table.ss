@@ -464,7 +464,7 @@
       "")
     ((string? datum)
       (if (or (string-prefix? datum "\"")
-	      (string-quote? datum))
+              (string-quote? datum))
         (string-quote datum)
         datum))
     ((date? datum)
