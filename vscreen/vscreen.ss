@@ -426,7 +426,7 @@
               (if (and (fxzero? len) (not (vscreen-empty? screen)))
                 ;; line is empty, remove it unless it's the bottom line (which must be kept for cursor at eol)
                 (unless (fx=? (fx1+ y) (vscreen-length screen))
-		  (vscreen-delete-at/vline! screen y))
+                  (vscreen-delete-at/vline! screen y))
                 ;; line is not empty, move to next line
                 (set! y (fx1+ y))))))
         (unless (fx=? saved-n n)

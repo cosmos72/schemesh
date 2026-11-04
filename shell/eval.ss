@@ -234,7 +234,7 @@
   (case-lambda
     ((pctx initial-parser)
       (let-values (((forms updated-parser) (parse-forms pctx initial-parser)))
-	(wrap-forms-sh-run! forms)))
+        (wrap-forms-sh-run! forms)))
     ((pctx)
       (sh-read-parsectx pctx 'scheme))))
 
