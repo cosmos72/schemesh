@@ -355,8 +355,15 @@
         ((null? l))
       (%add-bytelist keytable (%any->bytelist (car l))))))
 
+;; if paste? is #f, return proc
+;; otherwise if proc can be safely executed from a bracketed paste of untrusted data, return proc
+;; otherwise return lineedit-key-nop
+(define (linectx-keytable-safe-replace proc paste?)
+  (if (or (not paste?) (eq? proc lineedit-key-enter) (eq? proc lineedit-key-bracketed-paste-end))
+    proc
+    lineedit-key-nop))
 
-(define (linectx-keytable-find keytable rbuf)
+(define (linectx-keytable-find keytable rbuf paste?)
   (assert* 'linectx-keytable-find (bytespan? rbuf))
   (let %find ((htable keytable)
               (rpos 0))
@@ -366,9 +373,12 @@
              (entry (hashtable-ref htable ch #f))
              (rpos+1 (fx1+ rpos)))
         (cond
-          ((procedure? entry) (values entry rpos+1))
-          ((hashtable? entry) (%find  entry rpos+1))
-          (else               (values #f    (bytespan-length rbuf))))))))
+          ((procedure? entry)
+            (values (linectx-keytable-safe-replace entry paste?) rpos+1))
+          ((hashtable? entry)
+            (%find  entry rpos+1))
+          (else
+            (values #f (bytespan-length rbuf))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -425,7 +435,7 @@
 (define (linectx-keytable-call lctx)
   (assert* 'linectx-keytable-call (linectx? lctx))
   (let ((rbuf (linectx-rbuf lctx)))
-    (let-values (((proc n) (linectx-keytable-find (linectx-keytable lctx) rbuf)))
+    (let-values (((proc n) (linectx-keytable-find (linectx-keytable lctx) rbuf (linectx-bracketed-paste? lctx))))
       ; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
       (cond
         ((procedure? proc) (void))     ; proc called below, we update rbuf first
@@ -438,8 +448,8 @@
           (bytespan-clear! rbuf))) ; set begin, end to 0
       (cond
         ((procedure? proc)
-          ; call lineedit-key-... procedure after updating rbuf:
-          ; it may need to read more keystrokes
+          ;; call lineedit-key-... procedure after updating rbuf:
+          ;; it may need to read more keystrokes
           (proc lctx)
           (linectx-last-key-set! lctx proc))
         ((not (fxzero? n))
