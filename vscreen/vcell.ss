@@ -28,8 +28,6 @@
 
 (define-syntax vcell-bytes-log2 (identifier-syntax 2))
 (define-syntax vcell-bytes      (identifier-syntax 4))
-(define-syntax vcell-min        (identifier-syntax #x-20000000))
-(define-syntax vcell-max        (identifier-syntax #x1fffffff))
 
 (define-syntax char-bits        (identifier-syntax 21))
 (define-syntax char-max         (identifier-syntax #x1fffff))
@@ -38,11 +36,15 @@
 
 (meta-cond
   ((fixnum? #x7fffffff)
+    (define-syntax vcell-min    (identifier-syntax #x-80000000))
+    (define-syntax vcell-max    (identifier-syntax #x7fffffff))
     (define-syntax palette-bits (identifier-syntax 11))
     (define-syntax palette-min  (identifier-syntax #x-400))
     (define-syntax palette-max  (identifier-syntax #x3ff))
     (define-syntax palette-n    (identifier-syntax #x800)))
   (else
+    (define-syntax vcell-min    (identifier-syntax #x-20000000))
+    (define-syntax vcell-max    (identifier-syntax #x1fffffff))
     (define-syntax palette-bits (identifier-syntax 9))
     (define-syntax palette-min  (identifier-syntax #x-100))
     (define-syntax palette-max  (identifier-syntax #xff))
@@ -52,16 +54,13 @@
 (define-syntax color-min  (identifier-syntax #x-100))
 (define-syntax color-max  (identifier-syntax #xffffff))
 
-(define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
-(define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
 
-
-;; HOW TO ENCODE GLYPH WIDTH:
+;; ENCODING GLYPH WIDTH:
 ;;   narrow glyph is represented as its codepoint [0 ... #x10ffff]
 ;;   wide glyph, left half  is represented as its codepoint + #x180000
-;;   wide glyph, right half is represented as its codepoint + #x1C0000
+;;   wide glyph, right half is represented as its codepoint + #x1c0000
 ;;
-;; since wide codepoints are present only in [#x1100 ... #x3FFFF],
+;; since wide codepoints are present only in [#x1100 ... #x3ffff],
 ;;   wide glyph, left half  is [#x180000 ... #x1bffff]
 ;;   wide glyph, right half is [#x1c0000 ... #x1fffff]
 ;;
@@ -80,9 +79,33 @@
 (define (vcell->char cl)
   (integer->char* (fxand cl (if (vcell-wide? cl) #x3ffff #x1fffff))))
 
+;; given a wide char or vcell containing a wide glyph,
+;; return a vcell containing the same palette and glyph tagged as "wide, left half"
+(define (vcell-or-char->wide-left c)
+  (let ((cl (if (char? c) (char->integer c) c)))
+    (fxand (fxior cl #x180000) (fxnot #x40000))))
+
+;; given a wide char or vcell containing a wide glyph,
+;; return a vcell containing the same palette and glyph tagged as "wide, right half"
+(define (vcell-or-char->wide-right c)
+  (let ((cl (if (char? c) (char->integer c) c)))
+    (fxior cl #x1c0000)))
+
+(define (vcell? cl)
+  (and (fixnum? cl) (fx<=? vcell-min cl vcell-max)))
+
+(define (vcell-or-char-display-width c)
+  (cond
+    ((char?            c) (char-display-width c))
+    ((vcell-narrow?    c) 1)
+    ((vcell-wide-left? c) 2)
+    (else                 0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+(define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
+(define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
 
 ;; convert from vcell count to byte count
 (define-syntax vcell<<
@@ -343,11 +366,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; vcell is a colored cell in a terminal emulator: contains unicode codepoint + palette index
-(define (vcell? cl)
-  (and (fixnum? cl) (fx<=? vcell-min cl vcell-max)))
-
-
 (define vcell
   (case-lambda
     ((ch)
@@ -372,6 +390,8 @@
     (unless (fx=? palette old-palette)
       (vpalette-display palette port))
     (cond
+      ((vcell-wide-right? cl)
+        (void))
       ((or (char=? #\" ch) (char=? #\\ ch))
         (put-char port #\\)
         (put-char port ch))
@@ -383,14 +403,14 @@
       (else
         (let ((n (char->integer ch)))
           (put-string port "\\x")
-          (display (number->string n 16) port)
+          (put-string (number->string n 16) port)
           (put-char port #\;))))))
 
 
 ;; write colored char to bytespan, NOT escaping special characters
 (define (vcell-display/bytespan cl old-palette wbuf)
-  (let ((ch      (vcell->char    cl))
-        (palette (vcell->vpalette cl)))
+  (let ((palette (vcell->vpalette cl)))
     (unless (fx=? palette old-palette)
-      (vpalette-display/bytespan palette wbuf))
-    (bytespan-insert-right/char! wbuf ch)))
+      (vpalette-display/bytespan palette wbuf)))
+  (unless (vcell-wide-right? cl)
+    (bytespan-insert-right/char! wbuf (vcell->char cl))))

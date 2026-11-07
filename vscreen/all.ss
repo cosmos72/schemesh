@@ -10,7 +10,10 @@
 (library (scheme2k vscreen (1 0 2))
   (export
     ;; vcell.ss
-    vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan
+    vcell vcell? vcell-narrow? vcell-wide? vcell-wide-left? vcell-wide-right?
+    vcell-or-char->wide-left vcell-or-char->wide-right
+    vcell->char vcell->vpalette vcell->vcolors
+    vcell-or-char-display-width vcell-write vcell-display/bytespan
     vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
     vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
     vpalette? vpalette->vcolors
@@ -119,6 +122,7 @@
           (scheme2k containers gbuffer)
     (only (scheme2k containers utf8b)       integer->char* bytespan-insert-right/char!
                                             string->utf8b utf8b-bytespan->string)
+    (only (scheme2k conversions unicode)    char-display-width)
     (only (scheme2k posix fs)               file-delete file-rename)
     (only (scheme2k posix io)               file->port)
     (only (scheme2k posix pid)              pid-get))

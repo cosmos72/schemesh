@@ -30,7 +30,7 @@
 (define (char-display-width ch)
   (cond
     ((or (char<? ch #\space) (char=? ch #\x7f))
-      0)
+      (if (char=? ch #\newline) 1 0))
     ((and (char<=? wide-lowest ch wide-highest)
           (or
             (include "conversions/gen-unicode-wide-default.ss")

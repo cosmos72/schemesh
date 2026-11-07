@@ -243,16 +243,14 @@
 (define vbuffer-display/bytespan
   (case-lambda
     ((line start end wbuf)
-      (let ((old-palette 0))
-        (do ((pos start (fx1+ pos)))
-            ((fx>=? pos end))
+      (let %loop ((pos start) (old-palette 0))
+        (if (fx<? pos end)
           (let* ((cl      (vbuffer-ref line pos))
                  (palette (vcell->vpalette cl)))
             (vcell-display/bytespan cl old-palette wbuf)
-            (unless (fx=? old-palette palette)
-              (set! old-palette palette))))
-        (unless (fxzero? old-palette)
-          (vpalette-display/bytespan 0 wbuf))))
+            (%loop (fx1+ pos) palette))
+          (unless (fxzero? old-palette)
+            (vpalette-display/bytespan 0 wbuf)))))
     ((line wbuf)
      (vbuffer-display/bytespan line 0 (vbuffer-length line) wbuf))))
 
