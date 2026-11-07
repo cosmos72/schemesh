@@ -403,7 +403,7 @@
       (else
         (let ((n (char->integer ch)))
           (put-string port "\\x")
-          (put-string (number->string n 16) port)
+          (put-string port (number->string n 16))
           (put-char port #\;))))))
 
 

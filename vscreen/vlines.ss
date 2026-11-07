@@ -47,7 +47,7 @@
 (define vlines-length     gbuffer-length)
 
 
-;; convert vlines to string, removing all palette colors
+;; convert vlines to string, removing all palette colors and deduplicating wide glyphs
 (define (vlines->string lines)
   (let ((str (make-string (vlines-cell-count lines)))
         (i 0))
@@ -55,8 +55,10 @@
       (lambda (y line)
         (vline-iterate line
           (lambda (x c)
-            (string-set! str i (vcell->char c))
-            (set! i (fx1+ i))))))
+            (unless (vcell-wide-right? c)
+              (string-set! str i (vcell->char c))
+              (set! i (fx1+ i)))))))
+    (string-truncate! str i)
     str))
 
 
