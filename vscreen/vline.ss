@@ -13,7 +13,7 @@
 
 ;; type vline is a cell gap-buffer with additional fields:
 ;;
-;; - vline-share a cons. its car will be > 0 if the vline is shared copy-on-write
+;; - vline-share a box. its content will be a fixnum > 0 if the vline is shared copy-on-write
 ;;   between two or more vlines: its content will be automatically cloned at the first
 ;;   attempt to modify it.
 ;; - vline-dirty-start-x and vline-dirty-end-x fixnums indicating the range of cells
@@ -22,7 +22,7 @@
 (define-record-type (%vline %make-vline vline?)
   (parent %vbuffer)
   (fields
-    (mutable share) ; a cons (share-count . #f)
+    (mutable share) ; a box (share-count)
     (mutable dirty-start-x vline-dirty-start-x vline-dirty-start-x-set!)
     (mutable dirty-end-x   vline-dirty-end-x   vline-dirty-end-x-set!))
   (nongenerative %vline-7c46d04b-34f4-4046-b5c7-b63753c1be39))
@@ -34,23 +34,23 @@
 (define (make-vline left-span right-span)
   (assert* 'make-vline (vcellspan? left-span))
   (assert* 'make-vline (vcellspan? right-span))
-  (%make-vline left-span right-span (cons 0 #f) (greatest-fixnum) 0))
+  (%make-vline left-span right-span (box 0) (greatest-fixnum) 0))
 
 ;; increment vline share count by 1.
-;; return pair containing share count
+;; return box containing share count
 (define (vline-share-inc! line)
-  (let ((pair (%vline-share line)))
-    (set-car! pair (fx1+ (car pair)))
-    pair))
+  (let ((b (%vline-share line)))
+    (set-box! b (fx1+ (unbox b)))
+    b))
 
 ;; decrement vline share count by 1.
 ;; return #t if vline was shared, otherwise return #f
 (define (vline-share-dec! line)
-  (let* ((pair (%vline-share line))
-         (count (car pair))
+  (let* ((b       (%vline-share line))
+         (count   (unbox b))
          (shared? (fx>? count 0)))
     (when shared?
-      (set-car! pair (fx1- count)))
+      (set-box! b (fx1- count)))
     shared?))
 
 (define vline
@@ -74,7 +74,7 @@
   (when (vline-share-dec! line)
     (vbuffer-left-set!  line (vcellspan-copy (v< line)))
     (vbuffer-right-set! line (vcellspan-copy (v> line)))
-    (%vline-share-set!  line (cons 0 #f))))
+    (%vline-share-set!  line (box 0))))
 
 (define vline-empty?     vbuffer-empty?)
 (define vline-length     vbuffer-length)
