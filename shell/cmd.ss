@@ -371,6 +371,22 @@
           (hashtable-clear! remaps))))))
 
 
+;; call (body), which may fork().
+;; If an exception propagates out of (body) inside the forked child,
+;; display it and exit the child: it must not unwind into the parent's code.
+(define (call-exiting-forked-child-on-exception body)
+  (let ((parent-pid (pid-get)))
+    (with-exception-handler
+      (lambda (ex)
+        (if (or (eqv? parent-pid (pid-get))
+                (and (warning? ex) (not (serious-condition? ex))))
+          (raise-continuable ex)
+          (begin
+            (sh-exception-handler ex)
+            (sh-exit (exception #f)))))
+      body)))
+
+
 ;; Fork a new subprocess, and in the *child* subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
@@ -403,37 +419,39 @@
         (set! shm-from-children (let ((shm (wire-shm-open)))
                                   (and (wire-shm? shm) shm))))
 
-      (let* ((process-group-id (options->process-group-id options))
-             (ret              (c-fork-pid
-                                 (job-make-c-fd-remap-fxvector job)
-                                 (or process-group-id -1))))
-        (cond
-          ((< ret 0) ; fork() failed
-            (raise-c-errno 'sh-start 'fork ret))
-          ((= ret 0) ; child
-            (let ((status (exception #f)))
-              (dynamic-wind
-                (lambda () ; run before body
-                  (spawn-job-procedure-child-before job))
-                (lambda () ; body
-                  (options->call-fd-close options)
-                  (fds-close-on-fork-unused-by job)
-                  ;; (c-fork-pid) already applied fd remapping, forget them
-                  (job-fds-to-remap-clear/recursive! job)
+      (call-exiting-forked-child-on-exception
+        (lambda ()
+          (let* ((process-group-id (options->process-group-id options))
+                 (ret              (c-fork-pid
+                                     (job-make-c-fd-remap-fxvector job)
+                                     (or process-group-id -1))))
+            (cond
+              ((< ret 0) ; fork() failed
+                (raise-c-errno 'sh-start 'fork ret))
+              ((= ret 0) ; child
+                (let ((status (exception #f)))
+                  (dynamic-wind
+                    (lambda () ; run before body
+                      (spawn-job-procedure-child-before job))
+                    (lambda () ; body
+                      (options->call-fd-close options)
+                      (fds-close-on-fork-unused-by job)
+                      ;; (c-fork-pid) already applied fd remapping, forget them
+                      (job-fds-to-remap-clear/recursive! job)
 
-                  ;c (debugf "> [child] spawn-job-procedure job=~s subprocess calling proc ~s" job proc)
-                  (proc job (options-filter-out options '(fd-close spawn?)))
+                      ;c (debugf "> [child] spawn-job-procedure job=~s subprocess calling proc ~s" job proc)
+                      (proc job (options-filter-out options '(fd-close spawn?)))
 
-                  ;c (debugf ". [child] spawn-job-procedure job=~s subprocess proc returned ~s pid=~s" job ret (job-pid job))
-                  (set! status (sh-wait job)))
-                (lambda () ; run after body, even if it raised a condition
-                  ;c (debugf "< [child] spawn-job-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
-                  (unless job-start-exit-from-spawned-subprocess?
-                    (sh-exit status))))))
-          ((> ret 0) ; parent
-            (job-pid-set! job ret)
-            (job-pgid-set! job process-group-id)
-            (running)))))))
+                      ;c (debugf ". [child] spawn-job-procedure job=~s subprocess proc returned ~s pid=~s" job ret (job-pid job))
+                      (set! status (sh-wait job)))
+                    (lambda () ; run after body, even if it raised a condition
+                      ;c (debugf "< [child] spawn-job-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                      (unless job-start-exit-from-spawned-subprocess?
+                        (sh-exit status))))))
+              ((> ret 0) ; parent
+                (job-pid-set! job ret)
+                (job-pgid-set! job process-group-id)
+                (running)))))))))
 
 
 ;; if options contain 'spawn? #t then remove such options and call (spawn-job-procedure job options proc)
@@ -478,31 +496,33 @@
           (set! shm-from-children (let ((shm (wire-shm-open)))
                                     (and (wire-shm? shm) shm))))
 
-        (let* ((job  (sh-expr void (format #f "~s" proc)))
-               (pgid (options->process-group-id options))
-               (ret  (c-fork-pid '#() (or pgid -1))))
-          (cond
-            ((< ret 0) ; fork() failed
-              (raise-c-errno 'fork-process 'fork ret))
-            ((= ret 0) ; child
-              (let ((status (exception #f)))
-                (dynamic-wind
-                  (lambda () ; run before body
-                    (spawn-job-procedure-child-before job))
-                  (lambda () ; body
-                    (options->call-fd-close options)
-                    (fds-close-on-fork)
-                    (sh-current-job job)
-                    (set! status (call-with-values proc ok)))
-                  (lambda () ; run after body, even if it raised a condition
-                    ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
-                    (unless job-start-exit-from-spawned-subprocess?
-                      (sh-exit status))))))
-            ((> ret 0) ; parent
-              (job-pid-set! job ret)
-              (job-pgid-set! job pgid)
-              (job-status-set/running! job)
-              (job-id-set! job)
-              job))))
+        (call-exiting-forked-child-on-exception
+          (lambda ()
+            (let* ((job  (sh-expr void (format #f "~s" proc)))
+                   (pgid (options->process-group-id options))
+                   (ret  (c-fork-pid '#() (or pgid -1))))
+              (cond
+                ((< ret 0) ; fork() failed
+                  (raise-c-errno 'fork-process 'fork ret))
+                ((= ret 0) ; child
+                  (let ((status (exception #f)))
+                    (dynamic-wind
+                      (lambda () ; run before body
+                        (spawn-job-procedure-child-before job))
+                      (lambda () ; body
+                        (options->call-fd-close options)
+                        (fds-close-on-fork)
+                        (sh-current-job job)
+                        (set! status (call-with-values proc ok)))
+                      (lambda () ; run after body, even if it raised a condition
+                        ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                        (unless job-start-exit-from-spawned-subprocess?
+                          (sh-exit status))))))
+                ((> ret 0) ; parent
+                  (job-pid-set! job ret)
+                  (job-pgid-set! job pgid)
+                  (job-status-set/running! job)
+                  (job-id-set! job)
+                  job))))))
       ((proc)
         (fork-process proc '())))))
