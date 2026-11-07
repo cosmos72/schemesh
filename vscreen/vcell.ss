@@ -10,23 +10,44 @@
 ;; this file should be included only by file vscreen/all.ss
 
 
+;; vcell is a fixnum representing a colored cell in a terminal emulator:
+;;
+;; a unicode codepoint - either a narrow glyph or half of a wide ("full width") glyph,
+;; and a palette index.
+;;
+;; on 64-bit systems, a fixnum vcell contains:
+;;   bits 0..20  i.e. 21 bits = char-bits:    unicode codepoint
+;;   bits 21..31 i.e. 11 bits = palette-bits: palette index, in [#x-400 .. #x3ff]
+;; bit 31 is sign-extended: fixnums are 61 bit + 1 bit sign on 64-bit Chez Scheme
+;;
+;; on 32-bit systems, a fixnum vcell contains:
+;;   bits 0..20  i.e. 21 bits = char-bits:    unicode codepoint
+;;   bits 21..29 i.e.  9 bits = palette-bits: palette index, in [#x-100 .. #xff]
+;; bit 29 is sign: fixnums are 29 bit + 1 bit sign on 32-bit Chez Scheme
+;;
+;;
 (define-syntax vcell-bytes-log2 (identifier-syntax 2))
 (define-syntax vcell-bytes      (identifier-syntax 4))
 (define-syntax vcell-min        (identifier-syntax #x-20000000))
 (define-syntax vcell-max        (identifier-syntax #x1fffffff))
 
-(define-syntax char-bits       (identifier-syntax 21))
-(define-syntax char-max        (identifier-syntax #x1fffff))
+(define-syntax char-bits        (identifier-syntax 21))
+(define-syntax char-max         (identifier-syntax #x1fffff))
 
+(define-syntax palette-shift    (identifier-syntax char-bits))
 
-(define-syntax palette-bits (meta-cond ((fixnum? #x7fffffff) (identifier-syntax 11))
-                                       (else                 (identifier-syntax 9))))
-(define-syntax palette-min  (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x-400))
-                                       (else                 (identifier-syntax #x-100))))
-(define-syntax palette-max  (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x3ff))
-                                       (else                 (identifier-syntax #xff))))
-(define-syntax palette-n    (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x800))
-                                       (else                 (identifier-syntax #x200))))
+(meta-cond
+  ((fixnum? #x7fffffff)
+    (define-syntax palette-bits (identifier-syntax 11))
+    (define-syntax palette-min  (identifier-syntax #x-400))
+    (define-syntax palette-max  (identifier-syntax #x3ff))
+    (define-syntax palette-n    (identifier-syntax #x800)))
+  (else
+    (define-syntax palette-bits (identifier-syntax 9))
+    (define-syntax palette-min  (identifier-syntax #x-100))
+    (define-syntax palette-max  (identifier-syntax #xff))
+    (define-syntax palette-n    (identifier-syntax #x200))))
+
 
 (define-syntax color-min  (identifier-syntax #x-100))
 (define-syntax color-max  (identifier-syntax #xffffff))
@@ -34,10 +55,12 @@
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
 
+;; convert from vcell count to byte count
 (define-syntax vcell<<
   (syntax-rules ()
     ((_ expr) (fx<< expr vcell-bytes-log2))))
 
+;; convert from byte count to vcell count
 (define-syntax vcell>>
   (syntax-rules ()
     ((_ expr) (fx>> expr vcell-bytes-log2))))
@@ -45,9 +68,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; vcolor is a fixnum or #f:
-;;  range [0, #xffffff] indicates 24-bit rgb
-;;  range [-256, -1] indicates 8-bit color
 ;;  #f indicates the terminal's default foreground or background color
+;;  fixnum [0, #xffffff] is 24-bit rgb
+;;  fixnum [-256, -1] is 8-bit color, subdivided as follows:
+;;    fixnum [ -16,   -1] is ANSI/VGA color palette
+;;    fixnum [-232,  -17] is a 6x6x6 rgb color cube
+;;    fixnum [-256, -233] is 24-step greyscale
 (define (vcolor? col)
   (or (not col)
       (and (fixnum? col) (fx<=? color-min col color-max))))
@@ -106,14 +132,14 @@
   (fields
     (immutable fg      vcolors->fg)        ; vcolor
     (immutable bg      vcolors->bg)        ; vcolor
-    (immutable palette vcolors->vpalette))  ; vpalette
+    (immutable palette vcolors->vpalette)) ; vpalette
   (nongenerative %vcolors-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; global conversion table vpalette -> vcolors.
 (define palette-span (span (%make-colors #f #f 0)))
 
-;; global conversion table fg -> bg -> vcolors.
+;; global conversion table fg -> (table bg -> vcolors).
 (define colors-map (eqv-hashtable #f (eqv-hashtable #f (span-ref palette-span 0))))
 
 
@@ -218,7 +244,7 @@
     ((fx>=? fg -16) ; high-intensity VGA/ANSI color
       (bytespan-insert-right/bytevector! wbuf #vu8(59 49 59 51))
       (bytespan-display-right/fixnum!    wbuf (fxand 7 (fxnot fg))))
-    (else           ; 8-bit RGB
+    (else           ; 8-bit RGB, either 6x6x6 color cube or 24-step grayscale
       (bytespan-insert-right/bytevector! wbuf #vu8(59 51 56 59 53 59))
       (bytespan-display-right/fixnum!    wbuf (fxnot fg)))))
 
@@ -235,12 +261,12 @@
       (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 8)))
       (bytespan-insert-right/u8!         wbuf 59)
       (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 16))))
-    ((fx>=? fg -8)  ; low-intensity VGA/ANSI color
+    ((fx>=? fg -8)  ; 3-bit low-intensity VGA/ANSI color
       (bytespan-insert-right/bytevector! wbuf #vu8(59 52))
       (bytespan-display-right/fixnum!    wbuf (fxnot fg)))
-    ;; high-intensity VGA/ANSI bg color are not standard
+    ;; there is no standard for setting 4-bit VGA/ANSI *bg* color
     ;; => use instead 8-bit RGB bg color
-    (else           ; 8-bit RGB
+    (else           ; 8-bit RGB, one of: 4-bit ANSI/VGA or 6x6x6 color cube or 24-step grayscale
       (bytespan-insert-right/bytevector! wbuf #vu8(59 52 56 59 53 59))
       (bytespan-display-right/fixnum!    wbuf (fxnot fg)))))
 
@@ -288,9 +314,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; vcell is a colored character, also contains a palette to indicate the fg ang bg colors
+;; vcell is a colored cell in a terminal emulator: contains unicode codepoint + palette index
 (define (vcell? cl)
-  (and (fixnum? cl)  (fx<=? vcell-min cl vcell-max)))
+  (and (fixnum? cl) (fx<=? vcell-min cl vcell-max)))
+
 
 (define vcell
   (case-lambda
@@ -300,14 +327,14 @@
       (let ((palette (if (vpalette? palette-or-vcolors)
                        palette-or-vcolors
                        (vcolors->vpalette palette-or-vcolors))))
-        (fxior (fx<< palette char-bits) (char->integer ch))))))
+        (fxior (fx<< palette palette-shift) (char->integer ch))))))
 
 
 (define (vcell->char cl)
   (integer->char* (fxand cl char-max)))
 
 (define (vcell->vpalette cl)
-  (fx>> cl char-bits))
+  (fx>> cl palette-shift))
 
 (define (vcell->vcolors cl)
   (vpalette->vcolors (vcell->vpalette cl)))
