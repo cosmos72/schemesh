@@ -11,21 +11,21 @@
 
 
 ;; vcell is a fixnum representing a colored cell in a terminal emulator:
-;;
-;; a unicode codepoint - either a narrow glyph or half of a wide ("full width") glyph,
-;; and a palette index.
+;;  a unicode codepoint - either a narrow glyph or half of a wide ("full width") glyph,
+;;  and a palette index.
 ;;
 ;; on 64-bit systems, a fixnum vcell contains:
 ;;   bits 0..20  i.e. 21 bits = char-bits:    unicode codepoint
-;;   bits 21..31 i.e. 11 bits = palette-bits: palette index, in [#x-400 .. #x3ff]
-;; bit 31 is sign-extended: fixnums are 61 bit + 1 bit sign on 64-bit Chez Scheme
+;;   bits 21..31 i.e. 11 bits = palette-bits: palette index, in [#x-400 ... #x3ff]
+;; bit 31 is sign-extended: fixnums are 60 bit + 1 bit sign on 64-bit Chez Scheme
 ;;
 ;; on 32-bit systems, a fixnum vcell contains:
 ;;   bits 0..20  i.e. 21 bits = char-bits:    unicode codepoint
-;;   bits 21..29 i.e.  9 bits = palette-bits: palette index, in [#x-100 .. #xff]
+;;   bits 21..29 i.e.  9 bits = palette-bits: palette index, in [#x-100 ... #xff]
 ;; bit 29 is sign: fixnums are 29 bit + 1 bit sign on 32-bit Chez Scheme
 ;;
 ;;
+
 (define-syntax vcell-bytes-log2 (identifier-syntax 2))
 (define-syntax vcell-bytes      (identifier-syntax 4))
 (define-syntax vcell-min        (identifier-syntax #x-20000000))
@@ -54,6 +54,35 @@
 
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
+
+
+;; HOW TO ENCODE GLYPH WIDTH:
+;;   narrow glyph is represented as its codepoint [0 ... #x10ffff]
+;;   wide glyph, left half  is represented as its codepoint + #x180000
+;;   wide glyph, right half is represented as its codepoint + #x1C0000
+;;
+;; since wide codepoints are present only in [#x1100 ... #x3FFFF],
+;;   wide glyph, left half  is [#x180000 ... #x1bffff]
+;;   wide glyph, right half is [#x1c0000 ... #x1fffff]
+;;
+(define (vcell-wide-right? cl)
+  (fx=? #x1c0000 (fxand cl #x1c0000)))
+
+(define (vcell-wide-left? cl)
+  (fx=? #x180000 (fxand cl #x1c0000)))
+
+(define (vcell-wide? cl)
+  (fx=? #x180000 (fxand cl #x180000)))
+
+(define (vcell-narrow? cl)
+  (not (vcell-wide? cl)))
+
+(define (vcell->char cl)
+  (integer->char* (fxand cl (if (vcell-wide? cl) #x3ffff #x1fffff))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 ;; convert from vcell count to byte count
 (define-syntax vcell<<
@@ -128,7 +157,7 @@
 ;; vcolors is a pair of vcolor: foreground, background
 ;; plus an associated palette index.
 ;; #f is NOT a valid vcolors.
-(define-record-type (%vcolors %make-colors vcolors?)
+(define-record-type (%vcolors %make-vcolors vcolors?)
   (fields
     (immutable fg      vcolors->fg)        ; vcolor
     (immutable bg      vcolors->bg)        ; vcolor
@@ -137,7 +166,7 @@
 
 
 ;; global conversion table vpalette -> vcolors.
-(define palette-span (span (%make-colors #f #f 0)))
+(define palette-span (span (%make-vcolors #f #f 0)))
 
 ;; global conversion table fg -> (table bg -> vcolors).
 (define colors-map (eqv-hashtable #f (eqv-hashtable #f (span-ref palette-span 0))))
@@ -155,7 +184,7 @@
       (and bg-map (hashtable-ref bg-map bg #f))
       (if (fx<? index palette-n)
         (let* ((palette (if (fx<=? index palette-max) index (fx- index palette-n)))
-               (ret     (%make-colors fg bg palette)))
+               (ret     (%make-vcolors fg bg palette)))
           (span-insert-right! sp ret)
           (if bg-map
             (hashtable-set! bg-map bg ret)
@@ -329,9 +358,6 @@
                        (vcolors->vpalette palette-or-vcolors))))
         (fxior (fx<< palette palette-shift) (char->integer ch))))))
 
-
-(define (vcell->char cl)
-  (integer->char* (fxand cl char-max)))
 
 (define (vcell->vpalette cl)
   (fx>> cl palette-shift))
