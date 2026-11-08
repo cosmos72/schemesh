@@ -17,7 +17,11 @@
 
 ;; Create a pipe multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-pipe . children-jobs)
-  (make-multijob 'sh-pipe assert-is-job mj-pipe-start #f
+  (make-multijob
+    'sh-pipe
+    assert-is-job-or-pipe-symbol
+    mj-pipe-start
+    #f
     (validate-convert-pipe-args children-jobs)))
 
 

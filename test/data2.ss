@@ -46,6 +46,10 @@
         (lambda ()
           (display-condition ex)))))                   "Exception in parse-scheme-forms: unexpected end-of-file after (begin \"\\xE;\") at line 1, char 14 of #<input port string>"
 
+  ;; ------------------------ job creation -------------------------------
+  ;; test issue #102 (sh-pipe job1 job2) throws
+  (sh-pipe (sh-cmd "ls") (sh-cmd "wc" "-l"))           ,(sh-pipe (sh-cmd "ls") (sh-cmd "wc" "-l"))
+
   ;; ------------------------ parser shell -------------------------------
   ;; invariant: {#!scheme ...} is always equivalent to (...)
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
