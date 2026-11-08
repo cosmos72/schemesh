@@ -10,3 +10,5 @@
 *.so
 a.out
 \#*#
+/result
+/result-*
