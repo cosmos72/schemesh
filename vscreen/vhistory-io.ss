@@ -132,7 +132,11 @@
         (set! start next-start)
         (set! end next-end)
         (when lines
-          (gbuffer-insert-at! hist (gbuffer-length hist) lines))
+          (let* ((hist-n (gbuffer-length hist))
+                 (prev-lines (and (not (fxzero? hist-n)) (gbuffer-ref hist (fx1- hist-n)))))
+            ;; remove duplicates
+            (unless (and prev-lines (vlines-equal/chars? lines prev-lines))
+              (gbuffer-insert-at! hist (gbuffer-length hist) lines))))
         (when (or eof? (not lines))
           (set! done? #t))))
     #t))

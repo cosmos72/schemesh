@@ -112,9 +112,12 @@
 ;; then replace them with specified vlines.
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! lctx lines)
-  (assert-vlines? 'lineedit-lines-set! lines)
-  (linectx-to-history* lctx)
-  (vscreen-assign*! (linectx-vscreen lctx) lines))
+  (let ((screen (linectx-vscreen lctx)))
+    (assert-vlines? 'lineedit-lines-set! lines)
+    ;; save to history only vscreen containing > 2 characters
+    (unless (vscreen-cell-count<=? screen 2)
+      (linectx-to-history* lctx))
+    (vscreen-assign*! screen lines)))
 
 
 ;; read up to n bytes from rbuf and insert them into current line.

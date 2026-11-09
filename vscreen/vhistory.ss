@@ -105,13 +105,16 @@
 ;; otherwise return #f
 (define (%vlines-find-nearby hist idx lines)
   (let* ((len   (gbuffer-length hist))
-         (start (fxmax 0 (fx1- idx)))
-         (end   (fxmin len (fx+ 2 idx)))
-         (ret   #f))
-    (do ((i start (fx1+ i)))
-        ((or ret (fx>=? i end)) ret)
-      (when (vlines-equal/chars? (gbuffer-ref hist i) lines)
-        (set! ret i)))))
+         (start (fxmax 0   (fx1- idx)))
+         (end   (fxmin len (fx+ 2 idx))))
+    (let %loop ((i start))
+      (cond
+        ((fx>=? i end)
+          #f)
+        ((vlines-equal/chars? (gbuffer-ref hist i) lines)
+          i)
+        (else
+          (%loop (fx1+ i)))))))
 
 ;; search for first vlines in range [start, end) that begins with same characters
 ;; as the range [0 0, prefix-x prefix-y) of prefix-lines.
