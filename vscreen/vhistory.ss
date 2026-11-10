@@ -82,14 +82,16 @@
     (values lines idx)))
 
 
-;; remove empty vlines before index idx in vhistory.
+;; remove consecutive empty vlines before index idx in vhistory.
 ;; stop as soon as a non-empty vlines is found.
+;; return index of non-empty vline found, or -1
 (define (vhistory-delete-empty-lines! hist idx)
-  (let ((i (fx1- (fxmin idx (vhistory-length hist)))))
-    (while (and (fx>=? i 0) (%vlines-empty? (gbuffer-ref hist i)))
-      (gbuffer-delete! hist i (fx1+ i))
-      (set! i (fx1- i)))
-    i))
+  (let %loop ((i (fx1- (fxmin idx (vhistory-length hist)))))
+    (if (and (fx>=? i 0) (%vlines-empty? (gbuffer-ref hist i)))
+      (begin
+        (gbuffer-delete! hist i (fx1+ i))
+        (%loop (fx1- i)))
+      i)))
 
 
 (define (%vlines-empty? lines)
@@ -117,26 +119,38 @@
           (%loop (fx1+ i)))))))
 
 ;; search for first vlines in range [start, end) that begins with same characters
-;; as the range [0 0, prefix-x prefix-y) of prefix-lines.
+;; as the range [0 0, prefix-x prefix-y) of prefix-lines, ignoring vlines that are equal to prefix-lines.
 ;;
 ;; return index of such vlines if found,
 ;; otherwise return #f
 (define (vhistory-index/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
         (end   (fxmin end (vhistory-length hist))))
-    (do ((i start (fx1+ i)))
-        ((or (fx>=? i end) (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y))
-         (if (fx<? i end) i #f)))))
+    (let %loop ((i start))
+      (cond
+        ((fx>=? i end)
+          #f)
+        ((and (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y)
+              (not (vlines-equal/chars? (gbuffer-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+          i)
+        (else
+          (%loop (fx1+ i)))))))
 
 
 ;; search for last vlines in range [start, end) that begins with same characters
-;; as the range [0 0, prefix-x prefix-y) of prefix-lines.
+;; as the range [0 0, prefix-x prefix-y) of prefix-lines, ignoring vlines that are equal to prefix-lines.
 ;;
 ;; return index of such vlines if found,
 ;; otherwise return #f
 (define (vhistory-index-right/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
         (end   (fxmin end (vhistory-length hist))))
-    (do ((i (fx1- end) (fx1- i)))
-      ((or (fx<? i start) (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y))
-       (if (fx>=? i start) i #f)))))
+    (let %loop ((i (fx1- end)))
+      (cond
+        ((fx<? i start)
+          #f)
+        ((and (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y)
+              (not (vlines-equal/chars? (gbuffer-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+          i)
+        (else
+          (%loop (fx1- i)))))))
