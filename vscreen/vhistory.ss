@@ -86,7 +86,7 @@
 ;; stop as soon as a non-empty vlines is found.
 ;; return index of non-empty vline found, or -1
 (define (vhistory-delete-empty-lines! hist idx)
-  (let %loop ((i (fx1- (fxmin idx (vhistory-length hist)))))
+  (let %loop ((i (fx1- (fxmin idx (gbuffer-length hist)))))
     (if (and (fx>=? i 0) (%vlines-empty? (gbuffer-ref hist i)))
       (begin
         (gbuffer-delete! hist i (fx1+ i))
@@ -125,7 +125,7 @@
 ;; otherwise return #f
 (define (vhistory-index/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
-        (end   (fxmin end (vhistory-length hist))))
+        (end   (fxmin end (gbuffer-length hist))))
     (let %loop ((i start))
       (cond
         ((fx>=? i end)
@@ -144,7 +144,7 @@
 ;; otherwise return #f
 (define (vhistory-index-right/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
-        (end   (fxmin end (vhistory-length hist))))
+        (end   (fxmin end (gbuffer-length hist))))
     (let %loop ((i (fx1- end)))
       (cond
         ((fx<? i start)

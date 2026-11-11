@@ -98,9 +98,8 @@
     vhistory-set*! vhistory-path vhistory-path-set!
 
     ;; vhistory-io.ss
-    vhistory-load!           vhistory-save
-    vhistory-load-from-file! vhistory-save-to-path
-    vhistory-load-from-port! vhistory-save-to-port)
+    vhistory-file-load! vhistory-file-save
+    vhistory-port-load! vhistory-port-save)
 
   (import
     (rnrs)

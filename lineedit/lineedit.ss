@@ -108,7 +108,7 @@
   (linectx-clear! lctx))
 
 
-;; possibly save current linectx-vscreen to history,
+;; possibly save current linectx-vscreen to history-last,
 ;; then replace them with specified vlines.
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! lctx lines)

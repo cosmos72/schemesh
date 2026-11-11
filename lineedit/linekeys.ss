@@ -555,13 +555,15 @@
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))
         (hist   (linectx-history lctx)))
     (when (fx<? -1 y (vhistory-length hist))
-      ; also saves a copy of current linectx-vscreen to history
+      ;; save a copy of current linectx-vscreen to history-last
+      ;; then shallow copy y-th history element into vscreen
       (lineedit-lines-set! lctx (vhistory-ref/cow hist y))
       (linectx-history-index-set! lctx y)
       ;; if moving up, set vscreen cursor to end of first line
       ;; if moving down, set vscreen cursor to end of last line
       (linectx-ixy-set! lctx (greatest-fixnum)
-                            (if (fx<? delta-y 0) 0 (greatest-fixnum))))))
+                             (if (fx<? delta-y 0) 0 (greatest-fixnum))))))
+
 
 (define key-inserted-into-clipboard?
   (let ((keys (list lineedit-key-del-line-left lineedit-key-del-line-right

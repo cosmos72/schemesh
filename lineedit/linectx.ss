@@ -323,13 +323,13 @@
 ;; load history from file. return #t if successful, otherwise return #f
 (define (linectx-load-history! lctx)
   (let ((hist (linectx-history lctx)))
-     (vhistory-load! hist)
+     (vhistory-file-load! hist)
      (linectx-history-index-set! lctx (vhistory-length hist))))
 
 
 ;; save history to file. return #t if successful, otherwise return #f
 (define (linectx-save-history lctx)
-  (vhistory-save (linectx-history lctx)))
+  (vhistory-file-save (linectx-history lctx)))
 
 (define (linectx-keytable-insert! keytable proc . keysequences)
   (letrec

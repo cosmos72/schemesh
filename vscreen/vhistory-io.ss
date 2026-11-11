@@ -10,67 +10,64 @@
 ;; this file should be included only by file vscreen/all.ss
 
 
-;; save vhistory to file (vhistory-path hist)
+;; save vhistory to file (vhistory-path hist) or to specified file path
 ;; return #t if successful, otherwise return #f
-(define (vhistory-save hist)
-  (let ((path (vhistory-path hist)))
-    (and path (vhistory-save-to-path hist path))))
-
-
-;; save vhistory to file specified by path.
-;; return #t if successful, otherwise return #f
-(define (vhistory-save-to-path hist path)
-  (let ((temp-path (string-append path "." (number->string (pid-get))))
-        (remove-temp-path? #f)
-        (port #f)
-        (success? #f))
-    (try
-        ;; write to a temporary file "history.txt.PID"
-        (set! port (file->port temp-path 'write '(create) 'binary))
-        (set! remove-temp-path? #t)
-        (vhistory-save-to-port hist port)
-        (close-port port)
-        (set! port #f)
-        ;; atomically rename "history.txt.PID" -> "history.txt"
-        (when (eq? (void) (file-rename temp-path path 'catch))
-          (set! remove-temp-path? #f)
-          (set! success? #t))
-      (catch (ex)
-        #|
-        (catch-all
-          (void)
-          (let ((port (current-error-port)))
-            (put-string out "\x1b;[1;31m; error saving ")
-            (put-string port temp-path)
-            (display-condition ex port)
-            (put-string out "\x1b;[m\n" port)
-            (flush-output-port port))
-          (void))
-        |#
-        #f))
-
-    (when port
-      (close-port port))
-    (when remove-temp-path?
-      (file-delete temp-path '(catch)))
-    success?))
+(define vhistory-file-save
+  (case-lambda
+    ((hist path)
+      (let ((temp-path (string-append path "." (number->string (pid-get))))
+            (remove-temp-path? #f)
+            (port #f)
+            (success? #f))
+        (try
+            ;; write to a temporary file "history.txt.PID"
+            (set! port (file->port temp-path 'write '(create) 'binary))
+            (set! remove-temp-path? #t)
+            (vhistory-port-save hist port)
+            (close-port port)
+            (set! port #f)
+            ;; atomically rename "history.txt.PID" -> "history.txt"
+            (when (eq? (void) (file-rename temp-path path 'catch))
+              (set! remove-temp-path? #f)
+              (set! success? #t))
+          (catch (ex)
+            #|
+            (catch-all
+              (void)
+              (let ((port (current-error-port)))
+                (put-string out "\x1b;[1;31m; error saving ")
+                (put-string port temp-path)
+                (display-condition ex port)
+                (put-string out "\x1b;[m\n" port)
+                (flush-output-port port))
+              (void))
+            |#
+            #f))
+        (when port
+          (close-port port))
+        (when remove-temp-path?
+          (file-delete temp-path '(catch)))
+        success?))
+    ((hist)
+      (let ((path (vhistory-path hist)))
+        (and path (vhistory-file-save hist path))))))
 
 
 ;; save vhistory to specified binary output port.
 ;; return #t if successful, otherwise return #f
-(define (vhistory-save-to-port hist port)
+(define (vhistory-port-save hist port)
   (vhistory-iterate hist
     (lambda (i lines)
-      (vlines-save-to-port lines port))))
+      (vlines-port-save lines port))))
 
 
 ;; save vlines to specified binary output port.
 ;; return #t if successful, otherwise return #f
-(define (vlines-save-to-port lines port)
+(define (vlines-port-save lines port)
   (and
     (vlines-iterate lines
       (lambda (i line)
-        (vline-save-to-port line port)))
+        (vline-port-save line port)))
     (begin
       (put-u8 port 10) ; returns unspecified value, may be #f
       #t)))
@@ -78,57 +75,55 @@
 
 ;; save vline to specified binary output port.
 ;; return #t if successful, otherwise return #f
-(define (vline-save-to-port line port)
+(define (vline-port-save line port)
   (put-bytevector port (string->utf8b (string-replace/char! (vline->string line) #\newline #\x0))))
 
 
-;; load vhistory from file (vhistory-path hist)
+;; load vhistory from file (vhistory-path hist) or from specified file path
 ;; return #t if successful, otherwise return #f
-(define (vhistory-load! hist)
-  (let ((path (vhistory-path hist)))
-    (and path (vhistory-load-from-file! hist path))))
-
-
-;; load vhistory from specified file path.
-;; return #t if successful, otherwise return #f
-(define (vhistory-load-from-file! hist path)
-  (let ((port #f))
-    (try
-      (dynamic-wind
-        (lambda ()
-          ;; we do our own buffering in (vhistory-load-from-port)
-          (set! port (file->port path 'read '() 'binary (buffer-mode none))))
-        (lambda ()
-          (vhistory-load-from-port! hist port))
-        (lambda ()
-          (when port
-            (close-port port)
-            (set! port #f))))
-      (catch (ex)
-        #|
-        (catch-all
-          void
-          (let ((port (console-error-port)))
-            (put-string out "\x1b;[1;31m; error loading ")
-            (put-string port path)
-            (display-condition ex port)
-            (put-string out "\x1b;[m\n")
-            (flush-output-port port))
-          (void))
-        |#
-        #f))))
+(define vhistory-file-load!
+  (case-lambda
+    ((hist path)
+      (let ((port #f))
+        (try
+          (dynamic-wind
+            (lambda ()
+              ;; we do our own buffering in (vhistory-port-load!)
+              (set! port (file->port path 'read '() 'binary (buffer-mode none))))
+            (lambda ()
+              (vhistory-port-load! hist port))
+            (lambda ()
+              (when port
+                (close-port port)
+                (set! port #f))))
+          (catch (ex)
+            #|
+            (catch-all
+              void
+              (let ((port (console-error-port)))
+                (put-string out "\x1b;[1;31m; error loading ")
+                (put-string port path)
+                (display-condition ex port)
+                (put-string out "\x1b;[m\n")
+                (flush-output-port port))
+              (void))
+            |#
+            #f))))
+    ((hist)
+      (let ((path (vhistory-path hist)))
+        (and path (vhistory-file-load! hist path))))))
 
 
 ;; load vhistory from specified binary input port.
 ;; return #t if successful, otherwise return #f
-(define (vhistory-load-from-port! hist port)
+(define (vhistory-port-load! hist port)
   (gbuffer-clear! hist)
   (let* ((bv    (make-bytevector #x10000))
          (start 0)
          (end   0)
          (done? #f))
     (until done?
-      (let-values (((lines next-start next-end eof?) (vlines-load-from-port port bv start end)))
+      (let-values (((lines next-start next-end eof?) (vlines-port-load port bv start end)))
         (set! start next-start)
         (set! end next-end)
         (when lines
@@ -151,17 +146,17 @@
 ;; as second value, return updated start offset.
 ;; as third value, return updated end offset.
 ;; as fourth value, return #t if EOF was reached otherwise return #f
-(define (vlines-load-from-port port bv start end)
+(define (vlines-port-load port bv start end)
   (let ((lines (vlines))
         (flag  #f))
     (until flag
-      ; (debugf "->   vline-load-from-port start=~s end=~s" start end)
+      ; (debugf "->   vline-port-load start=~s end=~s" start end)
       ; (sleep (make-time 'time-duration 0 1))
-      (let-values (((line next-start next-end next-flag) (vline-load-from-port port bv start end)))
+      (let-values (((line next-start next-end next-flag) (vline-port-load port bv start end)))
         (set! start next-start)
         (set! end next-end)
         (set! flag next-flag)
-        ; (debugf "<-  vline-load-from-port line=~s start=~s end=~s flag=~s" line start end flag)
+        ; (debugf "<-  vline-port-load line=~s start=~s end=~s flag=~s" line start end flag)
         (when line
           (vlines-insert-at! lines (vlines-length lines) line))))
     (values
@@ -182,7 +177,7 @@
 ;; as fourth value, return 'nl if newline was found and consumed (it marks the end of vlines),
 ;;   otherwise return 'eof if EOF was reached
 ;;   otherwise return #f
-(define (vline-load-from-port port bv start end)
+(define (vline-port-load port bv start end)
   (let ((bspan (bytespan))
         (done? #f)
         (eof?  #f)
@@ -195,12 +190,12 @@
           (set! end (if (fixnum? n) n 0))
           (unless (and (fixnum? n) (fx>? n 0))
             (set! eof? #t))
-          ; (debugf "... vline-load-from-port n=~s start=~s end=~s eof?=~s" n start end eof?)
+          ; (debugf "... vline-port-load n=~s start=~s end=~s eof?=~s" n start end eof?)
           ; (sleep (make-time 'time-duration 0 1))
           ))
       (until (or done? (fx>=? start end))
         (let ((b (bytevector-u8-ref bv start)))
-          ; (debugf "... vline-load-from-port byte=~s" (make-string 1 (integer->char b)))
+          ; (debugf "... vline-port-load byte=~s" (make-string 1 (integer->char b)))
           (set! start (fx1+ start))
           (case b
             ((0) ; found an escaped newline, it marks the end vline
@@ -213,7 +208,7 @@
               (bytespan-insert-right/u8! bspan b)))))
       (when eof?
         (set! done? #t))
-      ; (debugf "... vline-load-from-port bspan=~s start=~s end=~s nl?=~s eof?=~s" (utf8b-bytespan->string bspan) start end nl? eof?)
+      ; (debugf "... vline-port-load bspan=~s start=~s end=~s nl?=~s eof?=~s" (utf8b-bytespan->string bspan) start end nl? eof?)
       )
 
     (values
