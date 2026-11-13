@@ -56,9 +56,9 @@
 ;; save vhistory to specified binary output port.
 ;; return #t if successful, otherwise return #f
 (define (vhistory-port-save hist port)
-  (vhistory-iterate hist
-    (lambda (i lines)
-      (vlines-port-save lines port))))
+  (gbuffer-iterate hist
+    (lambda (i pair)
+      (vlines-port-save (cdr pair) port))))
 
 
 ;; save vlines to specified binary output port.
@@ -117,7 +117,7 @@
 ;; load vhistory from specified binary input port.
 ;; return #t if successful, otherwise return #f
 (define (vhistory-port-load! hist port)
-  (gbuffer-clear! hist)
+  (vhistory-clear! hist)
   (let* ((bv    (make-bytevector #x10000))
          (start 0)
          (end   0)
@@ -127,11 +127,11 @@
         (set! start next-start)
         (set! end next-end)
         (when lines
-          (let* ((hist-n (gbuffer-length hist))
-                 (prev-lines (and (not (fxzero? hist-n)) (gbuffer-ref hist (fx1- hist-n)))))
+          (let* ((hist-n (vhistory-length hist))
+                 (prev-lines (and (not (fxzero? hist-n)) (vhistory-ref hist (fx1- hist-n)))))
             ;; remove duplicates
             (unless (and prev-lines (vlines-equal/chars? lines prev-lines))
-              (gbuffer-insert-at! hist (gbuffer-length hist) lines))))
+              (gbuffer-insert-at! hist hist-n (cons lines lines)))))
         (when (or eof? (not lines))
           (set! done? #t))))
     #t))

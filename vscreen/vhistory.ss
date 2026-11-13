@@ -10,7 +10,14 @@
 ;; this file should be included only by file vscreen/all.ss
 
 
-;; type vhistory is a gbuffer containing vlines elements (the history itself)
+;; Type vhistory is a gbuffer containing vlines elements (the history itself).
+;;
+;; Each gbuffer element is a cons (mutable-vlines . immutable-vlines)
+;;   where the former can be accessed and modified by the user,
+;;   while the latter is saved to disk by (vhistory-file-save) and (vhistory-port-save)
+;;
+;; This allows user to edit history items, while still saving the original unedited items
+;;
 (define-record-type (%vhistory %make-vhistory vhistory?)
   (parent %gbuffer)
   (fields
@@ -19,14 +26,26 @@
 
 
 (define (vhistory . vals)
-  (for-list ((val vals)) (assert-vlines? 'vhistory val))
-  (%make-vhistory (span) (list->span vals) #f))
+  (let* ((n (do ((i 0 (fx1+ i))
+                 (l vals (cdr l)))
+                ((null? l) i)
+              (let ((val (car vals)))
+                (assert-vlines? 'vhistory val))))
+         (vec (make-vector n)))
+    (do ((i 0 (fx1+ i))
+         (l vals (cdr l)))
+        ((null? l))
+      (let ((val (car vals)))
+        (vector-set! vec i (cons val val))))
+    (%make-vhistory (span) (vector->span* vec) #f)))
 
 
 (define (make-vhistory n)
   ; optimization: (vhistory-ref/cow) returns a copy-on-write clone of i-th vline,
   ; thus we can reuse the same empty (vlines) for all elements
-  (%make-vhistory (span) (make-span n (vlines)) #f))
+  (let* ((val (vlines))
+         (elem (cons val val)))
+    (%make-vhistory (span) (make-span n elem) #f)))
 
 
 (define (vhistory-path-set! hist path)
@@ -38,6 +57,12 @@
 (define vhistory-empty? gbuffer-empty?)
 (define vhistory-length gbuffer-length)
 (define vhistory-clear! gbuffer-clear!)
+
+
+;; return i-th vlines in history
+(define (vhistory-ref hist idx)
+  (car (gbuffer-ref hist idx)))
+
 
 ;; iterate on vhistory lines, and call (proc i lines) on each one.
 ;; Stops iterating if (proc ...) returns #f.
@@ -51,11 +76,23 @@
 ;;
 ;; It must NOT call any function that modifies the lines or vhistory
 ;; (set elements, insert or erase elements, change the size or capacity, etc).
-(define vhistory-iterate gbuffer-iterate)
+(define vhistory-iterate
+  (case-lambda
+    ((hist start end proc)
+      (assert* 'vhistory-iterate (fx<=?* 0 start end (vhistory-length hist)))
+      (assert* 'vhistory-iterate (procedure? proc))
+      (let %vhistory-iterate ((hist hist) (proc proc) (ret #t) (i start) (n end))
+        (if (fx<? i n)
+          (let ((ret (proc i (vhistory-ref hist i))))
+            (and ret (%vhistory-iterate hist proc ret (fx1+ i) n)))
+          ret)))
+    ((hist proc)
+      (vhistory-iterate hist 0 (vhistory-length hist) proc))))
+
 
 ;; return a copy-on-write clone of i-th vlines in history
 (define (vhistory-ref/cow hist idx)
-  (vlines-copy-on-write (gbuffer-ref hist idx)))
+  (vlines-copy-on-write (vhistory-ref hist idx)))
 
 
 ;; if i is in range, set i-th vlines in history to a shallow copy of lines.
@@ -71,14 +108,14 @@
          (idx-eq    (%vlines-find-nearby hist idx-clamp lines))
          (idx       (or idx-eq idx-clamp))
          (lines (if idx-eq
-                  (gbuffer-ref hist idx-eq)
+                  (vhistory-ref hist idx-eq)
                   ; make a shallow copy of lines. Also helps in case lines is not
                   ; a vlines but a subclass of it, for example a vscreen
                   (vlines-shallow-copy lines))))
     (unless idx-eq
       (if (fx>=? idx len)
-        (gbuffer-insert-at! hist idx lines)
-        (gbuffer-set! hist idx lines)))
+        (gbuffer-insert-at! hist idx (cons lines lines))
+        (set-car! (gbuffer-ref hist idx) lines)))
     (values lines idx)))
 
 
@@ -87,7 +124,7 @@
 ;; return index of non-empty vline found, or -1
 (define (vhistory-delete-empty-lines! hist idx)
   (let %loop ((i (fx1- (fxmin idx (gbuffer-length hist)))))
-    (if (and (fx>=? i 0) (%vlines-empty? (gbuffer-ref hist i)))
+    (if (and (fx>=? i 0) (%vlines-empty? (vhistory-ref hist i)))
       (begin
         (gbuffer-delete! hist i (fx1+ i))
         (%loop (fx1- i)))
@@ -113,7 +150,7 @@
       (cond
         ((fx>=? i end)
           #f)
-        ((vlines-equal/chars? (gbuffer-ref hist i) lines)
+        ((vlines-equal/chars? (vhistory-ref hist i) lines)
           i)
         (else
           (%loop (fx1+ i)))))))
@@ -130,8 +167,8 @@
       (cond
         ((fx>=? i end)
           #f)
-        ((and (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal/chars? (gbuffer-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+        ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
+              (not (vlines-equal/chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1+ i)))))))
@@ -149,8 +186,8 @@
       (cond
         ((fx<? i start)
           #f)
-        ((and (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal/chars? (gbuffer-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+        ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
+              (not (vlines-equal/chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1- i)))))))

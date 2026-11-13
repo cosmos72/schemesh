@@ -67,7 +67,7 @@
 (record-writer (record-type-descriptor %vhistory)
   (lambda (hist port writer)
     (display "(vhistory" port)
-    (gbuffer-iterate hist
+    (vhistory-iterate hist
       (lambda (i elem)
         (display #\space port)
         (writer elem port)))
