@@ -10,6 +10,13 @@
 #ifndef SCHEME2K_C_PROC_IMPL_H
 #define SCHEME2K_C_PROC_IMPL_H
 
+/**
+ * This is a stand-alone C (dummy) implementation of "proc" command for MacOS.
+ *
+ * It is NOT compiled by default.
+ * Does NOT depend on schemesh or any scheme library.
+ */
+
 static void print_processes(writer* w, e_proc_flags flags) {
   (void)w;
   (void)flags;

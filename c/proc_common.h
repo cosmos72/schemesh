@@ -39,11 +39,10 @@ typedef enum {
   e_proc_flag_min_fault   = 1 << 19,
   e_proc_flag_maj_fault   = 1 << 20,
 
-  e_proc_flag_default =
-      e_proc_flag_pid | e_proc_flag_name | e_proc_flag_tty | e_proc_flag_start_time,
+  e_proc_flag_default = e_proc_flag_pid | e_proc_flag_name | e_proc_flag_tty |
+      e_proc_flag_start_time,
   e_proc_flag_long = e_proc_flag_pid | e_proc_flag_name | e_proc_flag_tty | e_proc_flag_state |
-                     e_proc_flag_user | e_proc_flag_mem_rss | e_proc_flag_start_time |
-                     e_proc_flag_user_time,
+      e_proc_flag_user | e_proc_flag_mem_rss | e_proc_flag_start_time | e_proc_flag_user_time,
   e_proc_flag_verbose = (1 << 21) - 1,
 
   e_proc_flag_other_users = 1 << 21, /* show processes belonging to other users */

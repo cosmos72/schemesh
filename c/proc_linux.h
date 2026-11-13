@@ -10,6 +10,13 @@
 #ifndef SCHEME2K_C_PROC_IMPL_H
 #define SCHEME2K_C_PROC_IMPL_H
 
+/**
+ * This is a stand-alone C implementation of "proc" command for Linux.
+ *
+ * It is NOT compiled by default.
+ * Does NOT depend on schemesh or any scheme library.
+ */
+
 #include <dirent.h>    /* opendir()  */
 #include <errno.h>     /* errno      */
 #include <fcntl.h>     /* openat()   */
