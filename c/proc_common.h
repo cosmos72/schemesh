@@ -34,7 +34,7 @@ typedef enum {
   e_proc_flag_user_time   = 1 << 14,
   e_proc_flag_sys_time    = 1 << 15,
   e_proc_flag_iowait_time = 1 << 16,
-  e_proc_flag_priority    = 1 << 17,
+  e_proc_flag_nice        = 1 << 17,
   e_proc_flag_threads     = 1 << 18,
   e_proc_flag_min_fault   = 1 << 19,
   e_proc_flag_maj_fault   = 1 << 20,
