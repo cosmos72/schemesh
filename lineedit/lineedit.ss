@@ -28,8 +28,7 @@
     linectx-completions linectx-completion-stem
     linectx-flags linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
-    linectx-history linectx-history-index linectx-history-index-set!
-    linectx-to-history            linectx-to-history*
+    linectx-history linectx-history-index linectx-history-index-set! linectx-to-history
     linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
     linectx-load-history! linectx-save-history
     linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
@@ -42,8 +41,7 @@
 
     ;; lineedit.ss
     linectx-read linectx-insert/bytespan! linectx-insert/char! linectx-insert/charspan! linectx-insert/string!
-    lineedit-clear!     lineedit-display-table
-    lineedit-lines-set! lineedit-insert/rbuf!
+    lineedit-clear!     lineedit-display-table lineedit-insert/rbuf!
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
@@ -107,19 +105,6 @@
 (define (lineedit-clear! lctx)
   (linectx-clear! lctx))
 
-
-;; possibly save current linectx-vscreen to history-last,
-;; then replace them with specified vlines.
-;; Sets vscreen cursor to 0 0.
-(define (lineedit-lines-set! lctx lines)
-  (let ((screen (linectx-vscreen lctx)))
-    (assert-vlines? 'lineedit-lines-set! lines)
-    ;; save to history only vscreen containing > 2 characters
-    (unless (vscreen-cell-count<=? screen 2)
-      (linectx-to-history* lctx))
-    (vscreen-assign*! screen lines)))
-
-
 ;; read up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually read from rbuf and inserted
 (define (lineedit-insert/rbuf! lctx n)
@@ -140,12 +125,12 @@
   (linectx-redraw-dirty lctx 'plain)
   (lineterm-move-dy lctx (fx- (fx1- (linectx-end-y lctx))
                              (linectx-iy lctx))) ; move to last input line
-  (lineterm-write/u8 lctx 10) ; advance to next line.
-  (linectx-term-xy-set! lctx 0 0) ; set tty cursor to 0 0
-  (linectx-return-set! lctx #f) ; clear flag "user pressed ENTER"
-  (linectx-redraw-set! lctx #t) ; set flag "redraw prompt and lines"
+  (lineterm-write/u8 lctx 10)         ; advance tty to next line
+  (linectx-term-xy-set! lctx 0 0)     ; set tty cursor to 0 0
+  (linectx-return-set! lctx #f)       ; clear flag "user pressed ENTER"
+  (linectx-redraw-set! lctx #t)       ; set flag "redraw prompt and lines"
   (linectx-mark-not-bol-set! lctx #t) ; set flag "highlight if prompt is not at bol"
-  (linectx-to-history lctx))
+  (linectx-to-history lctx #f))       ; save vscreen to history and return it (or a shallow copy)
 
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,

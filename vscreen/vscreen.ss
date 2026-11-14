@@ -265,7 +265,7 @@
 (define (vscreen-clear! screen)
   (vscreen-dirty-set! screen #t)
   (vlines-dirty-y-add! screen 0 (vscreen-length screen))
-  ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
+  ;; Implementation note: linectx-to-history saves a shallow copy of vscreen to history,
   ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
   (gbuffer-left-set! screen (span))
@@ -823,13 +823,13 @@
     (values x y n)))
 
 
-;; completely replace vscreen contents, setting it to specified vlines.
-;; note: vlines will be retained and modified!
+;; completely replace vscreen contents, setting it to specified lines.
+;; note: lines will be retained and modified!
 ;; Sets vscreen cursor to 0 0.
 (define (vscreen-assign*! screen lines)
   (vscreen-dirty-set! screen #t)
   (vlines-dirty-y-add! screen 0 (vscreen-length screen))
-  ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
+  ;; Implementation note: linectx-to-history saves a shallow copy of vscreen to history,
   ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
   (gbuffer-left-set! screen (gbuffer-left lines))

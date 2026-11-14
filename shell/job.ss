@@ -141,7 +141,7 @@
     (only (scheme2k io wire)               datum->wire wire->datum)
           (scheme2k ipc fds)
     (only (scheme2k ipc wire)              wire-shm? wire-shm-open wire-shm-insert! wire-shm-delete!)
-    (only (scheme2k vscreen)               vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
+    (only (scheme2k vscreen)               vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set! vhistory-ref-edited?)
     (only (scheme2k lineedit lineedit)     linectx? linectx-default-keytable linectx-history linectx-keytable-insert! linectx-save-history linectx-wbuf
                                            lineedit-display-table lineedit-flush lineedit-key-sh-run/i lineedit-soft-undraw)
     (only (schemesh shell parameters)      sh-eval sh-globals sh-pid-table))

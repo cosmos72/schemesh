@@ -62,9 +62,9 @@
 
 ;; return #t if lines1 and lines2 contain the same number of vline
 ;; and each vline in lines1 contains the same chars as the corresponding vline in lines2
-(define (vlines-equal/chars? lines1 lines2)
-  (assert* 'vlines-equal/chars? (vlines? lines1))
-  (assert* 'vlines-equal/chars? (vlines? lines2))
+(define (vlines-equal-chars? lines1 lines2)
+  (assert* 'vlines-equal-chars? (vlines? lines1))
+  (assert* 'vlines-equal-chars? (vlines? lines2))
   (or (eq? lines1 lines2)
       (and (eq? (gbuffer-left lines1)  (gbuffer-left lines2))
            (eq? (gbuffer-right lines1) (gbuffer-right lines2)))
@@ -72,7 +72,7 @@
         (and (fx=? n1 (vlines-length lines2))
              (do ((i 0 (fx1+ i)))
                  ((or (fx>=? i n1)
-                      (not (vline-equal/chars? (vlines-ref lines1 i) (vlines-ref lines2 i))))
+                      (not (vline-equal-chars? (vlines-ref lines1 i) (vlines-ref lines2 i))))
                   (fx>=? i n1)))))))
 
 

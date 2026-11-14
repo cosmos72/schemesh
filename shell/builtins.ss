@@ -52,12 +52,18 @@
       (let ((fd (sh-fd 1)))
         ; (debugf "repl-history-display ~s" lctx)
         (if (linectx? lctx)
-          (let ((wbuf (make-bytespan 0)))
-            (vhistory-iterate (linectx-history lctx)
+          (let ((wbuf (make-bytespan 0))
+                (hist (linectx-history lctx)))
+            (vhistory-iterate hist
               (lambda (i lines)
-                (bytespan-insert-right/u8!      wbuf 32) ; space
-                (bytespan-display-right/fixnum! wbuf i)
-                (bytespan-insert-right/u8!      wbuf 9) ; tab
+                (let ((edited? (vhistory-ref-edited? hist i)))
+                  (if edited?
+                    (bytespan-insert-right/bytevector! wbuf #vu8(32 27 27 91 55 109)) ; " \x1b;[7m"
+                    (bytespan-insert-right/u8!      wbuf 32)) ; space
+                  (bytespan-display-right/fixnum! wbuf i)
+                  (if edited?
+                    (bytespan-insert-right/bytevector! wbuf #vu8(27 27 91 109 9)) ; "\x1b;[m\t"
+                    (bytespan-insert-right/u8!      wbuf 9))) ; tab
                 (vlines-iterate lines
                   (lambda (j line)
                     (vline-display/bytespan line wbuf)))

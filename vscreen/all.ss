@@ -50,7 +50,7 @@
     vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?
     vline-length vline-ref vline-ref/char vline-at vline-at/char
-    vline-equal/chars? vline-set! vline-clear!
+    vline-equal-chars? vline-set! vline-clear!
     vline-delete! vline-insert-at! vline-insert-at/vcellspan! vline-insert-at/vbuffer!
     vline-index-left vline-index-right vline-index vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
@@ -59,7 +59,7 @@
     ;; vlines.ss
     vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
-    vlines-empty? vlines-length vlines-equal/chars?
+    vlines-empty? vlines-length vlines-equal-chars?
     vlines-cell-count vlines-cell-count<=? vlines-ref vlines-set! vlines-clear!
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
@@ -91,11 +91,10 @@
     vscreen-assign*!  vscreen-reflow  vscreen-write
 
     ;; vhistory.ss
-    vhistory vhistory? make-vhistory
-    vhistory-empty? vhistory-length vhistory-ref/cow vhistory-iterate
-    vhistory-index/starts-with vhistory-index-right/starts-with
-    vhistory-delete-empty-lines!
-    vhistory-set*! vhistory-path vhistory-path-set!
+    vhistory vhistory? vhistory-empty? vhistory-clear! vhistory-length vhistory-path vhistory-path-set!
+    vhistory-delete-empty-lines! vhistory-delete-duplicates-right!
+    vhistory-iterate vhistory-index/starts-with vhistory-index-right/starts-with vhistory-insert-right!
+    vhistory-ref/cow vhistory-ref/cow vhistory-ref-edited? vhistory-set!
 
     ;; vhistory-io.ss
     vhistory-file-load! vhistory-file-save

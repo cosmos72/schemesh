@@ -105,9 +105,9 @@
 
 
 ;; return #t if line1 and line2 contain the same chars
-(define (vline-equal/chars? line1 line2)
-  (assert* 'vline-equal/chars? (vline? line1))
-  (assert* 'vline-equal/chars? (vline? line2))
+(define (vline-equal-chars? line1 line2)
+  (assert* 'vline-equal-chars? (vline? line1))
+  (assert* 'vline-equal-chars? (vline? line2))
   (or (eq? line1 line2)
       (and (eq? (v< line1) (v< line2))
            (eq? (v> line1) (v> line2)))

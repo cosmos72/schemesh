@@ -21,8 +21,9 @@
 (define-record-type (%vhistory %make-vhistory vhistory?)
   (parent %gbuffer)
   (fields
-    (mutable path vhistory-path %vhistory-path-set!)) ; #f or string path where to load/save history
-  (nongenerative %vhistory-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (mutable path vhistory-path %vhistory-path-set!) ; #f or string path where to load/save history
+    (mutable last-temporary? vhistory-last-temporary? %vhistory-last-temporary-set!))
+  (nongenerative %vhistory-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define (vhistory . vals)
@@ -37,15 +38,7 @@
         ((null? l))
       (let ((val (car vals)))
         (vector-set! vec i (cons val val))))
-    (%make-vhistory (span) (vector->span* vec) #f)))
-
-
-(define (make-vhistory n)
-  ; optimization: (vhistory-ref/cow) returns a copy-on-write clone of i-th vline,
-  ; thus we can reuse the same empty (vlines) for all elements
-  (let* ((val (vlines))
-         (elem (cons val val)))
-    (%make-vhistory (span) (make-span n elem) #f)))
+    (%make-vhistory (span) (vector->span* vec) #f #f)))
 
 
 (define (vhistory-path-set! hist path)
@@ -62,6 +55,12 @@
 ;; return i-th vlines in history
 (define (vhistory-ref hist idx)
   (car (gbuffer-ref hist idx)))
+
+
+;; return #t if i-th vlines in history was set with (vhistory-set!) AFTER the vlines was added to history
+(define (vhistory-ref-edited? hist idx)
+  (let ((pair (gbuffer-ref hist idx)))
+    (not (vlines-equal-chars? (car pair) (cdr pair)))))
 
 
 ;; iterate on vhistory lines, and call (proc i lines) on each one.
@@ -95,33 +94,61 @@
   (vlines-copy-on-write (vhistory-ref hist idx)))
 
 
-;; if i is in range, set i-th vlines in history to a shallow copy of lines.
-;; otherwise append shallow copy of lines to history.
-;; do NOT insert lines in history if they are equal to another vlines at a nearby index.
-;; returns two values:
-;;   the inserted shallow copy of lines - or the existing lines that prevented insertion
-;;   the index where lines were actually stored - or the index of existing lines that prevented insertion
-(define (vhistory-set*! hist idx lines)
-  (assert-vlines? 'vhistory-set*! lines)
-  (let* ((len       (gbuffer-length hist))
-         (idx-clamp (fxmax 0 (fxmin idx len)))
-         (idx-eq    (%vlines-find-nearby hist idx-clamp lines))
-         (idx       (or idx-eq idx-clamp))
-         (lines (if idx-eq
-                  (vhistory-ref hist idx-eq)
-                  ; make a shallow copy of lines. Also helps in case lines is not
-                  ; a vlines but a subclass of it, for example a vscreen
-                  (vlines-shallow-copy lines))))
+;; remove consecutive duplicates at end of vhistory.
+;;
+;; limitation: removes immutable lines too, even if they are not duplicates
+(define (vhistory-delete-duplicates-right! hist)
+  (let ((new-len (fx+ 2
+          (let %loop ((i (fx- (vhistory-length hist) 2)))
+            (if (fx>=? i 0)
+              (let ((line1 (vhistory-ref hist i))
+                    (line2 (vhistory-ref hist (fx1+ i))))
+                (if (vlines-equal-chars? line1 line2)
+                  (%loop (fx1- i))
+                  i))
+              i)))))
+   (gbuffer-delete! hist new-len (vhistory-length hist))))
+
+
+;; if temporary? is #f and lines are equal to last vlines in history,
+;;   only set (vhistory-last-temporary?) to #f.
+;;
+;; in other cases:
+;;   if (vhistory-last-temporary?) is #f, append a shallow copy of lines to history;
+;;   otherwise overwrite last history entry with a shallow copy of lines.
+;;
+;;   in both cases, set (vhistory-last-temporary?) to temporary?
+;;
+;; return the stored shallow copy of lines - or the existing lines that prevented storing them
+(define (vhistory-insert-right! hist lines temporary?)
+  (let* ((len    (vhistory-length hist))
+         (idx-eq (if temporary? #f (%vlines-find-nearby hist len lines)))
+         (lines  (if idx-eq lines (vlines-shallow-copy lines))))
+    ;; (debugf "vhistory-insert-right! temporary? ~s, idx-eq ~s" temporary? idx-eq)
     (unless idx-eq
-      (if (fx>=? idx len)
-        (gbuffer-insert-at! hist idx (cons lines lines))
-        (set-car! (gbuffer-ref hist idx) lines)))
-    (values lines idx)))
+      (let ((idx (if (and (not (fxzero? len)) (vhistory-last-temporary? hist))
+                   (fx1- len)
+                   len)))
+        (gbuffer-insert-at! hist idx (cons lines lines))))
+    (%vhistory-last-temporary-set! hist (and temporary? #t))
+    lines))
+
+
+;; if idx is not in range 0 ... (fx1- (vhistory-length hist)), raise condition.
+;; otherwise store a shallow copy of vlines into history at index idx.
+;;
+;; return unspecified value
+(define (vhistory-set! hist idx lines)
+  (assert* 'vhistory-set! (fx<? -1 idx (vhistory-length hist)))
+  (assert-vlines? 'vhistory-set! lines)
+  (set-car! (gbuffer-ref hist idx) (vlines-shallow-copy lines)))
 
 
 ;; remove consecutive empty vlines before index idx in vhistory.
 ;; stop as soon as a non-empty vlines is found.
 ;; return index of non-empty vline found, or -1
+;;
+;; limitation: removes immutable lines too, even if they are not empty
 (define (vhistory-delete-empty-lines! hist idx)
   (let %loop ((i (fx1- (fxmin idx (gbuffer-length hist)))))
     (if (and (fx>=? i 0) (%vlines-empty? (vhistory-ref hist i)))
@@ -150,7 +177,7 @@
       (cond
         ((fx>=? i end)
           #f)
-        ((vlines-equal/chars? (vhistory-ref hist i) lines)
+        ((vlines-equal-chars? (vhistory-ref hist i) lines)
           i)
         (else
           (%loop (fx1+ i)))))))
@@ -168,7 +195,7 @@
         ((fx>=? i end)
           #f)
         ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal/chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+              (not (vlines-equal-chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1+ i)))))))
@@ -187,7 +214,7 @@
         ((fx<? i start)
           #f)
         ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal/chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+              (not (vlines-equal-chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1- i)))))))

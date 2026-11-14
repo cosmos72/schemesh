@@ -552,13 +552,21 @@
 
 
 (define (lineedit-navigate-history lctx delta-y)
-  (let ((y      (fx+ delta-y (linectx-history-index lctx)))
-        (hist   (linectx-history lctx)))
-    (when (fx<? -1 y (vhistory-length hist))
-      ;; save a copy of current linectx-vscreen to history-last
-      ;; then shallow copy y-th history element into vscreen
-      (lineedit-lines-set! lctx (vhistory-ref/cow hist y))
-      (linectx-history-index-set! lctx y)
+  (let* ((old-y  (linectx-history-index lctx))
+         (new-y  (fx+ delta-y old-y))
+         (hist   (linectx-history lctx))
+         (len    (vhistory-length hist))
+         (screen (linectx-vscreen lctx)))
+    (when (fx<? -1 new-y len)
+      (if (fx=? old-y len)
+        ;; vscreen is not saved to history. Save it before replacing it with a history element
+        (linectx-to-history lctx #t)
+        ;; store vscreen in history at index old-y
+        (vhistory-set! hist old-y screen))
+
+      ;; then shallow copy into vscreen the history vlines at new-y
+      (vscreen-assign*! screen (vhistory-ref/cow hist new-y))
+      (linectx-history-index-set! lctx new-y)
       ;; if moving up, set vscreen cursor to end of first line
       ;; if moving down, set vscreen cursor to end of last line
       (linectx-ixy-set! lctx (greatest-fixnum)

@@ -15,7 +15,7 @@
   (fields
     rbuf              ; bytespan, buffer for stdin
     wbuf              ; bytespan, buffer for stdout
-    (mutable vscreen) ; vscreen, input being edited
+    vscreen           ; vscreen, input being edited
     (mutable term-x)  ; fixnum, cursor x position in tty
     (mutable term-y)  ; fixnum, cursor y position in tty
     (mutable stdin)   ; input file descriptor, or binary input port
@@ -300,24 +300,19 @@
 
 ;; append to history a shallow copy of current lines, and return such copy.
 ;; Also clears current lines, and removes empty lines from history.
-(define (linectx-to-history lctx)
-  (let* ((y    (linectx-history-index lctx))
-         (hist (linectx-history lctx)))
-    ;; always overwrite last history slot
-    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (vhistory-length hist))))
-    (let ((lines (linectx-to-history* lctx)))
-      (vhistory-delete-empty-lines! hist (vhistory-length hist))
-      (linectx-history-index-set! lctx (vhistory-length hist))
-      (linectx-clear! lctx) ;; clear vscreen
-      lines)))
-
-
-;; save to history at current index a shallow copy of current lines, and return such copy.
-;; Does NOT modify current lines.
-(define (linectx-to-history* lctx)
-  (let-values (((ret idx) (vhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
-    (linectx-history-index-set! lctx idx)
-    ret))
+(define linectx-to-history
+  (case-lambda
+    ((lctx temporary?)
+      (let* ((hist  (linectx-history lctx))
+             (lines (vhistory-insert-right! hist (linectx-vscreen lctx) temporary?)))
+        (unless temporary?
+          (vhistory-delete-empty-lines! hist (vhistory-length hist))
+          (vhistory-delete-duplicates-right! hist))
+        (linectx-history-index-set! lctx (vhistory-length hist))
+        (linectx-clear! lctx) ;; clear vscreen
+        lines))
+    ((lctx)
+      (linectx-to-history lctx #f))))
 
 
 ;; load history from file. return #t if successful, otherwise return #f
