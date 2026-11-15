@@ -56,20 +56,34 @@
 
 
 ;; return i-th vlines in history
+;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-ref hist idx)
   (car (gbuffer-ref hist idx)))
 
 
 ;; return #t if i-th vlines in history was set with (vhistory-set!) AFTER the vlines was added to history
+;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-ref-edited? hist idx)
   (let ((pair (gbuffer-ref hist idx)))
     (not (vlines-equal-chars? (car pair) (cdr pair)))))
 
 
+;; remove elements in range [start, end) from history
+;; prerequisite: (fx<=? 0 start end (vhistory-length gb))
 (define (vhistory-delete! hist start end)
   (let ((len (vhistory-length hist)))
     (gbuffer-delete! hist start end)
     (when (and (fx<? start len) (fx=? end len))
+      (vhistory-last-temporary-set! hist #f))))
+
+
+;; insert vlines into history at position idx
+;; prerequisite: (fx<=? 0 idx (vhistory-length gb))
+(define (vhistory-insert-at! hist idx lines)
+  (assert-vlines? 'vhistory-insert-at! lines)
+  (let ((last? (fx=? idx (vhistory-length hist))))
+    (gbuffer-insert-at! idx (cons lines lines))
+    (when last?
       (vhistory-last-temporary-set! hist #f))))
 
 
@@ -100,6 +114,7 @@
 
 
 ;; return a copy-on-write clone of i-th vlines in history
+;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-ref/cow hist idx)
   (vlines-copy-on-write (vhistory-ref hist idx)))
 
@@ -139,8 +154,8 @@
 ;;   set (vhistory-last-temporary?) to temporary?
 ;;
 ;; return the stored shallow copy of lines - or the existing lines that prevented storing them
-(define (vhistory-insert-right! hist lines temporary?)
-  ;; (debugf "> vhistory-insert-right! history ~s" hist)
+(define (vhistory-maybe-insert-right! hist lines temporary?)
+  ;; (debugf "> vhistory-maybe-insert-right! history ~s" hist)
   (when (and (not temporary?) (vhistory-last-temporary? hist))
     (let ((len (vhistory-length hist)))
       (vhistory-delete! hist (fx1- len) len)))
@@ -149,19 +164,19 @@
          (idx-eq (if temporary? #f (%vhistory-find-nearby hist len lines)))
          (lines  (if idx-eq (vhistory-ref hist idx-eq)
                             (vlines-shallow-copy lines))))
-    ;; (debugf ". vhistory-insert-right! lines ~s, temporary? ~s, vhistory-last-temporary? ~s, idx-eq ~s, len ~s" lines temporary? (vhistory-last-temporary? hist) idx-eq len)
+    ;; (debugf ". vhistory-maybe-insert-right! lines ~s, temporary? ~s, vhistory-last-temporary? ~s, idx-eq ~s, len ~s" lines temporary? (vhistory-last-temporary? hist) idx-eq len)
     (unless idx-eq
       (let ((idx (if (vhistory-last-temporary? hist) (fx1- len) len)))
         (gbuffer-insert-at! hist idx (cons lines lines))))
     (vhistory-last-temporary-set! hist (and temporary? #t)) ;; store #f or #t, not arbitrary datum
-    ;; (debugf "< vhistory-insert-right! lines ~s, history ~s" lines hist)
+    ;; (debugf "< vhistory-maybe-insert-right! lines ~s, history ~s" lines hist)
     lines))
 
 
-;; if idx is not in range 0 ... (fx1- (vhistory-length hist)), raise condition.
-;; otherwise store a shallow copy of vlines into history at index idx.
+;; store a shallow copy of vlines into history at index idx.
 ;;
 ;; return unspecified value
+;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-set! hist idx lines)
   ;; (debugf "vhistory-set! idx ~s, len ~s, lines ~s" idx (vhistory-length hist) lines)
   (assert-vlines? 'vhistory-set! lines)
@@ -175,6 +190,7 @@
 ;; return index of non-empty vline found, or -1
 ;;
 ;; limitation: removes immutable lines too, even if they are not empty
+;; prerequisite: (fx<=? 0 idx (vhistory-length gb))
 (define (vhistory-delete-empty-lines! hist idx)
   (let* ((old-len (vhistory-length hist))
          (pos

@@ -304,7 +304,7 @@
   (case-lambda
     ((lctx temporary?)
       (let* ((hist  (linectx-history lctx))
-             (lines (vhistory-insert-right! hist (linectx-vscreen lctx) temporary?)))
+             (lines (vhistory-maybe-insert-right! hist (linectx-vscreen lctx) temporary?)))
         (unless temporary?
           (vhistory-delete-empty-lines! hist (vhistory-length hist))
           (vhistory-delete-duplicates-right! hist))

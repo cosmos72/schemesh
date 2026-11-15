@@ -91,10 +91,11 @@
     vscreen-assign*!  vscreen-reflow  vscreen-write
 
     ;; vhistory.ss
-    vhistory vhistory? vhistory-empty? vhistory-clear! vhistory-length vhistory-path vhistory-path-set!
+    vhistory vhistory? vhistory-clear! vhistory-empty? vhistory-length vhistory-path vhistory-path-set!
+    vhistory-delete! vhistory-insert-at! vhistory-iterate vhistory-maybe-insert-right!
+    vhistory-ref vhistory-ref/cow vhistory-ref-edited? vhistory-set!
     vhistory-delete-empty-lines! vhistory-delete-duplicates-right!
-    vhistory-iterate vhistory-index/starts-with vhistory-index-right/starts-with vhistory-insert-right!
-    vhistory-ref/cow vhistory-ref/cow vhistory-ref-edited? vhistory-set!
+    vhistory-index/starts-with vhistory-index-right/starts-with
 
     ;; vhistory-io.ss
     vhistory-file-load! vhistory-file-save
