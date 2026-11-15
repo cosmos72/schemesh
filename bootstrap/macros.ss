@@ -207,84 +207,77 @@
 
 
 ;; extended (parameterize (clause ...) body1 body2 ...)
-;;   where each clause can be either the classic (param value) or the new (=> enter leave)
+;;   where each clause can be either the classic (param value) or the new (=> init quit)
 ;;
-;; in the latter case, calls (enter) before evaluating body1 body2 ...
-;;   and calls (leave) after body1 body2 ... returns,
+;; in the latter case, calls (init) before evaluating body1 body2 ...
+;;   and calls (quit) after body1 body2 ... returns,
 ;;   providing the same guarantees as the classic (parameterize)
-;;   i.e. (leave) is called even if body returns via a continuation or raises a condition
+;;   i.e. (quit) is called even if body returns via a continuation or raises a condition
 ;;
+;; additionally, when body returns (quit) and (param original-value) are called in reverse order
 (define-syntax parameterize*
-  (letrec ((generate-temporary   (lambda (stx) (datum->syntax #'stx (gensym))))
-           (generate-temporaries (lambda (stx) (map generate-temporary (syntax->list stx))))
-           (%collect-binds
-             (lambda (temp1 temp2 clauses)
+  (letrec ((%collect-binds
+             (lambda (clauses ret)
                (syntax-case clauses (=>)
                  (()
-                   '())
-                 (((param value) . rest)
-                   (cons* #`(#,(car temp1) param)
-                          #`(#,(car temp2) value)
-                          (%collect-binds (cdr temp1) (cdr temp2) #'rest)))
-                 (((=> enter leave) . rest)
-                   (cons* #`(#,(car temp1) enter)
-                          #`(#,(car temp2) leave)
-                          (%collect-binds (cdr temp1) (cdr temp2) #'rest)))
+                   (reverse! ret))
+                 (((param value) . more-clauses)
+                   (with-syntax ((tparam (generate-pretty-temporary #'param))
+                                 (tvalue (generate-pretty-temporary #'value)))
+                     (%collect-binds #'more-clauses
+                                     (cons* #'(tvalue value) #'(tparam param) ret))))
+                 (((=> init quit) . more-clauses)
+                   (with-syntax ((tinit (generate-pretty-temporary #'init))
+                                 (tquit (generate-pretty-temporary #'quit)))
+                     (%collect-binds #'more-clauses
+                                     (cons* #`(tquit quit) #`(tinit init) ret))))
                  (_
                    (syntax-violation
                     'parameterize*
-                    "expected (param value) or (=> enter leave)"
+                    "expected (param value) or (=> init quit)"
                     clauses)))))
-           (%collect-enters
-             (lambda (temp1 temp2 clauses)
+           (%collect-inits
+             (lambda (clauses binds ret)
                (syntax-case clauses (=>)
                  (()
-                   '())
-                 (((param value) . rest)
-                   (with-syntax ((tparam (car temp1))
-                                 (tvalue (car temp2)))
-                     (cons
-                       #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp))
-                       (%collect-enters (cdr temp1) (cdr temp2) #'rest))))
-                 (((=> enter leave) . rest)
-                   (with-syntax ((tenter (car temp1)))
-                     (cons
-                       #'(tenter)
-                       (%collect-enters (cdr temp1) (cdr temp2) #'rest)))))))
-           (%collect-leaves
-             (lambda (temp1 temp2 clauses)
+                   (reverse! ret))
+                 (((param value) . more-clauses)
+                   (with-syntax ((tparam (caar binds))
+                                 (tvalue (caadr binds)))
+                     (%collect-inits #'more-clauses (cddr binds)
+                                     (cons #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp)) ret))))
+                 (((=> init quit) . more-clauses)
+                   (with-syntax ((tinit (caar binds)))
+                     (%collect-inits #'more-clauses (cddr binds)
+                                     (cons #'(tinit) ret)))))))
+           (%collect-quits
+             (lambda (clauses binds ret)
                (syntax-case clauses (=>)
                  (()
-                   '())
-                 (((param value) . rest)
-                   (with-syntax ((tparam (car temp1))
-                                 (tvalue (car temp2)))
-                     (cons
-                       #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp))
-                       (%collect-leaves (cdr temp1) (cdr temp2) #'rest))))
-                 (((=> enter leave) . rest)
-                   (with-syntax ((tleave (car temp2)))
-                     (cons
-                       #'(tleave)
-                       (%collect-leaves (cdr temp1) (cdr temp2) #'rest))))))))
+                   ret)
+                 (((param value) . more-clauses)
+                   (with-syntax ((tparam (caar binds))
+                                 (tvalue (caadr binds)))
+                     (%collect-quits #'more-clauses (cddr binds)
+                                     (cons #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp)) ret))))
+                 (((=> init quit) . more-clauses)
+                   (with-syntax ((tquit (caadr binds)))
+                     (%collect-quits #'more-clauses (cddr binds)
+                                     (cons #'(tquit) ret))))))))
     (lambda (stx)
       (syntax-case stx ()
         ((_ () body1 body2 ...)
           #'(begin body1 body2 ...))
         ((_ (clauses ...) body1 body2 ...)
-          (let* ((l      #'(clauses ...))
-                 (temp1  (generate-temporaries l))
-                 (temp2  (generate-temporaries l))
-                 (binds  (%collect-binds temp1 temp2 l))
-                 (enters (%collect-enters temp1 temp2 l))
-                 (leaves (reverse! (%collect-leaves temp1 temp2 l))))
-              (with-syntax (((xbind ...)  binds)
-                            ((xenter ...) enters)
-                            ((xleave ...) leaves))
+          (let* ((args  #'(clauses ...))
+                 (binds (%collect-binds args '()))
+                 (inits (%collect-inits args binds '()))
+                 (quits (%collect-quits args binds '())))
+              (with-syntax (((xbind ...) binds)
+                            ((xinit ...) inits)
+                            ((xquit ...) quits))
                 #'(let (xbind ...)
-                    (let ((enter-proc (lambda () xenter ...))
-                          (leave-proc (lambda () xleave ...)))
-                      (dynamic-wind
-                        enter-proc
-                        (lambda () body1 body2 ...)
-                        leave-proc))))))))))
+                    (dynamic-wind
+                      (lambda () xinit ...)
+                      (lambda () body1 body2 ...)
+                      (lambda () xquit ...))))))))))
