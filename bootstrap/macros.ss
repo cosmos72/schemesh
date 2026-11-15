@@ -236,7 +236,7 @@
                     "expected (param value) or (=> enter leave)"
                     clauses)))))
            (%collect-swaps
-             (lambda (temp1 temp2 clauses)
+             (lambda (temp1 temp2 dir clauses)
                (syntax-case clauses (=>)
                  (()
                    #'() '())
@@ -245,27 +245,30 @@
                                  (tvalue (car temp2)))
                      (cons
                        #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp))
-                       (%collect-swaps (cdr temp1) (cdr temp2) #'rest))))
+                       (%collect-swaps (cdr temp1) (cdr temp2) dir #'rest))))
                  (((=> enter leave) . rest)
                    (with-syntax ((tenter (car temp1))
-                                 (tleave (car temp2)))
+                                 (tleave (car temp2))
+                                 (tdir   dir))
                      (cons
-                       #'(let ((temp tenter)) (tenter) (set! tenter tleave) (set! tleave temp))
-                       (%collect-swaps (cdr temp1) (cdr temp2) #'rest))))))))
+                       #'(if tdir (tenter) (tleave))
+                       (%collect-swaps (cdr temp1) (cdr temp2) dir #'rest))))))))
     (lambda (stx)
       (syntax-case stx ()
         ((_ () body1 body2 ...)
           #'(begin body1 body2 ...))
         ((_ (clauses ...) body1 body2 ...)
           (let* ((l     #'(clauses ...))
+                 (dir   (generate-pretty-temporary #'dir))
                  (temp1 (generate-temporaries l))
                  (temp2 (generate-temporaries l))
                  (binds (%collect-binds temp1 temp2 l))
-                 (swaps (%collect-swaps temp1 temp2 l)))
-              (with-syntax ((xbinds binds)
+                 (swaps (%collect-swaps temp1 temp2 dir l)))
+              (with-syntax ((xdir dir)
+                            ((xbind ...) binds)
                             ((xswap ...) swaps))
-                #'(let xbinds
-                    (let ((swapper (lambda () xswap ...)))
+                #'(let (xbind ... (xdir #t))
+                    (let ((swapper (lambda () xswap ... (set! xdir (not xdir)))))
                       (dynamic-wind
                         swapper
                         (lambda () body1 body2 ...)
