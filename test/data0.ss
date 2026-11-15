@@ -52,8 +52,17 @@
     while (fx<? i 4)
     i)                                             3
 
+  (let* ((param (sh-make-parameter 1))
+         (value 10)
+         (enter (lambda () (set! value (fx1+ value))))
+         (leave (lambda () (set! value (fx1- value)))))
+    (list (cons (param) value)
+          (parameterize* ((param 7)
+                          (=> enter leave))
+            (cons (param) value))
+          (cons (param) value)))                   ((1 . 10) (7 . 11) (1 . 10))
 
-  ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
+  ;; do not use '(expand-omit-library-invocations #t) (void) because it requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
 
   ;; ----------------- containers bytevector -----------------------------------

@@ -204,3 +204,69 @@
       (let-values (((var vars ...) expr))
         (let-values0 (more-vars ...)
           body ...)))))
+
+
+;; extended (parameterize (clause ...) body1 body2 ...)
+;;   where each clause can be either the classic (param value) or the new (=> enter leave)
+;;
+;; in the latter case, calls (enter) before evaluating body1 body2 ...
+;;   and calls (leave) after body1 body2 ... returns,
+;;   providing the same guarantees as the classic (parameterize)
+;;   i.e. (leave) is called even if body returns via a continuation or raises a condition
+;;
+(define-syntax parameterize*
+  (letrec ((generate-temporary   (lambda (stx)      (datum->syntax #'stx (gensym))))
+           (generate-temporaries (lambda (stx-list) (map generate-temporary stx-list)))
+           (%collect-binds
+             (lambda (temp1 temp2 clauses)
+               (syntax-case clauses (=>)
+                 (()
+                   #'() '())
+                 (((param value) . rest)
+                   (cons* #`(#,(car temp1) param)
+                          #`(#,(car temp2) value)
+                          (%collect-binds (cdr temp1) (cdr temp2) #'rest)))
+                 (((=> enter leave) . rest)
+                   (cons* #`(#,(car temp1) enter)
+                          #`(#,(car temp2) leave)
+                          (%collect-binds (cdr temp1) (cdr temp2) #'rest)))
+                 (_
+                   (syntax-violation
+                    'parameterize*
+                    "expected (param value) or (=> enter leave)"
+                    clauses)))))
+           (%collect-swaps
+             (lambda (temp1 temp2 clauses)
+               (syntax-case clauses (=>)
+                 (()
+                   #'() '())
+                 (((param value) . rest)
+                   (with-syntax ((tparam (car temp1))
+                                 (tvalue (car temp2)))
+                     (cons
+                       #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp))
+                       (%collect-swaps (cdr temp1) (cdr temp2) #'rest))))
+                 (((=> enter leave) . rest)
+                   (with-syntax ((tenter (car temp1))
+                                 (tleave (car temp2)))
+                     (cons
+                       #'(let ((temp tenter)) (tenter) (set! tenter tleave) (set! tleave temp))
+                       (%collect-swaps (cdr temp1) (cdr temp2) #'rest))))))))
+    (lambda (stx)
+      (syntax-case stx ()
+        ((_ () body1 body2 ...)
+          #'(begin body1 body2 ...))
+        ((_ (clauses ...) body1 body2 ...)
+          (let* ((l     #'(clauses ...))
+                 (temp1 (generate-temporaries l))
+                 (temp2 (generate-temporaries l))
+                 (binds (%collect-binds temp1 temp2 l))
+                 (swaps (%collect-swaps temp1 temp2 l)))
+              (with-syntax ((xbinds binds)
+                            ((xswap ...) swaps))
+                #'(let xbinds
+                    (let ((swapper (lambda () xswap ...)))
+                      (dynamic-wind
+                        swapper
+                        (lambda () body1 body2 ...)
+                        swapper))))))))))
