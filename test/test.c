@@ -91,9 +91,23 @@ static int compile_schemesh_so(const char* source_dir) {
             strerror(err));
     return err;
   }
+  /**
+   * Reproducible build: set Chez Scheme session-key for generating gensyms.
+   *
+   * session-key "6b06lcku1yrdwythldhi1r35-"
+   * is generated from git commit hash 35fb62b9d286f333123f6c4efbcf0787941652d1 with
+   *   (string-downcase (number->string #x35fb62b9d286f333123f6c4efbcf0787941652d1 36))
+   * that returns
+   *   "6b06lcku1yrdwythldhi1r3512gote9"
+   * and truncated to 24 characters to match minimum session-key length produced by Chez Scheme
+   *
+   * Fortunately, (#%$set-top-level-value! '$session-key "...") is a nop on old Chez Scheme versions
+   * that do not support reproducible builds.
+   */
 #ifdef SCHEME2K_OPTIMIZE
   ret =
       scheme2k_eval("(parameterize ((optimize-level 2))\n"
+                    "  (#%$set-top-level-value! '$session-key \"6b06lcku1yrdwythldhi1r35-\")\n"
                     "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
                     "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
                     "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
@@ -102,6 +116,7 @@ static int compile_schemesh_so(const char* source_dir) {
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (debug-level    3)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
+                      "  (#%$set-top-level-value! '$session-key \"6b06lcku1yrdwythldhi1r35-\")\n"
                       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
                       "  #t)");
 #endif
