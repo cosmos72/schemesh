@@ -81,7 +81,7 @@
         (void)
         (let ((out (console-error-port)))
           (sh-stdio-flush)
-          (put-string out "\n\x1b;[1;33m; Warning: failed loading file ")
+          (put-string out "\n\x1b;[1;33m; Warning: failed executing file ")
           (put-datum  out (text->string path))
           (put-string out ": ")
           (display-condition ex out)

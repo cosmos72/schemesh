@@ -33,7 +33,8 @@
                                           default-exception-handler display-condition eval exit-handler fx1+ fx1- include inspect
                                           logbit? make-parameter optimize-level parameterize pretty-print procedure-arity-mask
                                           read-token reset reset-handler reverse! void)
-    (only (scheme2k bootstrap)            ==> assert* catch catch-all check-interrupts define-macro first-value-or-void nop raise-errorf try values->list while)
+    (only (scheme2k bootstrap)            ==> assert* catch catch-all check-interrupts define-macro first-value-or-void nop
+                                          parameterize* raise-errorf try values->list while)
     (only (scheme2k containers charspan)  charspan->string)
     (only (scheme2k containers hashtable) hash-cursor hash-cursor-next! hashtable plist->hashtable)
     (only (scheme2k containers bytespan)  bytespan-clear! bytespan-insert-right/u8! bytespan-length
@@ -300,6 +301,14 @@
   (repl-print-list vals))
 
 
+(define (tty-bracketed-paste-enable lctx)
+  (lineterm-write/bytevector lctx #vu8(27 91 63 50 48 48 52 104)))
+
+
+(define (tty-bracketed-paste-disable lctx)
+  (lineterm-write/bytevector lctx #vu8(27 91 63 50 48 48 52 108)))
+
+
 ;; Parse and execute user input.
 ;; Calls in sequence (repl-lineedit) ((repl-current-parse)) to obtain a list of forms,
 ;; then calls ((repl-current-eval)) on each form.
@@ -316,7 +325,7 @@
 ;;
 ;;   For these reasons, the loop evaluating each form
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-once print-func lctx tty-bracketed-paste flush?)
+(define (repl-once print-func lctx flush?)
   ;; (debugf "repl-once ready")
   (let ((obj (repl-lineedit lctx flush?)))
     (case obj
@@ -333,7 +342,7 @@
               (when (pair? forms)
                 (dynamic-wind
                   (lambda ()
-                    (tty-bracketed-paste #f)
+                    (tty-bracketed-paste-disable lctx)
                     (linectx-flush lctx)
                     (tty-restore!))
                   (lambda ()
@@ -342,46 +351,42 @@
                       (print-func ((repl-current-eval) (car tail) (sh-current-environment)))))
                   (lambda ()
                     (tty-setraw!)
-                    (tty-bracketed-paste #t)
+                    (tty-bracketed-paste-enable lctx)
                     (sh-stdio-flush)))))
             (void)))))))
-
 
 
 ;; main loop of (repl) and (repl*)
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl-loop print-func lctx)
+(define (repl-loop print-func lctx init-file-path quit-file-path)
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
-  (let ((my-repl-args (list print-func lctx #f #f))
-        (reload-count (sh-schemesh-reload-count))
-        (tty-bracketed-paste (let ((val #f))
-                               (case-lambda
-                                 (() val)
-                                 ((new-val)
-                                   (unless (eq? new-val val)
-                                     (lineterm-write/bytevector lctx (if new-val #vu8(27 91 63 50 48 48 52 104)
-                                                                                 #vu8(27 91 63 50 48 48 52 108)))
-                                     (set! val new-val)))))))
+  (let ((my-repl-args        (list print-func lctx #f #f))
+        (reload-count        (sh-schemesh-reload-count))
+        (initial-parser-name (linectx-parser-name lctx)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
-        (parameterize ((optimize-level 2)
-                       (repl-args  my-repl-args)
-                       (base-exception-handler repl-exception-handler)
-                       (break-handler
-                         (lambda break-args
-                           (repl-break-handler break-args my-repl-args)))
-                       (exit-handler k-exit)
-                       (reset-handler (reset-handler))
-                       (tty-bracketed-paste #t))
+        (parameterize* ((optimize-level 2)
+                        (repl-args  my-repl-args)
+                        (base-exception-handler repl-exception-handler)
+                        (break-handler (lambda break-args
+                                         (repl-break-handler break-args my-repl-args)))
+                        (exit-handler k-exit)
+                        (reset-handler (reset-handler))
+                        (=> (lambda () (tty-bracketed-paste-enable lctx)   ;; called on enter
+                                       (try-eval-file init-file-path))
+                            (lambda () (try-eval-file quit-file-path)      ;; called on leave
+                                       (tty-bracketed-paste-disable lctx))))
+          ;; (try-eval-file init-file-path) above may change lctx parser, restore it
+          (linectx-parser-name-set! lctx initial-parser-name)
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ;; when the (reset-handler) we installed is called, resume from here
             (let %repl-loop ((flush? #t))
-              (let ((obj (repl-once print-func lctx tty-bracketed-paste flush?)))
+              (let ((obj (repl-once print-func lctx flush?)))
                 (case obj
                   ((#f) ; EOF
                     (sh-noexit-count-inc!)
@@ -412,8 +417,7 @@
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
 (define (repl* print-func lctx init-file-path quit-file-path)
-  (let ((initial-parser-name (linectx-parser-name lctx))
-        (old-job-control (tty-job-control?))
+  (let ((old-job-control (tty-job-control?))
         (new-job-control #f))
     (assert* 'repl (linectx? lctx))
     (dynamic-wind
@@ -421,19 +425,15 @@
         (lineedit-clear! lctx)
         (linectx-load-history! lctx)
         (signal-init-sigwinch)
-        ;; init file may change lctx parser, we will restore parser below
-        (try-eval-file init-file-path)
         ;; enable job control if available
         (set! new-job-control (tty-job-control? (tty-job-control-available?)))
         (tty-setraw!))
       (lambda ()
-        (linectx-parser-name-set! lctx initial-parser-name)
-        (repl-loop print-func lctx))
+        (repl-loop print-func lctx init-file-path quit-file-path))
       (lambda ()
         (tty-restore!)
         ; restore job control to previous value
         (tty-job-control? old-job-control)
-        (try-eval-file quit-file-path)
         (signal-restore-sigwinch)
         (lineedit-flush lctx)
         (linectx-save-history lctx)))))
