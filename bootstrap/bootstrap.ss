@@ -39,8 +39,8 @@
     (rnrs exceptions)
     (rnrs mutable-pairs)
     (only (chezscheme) append! base-exception-handler console-error-port current-time format foreign-procedure
-                       fx1+ fx1- fx/ gensym include list-copy list-head lock-object logbit? meta
-                       pariah procedure-arity-mask reverse! time-second time-nanosecond unlock-object void)
+                       fx1+ fx1- fx/ gensym include list-copy list-head lock-object logbit? meta pariah
+                       procedure-arity-mask reverse! syntax->list time-second time-nanosecond unlock-object void)
     (scheme2k bootstrap arrow)
     (scheme2k bootstrap functions))
 
