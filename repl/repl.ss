@@ -375,10 +375,11 @@
                                          (repl-break-handler break-args my-repl-args)))
                         (exit-handler k-exit)
                         (reset-handler (reset-handler))
-                        (=> (lambda () (tty-bracketed-paste-enable lctx)   ;; called on enter
-                                       (try-eval-file init-file-path))
-                            (lambda () (try-eval-file quit-file-path)      ;; called on leave
-                                       (tty-bracketed-paste-disable lctx))))
+                        (=> (tty-bracketed-paste-enable lctx)   ;; called on enter
+                            (tty-bracketed-paste-disable lctx))
+                        (=> (try-eval-file init-file-path)
+                            (try-eval-file quit-file-path)))    ;; called on leave
+
           ;; (try-eval-file init-file-path) above may change lctx parser, restore it
           (linectx-parser-name-set! lctx initial-parser-name)
           (let ((k-reset k-exit))

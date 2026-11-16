@@ -53,12 +53,11 @@
     i)                                             3
 
   (let* ((param (sh-make-parameter 1))
-         (value 10)
-         (enter (lambda () (set! value (fx1+ value))))
-         (leave (lambda () (set! value (fx1- value)))))
+         (value 10))
     (list (cons (param) value)
           (parameterize* ((param 7)
-                          (=> enter leave))
+                          (=> (set! value (fx1+ value))
+			      (set! value (fx1- value))))
             (cons (param) value))
           (cons (param) value)))                   ((1 . 10) (7 . 11) (1 . 10))
 

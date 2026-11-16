@@ -209,10 +209,10 @@
 ;; extended (parameterize (clause ...) body1 body2 ...)
 ;;   where each clause can be either the classic (param value) or the new (=> init quit)
 ;;
-;; in the latter case, calls (init) before evaluating body1 body2 ...
-;;   and calls (quit) after body1 body2 ... returns,
+;; in the latter case, evaluates init before evaluating body1 body2 ...
+;;   and evaluates quit after body1 body2 ... returns,
 ;;   providing the same guarantees as the classic (parameterize)
-;;   i.e. (quit) is called even if body returns via a continuation or raises a condition
+;;   i.e. quit is evaluates even if body returns via a continuation or raises a condition
 ;;
 ;; additionally, when body returns (quit) and (param original-value) are called in reverse order
 (define-syntax parameterize*
@@ -227,10 +227,7 @@
                      (%collect-binds #'more-clauses
                                      (cons* #'(tvalue value) #'(tparam param) ret))))
                  (((=> init quit) . more-clauses)
-                   (with-syntax ((tinit (generate-pretty-temporary #'init))
-                                 (tquit (generate-pretty-temporary #'quit)))
-                     (%collect-binds #'more-clauses
-                                     (cons* #`(tquit quit) #`(tinit init) ret))))
+                   (%collect-binds #'more-clauses ret))
                  (_
                    (syntax-violation
                     'parameterize*
@@ -247,9 +244,8 @@
                      (%collect-inits #'more-clauses (cddr binds)
                                      (cons #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp)) ret))))
                  (((=> init quit) . more-clauses)
-                   (with-syntax ((tinit (caar binds)))
-                     (%collect-inits #'more-clauses (cddr binds)
-                                     (cons #'(tinit) ret)))))))
+                   (%collect-inits #'more-clauses binds
+                                   (cons #'init ret))))))
            (%collect-quits
              (lambda (clauses binds ret)
                (syntax-case clauses (=>)
@@ -261,9 +257,8 @@
                      (%collect-quits #'more-clauses (cddr binds)
                                      (cons #'(let ((temp (tparam))) (tparam tvalue) (set! tvalue temp)) ret))))
                  (((=> init quit) . more-clauses)
-                   (with-syntax ((tquit (caadr binds)))
-                     (%collect-quits #'more-clauses (cddr binds)
-                                     (cons #'(tquit) ret))))))))
+                   (%collect-quits #'more-clauses binds
+                                   (cons #'quit ret)))))))
     (lambda (stx)
       (syntax-case stx ()
         ((_ () body1 body2 ...)
