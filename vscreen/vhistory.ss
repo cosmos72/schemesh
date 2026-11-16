@@ -82,7 +82,7 @@
 (define (vhistory-insert-at! hist idx lines)
   (assert-vlines? 'vhistory-insert-at! lines)
   (let ((last? (fx=? idx (vhistory-length hist))))
-    (gbuffer-insert-at! idx (cons lines lines))
+    (gbuffer-insert-at! hist idx (cons lines lines))
     (when last?
       (vhistory-last-temporary-set! hist #f))))
 
