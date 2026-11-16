@@ -49,9 +49,9 @@
     ;; vline.ss
     vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?
-    vline-length vline-ref vline-ref/char vline-at vline-at/char
-    vline-equal-chars? vline-set! vline-clear!
-    vline-delete! vline-insert-at! vline-insert-at/vcellspan! vline-insert-at/vbuffer!
+    vline-length vline-ref vline-ref/char vline-at vline-at/char vline-substring=?
+    vline-clear! vline-delete! vline-insert-at! vline-set!
+    vline-insert-at/vcellspan! vline-insert-at/vbuffer!
     vline-index-left vline-index-right vline-index vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
     in-vline vline-iterate vline-display/bytespan vline-write
@@ -59,8 +59,8 @@
     ;; vlines.ss
     vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
-    vlines-empty? vlines-length vlines-equal-chars?
-    vlines-cell-count vlines-cell-count<=? vlines-ref vlines-set! vlines-clear!
+    vlines-empty? vlines-length vlines-clear! vlines-ref vlines-set!
+    vlines-cell-count vlines-cell-count<=? vlines-string=?
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?

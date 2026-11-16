@@ -129,8 +129,8 @@
         (when lines
           (let* ((hist-n (vhistory-length hist))
                  (prev-lines (and (not (fxzero? hist-n)) (vhistory-ref hist (fx1- hist-n)))))
-            ;; remove duplicates
-            (unless (and prev-lines (vlines-equal-chars? lines prev-lines))
+            ;; remove consecutive duplicates
+            (unless (and prev-lines (vlines-string=? lines prev-lines))
               (gbuffer-insert-at! hist hist-n (cons lines lines)))))
         (when (or eof? (not lines))
           (set! done? #t))))

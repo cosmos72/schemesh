@@ -65,7 +65,7 @@
 ;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-ref-edited? hist idx)
   (let ((pair (gbuffer-ref hist idx)))
-    (not (vlines-equal-chars? (car pair) (cdr pair)))))
+    (not (vlines-string=? (car pair) (cdr pair)))))
 
 
 ;; remove elements in range [start, end) from history
@@ -129,7 +129,7 @@
              (if (fx>=? i 0)
                (let ((line1 (vhistory-ref hist i))
                      (line2 (vhistory-ref hist (fx1+ i))))
-                 (if (vlines-equal-chars? line1 line2)
+                 (if (vlines-string=? line1 line2)
                    (%loop (fx1- i))
                    i))
                i)))))
@@ -178,11 +178,10 @@
 ;; return unspecified value
 ;; prerequisite: (fx<? -1 idx (vhistory-length gb))
 (define (vhistory-set! hist idx lines)
-  ;; (debugf "vhistory-set! idx ~s, len ~s, lines ~s" idx (vhistory-length hist) lines)
+  (assert* 'vhistory-set! (vhistory? hist))
   (assert-vlines? 'vhistory-set! lines)
-  (let ((pair (gbuffer-ref hist idx)))
-    (unless (vlines-equal-chars? lines (car pair))
-      (set-car! pair (vlines-shallow-copy lines)))))
+  ;; (debugf "vhistory-set! idx ~s, len ~s, lines ~s" idx (vhistory-length hist) lines)
+  (set-car! (gbuffer-ref hist idx) (vlines-shallow-copy lines)))
 
 
 ;; remove consecutive empty vlines before index idx in vhistory.
@@ -219,7 +218,7 @@
          (end   (fxmin len (fx+ 2 idx))))
     (let %loop ((i start))
       (and (fx<? i end)
-           (if (vlines-equal-chars? (vhistory-ref hist i) lines)
+           (if (vlines-string=? (vhistory-ref hist i) lines)
              i
              (%loop (fx1+ i)))))))
 
@@ -236,7 +235,7 @@
         ((fx>=? i end)
           #f)
         ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal-chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+              (not (vlines-string=? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1+ i)))))))
@@ -255,7 +254,7 @@
         ((fx<? i start)
           #f)
         ((and (vlines-starts-with? (vhistory-ref hist i) prefix-lines prefix-x prefix-y)
-              (not (vlines-equal-chars? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
+              (not (vlines-string=? (vhistory-ref hist i) prefix-lines))) ;; ignore lines equal to prefix-lines
           i)
         (else
           (%loop (fx1- i)))))))

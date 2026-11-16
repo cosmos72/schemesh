@@ -37,8 +37,8 @@
     (span-iterate sp
       (lambda (i line)
         (if (string? line)
-         (span-set! sp i (vline line))
-         (assert-vline? 'vlines line))))
+          (span-set! sp i (vline line))
+          (assert-vline? 'vlines line))))
     (%make-vlines (span) sp (greatest-fixnum) 0)))
 
 
@@ -60,20 +60,34 @@
     str))
 
 
-;; return #t if lines1 and lines2 contain the same number of vline
-;; and each vline in lines1 contains the same chars as the corresponding vline in lines2
-(define (vlines-equal-chars? lines1 lines2)
-  (assert* 'vlines-equal-chars? (vlines? lines1))
-  (assert* 'vlines-equal-chars? (vlines? lines2))
-  (or (eq? lines1 lines2)
-      (and (eq? (gbuffer-left lines1)  (gbuffer-left lines2))
-           (eq? (gbuffer-right lines1) (gbuffer-right lines2)))
-      (let ((n1 (vlines-length lines1)))
-        (and (fx=? n1 (vlines-length lines2))
-             (do ((i 0 (fx1+ i)))
-                 ((or (fx>=? i n1)
-                      (not (vline-equal-chars? (vlines-ref lines1 i) (vlines-ref lines2 i))))
-                  (fx>=? i n1)))))))
+;; return #t if lines1 and lines2 contain the same characters.
+;; Note: the characters must match in the same order but may have different layout,
+;; for example because some vline is shorter or longer due to wrap at screen width.
+(define (vlines-string=? lines1 lines2)
+  (assert* 'vlines-string=? (vlines? lines1))
+  (assert* 'vlines-string=? (vlines? lines2))
+  (if (or (eq? lines1 lines2)
+          (and (eq? (gbuffer-left lines1)  (gbuffer-left lines2))
+               (eq? (gbuffer-right lines1) (gbuffer-right lines2))))
+    ;; no need to check lines1 and lines2 contents
+    #t
+    (let %vlines-string=? ((x1 0) (y1 0) (n1 (vlines-length lines1))
+                           (x2 0) (y2 0) (n2 (vlines-length lines2)))
+      ;; (debugf "%vlines-string=? pos1 (x ~s, y ~s, n ~s), pos2 (x ~s, y ~s, n ~s)" x1 y1 n1 x2 y2 n2)
+      (if (and (fx<? y1 n1) (fx<? y2 n2))
+        (let* ((line1 (vlines-ref lines1 y1))
+               (line2 (vlines-ref lines2 y2))
+               (len1  (fx- (vline-length line1) x1))
+               (len2  (fx- (vline-length line2) x2))
+               (len   (fxmin len1 len2)))
+          (if (and (fx>? len 0) (vline-substring=? line1 x1 line2 x2 len))
+            (let ((end1? (fx=? len len1))
+                  (end2? (fx=? len len2)))
+              (%vlines-string=? (if end1? 0 (fx+ x1 len)) (if end1? (fx1+ y1) y1) n1
+                                (if end2? 0 (fx+ x2 len)) (if end2? (fx1+ y2) y2) n2))
+            #f))
+        ;; check if we simultaneously reached the end of lines2 and lines2
+        (and (fx=? y1 n1) (fx=? y2 n2))))))
 
 
 (define (vlines-dirty-y-add! lines start end)

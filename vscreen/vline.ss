@@ -104,19 +104,27 @@
     (and (fx>=? last 0) (char=? #\newline (vline-ref/char line last)))))
 
 
-;; return #t if line1 and line2 contain the same chars
-(define (vline-equal-chars? line1 line2)
-  (assert* 'vline-equal-chars? (vline? line1))
-  (assert* 'vline-equal-chars? (vline? line2))
-  (or (eq? line1 line2)
-      (and (eq? (v< line1) (v< line2))
-           (eq? (v> line1) (v> line2)))
-      (let ((n1 (vline-length line1)))
-        (and (fx=? n1 (vline-length line2))
-          (do ((i 0 (fx1+ i)))
-              ((or (fx>=? i n1)
-                   (not (char=? (vline-ref/char line1 i) (vline-ref/char line2 i))))
-               (fx>=? i n1)))))))
+;; return #t if range [pos1, pos1+n) of line1 and range [pos2, pos2+n) of line2
+;; contain the same characters
+(define (vline-substring=? line1 pos1 line2 pos2 n)
+  (assert* 'vline-substring=? (vline? line1))
+  (assert* 'vline-substring=? (vline? line2))
+  (let ((len1 (vline-length line1))
+        (len2 (vline-length line2)))
+    (assert* 'vline-substring=? (fx<=? 0 pos1 len1))
+    (assert* 'vline-substring=? (fx<=? 0 pos2 len2))
+    (assert* 'vline-substring=? (fx<=? 0 n (fxmin (fx- len1 pos1) (fx- len2 pos2))))
+    (if (and (fx=? pos1 pos2)
+             (or (eq? line1 line2))
+                 (and (eq? (v< line1) (v< line2))
+                      (eq? (v> line1) (v> line2))))
+        ;; no need to check line1 and line2 contents
+        #t
+        (let %vline-substring=? ((i 0))
+          (if (fx<? i n)
+            (and (char=? (vline-ref/char line1 (fx+ i pos1)) (vline-ref/char line2 (fx+ i pos2)))
+                 (%vline-substring=? (fx1+ i)))
+            #t)))))
 
 
 (define (vline-dirty-x-add! line start end)

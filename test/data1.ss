@@ -161,6 +161,9 @@
   (vlines-count-right (vlines "abc\n" "ccc")
     3 0
     (lambda (cl) (not (char=? #\c (vcell->char cl)))))  1
+
+  (vlines-string=?
+    (vlines "foo bar b" "az") (vlines "foo bar baz"))   #t
   ;; ------------------------ vscreen -------------------------------------
   (let ((screen (vscreen 8 30 "qwerty\n" "asdfgh")))
     (vscreen-cursor-vxy-set! screen 3 1)

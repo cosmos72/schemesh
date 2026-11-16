@@ -356,29 +356,48 @@
             (void)))))))
 
 
-;; main loop of (repl) and (repl*)
+(define (try-eval-file path)
+  (sh-try-catch path (lambda () (sh-eval-file path))))
+
+
+;; top-level interactive repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl-loop print-func lctx init-file-path quit-file-path)
+(define (repl* print-func lctx init-file-path quit-file-path)
+  (assert* 'repl (linectx? lctx))
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
-  ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
-  (let ((my-repl-args        (list print-func lctx #f #f))
+  ;; if (repl* ...) is called by user, for example from an break handler,
+  ;; we do NOT want to execute them again
+  (let ((old-job-control     (tty-job-control?))
+	(my-repl-args        (list print-func lctx #f #f))
         (reload-count        (sh-schemesh-reload-count))
         (initial-parser-name (linectx-parser-name lctx)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
-        (parameterize* ((optimize-level 2)
-                        (repl-args  my-repl-args)
-                        (base-exception-handler repl-exception-handler)
-                        (break-handler (lambda break-args
-                                         (repl-break-handler break-args my-repl-args)))
-                        (exit-handler k-exit)
-                        (reset-handler (reset-handler))
-                        (=> (tty-bracketed-paste-enable lctx)   ;; called on enter
+        (parameterize* ((=> (lineedit-clear! lctx)
+			    (lineedit-flush lctx))
+			(=> (linectx-load-history! lctx)
+			    (linectx-save-history lctx))
+			(=> (signal-init-sigwinch)
+			    (signal-restore-sigwinch))
+			(=> ;; on enter, enable job control if available
+                            (tty-job-control? (tty-job-control-available?))
+			    ;; on leave, restore job control to previous value
+			    (tty-job-control? old-job-control))
+			(=> (tty-setraw!)
+			    (tty-restore!))
+                        (=> (tty-bracketed-paste-enable lctx)
                             (tty-bracketed-paste-disable lctx))
+			(optimize-level 2)
+                        (repl-args      my-repl-args)
+                        (base-exception-handler repl-exception-handler)
+                        (break-handler  (lambda break-args
+                                          (repl-break-handler break-args my-repl-args)))
+                        (exit-handler   k-exit)
+                        (reset-handler  (reset-handler))
                         (=> (try-eval-file init-file-path)
-                            (try-eval-file quit-file-path)))    ;; called on leave
+                            (try-eval-file quit-file-path)))
 
           ;; (try-eval-file init-file-path) above may change lctx parser, restore it
           (linectx-parser-name-set! lctx initial-parser-name)
@@ -408,36 +427,6 @@
                                       "; warning: libschemesh was reloaded. Call (repl-restart) to switch to the new libschemesh.\n")))
                       (%repl-loop #t))))))
             0)))))) ; EOF, or (repl-restart) was called. return 0
-
-
-(define (try-eval-file path)
-  (sh-try-catch path (lambda () (sh-eval-file path))))
-
-
-;; top-level interactive repl with all arguments mandatory
-;;
-;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl* print-func lctx init-file-path quit-file-path)
-  (let ((old-job-control (tty-job-control?))
-        (new-job-control #f))
-    (assert* 'repl (linectx? lctx))
-    (dynamic-wind
-      (lambda ()
-        (lineedit-clear! lctx)
-        (linectx-load-history! lctx)
-        (signal-init-sigwinch)
-        ;; enable job control if available
-        (set! new-job-control (tty-job-control? (tty-job-control-available?)))
-        (tty-setraw!))
-      (lambda ()
-        (repl-loop print-func lctx init-file-path quit-file-path))
-      (lambda ()
-        (tty-restore!)
-        ; restore job control to previous value
-        (tty-job-control? old-job-control)
-        (signal-restore-sigwinch)
-        (lineedit-flush lctx)
-        (linectx-save-history lctx)))))
 
 
 ;; parse (repl) options, and return a list of values suitable for calling (repl*)
