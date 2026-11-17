@@ -1,9 +1,9 @@
 #!/usr/bin/env schemesh
 
-(unless (file-type "gen-unicode-wide.txt")
+(unless (file-type "gen-unicode-width2.txt")
   (sh-run
     {curl http://www.unicode.org/Public/UCD/latest/ucd/EastAsianWidth.txt --output gen-unicode-width.txt &&
-     grep '^[0-9A-F]' gen-unicode-width.txt | cut -d'#' -f1 | grep '; [FW]' | cut -d';' -f1 | tr '.' ' ' > gen-unicode-wide.txt}))
+     grep '^[0-9A-F]' gen-unicode-width.txt | cut -d'#' -f1 | grep '; [FW]' | cut -d';' -f1 | tr '.' ' ' > gen-unicode-width2.txt}))
 
 
 ;; The unassigned code points in the following blocks default to "W":
@@ -42,30 +42,30 @@
       (else
         (values #f #f)))))
 
-(with-sh-closable ((in (file->port "gen-unicode-wide.txt")))
+(with-sh-closable ((in (file->port "gen-unicode-width2.txt")))
   (do ((line (get-line in) (get-line in)))
       ((not (string? line)))
     (let-values (((lo hi) (parse-lo-hi line)))
       (when (and lo hi)
         (wide-set! lo hi)))))
 
-(define (show-range lo hi flag)
+(define (show-range out lo hi flag)
   (if (fx<=? (fx- hi lo) 180)
     (when flag
-      (format #t "(wide-set! #x~x #x~x)\n" lo hi))
+      (format out "(charwidth-set! #x~x #x~x 2)\n" lo hi))
     (unless flag
-      (format #t "\n  (char<=? #\\x~x ch #\\x~x)" lo hi))))
+      (format out "  (char<=? #\\x~x ch #\\x~x)\n" lo hi))))
 
-(define (show-table flag)
+(define (show-table out flag)
   (let %loop ((lo #f) (i 0) (n (bytevector-length table)))
     (cond
       ((fx>=? i n)
         (when lo
-          (show-range lo (fx1- i) flag)))
+          (show-range out lo (fx1- i) flag)))
       (lo
         (if (fxzero? (bytevector-u8-ref table i))
           (begin
-            (show-range lo (fx1- i) flag)
+            (show-range out lo (fx1- i) flag)
             (%loop #f (fx1+ i) n))
           (%loop lo (fx1+ i) n)))
       (else
@@ -78,19 +78,21 @@
       ((or (fx>=? i n) (not (fxzero? (bytevector-u8-ref table i))))
         (if (fx>=? i n) #f i))))
 
+
 (define (highest-wide)
   (do ((i (fx1- (bytevector-length table)) (fx1- i)))
       ((or (fx<? i 0) (not (fxzero? (bytevector-u8-ref table i))))
         (if (fx<? i 0) #f i))))
 
-(sh-run {$(display "(or")   >  "gen-unicode-wide-default.ss"})
-(sh-run {$(show-table #f)   >> "gen-unicode-wide-default.ss"})
-(sh-run {$(display "\n)\n") >> "gen-unicode-wide-default.ss"})
 
-(sh-run {$(show-table #t) > "gen-unicode-wide-set.ss"})
+(with-sh-closable ((out (file->port "gen-unicode-width2-default.ss" 'write '(create truncate))))
+  (put-string out "(or\n")
+  (show-table out #f)
+  (put-string out ")\n"))
 
-(sh-run {$(display (lowest-wide))  > "gen-unicode-wide-lowest.ss"})
-(sh-run {$(display (highest-wide)) > "gen-unicode-wide-highest.ss"})
 
-;; (file-delete "gen-unicode-width.txt")
-;; (file-delete "gen-unicode-wide.txt")
+(with-sh-closable ((out (file->port "gen-unicode-width2-set.ss" 'write '(create truncate))))
+  (show-table out #t))
+
+(sh-run {$(format #t "#\\x~x\n" (lowest-wide))  > "gen-unicode-width2-lowest.ss"})
+(sh-run {$(format #t "#\\x~x\n" (highest-wide)) > "gen-unicode-width2-highest.ss"})

@@ -16,28 +16,27 @@
     (only (scheme2k containers charspan) charspan-length charspan-peek-beg charspan-peek-data))
 
 
-(define wide-table (make-eqv-hashtable))
+(define width-table (make-eqv-hashtable))
 
-(define (wide-set! lo hi)
+(define (charwidth-set! lo hi width)
   (do ((i lo (fx1+ i)))
       ((fx>? i hi))
-    (hashtable-set! wide-table (integer->char i) #t)))
+    (hashtable-set! width-table (integer->char i) width)))
 
 
-(define wide-lowest  (integer->char (include "conversions/gen-unicode-wide-lowest.ss")))
-(define wide-highest (integer->char (include "conversions/gen-unicode-wide-highest.ss")))
+(define width2-lowest  (include "conversions/gen-unicode-width2-lowest.ss"))
+(define width2-highest (include "conversions/gen-unicode-width2-highest.ss"))
 
 (define (char-display-width ch)
   (cond
-    ((or (char<? ch #\space) (char=? ch #\x7f))
-      0)
-    ((and (char<=? wide-lowest ch wide-highest)
-          (or
-            (include "conversions/gen-unicode-wide-default.ss")
-            (hashtable-ref wide-table ch #f)))
+    ((char<? ch #\space)
+      (if (char=? ch #\newline) 1 0))
+    ((and (char<=? width2-lowest ch width2-highest)
+          (include "conversions/gen-unicode-width2-default.ss"))
       2)
     (else
-      1)))
+      (or (hashtable-ref width-table ch #f) 1))))
+
 
 (define string-display-width
   (case-lambda
@@ -59,6 +58,7 @@
     ((csp)
       (charspan-display-width csp 0 (charspan-length csp)))))
 
-(include "conversions/gen-unicode-wide-set.ss")
+(include "conversions/gen-unicode-width0-set.ss")
+(include "conversions/gen-unicode-width2-set.ss")
 
 ) ; close library
