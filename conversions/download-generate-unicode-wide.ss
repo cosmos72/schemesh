@@ -42,17 +42,12 @@
       (else
         (values #f #f)))))
 
-(let ((in (file->port "gen-unicode-wide.txt" 'read '() 'utf8b)))
-  (dynamic-wind
-    void
-    (lambda ()
-      (do ((line (get-line in) (get-line in)))
-          ((not (string? line)))
-        (let-values (((lo hi) (parse-lo-hi line)))
-          (when (and lo hi)
-            (wide-set! lo hi)))))
-    (lambda ()
-      (close-port in))))
+(with-sh-closable ((in (file->port "gen-unicode-wide.txt")))
+  (do ((line (get-line in) (get-line in)))
+      ((not (string? line)))
+    (let-values (((lo hi) (parse-lo-hi line)))
+      (when (and lo hi)
+        (wide-set! lo hi)))))
 
 (define (show-range lo hi flag)
   (if (fx<=? (fx- hi lo) 180)
