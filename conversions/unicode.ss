@@ -29,8 +29,10 @@
 
 (define (char-display-width ch)
   (cond
-    ((char<? ch #\space)
-      (if (char=? ch #\newline) 1 0))
+    ((char<=? ch #\~)
+      (if (or (char>=? ch #\space) (char=? ch #\newline))
+        1
+        0))
     ((and (char<=? width2-lowest ch width2-highest)
           (include "conversions/gen-unicode-width2-default.ss"))
       2)
