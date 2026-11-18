@@ -721,15 +721,19 @@
       (vscreen-reflow screen))))
 
 
-;; insert a character or cell, which must be #\newline or >= #space, into vscreen at cursor position
-;; then move cursor right by one.
+;; insert a character or vcell, which must be #\newline or >= #space, into vscreen at cursor position
+;; then move cursor right by 1, and reflows vscreen as needed.
 (define (vscreen-insert/c! screen c)
-  (let ((x (vscreen-cursor-ix screen))
-        (y (vscreen-cursor-iy screen)))
-    (if (char=? #\newline (if (char? c) c (vcell->char c)))
-      (vscreen-insert-at-xy/newline! screen x y)
-      (vscreen-insert-at-xy/c! screen x y c))
-    (vscreen-cursor-move/right! screen 1)))
+  (let ((x  (vscreen-cursor-ix screen))
+        (y  (vscreen-cursor-iy screen))
+        (ch (if (char? c) c (vcell->char c))))
+    (cond
+      ((char=? #\newline ch)
+        (vscreen-insert-at-xy/newline! screen x y)
+        (vscreen-cursor-move/right! screen 1))
+      ((char>=? ch #\space)
+        (vscreen-insert-at-xy/c! screen x y c)
+        (vscreen-cursor-move/right! screen 1)))))
 
 
 ;; insert cells in range [start, end) of vcellspan csp

@@ -10,7 +10,8 @@
 (library (scheme2k vscreen (1 0 2))
   (export
     ;; vcell.ss
-    vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan
+    vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell->wide-left vcell->wide-right
+    vcell-write vcell-display/bytespan
     vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
     vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
     vpalette? vpalette->vcolors
@@ -105,8 +106,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme)                      box set-box! bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit?
-                                            meta-cond procedure-arity-mask record-writer string-copy! unbox void)
+    (only (chezscheme)                      box set-box! bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit? meta-cond
+                                            procedure-arity-mask record-writer string-copy! string-truncate! unbox void)
     (only (scheme2k bootstrap)              assert* assert-not* catch fx<=?* raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)

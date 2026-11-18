@@ -80,6 +80,12 @@
 (define (vcell->char cl)
   (integer->char* (fxand cl (if (vcell-wide? cl) #x3ffff #x1fffff))))
 
+(define (vcell->wide-left cl)
+  (fxior cl #x180000))
+
+(define (vcell->wide-right cl)
+  (fxior cl #x1c0000))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -387,10 +393,12 @@
           (put-char port #\;))))))
 
 
-;; write colored char to bytespan, NOT escaping special characters
+;; write possibly colored vcell to bytespan, NOT escaping special characters
+;; and ignoring right half of wide codepoints
 (define (vcell-display/bytespan cl old-palette wbuf)
   (let ((ch      (vcell->char    cl))
         (palette (vcell->vpalette cl)))
     (unless (fx=? palette old-palette)
       (vpalette-display/bytespan palette wbuf))
-    (bytespan-insert-right/char! wbuf ch)))
+    (unless (vcell-wide-right? cl)
+      (bytespan-insert-right/char! wbuf ch))))

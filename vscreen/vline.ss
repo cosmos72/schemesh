@@ -286,16 +286,24 @@
 (define vline-iterate vbuffer-iterate)
 
 
-;; convert vline to string, removing all palette colors
+;; convert vline to string, removing all palette colors and de-duplicating wide characters
 (define (vline->string line)
-  (let ((str (make-string (vline-length line))))
-    (vline-iterate line
-      (lambda (i c)
-        (string-set! str i (vcell->char c))))
+  (let* ((len (vline-length line))
+         (str (make-string len))
+         (copied (let %loop ((from 0) (to 0))
+                   (if (fx<? from len)
+                     (let ((cl (vline-ref line from)))
+                       (if (vcell-wide-right? cl)
+                         (%loop (fx1+ from) to))
+                         (begin
+                           (string-set! str to (vcell->char cl))
+                           (%loop (fx1+ from) (fx1+ to))))
+                     to))))
+    (string-truncate! str copied)
     str))
 
 
-;; write colored vline to bytespan, NOT escaping special characters
+;; write colored vline to bytespan, NOT escaping special characters and de-duplicating wide characters
 (define vline-display/bytespan vbuffer-display/bytespan)
 
 

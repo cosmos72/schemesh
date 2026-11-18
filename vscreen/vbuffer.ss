@@ -11,7 +11,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;   define Scheme type "vbuffer", a gap buffer containing ccells.   ;;;;;;;
+;;;;;;   define Scheme type "vbuffer", a gap buffer containing vcells.   ;;;;;;;
 ;;;;; Implementation: contains two vcellspans, a "left" and a "right" one  ;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -240,6 +240,7 @@
       (vbuffer-iterate vb 0 (vbuffer-length vb) proc))))
 
 
+;; write colored vbuffer to bytespan, NOT escaping special characters and de-duplicating wide characters
 (define vbuffer-display/bytespan
   (case-lambda
     ((line start end wbuf)

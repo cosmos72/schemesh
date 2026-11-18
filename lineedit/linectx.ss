@@ -432,24 +432,23 @@
   (let ((rbuf (linectx-rbuf lctx)))
     (let-values (((proc n) (linectx-keytable-find (linectx-keytable lctx) rbuf (linectx-bracketed-paste? lctx))))
       ; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
-      (cond
-        ((procedure? proc) (void))     ; proc called below, we update rbuf first
-        ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
-        (else  ; insert received bytes into current line
-          (set! n (lineedit-insert/rbuf! lctx n))))
-      (unless (fxzero? n)
-        (bytespan-delete-left! rbuf n)
-        (when (bytespan-empty? rbuf)
-          (bytespan-clear! rbuf))) ; set begin, end to 0
-      (cond
-        ((procedure? proc)
-          ;; call lineedit-key-... procedure after updating rbuf:
-          ;; it may need to read more keystrokes
-          (proc lctx)
-          (linectx-last-key-set! lctx proc))
-        ((not (fxzero? n))
-          (linectx-last-key-set! lctx #f)))
-      n)))
+      (let ((n (cond
+                 ((procedure? proc) n)  ; proc called below, we update rbuf first
+                 ((hashtable? proc) 0)  ; incomplete sequence, wait for more keystrokes
+                 (else (lineedit-insert/rbuf! lctx n)))))  ; insert n received bytes into current line
+        (unless (fxzero? n)
+          (bytespan-delete-left! rbuf n)
+          (when (bytespan-empty? rbuf)
+            (bytespan-clear! rbuf))) ; set begin, end to 0
+        (cond
+          ((procedure? proc)
+            ;; call lineedit-key-... procedure after updating rbuf:
+            ;; it may need to read more keystrokes
+            (proc lctx)
+            (linectx-last-key-set! lctx proc))
+          ((not (fxzero? n))
+            (linectx-last-key-set! lctx #f)))
+        n))))
 
 
 ;; return three values: position x y of start of word under cursor,
@@ -487,13 +486,26 @@
 
 
 ;; insert a single character or cell into vscreen at cursor.
-;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
-(define (linectx-insert/char! lctx c)
-  (vscreen-insert/c! (linectx-vscreen lctx)
-    (cond
-      ((char>=? c #\space)   c)
-      ((char=?  c #\newline) c)
-      (else                  #\space))))
+;; Also moves vscreen cursor to the right by codepoints's width, and reflows vscreen as needed.
+;; Refuses to insert zero-width codepoints, and inserts wide codepoints TWICE.
+;; return codepoint display width: 0, 1 or 2.
+(define (linectx-insert/c! lctx c)
+  (let* ((ch     (if (char? c) c (vcell->char c)))
+         (width  (char-display-width ch))
+         (screen (linectx-vscreen lctx)))
+    (case width
+      ((1)
+        (vscreen-insert/c! screen c)) ; also #\newline
+      ((2)
+        (let ((cl (if (char? c) (vcell c) c)))
+          (vscreen-insert/c! screen (vcell->wide-left cl))
+          (vscreen-insert/c! screen (vcell->wide-right cl)))))
+    width))
+
+
+(define (linectx-insert/char! lctx ch)
+  (assert* 'linectx-insert/char! (char? ch))
+  (linectx-insert/c! lctx ch))
 
 
 ;; read (- end start) chars from string str, starting at offset = start
@@ -506,7 +518,7 @@
       (assert* 'linectx-insert/string! (fx<=?* 0 start end (string-length str)))
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
-        (linectx-insert/char! lctx (string-ref str i))))
+        (linectx-insert/c! lctx (string-ref str i))))
     ((lctx str)
       (linectx-insert/string! lctx str 0 (string-length str)))))
 
@@ -521,7 +533,7 @@
       (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
-        (linectx-insert/char! lctx (charspan-ref csp i))))
+        (linectx-insert/c! lctx (charspan-ref csp i))))
     ((lctx csp)
       (linectx-insert/charspan! lctx csp 0 (charspan-length csp)))))
 
@@ -536,21 +548,16 @@
   (case-lambda
     ((lctx bsp start end)
       (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
-      (let ((pos start)
-            (incomplete-utf8? #f))
-        (do ()
-            ((or incomplete-utf8?
-                 (fx>=? pos end)
-                 ; stop at any byte < 32, unless it's the first byte (which we skip)
-                 (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
+      (let %loop ((pos start))
+        (if (and (fx<? pos end)
+                  ;; stop at any byte < 32, unless it's the first byte (which we skip)
+                  (or (fx=? pos start) (fx>=? (bytespan-ref/u8 bsp pos) 32)))
           (let-values (((ch len) (bytespan-ref/char bsp pos end)))
-            (set! pos (fxmin end (fx+ pos len)))
-            (cond
-              ((eq? #t ch)
-                (set! incomplete-utf8? #t))
-              ((and (char? ch) (char>=? ch #\space))
-                (linectx-insert/char! lctx ch)))))
-        (fx- pos start))) ; return number of bytes actually inserted
+            (let ((pos (fxmin end (fx+ pos len))))
+              (if (and (char? ch) (fx>? (linectx-insert/c! lctx ch) 0)) ; also stop at zero-width codepoints
+                (%loop pos)
+                (fx- pos start)))) ; \ return number of bytes actually inserted
+          (fx- pos start))))       ; /
     ((lctx bsp)
       (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
 

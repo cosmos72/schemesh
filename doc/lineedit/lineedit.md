@@ -28,7 +28,7 @@ Internals of `linectx` objects are mostly undocumented, the (few) documented fun
 
 ##### (linectx-insert/bytespan!)
 `(linectx-insert/bytespan! lctx bsp [start end])` inserts the contents of a `bytespan` object into current lines, starting at cursor.<br/>
-Stops at any byte < 32, unless it's the first byte (which is skipped). Also stops at incomplete utf-8 sequences.<br/>
+Stops at incomplete utf-8 sequences. Also stops at any zero width codepoint, unless it's the first byte (which is skipped).<br/>
 Return number of bytes actually read from bytespan and inserted.<br/>
 Added in 0.9.2
 

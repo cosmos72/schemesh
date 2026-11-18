@@ -84,6 +84,7 @@
     (only (scheme2k containers span)     for-span span span-iterate span-length span-ref)
     (only (scheme2k containers utf8b)    bytespan-insert-right/charspan! bytespan-insert-right/string!
                                          bytespan-ref/char string->utf8b utf8b->string)
+    (only (scheme2k conversions)         char-display-width)
           (scheme2k posix fd)
     (only (scheme2k posix signal)        countdown signal-consume-sigwinch)
     (only (scheme2k posix status)        failed ok?)

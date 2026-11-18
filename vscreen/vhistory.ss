@@ -159,7 +159,7 @@
   (when (and (not temporary?) (vhistory-last-temporary? hist))
     (let ((len (vhistory-length hist)))
       (vhistory-delete! hist (fx1- len) len)))
-    
+
   (let* ((len    (vhistory-length hist))
          (idx-eq (if temporary? #f (%vhistory-find-nearby hist len lines)))
          (lines  (if idx-eq (vhistory-ref hist idx-eq)
