@@ -102,6 +102,16 @@ static int c_fork_pid(ptr fxvector_remap_fds, int existing_pgid) {
       return c_errno();
     case 0: { /* child */
       int err;
+#if defined(__APPLE__) && defined(__aarch64__)
+      /*
+       * on Apple Silicon, the forked child may start with stale JIT permissions:
+       * the first jump to Chez Scheme code in MAP_JIT memory sporadically raises SIGBUS.
+       * Explicitly make MAP_JIT memory executable for this thread.
+       */
+      if (pthread_jit_write_protect_supported_np()) {
+        pthread_jit_write_protect_np(1);
+      }
+#endif
       if ((err = c_pgid_set(0, existing_pgid)) >= 0) {
         if ((err = c_signals_setdefault()) >= 0) { /* keeps SICHLD handler */
           err = c_fds_remap(fxvector_remap_fds, Sfalse);

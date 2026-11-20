@@ -393,7 +393,7 @@
 
   ;; ------------------------- wildcard expansion -------------------------
   (wildcard1+ #t "a" "bcd" "" "ef")                    ("abcdef")
-  (wildcard1+ #t '* "f" '* "l" '*)                     ("Makefile" "default.nix" "reflect")
+  (wildcard1+ #t "containers/" '* "f" '* "l" '*)      ("containers/flvector.ss" "containers/utf8b-utils.ss")
   (wildcard->sh-patterns '(*))                       ,@(span (sh-pattern '*))
   (wildcard->sh-patterns '("/" * ".so"))             ,@(span "/" (sh-pattern '* ".so"))
   (wildcard->sh-patterns '("//abc//" "//def//"))     ,@(span "/" "abc/" "def/")
