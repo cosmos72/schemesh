@@ -365,11 +365,11 @@
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 ;;
-;; terminal current colors are set to the opt-palette of the displayed cell,
+;; terminal current colors are set to the opt-palette-or-vcolors of the displayed cell,
 ;; and caller is expected to manually restore terminal default colors with (vpalette/display 0 wbuf)
 ;;
 ;; return actually used palette
-(define (linectx-draw-cell-at-xy lctx x y old-palette opt-palette)
+(define (linectx-draw-cell-at-xy lctx x y old-palette opt-palette-or-vcolors)
   (let* ((cl (vscreen-cell-at-xy (linectx-vscreen lctx) x y))
          (ch (and cl (vcell->char cl))))
     ; (debugf "linectx-draw-cell-at-xy at (~s ~s) char ~s" x y ch)
@@ -377,7 +377,9 @@
       (let ((wbuf (linectx-wbuf lctx))
             (vx   (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
             (vy   (fx+ y (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))) ;; also count prompt length!
-            (cl   (if opt-palette (vcell ch opt-palette) cl)))
+            (cl   (if opt-palette-or-vcolors
+                    (vcell-with-vpalette-or-vcolors cl opt-palette-or-vcolors)
+                    cl)))
         (lineterm-move-to lctx vx vy)
         (vcell-display/bytespan cl old-palette wbuf)
         (linectx-term-xy-set! lctx (fx+ vx (vcell-display-width cl)) vy)

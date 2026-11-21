@@ -95,6 +95,9 @@
 (define (vcell-without-vpalette cl)
   (fxand cl char-max))
 
+(define (vcell-with-vpalette cl palette)
+  (fxior (fxand cl char-max) (fx<< palette palette-shift)))
+
 (define (vcell-display-width cl)
   (if (vcell-wide? cl)
     (if (vcell-wide-left? cl) 2 0)
@@ -230,6 +233,16 @@
         (index (if (fx>=? palette 0) palette (fx+ palette palette-n))))
     (and (fx<? -1 index (span-length sp))
          (span-ref sp index))))
+
+
+;; return a vcell containing the same codepoint as vcell cl,
+;; and containing vpalette taken from palette-or-vcolors
+(define (vcell-with-vpalette-or-vcolors cl palette-or-vcolors)
+  (vcell-with-vpalette
+    cl
+    (if (fixnum? palette-or-vcolors)
+      palette-or-vcolors
+      (vcolors->vpalette palette-or-vcolors))))
 
 
 ;; send to textual port the ANSI escape sequences for setting terminal foreground color.

@@ -11,8 +11,9 @@
   (export
     ;; vcell.ss
     make-vcell vcell vcell? vcell-narrow? vcell-wide? vcell-wide-left? vcell-wide-right?
-    vcell->char vcell->wide-left vcell->wide-right vcell-without-vpalette
-    vcell->vpalette vcell->vcolors vcell-display-width vcell-write vcell-display/bytespan
+    vcell->char vcell->wide-left vcell->wide-right
+    vcell->vpalette vcell->vcolors vcell-with-vpalette vcell-with-vpalette-or-vcolors vcell-without-vpalette
+    vcell-display-width vcell-write vcell-display/bytespan
     vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
     vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
     vpalette? vpalette->vcolors
