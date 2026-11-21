@@ -235,16 +235,6 @@
          (span-ref sp index))))
 
 
-;; return a vcell containing the same codepoint as vcell cl,
-;; and containing vpalette taken from palette-or-vcolors
-(define (vcell-with-vpalette-or-vcolors cl palette-or-vcolors)
-  (vcell-with-vpalette
-    cl
-    (if (fixnum? palette-or-vcolors)
-      palette-or-vcolors
-      (vcolors->vpalette palette-or-vcolors))))
-
-
 ;; send to textual port the ANSI escape sequences for setting terminal foreground color.
 (define (vcolor-fg-display fg port)
   (cond
@@ -383,9 +373,10 @@
     (case width
       ((1) cl)
       ((2) (vcell->wide-left cl))
-      (else 0)))) ; (vcell #\x0)
+      (else 0)))) ; return dummy (vcell #\x0) which must NOT be inserted in vcellvector, vcellspan, vline etc.
 
 
+;; create and return a vcell containing specified character and optional palette or vcolors
 (define vcell
   (case-lambda
     ((ch)
@@ -394,7 +385,18 @@
       (let ((palette (if (vpalette? palette-or-vcolors)
                        palette-or-vcolors
                        (vcolors->vpalette palette-or-vcolors))))
-        (fxior (fx<< palette palette-shift) (char->integer ch))))))
+        (fxior (make-vcell ch (char-display-width ch))
+               (fx<< palette palette-shift))))))
+
+
+;; return a vcell containing the same codepoint as vcell cl,
+;; and containing vpalette taken from palette-or-vcolors
+(define (vcell-with-vpalette-or-vcolors cl palette-or-vcolors)
+  (vcell-with-vpalette
+    cl
+    (if (vpalette? palette-or-vcolors)
+      palette-or-vcolors
+      (vcolors->vpalette palette-or-vcolors))))
 
 
 (define (vcell->vpalette cl)
