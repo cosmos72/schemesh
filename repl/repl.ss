@@ -369,27 +369,27 @@
   ;; if (repl* ...) is called by user, for example from an break handler,
   ;; we do NOT want to execute them again
   (let ((old-job-control     (tty-job-control?))
-	(my-repl-args        (list print-func lctx #f #f))
+        (my-repl-args        (list print-func lctx #f #f))
         (reload-count        (sh-schemesh-reload-count))
         (initial-parser-name (linectx-parser-name lctx)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
         (parameterize* ((=> (lineedit-clear! lctx)
-			    (lineedit-flush lctx))
-			(=> (linectx-load-history! lctx)
-			    (linectx-save-history lctx))
-			(=> (signal-init-sigwinch)
-			    (signal-restore-sigwinch))
-			(=> ;; on enter, enable job control if available
+                            (lineedit-flush lctx))
+                        (=> (linectx-load-history! lctx)
+                            (linectx-save-history lctx))
+                        (=> (signal-init-sigwinch)
+                            (signal-restore-sigwinch))
+                        (=> ;; on enter, enable job control if available
                             (tty-job-control? (tty-job-control-available?))
-			    ;; on leave, restore job control to previous value
-			    (tty-job-control? old-job-control))
-			(=> (tty-setraw!)
-			    (tty-restore!))
+                            ;; on leave, restore job control to previous value
+                            (tty-job-control? old-job-control))
+                        (=> (tty-setraw!)
+                            (tty-restore!))
                         (=> (tty-bracketed-paste-enable lctx)
                             (tty-bracketed-paste-disable lctx))
-			(optimize-level 2)
+                        (optimize-level 2)
                         (repl-args      my-repl-args)
                         (base-exception-handler repl-exception-handler)
                         (break-handler  (lambda break-args

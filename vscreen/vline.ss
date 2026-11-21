@@ -76,26 +76,25 @@
     (vbuffer-right-set! line (vcellspan-copy (v> line)))
     (%vline-share-set!  line (box 0))))
 
-(define vline-empty?     vbuffer-empty?)
-(define vline-length     vbuffer-length)
-(define vline-ref        vbuffer-ref)
+(define vline-empty? vbuffer-empty?)
+(define vline-length vbuffer-length)
+(define vline-at     vbuffer-at)
+(define vline-ref    vbuffer-ref)
 
 ;; return char at position x
 (define (vline-ref/char line x)
   (vcell->char (vbuffer-ref line x)))
 
 
-;; return cell at position x, or #f if x is out of range
-(define (vline-at line x)
-  (if (fx<? -1 x (vline-length line))
-    (vline-ref line x)
-    #f))
-
-;; return char at position x, or #f if x is out of range
-(define (vline-at/char line x)
-  (if (fx<? -1 x (vline-length line))
-    (vline-ref/char line x)
-    #f))
+;; return char at position x, or default if x is out of range
+(define vline-at/char
+  (case-lambda
+    ((line x default)
+      (if (fx<? -1 x (vline-length line))
+        (vline-ref/char line x)
+        default))
+    ((line x)
+      (vline-at/char line x #f))))
 
 
 ;; return #t if vline ends with #\newline, otherwise return #f
@@ -136,13 +135,13 @@
   (vline-dirty-start-x-set! line (greatest-fixnum))
   (vline-dirty-end-x-set!   line 0))
 
-;; c must be a character or cell
+;; c must be a character or vcell
 (define (vline-set! line x c)
   (vline-unshare! line)
   (vbuffer-set! line x c)
   (vline-dirty-x-add! line x (fx1+ x)))
 
-;; insert one character or cell into line at position x
+;; insert one character or vcell into line at position x
 (define (vline-insert-at! line x c)
   (vline-unshare! line)
   (vbuffer-insert-at! line x c)

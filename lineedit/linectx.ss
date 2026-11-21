@@ -485,22 +485,17 @@
   (not (%char-is-alphanumeric ch)))
 
 
-;; insert a single character or cell into vscreen at cursor.
-;; Also moves vscreen cursor to the right by codepoints's width, and reflows vscreen as needed.
-;; Refuses to insert zero-width codepoints, and inserts wide codepoints TWICE.
-;; return codepoint display width: 0, 1 or 2.
+;; insert a single character or vcell into vscreen at cursor.
+;; Also moves vscreen cursor to the right by character's or vcell's display width, and reflows vscreen as needed.
+;;
+;; 1. Handles #\newline by splitting the current vline at cursor, and returns 1 in such case.
+;; 2. Refuses to insert zero-width characters and wide-right vcells, and returns 0 in such case.
+;; 3. Inserts wide characters and wide-left vcells TWICE: a wide-left vcell followed by a wide-right vcell,
+;;    and returns 2 in such case.
+;;
+;; return character or vcell display width: 0, 1 or 2.
 (define (linectx-insert/c! lctx c)
-  (let* ((ch     (if (char? c) c (vcell->char c)))
-         (width  (char-display-width ch))
-         (screen (linectx-vscreen lctx)))
-    (case width
-      ((1)
-        (vscreen-insert/c! screen c)) ; also #\newline
-      ((2)
-        (let ((cl (if (char? c) (vcell c) c)))
-          (vscreen-insert/c! screen (vcell->wide-left cl))
-          (vscreen-insert/c! screen (vcell->wide-right cl)))))
-    width))
+  (vscreen-insert/c! (linectx-vscreen lctx) c)) ; also handles #\newline
 
 
 (define (linectx-insert/char! lctx ch)
@@ -554,8 +549,10 @@
                   (or (fx=? pos start) (fx>=? (bytespan-ref/u8 bsp pos) 32)))
           (let-values (((ch len) (bytespan-ref/char bsp pos end)))
             (let ((pos (fxmin end (fx+ pos len))))
-              (if (and (char? ch) (fx>? (linectx-insert/c! lctx ch) 0)) ; also stop at zero-width codepoints
-                (%loop pos)
+              (if (char? ch)
+                (begin
+                  (linectx-insert/c! lctx ch)
+                  (%loop pos))
                 (fx- pos start)))) ; \ return number of bytes actually inserted
           (fx- pos start))))       ; /
     ((lctx bsp)

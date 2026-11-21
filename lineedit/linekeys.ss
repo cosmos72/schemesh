@@ -101,6 +101,7 @@
 
 
 ;; implementation of (lineedit-key-transpose-char)
+;; FIXME: handle wide vcells
 (define (%lineedit-key-transpose-char screen x1 y1 cl1)
   (let-values (((x0 y0 cl0) (vscreen-cell-before-xy screen x1 y1)))
     (and x0 y0 cl0
@@ -323,7 +324,7 @@
   (let* ((screen-width  (linectx-width lctx))
          (screen-height (linectx-height lctx))
          (column-n      (fxmax 1 (fx/ screen-width column-width)))
-         (row-n         (fx//round-up table-n column-n)))
+         (row-n         (fx/ceil table-n column-n)))
     (values column-n row-n)))
 
 
@@ -369,14 +370,60 @@
       (lineterm-write/u8 lctx 32)))) ; pad with spaces
 
 
-(define (fx//round-up x1 x2)
+(define (fx/ceil x1 x2)
   (let ((q (fx/ x1 x2)))
     (if (fx=? x1 (fx* q x2))
       q
       (fx1+ q))))
 
+
+(define (dump-vcell out cl)
+  (let ((ch (vcell->char cl)))
+    (unless (vcell-wide-right? cl)
+      (put-string out (if (vcell-wide-left? cl) " <" " ")))
+    (if (char<=? #\! ch #\~)
+      (put-char out ch)
+      (format out "#x~x" (char->integer ch)))
+    (when (vcell-wide-right? cl)
+      (put-char out #\>))))
+
+
+(define (dump-vline out y line)
+  (let ((xn   (vline-length line)))
+    (format out "line ~s, length = ~s" y xn)
+    (do ((x 0 (fx1+ x)))
+        ((fx>=? x xn))
+      (dump-vcell out (vline-ref line x)))
+    (put-char out #\newline)))
+
+
+(define (dump-vscreen out s)
+  (let ((yn (vscreen-length s)))
+    (format out "\n\x1b;[30;1mvscreen width = ~s, height = ~s, # lines ~s, cursor x = ~s, y = ~s\n" (vscreen-width s) (vscreen-height s) yn (vscreen-cursor-ix s) (vscreen-cursor-iy s))
+    (do ((y 0 (fx1+ y)))
+        ((fx>=? y yn))
+      (dump-vline out y (vlines-ref s y)))
+    (format out "\x1b;[m")))
+
+
+(define (lineedit-key-dump-vscreen lctx)
+  (let ((out (debugf-port)))
+    (dump-vscreen out (linectx-vscreen lctx))
+    (flush-output-port out)))
+
+
+#|
+(define (lineedit-key-dump-paren lctx)
+  (let ((out (debugf-port)))
+        (parenmatcher (linectx-parenmatcher lctx))
+
+    (dump-vscreen out (linectx-vscreen lctx))
+    (flush-output-port out)))
+|#
+
 (define (lineedit-key-inspect-linectx lctx)
   (tty-inspect lctx))
+
 
 (define (lineedit-key-toggle-insert lctx)
   ;; TODO: implement?

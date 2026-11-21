@@ -47,8 +47,24 @@
 (define vlines-length     gbuffer-length)
 
 
-;; convert vlines to string, removing all palette colors
+;; convert vlines to string, removing all palette colors and deduplicating wide glyphs
 (define (vlines->string lines)
+  (let ((str (make-string (vlines-cell-count lines)))
+        (i 0))
+    (vlines-iterate lines
+      (lambda (y line)
+        (vline-iterate line
+          (lambda (x c)
+            (unless (vcell-wide-right? c)
+              (string-set! str i (vcell->char c))
+              (set! i (fx1+ i)))))))
+    (string-truncate! str i)
+    str))
+
+
+;; convert vlines to string, removing all palette colors but keeping both copies of wide glyphs,
+;; which are present in consecutive pairs: wide-left followed by wide-right
+(define (vlines->string* lines)
   (let ((str (make-string (vlines-cell-count lines)))
         (i 0))
     (vlines-iterate lines
@@ -324,21 +340,41 @@
         #f)))))
 
 
-;; return position one cell to the left of x y.
+;; if coordinates x y correspond to a wide-right vcell, return (vlines-prev-xy lines x y)
+;; otherwise return (values x y)
+(define (vlines-prev-xy-if-wide-right lines x y)
+  (let ((cl (and x y (vlines-cell-at-xy lines x y))))
+    (if (and cl (vcell-wide-right? cl))
+      (vlines-prev-xy lines x y)
+      (values x y))))
+
+
+;; if coordinates x y correspond to a wide-right vcell, return (vlines-next-xy lines x y)
+;; otherwise return (values x y)
+(define (vlines-next-xy-if-wide-right lines x y)
+  (let ((cl (and x y (vlines-cell-at-xy lines x y))))
+    (if (and cl (vcell-wide-right? cl))
+      (vlines-next-xy lines x y)
+      (values x y))))
+
+
+;; return position one character to the left of x y.
 ;; returned position may be on the previous line.
 ;; return #f #f if x y is out of range or is the first valid position.
+;;
+;; Note: skips wide-right vcell
 (define (vlines-prev-xy lines x y)
-  (let ((ymax  (fx1- (vlines-length lines))))
+  (let ((ymax (fx1- (vlines-length lines))))
     (if (and (fixnum? x) (fixnum? y) (fx<=? 0 y ymax))
       ;; allow positioning cursor after end of line only if it's the last line
       (let ((xmax (fx- (vline-length (vlines-ref lines y))
                        (if (fx=? y ymax) 0 1))))
         ; (debugf "vlines-length-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<=? 1 x xmax)
-          (values (fx1- x) y) ;; (x-1 y) is a valid position, return it
+          (vlines-prev-xy-if-wide-right lines (fx1- x) y) ;; (x-1 y) is a valid position, return it
           (if (fx>? y 0)
             ;; return last position in previous line
-            (values (fx1- (vline-length (vlines-ref lines (fx1- y)))) (fx1- y))
+            (vlines-prev-xy-if-wide-right lines (fx1- (vline-length (vlines-ref lines (fx1- y)))) (fx1- y))
             (values #f #f))))
       (values #f #f))))
 
@@ -346,6 +382,8 @@
 ;; return position one cell to the right of x y.
 ;; returned position may be on the next line.
 ;; return #f #f if x y is out of range or is the last valid position.
+;;
+;; Note: skips wide-right vcell
 (define (vlines-next-xy lines x y)
   (let ((ymax  (fx1- (vlines-length lines))))
     (if (and (fixnum? x) (fixnum? y) (fx<=? 0 y ymax))
@@ -354,26 +392,34 @@
                        (if (fx=? y ymax) 0 1))))
         ; (debugf "vlines-length-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<? -1 x xmax)
-          (values (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
+          (vlines-next-xy-if-wide-right lines (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
           (if (fx<? y ymax)
-            (values 0 (fx1+ y)) ;; return beginning of next line
+            (vlines-next-xy-if-wide-right lines 0 (fx1+ y)) ;; return beginning of next line
             (values #f #f))))
       (values #f #f))))
 
 
-;; return vlines cell at specified x y, or #f if x y are out of range
-(define (vlines-cell-at-xy lines x y)
-  (if (and (fixnum? x) (fixnum? y) (fx<? -1 y (vlines-length lines)))
-    (let* ((line (vlines-ref lines y))
-           (len  (vline-length line)))
-      (if (fx<? -1 x len)
-        (vline-ref line x)
-        #f))
-    #f))
+;; return vcell at specified x y, or default if x y are out of range
+;;
+;; Note: may return a wide-right vcell
+(define vlines-cell-at-xy
+  (case-lambda
+    ((lines x y default)
+      (if (and (fixnum? x) (fixnum? y) (fx<? -1 y (vlines-length lines)))
+        (let* ((line (vlines-ref lines y))
+               (len  (vline-length line)))
+          (if (fx<? -1 x len)
+            (vline-ref line x)
+            default))
+        default))
+    ((lines x y)
+      (vlines-cell-at-xy lines x y #f))))
 
 
 ;; return position immediately before x y, and cell at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
+;;
+;; Note: skips wide-right vcell
 (define (vlines-cell-before-xy lines x y)
   (let-values (((x y) (vlines-prev-xy lines x y)))
     (values x y (and x y (vlines-cell-at-xy lines x y)))))
@@ -382,15 +428,21 @@
 ;; return position immediately after x y, and cell at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last char in the last line
+;;
+;; Note: skips wide-right vcell
 (define (vlines-cell-after-xy lines x y)
   (let-values (((x y) (vlines-next-xy lines x y)))
     (values x y (and x y (vlines-cell-at-xy lines x y)))))
 
 
 ;; return vlines char at specified x y, or #f if x y are out of range
-(define (vlines-char-at-xy lines x y)
-  (let ((cl (vlines-cell-at-xy lines x y)))
-    (and cl (vcell->char cl))))
+(define vlines-char-at-xy
+  (case-lambda
+    ((lines x y default)
+      (let ((cl (vlines-cell-at-xy lines x y #f)))
+        (if cl (vcell->char cl) default)))
+    ((lines x y)
+      (vlines-char-at-xy lines x y #f))))
 
 
 ;; return position immediately before x y, and char at such position.
@@ -408,10 +460,10 @@
     (values x y (and x y cl (vcell->char cl)))))
 
 
-;; create and return a closure that iterates on elements of vlines lines.
+;; create and return a closure that iterates on each vline in vlines.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in vlines lines and #t,
+;; either (values elem #t) i.e. the next vline in vlines and #t,
 ;; or (values #<unspecified> #f) if end of vlines is reached.
 (define in-vlines
   (case-lambda
@@ -432,8 +484,22 @@
       (in-vlines lines 0 (vlines-length lines) 1))))
 
 
-;; create an input port reading from a vlines
+;; create a textual input port reading characters from a vlines.
+;;
+;; Note: deduplicates wide vcells, which are present in pairs: wide-left followed by wide-right.
 (define (open-vlines-input-port lines)
   ;; a string-input-port supports unlimited (unget-char)
   ;; useful for parsers
   (open-string-input-port (vlines->string lines)))
+
+
+;; create a textual input port reading characters from a vlines.
+;;
+;; Note: does NOT deduplicate wide vcells, which are present in pairs: wide-left followed by wide-right.
+;;
+;; Useful for parsing parentheses, and other tasks that require matching exactly
+;; the number of characters read from input port with the x,y coordinates in vlines.
+(define (open-vlines-input-port* lines)
+  ;; a string-input-port supports unlimited (unget-char)
+  ;; useful for parsers
+  (open-string-input-port (vlines->string* lines)))

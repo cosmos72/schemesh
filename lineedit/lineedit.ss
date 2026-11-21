@@ -58,6 +58,8 @@
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
     lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
 
+    lineedit-key-dump-vscreen lineedit-key-inspect-linectx
+
     lineedit-key-cmd lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent
     lineedit-key-edit-input lineedit-key-sh-run lineedit-key-sh-run/i
 
@@ -177,10 +179,11 @@
 
 ;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
 (define (lineedit-paren-find/before-cursor lctx)
-  (let ((ret     #f)
-        (parsers (linectx-parsers lctx))
+  (let ((parsers (linectx-parsers lctx))
         (parenmatcher (linectx-parenmatcher lctx)))
-    (when (and parsers parenmatcher)
+    (and
+      parsers
+      parenmatcher
       (let-values (((x y) (linectx-ixy-before-cursor lctx)))
         ;; parse parens ONLY if cursor is immediately after a is-paren? char,
         ;; because we want to only highlight current parentheses and its matching one, if any.
@@ -189,31 +192,32 @@
         ;;
         (let* ((screen  (linectx-vscreen lctx))
                (ch (vscreen-char-at-xy screen x y)))
-          (when (and ch (is-paren-char? ch))
+          (and
+            ch
+            (is-paren-char? ch)
             ;; protect against exceptions in parenmatcher-find/at
             (try
-              (set! ret
-                (parenmatcher-find/at
-                  parenmatcher
-                  (lambda () (make-parsectx* (open-vlines-input-port screen)
-                                             parsers
-                                             'plain
-                                             (vscreen-width screen)
-                                             (vscreen-prompt-end-x screen)
-                                             0
-                                             0))
-                  (linectx-parser-name lctx)
-                  x y))
+              (parenmatcher-find/at
+                parenmatcher
+                (lambda () (make-parsectx* (open-vlines-input-port* screen)
+                                           parsers
+                                           'plain
+                                           (vscreen-width screen)
+                                           (vscreen-prompt-end-x screen)
+                                           0
+                                           0))
+                (linectx-parser-name lctx)
+                x y)
               (catch (ex)
                 (catch-all
-                  (void)
+                  #f
                   (let ((out (console-error-port)))
                     (put-string out "\n\x1b;[1;31m; Exception in parenmatcher-find/at: ")
                     (display-condition ex out)
                     (put-string out "\x1b;[m\n")
-                    (flush-output-port out))
-                  (void))))))))
-    ret))
+                    (flush-output-port out)
+                    #f)
+                  #f)))))))))
 
 ;; return #f or innermost paren object surrounding the cursor.
 (define (lineedit-paren-find/surrounds-cursor lctx)
@@ -231,7 +235,7 @@
           (set! ret
             (parenmatcher-find/surrounds
               parenmatcher
-              (lambda () (make-parsectx* (open-vlines-input-port screen)
+              (lambda () (make-parsectx* (open-vlines-input-port* screen)
                                          parsers
                                          'plain
                                          (vscreen-width screen)
@@ -268,7 +272,7 @@
       (when parsers
         (parenmatcher-maybe-update!
           parenmatcher
-          (lambda () (make-parsectx* (open-vlines-input-port screen)
+          (lambda () (make-parsectx* (open-vlines-input-port* screen)
                                      parsers
                                      'plain
                                      (vscreen-width screen)
@@ -411,7 +415,7 @@
   (%add t lineedit-key-del-line-left    21) ; CTRL+U
   (%add t lineedit-key-to-history       24) ; CTRL+X
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
-  (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSLASH
+  (%add t lineedit-key-dump-vscreen     28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 #vu8(27 127))
   ; sequences starting with ESC

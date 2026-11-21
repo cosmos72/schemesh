@@ -66,6 +66,18 @@
       (vcellspan-ref (v< vb) idx)
       (vcellspan-ref (v> vb) (fx- idx left-n)))))
 
+
+;; return (vbuffer-ref vb idx), or default if idx is out of bounds
+(define vbuffer-at
+  (case-lambda
+    ((vb idx default)
+      (if (fx<? -1 idx (vbuffer-length vb))
+        (vbuffer-ref vb idx)
+        default))
+    ((vb idx)
+      (vbuffer-at vb idx #f))))
+
+
 ;; c must be a character or cell
 (define (vbuffer-set! vb idx c)
   (assert* 'vbuffer-set! (fx<? -1 idx (vbuffer-length vb)))
@@ -91,12 +103,15 @@
         (vcellspan-insert-left/vcellspan! right left idx (fx- idx delta))
         (vcellspan-delete-right! left (fx- delta))))))
 
-;; insert one character or cell into vbuffer at position idx
+;; insert one character or vcell into vbuffer at position idx
+;; Special case: if vcell at position idx is wide-right i.e. the right half of a wide character,
+;; insertion happens ad position idx + 1
 (define (vbuffer-insert-at! vb idx c)
   (assert* 'vbuffer-insert-at! (fx<=? 0 idx (vbuffer-length vb)))
   (let* ((left   (v< vb))
          (right  (v> vb))
          (left-n (vcellspan-length left))
+         (idx    (if (vcell-wide-right? (vbuffer-at vb idx 0)) (fx1+ idx) idx))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? idx)
@@ -244,16 +259,15 @@
 (define vbuffer-display/bytespan
   (case-lambda
     ((line start end wbuf)
-      (let ((old-palette 0))
-        (do ((pos start (fx1+ pos)))
-            ((fx>=? pos end))
+      (let %loop ((pos start) (old-palette 0))
+        (if (fx<? pos end)
           (let* ((cl      (vbuffer-ref line pos))
                  (palette (vcell->vpalette cl)))
             (vcell-display/bytespan cl old-palette wbuf)
-            (unless (fx=? old-palette palette)
-              (set! old-palette palette))))
-        (unless (fxzero? old-palette)
-          (vpalette-display/bytespan 0 wbuf))))
+            (%loop (fx1+ pos) palette))
+          (unless (fxzero? old-palette)
+            ;; restore palette 0 after loop
+            (vpalette-display/bytespan 0 wbuf)))))
     ((line wbuf)
      (vbuffer-display/bytespan line 0 (vbuffer-length line) wbuf))))
 

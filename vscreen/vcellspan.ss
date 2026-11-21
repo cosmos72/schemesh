@@ -35,11 +35,11 @@
 
 ;; create a vcellspan containing n cells.
 ;; If fill is specified, then vcellspan is filled with it.
-;; Otherwise it is filled with (vcell #\x0).
+;; Otherwise it is filled with (vcell #\space).
 (define make-vcellspan
   (case-lambda
     ((n)
-      (%make-vcellspan 0 n (make-vcellvector n)))
+      (%make-vcellspan 0 n (make-vcellvector n 32)))
     ((n fill)
       (%make-vcellspan 0 n (make-vcellvector n fill)))))
 
@@ -216,18 +216,24 @@
     ((vsp)
       (void))
     ((vsp c1)
-      (vcellspan-resize-left! vsp (fx1+ (vcellspan-length vsp)))
-      (vcellspan-set! vsp 0 c1))
+      (let ((len   (vcellspan-length vsp))
+            (cl    (if (char? c1) (vcell c1) c1)))
+        (case (vcell-display-width cl)
+          ((1)
+            (vcellspan-resize-left! vsp (fx1+ len))
+            (vcellspan-set! vsp 0 cl))
+          ((2)
+            (vcellspan-resize-left! vsp (fx+ 2 len))
+            (vcellspan-set! vsp 0 (vcell->wide-left  cl))
+            (vcellspan-set! vsp 1 (vcell->wide-right cl))))))
     ((vsp c1 c2)
-      (vcellspan-resize-left! vsp (fx+ 2 (vcellspan-length vsp)))
-      (vcellspan-set! vsp 0 c1)
-      (vcellspan-set! vsp 1 c2))
+      (vcellspan-insert-left! vsp c2)
+      (vcellspan-insert-left! vsp c1))
     ((vsp . c-list)
-      (vcellspan-resize-left! vsp (fx+ (vcellspan-length vsp) (length c-list)))
-      (do ((pos 0 (fx1+ pos))
-           (tail c-list (cdr tail)))
-          ((null? tail))
-        (vcellspan-set! vsp pos (car tail))))))
+      (let %recurse ((l c-list))
+        (when (pair? l)
+          (%recurse (cdr l))
+          (vcellspan-insert-left! vsp (car l)))))))
 
 
 ;; each c must be a character or cell
@@ -235,22 +241,24 @@
   (case-lambda
     ((vsp)
       (void))
-    ((vsp c1)
-      (let ((len (vcellspan-length vsp)))
-        (vcellspan-resize-right! vsp (fx1+ len))
-        (vcellspan-set! vsp len c1)))
+    ((vsp c)
+      (let ((len   (vcellspan-length vsp))
+            (cl    (if (char? c) (vcell c) c)))
+        (case (vcell-display-width cl)
+          ((1)
+            (vcellspan-resize-right! vsp (fx1+ len))
+            (vcellspan-set! vsp len cl))
+          ((2)
+            (vcellspan-resize-right! vsp (fx+ 2 len))
+            (vcellspan-set! vsp len        cl)
+            (vcellspan-set! vsp (fx1+ len) (vcell->wide-right cl))))))
     ((vsp c1 c2)
-      (let ((len (vcellspan-length vsp)))
-        (vcellspan-resize-right! vsp (fx+ 2 len))
-        (vcellspan-set! vsp len c1)
-        (vcellspan-set! vsp (fx1+ len) c2)))
+      (vcellspan-insert-right! vsp c1)
+      (vcellspan-insert-right! vsp c2))
     ((vsp . c-list)
-      (let ((len (vcellspan-length vsp)))
-        (vcellspan-resize-right! vsp (fx+ len (length c-list)))
-        (do ((pos len (fx1- pos))
-             (tail c-list (cdr tail)))
-            ((null? tail))
-          (vcellspan-set! vsp pos (car tail)))))))
+      (do ((l c-list (cdr l)))
+          ((null? l))
+        (vcellspan-insert-right! vsp (car l))))))
 
 
 ;; insert range [start, end) of vcellspan vsp-src at the beginning of vcellspan vsp-dst

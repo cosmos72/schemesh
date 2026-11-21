@@ -10,8 +10,9 @@
 (library (scheme2k vscreen (1 0 2))
   (export
     ;; vcell.ss
-    vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell->wide-left vcell->wide-right
-    vcell-write vcell-display/bytespan
+    make-vcell vcell vcell? vcell-narrow? vcell-wide? vcell-wide-left? vcell-wide-right?
+    vcell->char vcell->wide-left vcell->wide-right vcell-without-vpalette
+    vcell->vpalette vcell->vcolors vcell-display-width vcell-write vcell-display/bytespan
     vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
     vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
     vpalette? vpalette->vcolors
@@ -20,8 +21,8 @@
 
     ;; vcellcector.ss
     make-vcellvector list->vcellvector string->vcellvector
-    vcellvector-length vcellvector-empty? vcellvector-ref
-    vcellvector-set! vcellvector-update/char! vcellvector-update/colors! vcellvector-update/palette!
+    vcellvector-length vcellvector-empty? vcellvector-ref vcellvector-set! vcellvector-truncate!
+    vcellvector-update/char! vcellvector-update/colors! vcellvector-update/palette!
     vcellvector-fill! vcellvector-copy! vcellvector-copy/string!
     vcellvector-display vcellvector-write
 
@@ -42,7 +43,7 @@
     vcellspan->vbuffer vcellspan->vbuffer*
     make-vbuffer vbuffer vbuffer?
     vbuffer-length vbuffer-empty?
-    vbuffer-ref vbuffer-set! vbuffer-clear! vbuffer-split-at!
+    vbuffer-at vbuffer-ref vbuffer-set! vbuffer-clear! vbuffer-split-at!
     vbuffer-insert-at! vbuffer-insert-at/vcellspan! vbuffer-insert-at/vbuffer!
     vbuffer-delete! vbuffer-iterate
     vbuffer-display/bytespan vbuffer-write
@@ -50,7 +51,7 @@
     ;; vline.ss
     vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?
-    vline-length vline-ref vline-ref/char vline-at vline-at/char vline-substring=?
+    vline-length vline-at vline-ref vline-ref/char vline-at vline-at/char vline-substring=?
     vline-clear! vline-delete! vline-insert-at! vline-set!
     vline-insert-at/vcellspan! vline-insert-at/vbuffer!
     vline-index-left vline-index-right vline-index vline-count vline-count-right
@@ -58,7 +59,7 @@
     in-vline vline-iterate vline-display/bytespan vline-write
 
     ;; vlines.ss
-    vlines vlines? assert-vlines? vlines->string
+    vlines vlines? assert-vlines? vlines->string vlines->string*
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-clear! vlines-ref vlines-set!
     vlines-cell-count vlines-cell-count<=? vlines-string=?
@@ -68,7 +69,7 @@
     vlines-next-xy vlines-prev-xy
     vlines-cell-at-xy vlines-cell-before-xy vlines-cell-after-xy
     vlines-char-at-xy vlines-char-before-xy vlines-char-after-xy
-    in-vlines open-vlines-input-port
+    in-vlines open-vlines-input-port open-vlines-input-port*
 
     ;; vscreen.ss
     make-vscreen  (rename (%vscreen vscreen))  vscreen?  assert-vscreen?
@@ -81,7 +82,7 @@
     vscreen-length-at-y   vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
     vscreen-cell-at-xy    vscreen-cell-before-xy  vscreen-cell-after-xy
     vscreen-char-at-xy    vscreen-char-before-xy  vscreen-char-after-xy
-    vscreen-next-xy       vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
+    vscreen-next-xy       vscreen-prev-xy
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
     vscreen-clear!        vscreen-empty?          vscreen-line-at-y
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
@@ -119,6 +120,7 @@
           (scheme2k containers gbuffer)
     (only (scheme2k containers utf8b)       integer->char* bytespan-insert-right/char!
                                             string->utf8b utf8b-bytespan->string)
+    (only (scheme2k conversions unicode)    char-display-width)
     (only (scheme2k posix fs)               file-delete file-rename)
     (only (scheme2k posix io)               file->port)
     (only (scheme2k posix pid)              pid-get))
