@@ -373,13 +373,13 @@
   (let* ((cl (vscreen-cell-at-xy (linectx-vscreen lctx) x y))
          (ch (and cl (vcell->char cl))))
     ; (debugf "linectx-draw-cell-at-xy at (~s ~s) char ~s" x y ch)
-    (if (and ch (char>=? ch #\space))
+    (if (and ch (char>=? ch #\space) (not (vcell-wide-right? cl)))
       (let ((wbuf (linectx-wbuf lctx))
             (vx   (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
             (vy   (fx+ y (fx+ (linectx-prompt0-end-y lctx) (linectx-prompt-end-y lctx)))) ;; also count prompt length!
             (cl   (if opt-palette (vcell ch opt-palette) cl)))
         (lineterm-move-to lctx vx vy)
         (vcell-display/bytespan cl old-palette wbuf)
-        (linectx-term-xy-set! lctx (fx1+ vx) vy)
+        (linectx-term-xy-set! lctx (fx+ vx (vcell-display-width cl)) vy)
         (vcell->vpalette cl))
       old-palette)))
