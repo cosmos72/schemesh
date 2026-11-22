@@ -447,6 +447,8 @@
 
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
+;;
+;; Note: skips wide-right vcell
 (define (vlines-char-before-xy lines x y)
   (let-values (((x y cl) (vlines-cell-before-xy lines x y)))
     (values x y (and x y cl (vcell->char cl)))))
@@ -455,6 +457,8 @@
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last char in the last line
+;;
+;; Note: skips wide-right vcell
 (define (vlines-char-after-xy lines x y)
   (let-values (((x y cl) (vlines-cell-after-xy lines x y)))
     (values x y (and x y cl (vcell->char cl)))))

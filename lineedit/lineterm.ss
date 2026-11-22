@@ -69,16 +69,16 @@
     ((fxzero? dx) ; do nothing
       (void))
     ((fx=? dx 1) ; move right by 1
-      (lineterm-write/bytevector ctx #vu8(27 91 67)))        ; ESC [ C
-    ((fx>? dx 1) ; move right by dx                        ;
-      (let ((wbuf (linectx-wbuf ctx)))                     ;
+      (lineterm-write/bytevector ctx #vu8(27 91 67)))       ; ESC [ C
+    ((fx>? dx 1) ; move right by dx                         ;
+      (let ((wbuf (linectx-wbuf ctx)))                      ;
         (bytespan-insert-right/u8! wbuf 27 91)              ; ESC [
         (bytespan-display-right/fixnum! wbuf dx)            ; n
         (bytespan-insert-right/u8! wbuf 67)))               ; C
-    ((fx>=? dx -3) ; move left by 1, 2 or 3                ;
+    ((fx>=? dx -3) ; move left by 1, 2 or 3                 ;
       (lineterm-write/bytevector ctx #vu8(8 8 8) 0 (fx- dx))) ; ^H ^H ^H
-    ((fx<? dx -3)  ; move left by -dx                      ;
-      (let ((wbuf (linectx-wbuf ctx)))                     ;
+    ((fx<? dx -3)  ; move left by -dx                       ;
+      (let ((wbuf (linectx-wbuf ctx)))                      ;
         (bytespan-insert-right/u8! wbuf 27 91)              ; ESC [
         (bytespan-display-right/fixnum! wbuf (fx- dx))      ; n
         (bytespan-insert-right/u8! wbuf 68)))))             ; D

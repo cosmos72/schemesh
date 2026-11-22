@@ -104,14 +104,12 @@
         (vcellspan-delete-right! left (fx- delta))))))
 
 ;; insert one character or vcell into vbuffer at position idx
-;; Special case: if vcell at position idx is wide-right i.e. the right half of a wide character,
-;; insertion happens ad position idx + 1
+;; consistency of pairs wide-left and wide-right is caller's responsibility
 (define (vbuffer-insert-at! vb idx c)
   (assert* 'vbuffer-insert-at! (fx<=? 0 idx (vbuffer-length vb)))
   (let* ((left   (v< vb))
          (right  (v> vb))
          (left-n (vcellspan-length left))
-         (idx    (if (vcell-wide-right? (vbuffer-at vb idx 0)) (fx1+ idx) idx))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? idx)

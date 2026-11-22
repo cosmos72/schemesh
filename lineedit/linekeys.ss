@@ -85,34 +85,63 @@
   (linectx-bracketed-paste-set! lctx #f))
 
 ;; transpose character under cursor with previous one,
-;; then move cursor one position to the right
+;; then move cursor one character to the right (which may mean 2 vcells)
+;;
+;; Also handles wide vcells
 (define (lineedit-key-transpose-char lctx)
   (let ((screen (linectx-vscreen lctx)))
-    (let* ((x1  (vscreen-cursor-ix screen))
-           (y1  (vscreen-cursor-iy screen))
-           (cl1 (vscreen-cell-at-xy screen x1 y1)))
-      (if cl1
-        (when (%lineedit-key-transpose-char screen x1 y1 cl1)
-          (vscreen-cursor-move/right! screen 1))
+    (let* ((x  (vscreen-cursor-ix screen))
+           (y  (vscreen-cursor-iy screen))
+           (cl (vscreen-cell-at-xy screen x y)))
+      (if cl
+        (let ((n (%lineedit-key-transpose-char lctx screen x y cl)))
+          (when n
+            (vscreen-cursor-move/right! screen n)))
         ;; if at end of input, transpose the two previous characters
-        (let-values (((x1 y1) (vscreen-prev-xy screen x1 y1)))
-          (let ((cl1 (vscreen-cell-at-xy screen x1 y1)))
-            (%lineedit-key-transpose-char screen x1 y1 cl1)))))))
+        (let-values (((x y) (vscreen-prev-xy screen x y)))
+          (let ((cl (vscreen-cell-at-xy screen x y)))
+            (%lineedit-key-transpose-char lctx screen x y cl)))))))
 
 
 ;; implementation of (lineedit-key-transpose-char)
-;; FIXME: handle wide vcells
-(define (%lineedit-key-transpose-char screen x1 y1 cl1)
+;; if successful, return number of vcells to move right,
+;; otherwise return #f if no swap happened.
+;;
+;; Also handles wide vcells
+(define (%lineedit-key-transpose-char lctx screen x1 y1 cl1)
   (let-values (((x0 y0 cl0) (vscreen-cell-before-xy screen x1 y1)))
-    (and x0 y0 cl0
+    ;; UNIMPLEMENTED swap newlines
+    (and x0 y0 cl0 (not (char=? #\newline (vcell->char cl0)))
+               cl1 (not (char=? #\newline (vcell->char cl1)))
          (let ((l0 (vscreen-line-at-y screen y0))
                (l1 (vscreen-line-at-y screen y1)))
-           (and l0 l1
+           (and l0 l1 (eq? l0 l1) ; UNIMPLEMENTED swap characters on different lines
                 (begin
                   (vscreen-dirty-set! screen #t)
-                  (vline-set! l0 x0 cl1)
-                  (vline-set! l1 x1 cl0)
-                  #t))))))
+                  ;; (debugf "transpose ~s ~s #x~x with ~s ~s #x~x" x0 y0 cl0 x1 y1 cl1)
+                  (if (vcell-narrow? cl1)
+                    (cond
+                      ((vcell-narrow? cl0) ; swap two narrow characters
+                        (vline-set! l0       x0  cl1)
+                        (vline-set! l1       x1  cl0)
+                        1)
+                      (else                ; swap a wide character and a narrow one
+                        (vline-set! l1 (fx1- x1) (vcell->wide-left  cl0))
+                        (vline-set! l1       x1  (vcell->wide-right cl0))
+                        (vline-set! l0       x0  cl1)
+                        1))
+                    (cond
+                      ((vcell-wide? cl0) ; swap two wide characters
+                        (vline-set! l0       x0  (vcell->wide-left  cl1))
+                        (vline-set! l0 (fx1+ x0) (vcell->wide-right cl1))
+                        (vline-set! l1       x1  (vcell->wide-left  cl0))
+                        (vline-set! l1 (fx1+ x1) (vcell->wide-right cl0))
+                        1)
+                      (else              ; swap a narrow character and a wide one on the same line
+                        (vline-set! l0       x0  (vcell->wide-left  cl1))
+                        (vline-set! l0 (fx1+ x0) (vcell->wide-right cl1))
+                        (vline-set! l1 (fx1+ x1) cl0)
+                        2)))))))))
 
 
 ;; delete one character to the left of cursor.

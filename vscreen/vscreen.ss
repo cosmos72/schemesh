@@ -139,12 +139,16 @@
 
 ;; return position immediately before x y, and cell at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
+;;
+;; Note: skips wide-right vcell
 (define vscreen-cell-before-xy vlines-cell-before-xy)
 
 
 ;; return position immediately after x y, and cell at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last cell in the last line
+;;
+;; Note: skips wide-right vcell
 (define vscreen-cell-after-xy vlines-cell-after-xy)
 
 
@@ -154,12 +158,16 @@
 
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
+;;
+;; Note: skips wide-right vcell
 (define vscreen-char-before-xy vlines-char-before-xy)
 
 
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last character in the last line
+;;
+;; Note: skips wide-right vcell
 (define vscreen-char-after-xy vlines-char-after-xy)
 
 
