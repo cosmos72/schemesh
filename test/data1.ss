@@ -121,6 +121,7 @@
   (vline "\x200d;")                                ,(vline "")
   (vline-nl? (vline "echo \n"))                    #t
   (vline-length (vline "echo \n"))                 6
+  (vline->string (vline "\x0;\x1f300;\x200d;"))    "\x1f300;"
   (vline-index
     (vline "qwerty=<>") #\= 0 9)                   6
   (let ((line (vline "foo/bar"))

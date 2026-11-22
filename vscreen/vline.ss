@@ -288,18 +288,17 @@
 ;; convert vline to string, removing all palette colors and de-duplicating wide characters
 (define (vline->string line)
   (let* ((len (vline-length line))
-         (str (make-string len))
-         (copied (let %loop ((from 0) (to 0))
-                   (if (fx<? from len)
-                     (let ((cl (vline-ref line from)))
-                       (if (vcell-wide-right? cl)
-                         (%loop (fx1+ from) to))
-                         (begin
-                           (string-set! str to (vcell->char cl))
-                           (%loop (fx1+ from) (fx1+ to))))
-                     to))))
-    (string-truncate! str copied)
-    str))
+         (str (make-string len)))
+    (let %loop ((si 0) (di 0))
+      (if (fx<? si len)
+        (let ((cl (vline-ref line si)))
+          (if (vcell-wide-right? cl)
+            (%loop (fx1+ si) di)
+            (begin
+              (string-set! str di (vcell->char cl))
+              (%loop (fx1+ si) (fx1+ di)))))
+        ;; return truncated string or THE empty string
+        (string-truncate! str di)))))
 
 
 ;; write colored vline to bytespan, NOT escaping special characters and de-duplicating wide characters

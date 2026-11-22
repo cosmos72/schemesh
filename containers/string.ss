@@ -393,8 +393,8 @@
     (cond
       ((fx>=? cap len)
         (string-copy! suffix 0 str offset tlen)
-        (string-truncate! str len)
-        str)
+        ;; returns truncated str or THE empty string
+        (string-truncate! str len))
       (else
         (let ((new-str (make-string len)))
           (string-copy! str 0 new-str offset offset)
@@ -667,8 +667,8 @@
              (dst       (make-string max-len))
              (len       (c-string-replace-left dst str old-str new-str replace-n start end)))
         (assert* caller (fx>=? len 0))
-        (string-truncate! dst len)
-        dst))))
+        ;; returns truncated str or THE empty string
+        (string-truncate! dst len)))))
 
 
 ;; create and return a copy of str, where:

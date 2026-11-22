@@ -58,8 +58,8 @@
             (unless (vcell-wide-right? c)
               (string-set! str i (vcell->char c))
               (set! i (fx1+ i)))))))
-    (string-truncate! str i)
-    str))
+    ;; return truncated string or THE empty string
+    (string-truncate! str i)))
 
 
 ;; convert vlines to string, removing all palette colors but keeping both copies of wide glyphs,

@@ -403,10 +403,11 @@
     ((fx>=? i sp-end) ; check that path exists
       (when (file-type path '(catch symlinks))
         ; if patterns do not end with #\/ then remove any final #\/ from path
-        (when (and (string-suffix? path #\/)
-                   (not (%patterns-end-with/char? sp #\/)))
-          (string-truncate! path (fx1- (string-length path))))
-        (span-insert-right! ret path))
+        (let ((path (if (and (string-suffix? path #\/)
+                             (not (%patterns-end-with/char? sp #\/)))
+                      (string-truncate! path (fx1- (string-length path)))
+                      path)))
+          (span-insert-right! ret path)))
       ret)
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
