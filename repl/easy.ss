@@ -123,8 +123,8 @@
           ((fxzero? n)
             (values #f #f))
           (else
-            (bytevector-truncate! bv n)
-            (values bv #t)))))
+            ;; returns truncated bytevector, or THE empty bytevector
+            (values (bytevector-truncate! bv n) #t)))))
     ((port? from)
       (let ((got (if (binary-port? from)
                    (get-bytevector-some from)

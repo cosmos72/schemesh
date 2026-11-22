@@ -37,6 +37,7 @@
 (define (vcellvector-empty? clv)
   (fxzero? (bytevector-length clv)))
 
+;; returns truncated bytevector, or THE empty bytevector
 (define (vcellvector-truncate! clv n)
   (bytevector-truncate! clv (vcell<< n)))
 
@@ -107,16 +108,24 @@
     (vcellvector-set! clv-dst di (vcell (string-ref str-src si)))))
 
 
-;; convert list of cells or characters to vcellvector
+;; convert list of vcells or characters to vcellvector
 (define (list->vcellvector c-list)
-  (let* ((n   (length c-list))
-         (dst (make-vcellvector n)))
-    (do ((i 0 (fx1+ i))
-         (tail c-list (cdr tail)))
-        ((null? tail) dst)
+  ;; each wide character or wide-left vcell becomes two vcells
+  (let %loop ((di 0) (tail c-list) (dst (make-vcellvector (fx* 2 (length c-list)))))
+    (if (null? tail)
+      (vcellvector-truncate! dst di) ;; truncate to actual vcell count
       (let* ((c  (car tail))
              (cl (if (char? c) (vcell c) c)))
-        (vcellvector-set! dst i cl)))))
+        (case (vcell-display-width cl)
+          ((1)
+            (vcellvector-set! dst di cl)
+            (%loop (fx1+ di) (cdr tail) dst))
+          ((2)
+            (vcellvector-set! dst       di  (vcell->wide-left  cl))
+            (vcellvector-set! dst (fx1+ di) (vcell->wide-right cl))
+            (%loop (fx+ 2 di) (cdr tail) dst))
+          (else ;; discard zero-width characters, wide-right vcells and the zero vcell
+            (%loop di (cdr tail) dst)))))))
 
 
 ;; convert a portion of string to vcellvector
@@ -124,26 +133,24 @@
   (case-lambda
     ((str start end)
       (assert* 'string->vcellvector (fx<=?* 0 start end (string-length str)))
-      (let* ((slen  (fx- end start))
-             (dlen  (fx* 2 slen))
-             (dst   (make-vcellvector dlen))
-             (copied (let %loop ((si start) (di 0))
-                       (if (fx<? si slen)
-                         (let* ((ch (string-ref str si))
-                                (cl (vcell ch)))
-                           (case (vcell-display-width cl)
-                             ((1)
-                               (vcellvector-set! dst di cl)
-                               (%loop (fx1+ si) (fx1+ di)))
-                             ((2)
-                               (vcellvector-set! dst       di  (vcell->wide-left cl))
-                               (vcellvector-set! dst (fx1+ di) (vcell->wide-right cl))
-                               (%loop (fx1+ si) (fx+ 2 di)))
-                             (else
-                               (%loop (fx1+ si) di))))
-                         di))))
-        (vcellvector-truncate! dst copied)
-        dst))
+      ;; each wide character becomes two vcells
+      (let %loop ((si start) (di 0) (dst (make-vcellvector (fx* 2 (fx- end start)))))
+        ;; (debugf ". string->vcellvector si ~s, di ~s, bvec ~s" si di dst)
+        (if (fx<? si end)
+          (let* ((ch (string-ref str si))
+                 (cl (vcell ch)))
+            (case (vcell-display-width cl)
+              ((1)
+                (vcellvector-set! dst di cl)
+                (%loop (fx1+ si) (fx1+ di) dst))
+              ((2)
+                (vcellvector-set! dst       di  (vcell->wide-left cl))
+                (vcellvector-set! dst (fx1+ di) (vcell->wide-right cl))
+                (%loop (fx1+ si) (fx+ 2 di) dst))
+              (else ; discard zero-width characters, wide-right vcells and the zero vcell
+                (%loop (fx1+ si) di dst))))
+          ;; returns truncated bytevector, or THE empty bytevector
+          (vcellvector-truncate! dst di))))
     ((str)
       (string->vcellvector str 0 (string-length str)))))
 

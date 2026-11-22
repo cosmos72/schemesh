@@ -607,8 +607,9 @@
                     (y (linectx-iy lctx)))
                 (fd-write-all fd (string->utf8b (vlines->string (linectx-vscreen lctx))))
                 (fd-seek fd 0 'seek-set)
-                (bytevector-truncate! bpath (fx1- (bytevector-length bpath)))
-                (let* ((args   (append args (list (utf8b->string bpath))))
+                               ;; returns truncated bytevector, or THE empty bytevector
+                (let* ((bpath  (bytevector-truncate! bpath (fx1- (bytevector-length bpath))))
+                       (args   (append args (list (utf8b->string bpath))))
                        (status (lineedit-key-sh-run lctx ((top-level-value 'make-sh-cmd) (cons cmd args)))))
                   (when (ok? status)
                     (let* ((bv  (fd-read-all fd))

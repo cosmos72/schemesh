@@ -202,8 +202,8 @@
                    (if (fx>=? si end)
                      bi
                      (%loop (fx+ si 4) (base64-quartet->bytevector! str si end bv bi))))))
-        (bytevector-truncate! bv bi)
-        bv))
+        ;; returns truncated bytevector, or THE empty bytevector
+        (bytevector-truncate! bv bi)))
     ((str)
       (base64-string->bytevector str 0 (string-length str)))))
 

@@ -113,9 +113,8 @@
     ((bytespan-empty? sp)
       #vu8())
     ((fxzero? (bytespan-beg sp))
-      (let ((vec (bytespan-vec sp)))
-        (bytevector-truncate! vec (bytespan-end sp))
-        vec))
+      ;; returns truncated bytevector, or THE empty bytevector
+      (bytevector-truncate! (bytespan-vec sp) (bytespan-end sp)))
     (else
       (bytespan->bytevector sp))))
 

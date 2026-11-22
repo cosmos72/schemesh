@@ -11,34 +11,39 @@
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
   ;; ----------------------- bytespan -------------------------------------
-  (bytespan 1 2 3)                                  ,(bytespan 1 2 3)
-  (list->bytespan '(56 12 0 46))                    ,(bytespan 56 12 0 46)
-  (bytevector->bytespan #vu8(7 19 88 255))          ,(bytespan 7 19 88 255)
-  (bytespan->bytevector (bytespan 65 66 67))        #vu8(65 66 67)
-  (bytespan-length (bytespan 1 2 3))                3
+  (bytespan 1 2 3)                                   ,(bytespan 1 2 3)
+  (list->bytespan '(56 12 0 46))                     ,(bytespan 56 12 0 46)
+  (bytevector->bytespan #vu8(7 19 88 255))           ,(bytespan 7 19 88 255)
+  (bytespan->bytevector (bytespan 65 66 67))         #vu8(65 66 67)
+  (bytespan-length (bytespan 1 2 3))                 3
   (bytespan-capacity-right (bytespan 1 2 3))         3
-  (bytespan-empty? (bytespan))                      #t
-  (bytespan-empty? (bytespan 250))                  #f
-  (bytespan-ref-right/u8 (bytespan 251 252) 0)      252
-  (bytespan-ref/u8 (bytespan 252 253 254 255) 2)    254
+  (bytespan-empty? (bytespan))                       #t
+  (bytespan-empty? (bytespan 250))                   #f
+  (bytespan-ref-right/u8 (bytespan 251 252) 0)       252
+  (bytespan-ref/u8 (bytespan 252 253 254 255) 2)     254
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan v)))
      ;; set! does NOT propagate to the bytespan
-     (bytevector-u8-set! v 1 7) sp)                 ,(bytespan 1 2 3)
+     (bytevector-u8-set! v 1 7) sp)                  ,(bytespan 1 2 3)
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan* v)))
     ;; set! propagates to the bytespan
-    (bytevector-u8-set! v 1 7)  sp)                 ,(bytespan 1 7 3)
+    (bytevector-u8-set! v 1 7)  sp)                  ,(bytespan 1 7 3)
   (let ((sp (bytespan 4 5 6)))
-    (bytespan-insert-right/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
+    (bytespan-insert-right/u8! sp 7 8) sp)           ,(bytespan 4 5 6 7 8)
   (let ((bsp (bytespan 9 10 11 12)))
     (bytespan-index bsp
-      (lambda (elem) (fx=? 11 elem))))              2
+      (lambda (elem) (fx=? 11 elem))))               2
   ;; ----------------------- vcellspan -------------------------------------
-  (vcellspan #\1 #\2 #\3)                           ,(string->vcellspan "123")
-  (list->vcellspan '(#\i #\j #\k #\l))              ,(string->vcellspan "ijkl")
-  (string->vcellspan "pqrst")                       ,(string->vcellspan "pqrst")
-  (string->vcellspan "ouh[()&*U")                   ,(string->vcellspan "ouh[()&*U")
+  (vcellspan)                                        ,(string->vcellspan "")
+  ;; test zero-width and wide characters
+  (vcellspan #\x0 #\x1 #\x1b #\x1f #\x200d)          ,(string->vcellspan "")
+  (vcellspan #\1 #\2 #\3)                            ,(string->vcellspan "123")
+  (list->vcellspan '(#\i #\x0 #\j #\k #\l))          ,(string->vcellspan "ijkl")
+  (string->vcellspan "pqrst")                        ,(string->vcellspan "pqrst")
+  (string->vcellspan "ouh\x1b;[()&*U")               ,(string->vcellspan "ouh[()&*U")
+  (string->vcellspan
+    "\x1F300;\x0;\x1F301;\x200d;\x1F302;")           ,@"(string->vcellspan \"\\x1F300;\\x1F301;\\x1F302;\")"
   (vcellspan-length (vcellspan #\a #\b #\c))         3
   (vcellspan-capacity-right (vcellspan #\a #\b #\c)) 3
   (vcellspan-empty? (vcellspan))                     #t
@@ -112,6 +117,8 @@
   ;; ------------------------ vline ------------------------------------
   (vline "abc 123")                                ,(vline "abc 123")
   (vline "echo \n")                                ,(vline "echo \n")
+  (vline "\x0;")                                   ,(vline "")
+  (vline "\x200d;")                                ,(vline "")
   (vline-nl? (vline "echo \n"))                    #t
   (vline-length (vline "echo \n"))                 6
   (vline-index

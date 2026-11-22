@@ -94,9 +94,8 @@
 (define (f32span->bytevector*! sp)
   (if (or (f32span-empty? sp) (not (fxzero? (f32span-beg sp))))
     (f32span->bytevector sp)
-    (let ((bv (f32span-vec sp)))
-      (bytevector-truncate! bv (bytepos (f32span-end sp)))
-      bv)))
+    ;; returns truncated bytevector, or THE empty bytevector
+    (bytevector-truncate! (f32span-vec sp) (bytepos (f32span-end sp)))))
 
 ;; create f32span containing specified inexact numbers
 (define (f32span . numbers)

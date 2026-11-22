@@ -98,6 +98,7 @@
 (define (vcell-with-vpalette cl palette)
   (fxior (fxand cl char-max) (fx<< palette palette-shift)))
 
+;; return 1 for narrow vcells, 2 for wide-left vcells, 0 for wide-right vcells and the zero vcell
 (define (vcell-display-width cl)
   (if (vcell-wide? cl)
     (if (vcell-wide-left? cl) 2 0)
