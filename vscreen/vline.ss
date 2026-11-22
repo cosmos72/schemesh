@@ -259,10 +259,11 @@
           (fx- i start)))))
 
 
-;; create and return a closure that iterates on elements of vline line.
+;; create and return a closure that iterates on each vcell of specified vline,
+;; including wide-right vcells.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in vline line and #t,
+;; either (values cl #t) i.e. the next vcell in vline and #t,
 ;; or (values #<unspecified> #f) if end of vline is reached.
 (define in-vline
   (case-lambda
@@ -285,7 +286,7 @@
 (define vline-iterate vbuffer-iterate)
 
 
-;; convert vline to string, removing all palette colors and de-duplicating wide characters
+;; convert vline to string, removing all palette colors and de-duplicating wide vcells
 (define (vline->string line)
   (let* ((len (vline-length line))
          (str (make-string len)))
@@ -301,7 +302,7 @@
         (string-truncate! str di)))))
 
 
-;; write colored vline to bytespan, NOT escaping special characters and de-duplicating wide characters
+;; write colored vline to bytespan, NOT escaping special characters and de-duplicating wide vcells
 (define vline-display/bytespan vbuffer-display/bytespan)
 
 
