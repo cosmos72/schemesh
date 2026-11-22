@@ -48,7 +48,7 @@
         (if (string? line)
          (span-set! sp i (vline line))
          (assert-vline? 'vlines line))))
-    (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0 0 0 0)))
+    (%make-vscreen (span) sp (greatest-fixnum) 0 #f (fxmax width 2) (fxmax height 1) 0 0 0 0 0 0)))
 
 
 ;; return number of vlines in vscreen
@@ -251,9 +251,9 @@
 ;; change vscreen width and height. Also reflows screen.
 ;; moves cursor to preserve total # of characters before cursor.
 (define (vscreen-resize! screen width height)
-  (let ((width (fxmax 1 width))
-        (height (fxmax 1 height))
-        (old-width (vscreen-width screen))
+  (let ((width      (fxmax 2 width)) ;; enough to show at least one wide character
+        (height     (fxmax 1 height))
+        (old-width  (vscreen-width screen))
         (old-height (vscreen-height screen)))
     (unless (and (fx=? width old-width) (fx=? height old-height))
       (let ((n (vscreen-count-to-start screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
