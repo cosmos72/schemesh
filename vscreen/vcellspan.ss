@@ -54,7 +54,8 @@
 (define string->vcellspan
   (case-lambda
     ((str start end)
-      (%make-vcellspan 0 (fx- end start) (string->vcellvector str start end)))
+      (let ((v (string->vcellvector str start end)))
+        (%make-vcellspan 0 (vcellvector-length v) v)))
     ((str)
       (string->vcellspan str 0 (string-length str)))))
 
@@ -380,4 +381,4 @@
       (let ((offset (vcellspan-beg vsp)))
         (vcellvector-write (vcellspan-vec vsp) (fx+ offset start) (fx+ offset end) port)))
     ((vsp port)
-      (vcellvector-write (vcellspan-vec vsp) (vcellspan-beg vsp) (vcellspan-end vsp) port))))
+      (vcellspan-write vsp 0 (vcellspan-length vsp) port))))

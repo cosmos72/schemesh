@@ -375,7 +375,7 @@
 
 ;; move vscreen cursor n lines up.
 ;;
-;; FIXME: handle landing on wide-right vcell.
+;; Special case: if ending on a wide-right vcell, move one vcell to the left
 (define (vscreen-cursor-move/up! screen n)
   (vscreen-cursor-vxy-set! screen
     (vscreen-cursor-vx screen)
@@ -383,7 +383,7 @@
 
 ;; move vscreen cursor n lines down.
 ;;
-;; FIXME: handle landing on wide-right vcell.
+;; Special case: if ending on a wide-right vcell, move one vcell to the left
 (define (vscreen-cursor-move/down! screen n)
   (vscreen-cursor-vxy-set! screen
     (vscreen-cursor-vx screen)
@@ -397,22 +397,34 @@
 ;;
 ;; Warning: does not underflow subsequent lines!
 ;; Callers should use (vscreen-underflow) instead
+;;
+;; Special case: does not split wide vcell pairs
+;;
+;; FIXME: still buggy for wide vcell pairs
 (define (vscreen-underflow-at-y screen y)
+  ;; (debugf "> vscreen-underflow-at-y ~s" y)
   (let ((line1 (vscreen-line-at-y screen y)))
     (when (and line1 (not (vline-nl? line1)))
-      (let ((n (fx- (vscreen-width-at-y screen y) (vline-length line1)))
+      (let ((n   (fx- (vscreen-width-at-y screen y) (vline-length line1)))
             (y+1 (fx1+ y)))
         (while (and (fx>? n 0) (fx<? y+1 (vscreen-length screen)))
-          (let* ((line2 (vlines-ref screen y+1))
+          ;; (debugf ". vscreen-underflow-at-y y ~s, n ~s" y n)
+          (let* ((line2     (vlines-ref screen y+1))
                  (line2-nl? (vline-nl? line2))
-                 (i     (fxmin n (vline-length line2))))
-            (when (fx>? i 0)
-              (vscreen-dirty-set! screen #t)
-              ;; insert chars into line1
-              (vline-insert-at/vbuffer! line1 (vline-length line1) line2 0 i)
-              ;; remove chars from line2
-              (vline-delete! line2 0 i)
-              (set! n (fx- n i)))
+                 (x         (fxmin n (vline-length line2)))
+                 ;; if first vcell NOT to be moved is wide-right, also do NOT move its wide-left companion
+                 (i         (let ((cl (vscreen-cell-at-xy screen x y)))
+                              (if (and cl (vcell-wide-right? cl))
+                                (fx1- x)
+                                x))))
+            (when (fx>? x 0)
+              (when (fx>? i 0)
+                (vscreen-dirty-set! screen #t)
+                ;; insert chars into line1
+                (vline-insert-at/vbuffer! line1 (vline-length line1) line2 0 i)
+                ;; remove chars from line2
+                (vline-delete! line2 0 i))
+              (set! n (fx- n x))) ;; decrease n as if wide pair was split: breaks infinite loop
             (when (vline-empty? line2)
               (when line2-nl?
                 (set! n 0)) ;; newline found, stop refilling line1
@@ -621,18 +633,23 @@
 ;; stops when a modified line has length <= vscreen width.
 ;; return y of last modified line.
 ;;
-;; FIXME: handle wide vcells
+;; Special case: does not split wide vcell pairs
 (define (vscreen-overflow-at-y screen y)
-  ; (debugf "~%; before vscreen-overflow-at-y ~s ~s" y screen)
+  ;;(debugf "> vscreen-overflow-at-y ~s" y)
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
       (while (and (fx<? y (vscreen-length screen))
                   (fx>? (vline-length line1) (vscreen-width-at-y screen y)))
-        ; (debugf "while0 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
+        ;; (debugf ". vscreen-overflow-at-y y ~s" y)
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (vline-nl? line1))
                (line1-end  (vline-length line1))
-               (line1-pos  (vscreen-width-at-y screen y))
+               (line1-x    (vscreen-width-at-y screen y))
+               ;; if first vcell to move is wide-right, also move its wide-left companion
+               (line1-pos  (let ((cl (vscreen-cell-at-xy screen line1-x y)))
+                             (if (and cl (vcell-wide-right? cl))
+                               (fx1- line1-x)
+                               line1-x)))
                (y+1        (fx1+ y))
                (line2-new? (or line1-nl? (fx=? y+1 (vscreen-length screen))))
                (line2      (if line2-new?
@@ -668,6 +685,8 @@
 ;; for each vscreen line at y or later that exceeds vscreen width,
 ;; move characters from end of it to the beginning of following line(s),
 ;; until lengths of each line is <= vscreen width.
+;;
+;; Special case: does not split wide vcell pairs
 (define vscreen-overflow
   (case-lambda
     ((screen y)
@@ -703,7 +722,7 @@
 
 ;; overflow and underflow all lines. add a final empty line if needed.
 ;;
-;; FIXME: dot not split wide vcell pairs
+;; Special case: does not split wide vcell pairs
 (define (vscreen-reflow screen)
   (vscreen-split-after-newlines screen)
   (vscreen-overflow screen)

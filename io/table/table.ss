@@ -25,6 +25,7 @@
     (only (scheme2k containers string)       string-index string-prefix?)
     (only (scheme2k containers time)         time->string)
     (only (scheme2k containers utf8b)        string-quote string-quote?)
+    (only (scheme2k conversions unicode)     char-display-width)
     (only (scheme2k io obj)                  writer writer-put writer-eof? writer-close)
     (only (scheme2k reflect)                 in-fields make-reflect-info make-reflect-info-autodetect reflect-info-fill!))
 
@@ -374,7 +375,8 @@
       (if (fx<=? len width)
         (put-string out v)
         (let ((xlen (fxmin (fx1- width) (string-length v))))
-          ;; FIXME: visible len can be < (string-length v), and we should NOT truncate in the middle of colors
+          ;; FIXME: visible len can be < (string-length v) if v contains escape sequences,
+          ;; and we should NOT truncate in the middle of them.
           (when (fx>? xlen 0)
             (put-string out v 0 xlen))
           (put-string out "\x1b;[1m\x2026;\x1b;[m"))) ; ellipsis ...
@@ -500,13 +502,10 @@
 (define (string-display-length str)
   (let %loop ((str str) (i 0) (n (string-length str)) (ret 0))
     (if (fx<? i n)
-      (case (string-ref str i)
-        ((#\esc)
-          (%loop str (skip-escape-seq str (fx1+ i) n) n ret))
-        ((#\x0) ; #\nul is a Chez Scheme extension
-          (%loop str (fx1+ i) n ret))
-        (else
-          (%loop str (fx1+ i) n (fx1+ ret))))
+      (let ((ch (string-ref str i)))
+        (if (char=? ch #\esc)
+          (%loop str (skip-escape-seq str (fx1+ i) n) n ret)
+          (%loop str (fx1+ i) n (fx+ ret (char-display-width ch)))))
       ret)))
 
 

@@ -285,4 +285,6 @@
               (set! old-palette palette)))))
       (put-char port #\"))
     ((vb port)
-      (vbuffer-write vb 0 (vbuffer-length vb) port))))
+      (vbuffer-write vb 0 (vbuffer-length vb) port))
+    ((vb)
+      (vbuffer-write vb 0 (vbuffer-length vb) (current-output-port)))))

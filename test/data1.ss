@@ -215,6 +215,9 @@
       (vscreen-resize! screen 9 30)
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen 9 30 "abcdefgh0" "12\n" "qwerty"))
+  (let ((screen (vscreen 3 10 "\x1f300;\x1f301;\x1f302;")))
+    (vscreen-reflow screen)
+    screen)                                            ,@"(vscreen 3 10 \"\\x1F300;\" \"\\x1F301;\" \"\\x1F302;\")"
 
   ;; ---------------------- reflect ---------------------------------------
   ;; test array-...
