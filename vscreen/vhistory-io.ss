@@ -58,13 +58,17 @@
 
 ;; save vhistory to specified binary output port.
 ;; return #t if successful, otherwise return #f
-(define (vhistory-port-save hist port pred)
-  (gbuffer-iterate hist
-    (lambda (i pair)
-      (let ((lines (cdr pair)))
-        (if (and pred (not (pred lines)))
-          #t
-          (vlines-port-save lines port))))))
+(define vhistory-port-save
+  (case-lambda
+    ((hist port pred)
+      (gbuffer-iterate hist
+        (lambda (i pair)
+          (let ((lines (cdr pair)))
+            (if (and pred (not (pred lines)))
+              #t
+              (vlines-port-save lines port))))))
+    ((hist port)
+      (vhistory-port-save hist port #f))))
 
 
 ;; save vlines to specified binary output port.
