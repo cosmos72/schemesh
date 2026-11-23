@@ -406,38 +406,9 @@
       (fx1+ q))))
 
 
-(define (dump-vcell out cl)
-  (let ((ch (vcell->char cl)))
-    (unless (vcell-wide-right? cl)
-      (put-string out (if (vcell-wide-left? cl) " <" " ")))
-    (if (char<=? #\! ch #\~)
-      (put-char out ch)
-      (format out "#x~x" (char->integer ch)))
-    (when (vcell-wide-right? cl)
-      (put-char out #\>))))
-
-
-(define (dump-vline out y line)
-  (let ((xn   (vline-length line)))
-    (format out "line ~s, length = ~s" y xn)
-    (do ((x 0 (fx1+ x)))
-        ((fx>=? x xn))
-      (dump-vcell out (vline-ref line x)))
-    (put-char out #\newline)))
-
-
-(define (dump-vscreen out s)
-  (let ((yn (vscreen-length s)))
-    (format out "\n\x1b;[30;1mvscreen width = ~s, height = ~s, # lines ~s, cursor x = ~s, y = ~s\n" (vscreen-width s) (vscreen-height s) yn (vscreen-cursor-ix s) (vscreen-cursor-iy s))
-    (do ((y 0 (fx1+ y)))
-        ((fx>=? y yn))
-      (dump-vline out y (vlines-ref s y)))
-    (format out "\x1b;[m")))
-
-
-(define (lineedit-key-dump-vscreen lctx)
+(define (lineedit-key-vscreen-dump lctx)
   (let ((out (debugf-port)))
-    (dump-vscreen out (linectx-vscreen lctx))
+    (vscreen-dump (linectx-vscreen lctx) out)
     (flush-output-port out)))
 
 
@@ -445,9 +416,6 @@
 (define (lineedit-key-dump-paren lctx)
   (let ((out (debugf-port)))
         (parenmatcher (linectx-parenmatcher lctx))
-
-    (dump-vscreen out (linectx-vscreen lctx))
-    (flush-output-port out)))
 |#
 
 (define (lineedit-key-inspect-linectx lctx)

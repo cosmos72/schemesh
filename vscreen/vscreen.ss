@@ -399,10 +399,8 @@
 ;; Callers should use (vscreen-underflow) instead
 ;;
 ;; Special case: does not split wide vcell pairs
-;;
-;; FIXME: still buggy for wide vcell pairs
 (define (vscreen-underflow-at-y screen y)
-  ;; (debugf "> vscreen-underflow-at-y ~s" y)
+  ;; (debugf "> vscreen-underflow-at-y ~s" y) (vscreen-dump screen (debugf-port)) (flush-output-port (debugf-port))
   (let ((line1 (vscreen-line-at-y screen y)))
     (when (and line1 (not (vline-nl? line1)))
       (let ((n   (fx- (vscreen-width-at-y screen y) (vline-length line1)))
@@ -412,9 +410,9 @@
           (let* ((line2     (vlines-ref screen y+1))
                  (line2-nl? (vline-nl? line2))
                  (x         (fxmin n (vline-length line2)))
-                 ;; if first vcell NOT to be moved is wide-right, also do NOT move its wide-left companion
-                 (i         (let ((cl (vscreen-cell-at-xy screen x y)))
-                              (if (and cl (vcell-wide-right? cl))
+                 ;; if last vcell to move is wide-left, omit it because it does not fit in previous line
+                 (i         (let ((cl (vscreen-cell-at-xy screen (fx1- x) y+1)))
+                              (if (and cl (vcell-wide-left? cl))
                                 (fx1- x)
                                 x))))
             (when (fx>? x 0)
@@ -432,7 +430,9 @@
               (unless (and (or (vline-nl? line1)
                                (fx>=? (vline-length line1) (vscreen-width-at-y screen y)))
                            (fx>=? y+1 (fx1- (vscreen-length screen))))
-                (vscreen-delete-at/vline! screen y+1)))))))))
+                (vscreen-delete-at/vline! screen y+1))))))))
+  ;; (debugf "< vscreen-underflow-at-y ~s" y) (vscreen-dump screen (debugf-port)) (flush-output-port (debugf-port))
+  )
 
 
 ;; for each vscreen line at y or later *without* a newline and shorter than vscreen width,
@@ -635,7 +635,7 @@
 ;;
 ;; Special case: does not split wide vcell pairs
 (define (vscreen-overflow-at-y screen y)
-  ;;(debugf "> vscreen-overflow-at-y ~s" y)
+  ;; (debugf "> vscreen-overflow-at-y ~s" y) (vscreen-dump screen (debugf-port)) (flush-output-port (debugf-port))
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
       (while (and (fx<? y (vscreen-length screen))
@@ -668,7 +668,7 @@
           (set! y y+1)
           (set! line1 line2)))))
   (vscreen-append-empty-line-if-needed screen)
-  ; (debugf "after  vscreen-overflow-at-y at ~s: ~s" y screen)
+  ;; (debugf "< vscreen-overflow-at-y ~s" y) (vscreen-dump screen (debugf-port)) (flush-output-port (debugf-port))
   y)
 
 ;; add a final empty line if needed.
@@ -921,6 +921,15 @@
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0)
   (vlines-dirty-y-add! screen 0 (vscreen-length screen)))
+
+
+(define (vscreen-dump s out)
+  (let ((yn (vscreen-length s)))
+    (format out "\n\x1b;[30;1mvscreen width = ~s, height = ~s, # lines ~s, cursor x = ~s, y = ~s\n" (vscreen-width s) (vscreen-height s) yn (vscreen-cursor-ix s) (vscreen-cursor-iy s))
+    (do ((y 0 (fx1+ y)))
+        ((fx>=? y yn))
+      (vline-dump (vlines-ref s y) y out))
+    (format out "\x1b;[m")))
 
 
 ;; write a textual representation of vscreen to output port

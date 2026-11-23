@@ -58,7 +58,7 @@
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
     lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
 
-    lineedit-key-dump-vscreen lineedit-key-inspect-linectx
+    lineedit-key-vscreen-dump lineedit-key-inspect-linectx
 
     lineedit-key-cmd lineedit-key-cmd-cd-old-dir lineedit-key-cmd-cd-parent
     lineedit-key-edit-input lineedit-key-sh-run lineedit-key-sh-run/i
@@ -415,7 +415,7 @@
   (%add t lineedit-key-del-line-left    21) ; CTRL+U
   (%add t lineedit-key-to-history       24) ; CTRL+X
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
-  (%add t lineedit-key-dump-vscreen     28) ; CTRL+4, CTRL+BACKSLASH
+  (%add t lineedit-key-vscreen-dump     28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 #vu8(27 127))
   ; sequences starting with ESC

@@ -227,6 +227,11 @@
     (vscreen-reflow screen)
     screen)                                            ,@"(vscreen 3 10 \"\\x1F300;\" \"\\x1F301;\" \"\\x1F302;\")"
 
+  (let ((screen (vscreen 3 10 "\x1f300;\x1f301;\x1f302;")))
+    (vscreen-prompt-length-set! screen 2)
+    (vscreen-reflow screen)
+    screen)                                            ,@"(vscreen 3 10 \"\" \"\\x1F300;\" \"\\x1F301;\" \"\\x1F302;\")"
+
   ;; ---------------------- reflect ---------------------------------------
   ;; test array-...
   (list

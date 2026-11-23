@@ -306,5 +306,14 @@
 (define vline-display/bytespan vbuffer-display/bytespan)
 
 
+(define (vline-dump line y out)
+  (let ((xn   (vline-length line)))
+    (format out "line ~s, length = ~s" y xn)
+    (do ((x 0 (fx1+ x)))
+        ((fx>=? x xn))
+      (vcell-dump (vline-ref line x) out))
+    (put-char out #\newline)))
+
+
 ;; write a textual representation of vline to output port
 (define vline-write vbuffer-write)

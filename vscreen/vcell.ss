@@ -406,6 +406,28 @@
 (define (vcell->vcolors cl)
   (vpalette->vcolors (vcell->vpalette cl)))
 
+
+;; write possibly colored vcell to bytespan, NOT escaping special characters
+;; and IGNORING wide-right vcells
+(define (vcell-display/bytespan cl old-palette wbuf)
+  (let ((palette (vcell->vpalette cl)))
+    (unless (fx=? palette old-palette)
+      (vpalette-display/bytespan palette wbuf)))
+  (unless (vcell-wide-right? cl)
+    (bytespan-insert-right/char! wbuf (vcell->char cl))))
+
+
+(define (vcell-dump cl out)
+  (let ((ch (vcell->char cl)))
+    (unless (vcell-wide-right? cl)
+      (put-string out (if (vcell-wide-left? cl) " <" " ")))
+    (if (char<=? #\! ch #\~)
+      (put-char out ch)
+      (format out "#x~x" (char->integer ch)))
+    (when (vcell-wide-right? cl)
+      (put-char out #\>))))
+
+
 ;; write colored char to textual output port, escaping special characters
 (define (vcell-write cl old-palette port)
   (let ((ch      (vcell->char    cl))
@@ -428,13 +450,3 @@
           (put-string port "\\x")
           (put-string port (number->string n 16))
           (put-char port #\;))))))
-
-
-;; write possibly colored vcell to bytespan, NOT escaping special characters
-;; and IGNORING wide-right vcells
-(define (vcell-display/bytespan cl old-palette wbuf)
-  (let ((palette (vcell->vpalette cl)))
-    (unless (fx=? palette old-palette)
-      (vpalette-display/bytespan palette wbuf)))
-  (unless (vcell-wide-right? cl)
-    (bytespan-insert-right/char! wbuf (vcell->char cl))))

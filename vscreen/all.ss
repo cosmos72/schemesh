@@ -13,7 +13,7 @@
     make-vcell vcell vcell? vcell-narrow? vcell-wide? vcell-wide-left? vcell-wide-right?
     vcell->char vcell->wide-left vcell->wide-right
     vcell->vpalette vcell->vcolors vcell-with-vpalette vcell-with-vpalette-or-vcolors vcell-without-vpalette
-    vcell-display-width vcell-write vcell-display/bytespan
+    vcell-display-width vcell-display/bytespan vcell-dump vcell-write
     vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
     vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
     vpalette? vpalette->vcolors
@@ -57,7 +57,7 @@
     vline-insert-at/vcellspan! vline-insert-at/vbuffer!
     vline-index-left vline-index-right vline-index vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
-    in-vline vline-iterate vline-display/bytespan vline-write
+    in-vline vline-iterate vline-display/bytespan vline-dump vline-write
 
     ;; vlines.ss
     vlines vlines? assert-vlines? vlines->string vlines->string*
@@ -91,7 +91,7 @@
     vscreen-delete-left/vline!  vscreen-delete-right/vline!
     vscreen-insert/c!            vscreen-insert-at-xy/c!
     vscreen-insert-at-xy/newline! vscreen-insert-at-xy/vcellspan!
-    vscreen-assign*!  vscreen-reflow  vscreen-write
+    vscreen-assign*!  vscreen-dump  vscreen-reflow  vscreen-write
 
     ;; vhistory.ss
     vhistory vhistory? vhistory-clear! vhistory-empty? vhistory-length vhistory-path vhistory-path-set!
@@ -110,7 +110,7 @@
     (rnrs mutable-strings)
     (only (chezscheme)                      box set-box! bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit? meta-cond
                                             procedure-arity-mask record-writer string-copy! string-truncate! unbox void)
-    (only (scheme2k bootstrap)              assert* assert-not* catch debugf fx<=?* raise-assertf try until while)
+    (only (scheme2k bootstrap)              assert* assert-not* catch debugf debugf-port fx<=?* raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)
           (scheme2k containers bytespan)
