@@ -77,7 +77,7 @@
        (fx* (vscreen-prompt-end-y screen)
             (vscreen-width screen))))
 
-;; set prompt0 length in characters.
+;; set prompt0 length in vcells.
 ;; also updates vscreen-prompt0-end-x and vscreen-prompt0-end-y
 (define (vscreen-prompt0-length-set! screen prompt0-length)
   (if (fxzero? prompt0-length)
@@ -93,13 +93,13 @@
         ;; increase y by one because we draw a newline after prompt0 - unless it's empty, see (fxzero? prompt0-length) above
         (vscreen-prompt0-end-y-set! screen (fxmin (fx1+ y) (fx1- (vscreen-height screen))))))))
 
-;; set prompt length in characters.
+;; set prompt length in vcells.
 ;; also updates vscreen-prompt-end-x and vscreen-prompt-end-y
-(define (vscreen-prompt-length-set! screen prompt-length)
+(define (vscreen-prompt-length-set! screen prompt-display-width)
   (let ((width (vscreen-width screen)))
-    (assert* 'vscreen-prompt-length-set! (fx>=? prompt-length 0))
+    (assert* 'vscreen-prompt-length-set! (fx>=? prompt-display-width 0))
     (assert* 'vscreen-prompt-length-set! (fx>? width 0))
-    (let-values (((y x) (div-and-mod prompt-length width)))
+    (let-values (((y x) (div-and-mod prompt-display-width width)))
       (assert* 'vscreen-prompt-length-set! (fx<? -1 x width))
       (vscreen-prompt-end-x-set! screen x)
       (vscreen-prompt-end-y-set! screen (fxmin y (fx1- (vscreen-height screen)))))))
