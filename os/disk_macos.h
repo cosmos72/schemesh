@@ -12,8 +12,6 @@
 
 #include <sys/types.h> /* major(), minor() - correct? */
 
-#include "disk_unsupported.h"
-
 static uint64_t c_make_dev(unsigned major, unsigned minor) {
   return (uint64_t)makedev((int)major, (int)minor);
 }
@@ -25,5 +23,13 @@ static unsigned c_dev_major(uint64_t dev) {
 static unsigned c_dev_minor(uint64_t dev) {
   return (unsigned)minor((dev_t)dev);
 }
+
+/* these are defined above,tell os/disk_unsupported.h NOT to define them */
+#define c_make_dev  c_make_dev
+#define c_dev_major c_dev_major
+#define c_dev_minor c_dev_minor
+
+/* define stub functions c_disk_open() ... */
+#include "disk_unsupported.h"
 
 #endif /* SCHEME2K_OS_DISK_MACOS_H */
