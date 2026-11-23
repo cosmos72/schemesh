@@ -28,8 +28,9 @@
     linectx-completions linectx-completion-stem
     linectx-flags linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
-    linectx-history linectx-history-index linectx-history-index-set! linectx-to-history
-    linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
+    linectx-history linectx-history-index linectx-history-index-set!
+    linectx-history-filter-onsave linectx-history-filter-onsave-set!
+     linectx-to-history linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
     linectx-load-history! linectx-save-history
     linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set! linectx-mark-not-bol? linectx-mark-not-bol-set!

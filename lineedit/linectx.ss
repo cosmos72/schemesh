@@ -35,8 +35,9 @@
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
-    history)                ; vhistory, history of entered commands
-  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+    history                 ; vhistory, history of entered commands
+    (mutable history-filter-onsave))
+  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 (define flag-eof? 1)
@@ -178,7 +179,7 @@
       (vcellspan)                 ; clipboard
       (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
-      0 history)))                ; history
+      0 history #f)))             ; history
 
 
 ;; Create and return a linectx
@@ -328,7 +329,7 @@
     (vhistory-file-save
       hist
       (vhistory-path hist)
-      (lambda (lines) (not (vlines-cell-count<=? lines 2))))))
+      (linectx-history-filter-onsave lctx))))
 
 
 (define (linectx-keytable-insert! keytable proc . keysequences)
