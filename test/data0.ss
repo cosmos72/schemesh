@@ -57,7 +57,7 @@
     (list (cons (param) value)
           (parameterize* ((param 7)
                           (=> (set! value (fx1+ value))
-			      (set! value (fx1- value))))
+                              (set! value (fx1- value))))
             (cons (param) value))
           (cons (param) value)))                   ((1 . 10) (7 . 11) (1 . 10))
 

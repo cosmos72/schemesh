@@ -324,7 +324,12 @@
 
 ;; save history to file. return #t if successful, otherwise return #f
 (define (linectx-save-history lctx)
-  (vhistory-file-save (linectx-history lctx)))
+  (let ((hist (linectx-history lctx)))
+    (vhistory-file-save
+      hist
+      (vhistory-path hist)
+      (lambda (lines) (not (vlines-cell-count<=? lines 2))))))
+
 
 (define (linectx-keytable-insert! keytable proc . keysequences)
   (letrec

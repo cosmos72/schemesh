@@ -14,16 +14,18 @@
 ;; return #t if successful, otherwise return #f
 (define vhistory-file-save
   (case-lambda
-    ((hist path)
-      (let ((temp-path (string-append path "." (number->string (pid-get))))
-            (remove-temp-path? #f)
-            (port #f)
-            (success? #f))
-        (try
+    ((hist path pred)
+      (and
+        path
+        (let ((temp-path (string-append path "." (number->string (pid-get))))
+              (remove-temp-path? #f)
+              (port #f)
+              (success? #f))
+          (try
             ;; write to a temporary file "history.txt.PID"
             (set! port (file->port temp-path 'write '(create) 'binary))
             (set! remove-temp-path? #t)
-            (vhistory-port-save hist port)
+            (vhistory-port-save hist port pred)
             (close-port port)
             (set! port #f)
             ;; atomically rename "history.txt.PID" -> "history.txt"
@@ -47,18 +49,22 @@
           (close-port port))
         (when remove-temp-path?
           (file-delete temp-path '(catch)))
-        success?))
+        success?)))
+    ((hist path)
+      (vhistory-file-save hist path #f))
     ((hist)
-      (let ((path (vhistory-path hist)))
-        (and path (vhistory-file-save hist path))))))
+      (vhistory-file-save hist (vhistory-path hist) #f))))
 
 
 ;; save vhistory to specified binary output port.
 ;; return #t if successful, otherwise return #f
-(define (vhistory-port-save hist port)
+(define (vhistory-port-save hist port pred)
   (gbuffer-iterate hist
     (lambda (i pair)
-      (vlines-port-save (cdr pair) port))))
+      (let ((lines (cdr pair)))
+        (if (and pred (not (pred lines)))
+          #t
+          (vlines-port-save lines port))))))
 
 
 ;; save vlines to specified binary output port.
