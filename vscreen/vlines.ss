@@ -151,22 +151,25 @@
       ret)))
 
 
-;; return #t if number of cells in vlines is <= n,
-;; otherwise return #f
+;; return -1 if number of vcells in lines is < n,
+;; return 0 if it's = n,
+;; otherwise return +1
 ;;
-;; faster than (fx<=? (vlines-cell-count lines) n)
-(define (vlines-cell-count<=? lines n)
-  (let %vlines-cell-count<=? ((left n) (lines lines)
-                              (y 0)    (yn (vlines-length lines)))
+;; faster than (fxcompare (vlines-cell-count lines) n)
+(define (vlines-cell-count-compare lines n)
+  (let %vlines-cell-count-compare ((left n) (lines lines)
+                                   (y 0)    (yn (vlines-length lines)))
     (cond
       ((fx<? left 0)
-        #f)
+        -1)
       ((fx<? y yn)
-        (%vlines-cell-count<=?
+        (%vlines-cell-count-compare
           (fx- left (vline-length (vlines-ref lines y)))
           lines (fx1+ y) yn))
+      ((fxzero? left)
+        0)
       (else
-        #t))))
+        1))))
 
 
 ;; get n-th line

@@ -18,8 +18,8 @@
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
       ;; functions.ss
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
-      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* fxcompare nop
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf

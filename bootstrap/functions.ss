@@ -15,8 +15,8 @@
 
 (library (scheme2k bootstrap functions (1 0 2))
   (export
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop parameter-swapper
-      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* fxcompare nop
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
@@ -106,7 +106,17 @@
     (eval-one-by-one form env)))
 
 
-;; version of fx<=? that does not allocate, and allows up to 6 arguments
+;; compare two fixnums.
+;; return 0 if (fx=? a b)
+;; return -1 if (fx<? a b)
+;; return +1 if (fx>? a b)
+(define (fxcompare a b)
+  (cond ((fx=? a b) 0)
+        ((fx<? a b) -1)
+        (else       +1)))
+
+
+;; version of fx<=? that does not allocate up to 6 arguments
 (define fx<=?*
   (case-lambda
     ((a b)         (fx<=? a b))

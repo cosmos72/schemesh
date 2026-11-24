@@ -63,7 +63,7 @@
     vlines vlines? assert-vlines? vlines->string vlines->string*
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-clear! vlines-ref vlines-set!
-    vlines-cell-count vlines-cell-count<=? vlines-string=?
+    vlines-cell-count vlines-cell-count-compare vlines-string=?
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?
@@ -80,7 +80,7 @@
     vscreen-cursor-vx     vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
     vscreen-prompt0-end-x vscreen-prompt0-end-y vscreen-prompt0-length  vscreen-prompt0-length-set!
     vscreen-prompt-end-x  vscreen-prompt-end-y  vscreen-prompt-length   vscreen-prompt-length-set!
-    vscreen-length-at-y   vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
+    vscreen-length-at-y   vscreen-length       vscreen-cell-count     vscreen-cell-count-compare
     vscreen-cell-at-xy    vscreen-cell-before-xy  vscreen-cell-after-xy
     vscreen-char-at-xy    vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy       vscreen-prev-xy

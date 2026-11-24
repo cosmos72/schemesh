@@ -60,8 +60,8 @@
 ;; return #t if number of cells in vscreen is <= n,
 ;; otherwise return #f
 ;;
-;; faster than (fx<=? (vscreen-cell-count lines) n)
-(define vscreen-cell-count<=? vlines-cell-count<=?)
+;; faster than (fxcompare (vscreen-cell-count lines) n)
+(define vscreen-cell-count-compare vlines-cell-count-compare)
 
 ;; return prompt0 length in characters
 (define (vscreen-prompt0-length screen)
