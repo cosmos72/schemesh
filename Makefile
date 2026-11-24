@@ -97,7 +97,7 @@ LDFLAGS_SO=-shared
 # no user-serviceable parts below this line
 ######################################################################################
 
-VERSION_STR=1.0.2
+VERSION_STR=1.0.3
 
 ## by default, only compile and install additional programs that do *not* require
 ## external dependencies (libcurl, libsqlite3 ...)

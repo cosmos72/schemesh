@@ -9,7 +9,7 @@
 #!r6rs
 
 
-(library (scheme2k io auto (1 0 2))
+(library (scheme2k io auto (1 0 3))
   (export
     auto-reader auto-reader? make-auto-reader)
   (import

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k lineedit paren (1 0 2))
+(library (scheme2k lineedit paren (1 0 3))
   (export
     make-paren      make-paren/bad-close
     paren?          paren-name

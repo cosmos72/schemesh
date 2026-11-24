@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers flvector (1 0 2))
+(library (scheme2k containers flvector (1 0 3))
   (export
     ;; flvector-native? is a constant, not a procedure
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector

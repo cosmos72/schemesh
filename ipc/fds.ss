@@ -11,7 +11,7 @@
 ;; Define the record-type (s-fd) containing a reference-counted file descriptor
 
 
-(library (scheme2k ipc fds (1 0 2))
+(library (scheme2k ipc fds (1 0 3))
   (export
     s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release)
   (import

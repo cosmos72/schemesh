@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (scheme2k lineedit lineedit (1 0 2))
+(library (scheme2k lineedit lineedit (1 0 3))
   (export
     ;; linectx.ss
     linectx-prompt0-proc linectx-prompt-proc linectx-completion-proc

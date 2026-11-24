@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k vscreen (1 0 2))
+(library (scheme2k vscreen (1 0 3))
   (export
     ;; vcell.ss
     make-vcell vcell vcell? vcell-narrow? vcell-wide? vcell-wide-left? vcell-wide-right?

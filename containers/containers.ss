@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (scheme2k containers) as a library that exports all its imported bindings
-(library-reexport (scheme2k containers (1 0 2))
+(library-reexport (scheme2k containers (1 0 3))
   (import (scheme2k containers bitmap)
           (scheme2k containers bytespan)
           (scheme2k containers bytevector)

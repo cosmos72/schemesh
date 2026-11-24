@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix fs (1 0 2))
+(library (scheme2k posix fs (1 0 3))
   (export
       c-make-dev c-dev-major c-dev-minor c-umask path->c-path0
 

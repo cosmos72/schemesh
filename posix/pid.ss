@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix pid (1 0 2))
+(library (scheme2k posix pid (1 0 3))
   (export pid-get pgid-get pid-kill pid-wait)
   (import
     (rnrs)

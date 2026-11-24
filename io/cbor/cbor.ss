@@ -22,7 +22,7 @@
 ;;;
 ;;; [TO DO]
 
-(library (scheme2k io cbor (1 0 2))
+(library (scheme2k io cbor (1 0 3))
   (export make-cbor-reader cbor-reader cbor-reader?
           make-cbor-writer cbor-writer cbor-writer?
 
