@@ -21,7 +21,7 @@
     (only (chezscheme)                       date? date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset
                                              fx1+ fx1- fx/ list-copy logbit? make-date make-time procedure-arity-mask reverse!
                                              time? time-type time-second time-nanosecond void)
-    (only (scheme2k bootstrap)               assert* for let-macro)
+    (only (scheme2k bootstrap)               assert* boolean-compare char-compare for fxcompare let-macro number-compare string-compare)
     (only (scheme2k containers charspan)     charspan? charspan-length charspan-ref)
     (only (scheme2k containers date)         date date-compare date-equiv?)
     (only (scheme2k containers gbuffer)      gbuffer? gbuffer-length gbuffer-ref)
@@ -75,38 +75,6 @@
         (let ((%reflect-equiv-proc ;; name shown when displaying the closure
                 (lambda (a b) (eqv? 0 (compare-proc a b)))))
             %reflect-equiv-proc)))))
-
-
-;; convention: #f is less than #t
-(define (boolean-compare a b)
-  (cond ((eq? a b) 0)
-        (a         1)
-        (else     -1)))
-
-
-(define (char-compare a b)
-  (cond ((char=? a b) 0)
-        ((char>? a b) 1)
-        (else         -1)))
-
-
-(define (number-compare a b)
-  (cond
-    ((or (eq? a b) (= a b))
-      0)
-    ((and (real? a) (real? b))
-      (cond ((> a b) 1)
-            ((< a b) -1)
-            ;; (= a b) already checked above
-            (else #f))) ;; not-a-numbers are unordered
-    (else
-      #f))) ;; complex numbers are unordered
-
-
-(define (string-compare a b)
-  (cond ((string=? a b) 0)
-        ((string>? a b) 1)
-        (else           -1)))
 
 
 (define (symbol-compare a b)

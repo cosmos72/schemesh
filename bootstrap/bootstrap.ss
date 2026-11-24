@@ -18,18 +18,20 @@
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
       ;; functions.ss
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* fxcompare nop
+      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
+
+      boolean-compare char-compare fxcompare number-compare string-compare
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
 
-      warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
-      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
-
       sh-login? sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number
 
       void1 void^
+
+      warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
+      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
       ;; macros.ss
       begin0 for forever if0 lambda0 let0 let1 let*-pairs0 let-values0

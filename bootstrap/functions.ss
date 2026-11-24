@@ -15,18 +15,20 @@
 
 (library (scheme2k bootstrap functions (1 0 2))
   (export
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* fxcompare nop
+      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
+
+      boolean-compare char-compare fxcompare number-compare string-compare
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
 
-      warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
-      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
-
       sh-login? sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number
 
-      void1 void^)
+      void1 void^
+
+      warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
+      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl)
   (import
     (rnrs)
     (only (chezscheme) $primitive box-cas! console-error-port eval format gensym import include
@@ -61,6 +63,38 @@
 ;;
 ;; depending on the event and on user's commands, may or may not return.
 (define check-interrupts ($primitive 3 $event))
+
+
+;; convention: #f is less than #t
+(define (boolean-compare a b)
+  (cond ((eq? a b) 0)
+        (a         1)
+        (else     -1)))
+
+
+(define (char-compare a b)
+  (cond ((char=? a b) 0)
+        ((char>? a b) 1)
+        (else         -1)))
+
+
+(define (number-compare a b)
+  (cond
+    ((or (eq? a b) (= a b))
+      0)
+    ((and (real? a) (real? b))
+      (cond ((> a b) 1)
+            ((< a b) -1)
+            ;; (= a b) already checked above
+            (else #f))) ;; not-a-numbers are unordered
+    (else
+      #f))) ;; complex numbers are unordered
+
+
+(define (string-compare a b)
+  (cond ((string=? a b) 0)
+        ((string>? a b) 1)
+        (else           -1)))
 
 
 (define (can-eval-whole? form env)
