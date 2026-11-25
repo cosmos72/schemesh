@@ -9,7 +9,7 @@
 
 (library (scheme2k lineedit ansi (1 0 3))
   (export
-    ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length make-ansi-text
+    ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length ansi-text-visible-length-set! make-ansi-text
     string+ color
     black  red  green  yellow  blue  magenta  cyan  white
     black+ red+ green+ yellow+ blue+ magenta+ cyan+ white+)
