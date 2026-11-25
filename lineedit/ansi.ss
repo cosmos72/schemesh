@@ -10,7 +10,7 @@
 (library (scheme2k lineedit ansi (1 0 3))
   (export
     ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length ansi-text-visible-length-set! make-ansi-text
-    string+ color
+    char+ string+ color
     black  red  green  yellow  blue  magenta  cyan  white
     black+ red+ green+ yellow+ blue+ magenta+ cyan+ white+)
   (import
@@ -18,8 +18,8 @@
     (only (chezscheme)                   record-writer)
     (only (scheme2k bootstrap)           assert*)
     (only (scheme2k containers bytespan) make-bytespan bytespan? bytespan-clear!)
-    (only (scheme2k containers utf8b)    utf8b-bytespan->string bytespan-insert-right/string!)
-    (only (scheme2k conversions unicode) string-display-width))
+    (only (scheme2k containers utf8b)    bytespan-insert-right/char! bytespan-insert-right/string! utf8b-bytespan->string)
+    (only (scheme2k conversions unicode) char-display-width string-display-width))
 
 
 (define-record-type (ansi-text %make-ansi-text ansi-text?)
@@ -44,11 +44,24 @@
   (bytespan-clear! (ansi-text-bytes a))
   (ansi-text-visible-length-set! a 0))
 
+
+(define char+
+  (case-lambda
+    ((a chr visible?)
+     (bytespan-insert-right/char! (ansi-text-bytes a) chr)
+     (when visible?
+       (ansi-text-visible-length-set! a (fx+ (char-display-width chr) (ansi-text-visible-length a))))
+     a)
+    ((a chr)
+     (char+ a chr #t))))
+
+
 (define string+
   (case-lambda
     ((a str visible-length)
       (bytespan-insert-right/string! (ansi-text-bytes a) str)
-      (ansi-text-visible-length-set! a (fx+ visible-length (ansi-text-visible-length a)))
+      (when (fx>? visible-length 0)
+        (ansi-text-visible-length-set! a (fx+ visible-length (ansi-text-visible-length a))))
       a)
     ((a str)
       (string+ a str (string-display-width str)))))
