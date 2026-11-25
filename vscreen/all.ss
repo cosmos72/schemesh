@@ -63,7 +63,7 @@
     vlines vlines? assert-vlines? vlines->string vlines->string*
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-clear! vlines-ref vlines-set!
-    vlines-cell-count vlines-cell-count-compare vlines-string=?
+    vlines-cell-count vlines-cell-count-compare vlines-string=? vlines-string-hash
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?
@@ -110,7 +110,8 @@
     (rnrs mutable-strings)
     (only (chezscheme)                      box set-box! bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit? meta-cond
                                             procedure-arity-mask record-writer string-copy! string-truncate! unbox void)
-    (only (scheme2k bootstrap)              assert* assert-not* catch debugf debugf-port fx<=?* raise-assertf try until while)
+    (only (scheme2k bootstrap)              assert* assert-not* catch debugf debugf-port fx<=?*
+                                            fxhash-finish fxhash-init fxhash-update raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)
           (scheme2k containers bytespan)

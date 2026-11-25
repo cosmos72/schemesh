@@ -15,10 +15,8 @@
 
 (library (scheme2k bootstrap functions (1 0 3))
   (export
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop
+      box-cas-strong! bwp-object check-interrupts eval-form nop
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
-
-      boolean-compare char-compare fxcompare number-compare string-compare
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
@@ -65,38 +63,6 @@
 (define check-interrupts ($primitive 3 $event))
 
 
-;; convention: #f is less than #t
-(define (boolean-compare a b)
-  (cond ((eq? a b) 0)
-        (a         1)
-        (else     -1)))
-
-
-(define (char-compare a b)
-  (cond ((char=? a b) 0)
-        ((char>? a b) 1)
-        (else         -1)))
-
-
-(define (number-compare a b)
-  (cond
-    ((or (eq? a b) (= a b))
-      0)
-    ((and (real? a) (real? b))
-      (cond ((> a b) 1)
-            ((< a b) -1)
-            ;; (= a b) already checked above
-            (else #f))) ;; not-a-numbers are unordered
-    (else
-      #f))) ;; complex numbers are unordered
-
-
-(define (string-compare a b)
-  (cond ((string=? a b) 0)
-        ((string>? a b) 1)
-        (else           -1)))
-
-
 (define (can-eval-whole? form env)
   (if (not (and (pair? form) (symbol? (car form))))
     #t
@@ -138,26 +104,6 @@
   (if (can-eval-whole? form env)
     (eval form env)
     (eval-one-by-one form env)))
-
-
-;; compare two fixnums.
-;; return 0 if (fx=? a b)
-;; return -1 if (fx<? a b)
-;; return +1 if (fx>? a b)
-(define (fxcompare a b)
-  (cond ((fx=? a b) 0)
-        ((fx<? a b) -1)
-        (else       +1)))
-
-
-;; version of fx<=? that does not allocate up to 6 arguments
-(define fx<=?*
-  (case-lambda
-    ((a b)         (fx<=? a b))
-    ((a b c)       (fx<=? a b c))
-    ((a b c d)     (and (fx<=? a b c) (fx<=? c d)))
-    ((a b c d e)   (and (fx<=? a b c) (fx<=? c d e)))
-    ((a b c d e f) (and (fx<=? a b c) (fx<=? c d e) (fx<=? e f)))))
 
 
 ;; ignore all arguments, do nothing and return (void)

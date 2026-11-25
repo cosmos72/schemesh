@@ -106,6 +106,25 @@
         (and (fx=? y1 n1) (fx=? y2 n2))))))
 
 
+;; hash function compatible with (vlines-string=?)
+;; together, they allow using vlines objects as hash table keys
+(define (vlines-string-hash lines)
+  (assert* 'vlines-string-hash? (vlines? lines))
+  (let %hash-vlines ((h (fxhash-init)) (y 0) (n (vlines-length lines)))
+    (if (fx<? y n)
+      (let ((line (vlines-ref lines y)))
+        (%hash-vlines
+          (let %hash-vline ((h h) (x 0) (len (vline-length line)))
+            (if (fx<? x len)
+              (%hash-vline (fxhash-update h (char->integer (vline-ref/char line x)))
+                           (fx1+ x) len)
+              h))
+          (fx1+ y) n))
+      (fxhash-finish h))))
+        
+        
+  
+
 (define (vlines-dirty-y-add! lines start end)
   (vlines-dirty-start-y-set! lines (fxmin start (vlines-dirty-start-y lines)))
   (vlines-dirty-end-y-set!   lines (fxmax end   (vlines-dirty-end-y   lines))))

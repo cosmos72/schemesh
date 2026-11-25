@@ -17,11 +17,12 @@
       first-value first-value-or-void let-macro iterate iterate-any iterator? raise-assert* reverse-macro
       second-value throws? trace-call trace-define try list->values values->list with-locked-objects
 
-      ;; functions.ss
-      box-cas-strong! bwp-object check-interrupts eval-form fx<=?* nop
-      generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
+      ;; compare.ss
+      boolean-compare char-compare fx<=?* fxcompare number-compare string-compare
 
-      boolean-compare char-compare fxcompare number-compare string-compare
+      ;; functions.ss
+      box-cas-strong! bwp-object check-interrupts eval-form nop
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty parameter-swapper
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
@@ -33,6 +34,9 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
+      ;; hash.ss
+      fxhash-finish fxhash-init fxhash-update
+
       ;; macros.ss
       begin0 for forever if0 lambda0 let0 let1 let*-pairs0 let-values0
       parameterize* repeat unless0 until when0 while with-while-until)
@@ -40,13 +44,15 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! base-exception-handler console-error-port current-time format foreign-procedure
-                       fx1+ fx1- fx/ gensym include list-copy list-head lock-object logbit? meta pariah
-                       procedure-arity-mask reverse! syntax->list time-second time-nanosecond unlock-object void)
+    (only (chezscheme) $primitive append! base-exception-handler console-error-port current-time format foreign-procedure
+                       fx1+ fx1- fx/ fxlogxor fxsrl gensym include list-copy list-head lock-object logbit? meta meta-cond
+                       pariah procedure-arity-mask reverse! syntax->list time-second time-nanosecond unlock-object void)
     (scheme2k bootstrap arrow)
     (scheme2k bootstrap functions))
 
 
+(include "bootstrap/compare.ss")
+(include "bootstrap/hash.ss")
 (include "bootstrap/macros.ss")
 
 ;; convert a list to multiple values

@@ -172,6 +172,13 @@
 
   (vlines-string=?
     (vlines "foo bar b" "az") (vlines "foo bar baz"))   #t
+
+  (fx- (vlines-string-hash (vlines))
+       (fxhash-finish (fxhash-init)))                   0
+
+  (fx- (vlines-string-hash (vlines "foo" "bar"))
+       (vlines-string-hash (vlines "foobar")))          0
+
   ;; ------------------------ vscreen -------------------------------------
   (let ((screen (vscreen 8 30 "qwerty\n" "asdfgh")))
     (vscreen-cursor-vxy-set! screen 3 1)
