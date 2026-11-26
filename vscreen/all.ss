@@ -110,7 +110,7 @@
     (rnrs mutable-strings)
     (only (chezscheme)                      box set-box! bytevector-truncate! format fx1+ fx1- fx1- fx/ include logbit? meta-cond
                                             procedure-arity-mask record-writer string-copy! string-truncate! unbox void)
-    (only (scheme2k bootstrap)              assert* assert-not* catch debugf debugf-port fx<=?*
+    (only (scheme2k bootstrap)              assert* assert-not* catch fx<=?*
                                             fxhash-finish fxhash-init fxhash-update raise-assertf try until while)
     (only (scheme2k containers bytevector)  subbytevector-fill!)
     (only (scheme2k containers string)      string-replace/char!)

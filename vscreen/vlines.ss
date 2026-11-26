@@ -381,23 +381,34 @@
 
 
 ;; return position one character to the left of x y.
-;; returned position may be on the previous line.
+;; if x is 0, returned position (if valid) will be on the previous line
 ;; return #f #f if x y is out of range or is the first valid position.
 ;;
+;; Note: position immediately after the end of a line is considered valid.
 ;; Note: skips wide-right vcell
 (define (vlines-prev-xy lines x y)
   (let ((ymax (fx1- (vlines-length lines))))
-    (if (and (fixnum? x) (fixnum? y) (fx<=? 0 y ymax))
-      ;; allow positioning cursor after end of line only if it's the last line
-      (let ((xmax (fx- (vline-length (vlines-ref lines y))
-                       (if (fx=? y ymax) 0 1))))
-        ; (debugf "vlines-length-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
-        (if (fx<=? 1 x xmax)
-          (vlines-prev-xy-if-wide-right lines (fx1- x) y) ;; (x-1 y) is a valid position, return it
-          (if (fx>? y 0)
-            ;; return last position in previous line
-            (vlines-prev-xy-if-wide-right lines (fx1- (vline-length (vlines-ref lines (fx1- y)))) (fx1- y))
-            (values #f #f))))
+    (if (and (fixnum? x) (fixnum? y) (fx>=? x 0) (fx<=? 0 y ymax))
+      ;; allow x y to be after end of a line
+      (let ((xmax (vline-length (vlines-ref lines y))))
+        (cond
+          ((fx>? x 0)
+            ;; (x-1 y) is a valid position, return it
+            (vlines-prev-xy-if-wide-right lines (fx1- x) y))
+          ((fxzero? y)
+            ;; there's no valid position before 0 0
+            (values #f #f))
+          ((fx>? y 1)
+            ;; return last position in previous line, which cannot be a wide-right vcell
+            (let ((y (fx1- y)))
+              (values (fx1- (vline-length (vlines-ref lines y))) y)))
+          (else
+            ;; previous line is the first line, it may be empty
+            (let ((xend (vline-length (vlines-ref lines 0))))
+              (if (fxzero? xend)
+                (values #f #f)
+                ;; return last position in first line, which cannot be a wide-right vcell
+                (values (fx1- xend) 0))))))
       (values #f #f))))
 
 
@@ -405,18 +416,23 @@
 ;; returned position may be on the next line.
 ;; return #f #f if x y is out of range or is the last valid position.
 ;;
+;; Note: position -1 0 is considered valid and one cell to the left of 0 0
 ;; Note: skips wide-right vcell
 (define (vlines-next-xy lines x y)
-  (let ((ymax  (fx1- (vlines-length lines))))
-    (if (and (fixnum? x) (fixnum? y) (fx<=? 0 y ymax))
-      ;; allow positioning cursor after end of line only if it's the last line
-      (let ((xmax (fx- (vline-length (vlines-ref lines y))
-                       (if (fx=? y ymax) 0 1))))
-        ; (debugf "vlines-length-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
-        (if (fx<? -1 x xmax)
-          (vlines-next-xy-if-wide-right lines (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
-          (if (fx<? y ymax)
-            (vlines-next-xy-if-wide-right lines 0 (fx1+ y)) ;; return beginning of next line
+  (let ((ymax (fx1- (vlines-length lines))))
+    (if (and (fixnum? x) (fixnum? y) (fx>=? x -1) (fx<=? 0 y ymax))
+      (let ((xmax (fx1- (vline-length (vlines-ref lines y)))))
+        (cond
+          ((fx<? x xmax)
+            ;; (x+1 y) is a valid position, return it
+            (vlines-next-xy-if-wide-right lines (fx1+ x) y))
+          ((fx<? y ymax)
+            ;; return beginning of next line - it cannot be empty, and cannot be a wide-right vcell
+            (values 0 (fx1+ y)))
+          ((fx=? x xmax)
+            ;; last line, allow positioning cursor after end of line
+            (values (fx1+ x) y))
+          (else
             (values #f #f))))
       (values #f #f))))
 

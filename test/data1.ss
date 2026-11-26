@@ -155,7 +155,26 @@
     (vline-insert-at/vbuffer! l1 5 (vline "012345") 2 5)
     (list l1 l2))                                  ,((vline "abcde234fgh") (vline "abcdefgh"))
   ;; ------------------------ vlines -----------------------------------
-  (vlines (vline "foo/bar") (vline "\n"))              ,(vlines "foo/bar" "\n")
+  (vlines (vline "foo/bar") (vline "\n"))               ,(vlines "foo/bar" "\n")
+
+  (values->list
+    (vlines-next-xy (vlines "foo") -1 0))               (0 0)
+  (values->list
+    (vlines-next-xy (vlines "foo") 2 0))                (3 0)
+  (values->list
+    (vlines-next-xy (vlines "foo") 3 0))                (#f #f)
+  (values->list
+    (vlines-next-xy (vlines "foo") 0 1))                (#f #f)
+
+  (values->list
+    (vlines-prev-xy (vlines "foo") 0 0))                (#f #f)
+  (values->list
+    (vlines-prev-xy (vlines "foo") 1 0))                (0 0)
+  (values->list
+    (vlines-prev-xy (vlines "foo") 3 0))                (2 0)
+  (values->list
+    (vlines-prev-xy (vlines "foo") 0 1))                (#f #f)
+
   (vlines-index (vlines "qwerty@$%" "asdf")
     4 1
     (lambda (cl) (char=? #\@ (vcell->char cl))))        7
