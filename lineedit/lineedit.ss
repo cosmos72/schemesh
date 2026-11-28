@@ -416,7 +416,7 @@
   (%add t lineedit-key-del-line-left    21) ; CTRL+U
   (%add t lineedit-key-to-history       24) ; CTRL+X
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
-  (%add t lineedit-key-vscreen-dump     28) ; CTRL+4, CTRL+BACKSLASH
+  (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 #vu8(27 127))
   ; sequences starting with ESC

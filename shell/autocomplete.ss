@@ -13,6 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
+    ;; (only (scheme2k bootstrap)         debugf)
     (only (scheme2k containers list)      for-list list-remove-consecutive-duplicates!)
     (only (scheme2k containers string)    substring=? string-null? string-prefix? string-split)
     (only (scheme2k containers hashtable) for-hash-keys)
@@ -20,6 +21,7 @@
     (scheme2k containers span)
     (scheme2k containers sort)
     (only (scheme2k containers utf8b)     codepoint-utf8b? integer->char* utf8b->string)
+    (only (scheme2k conversions unicode)  char-display-width)
     (only (scheme2k posix fs)             directory-list-type directory-sort!)
     (only (scheme2k vscreen)              vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (scheme2k lineedit paren)
@@ -43,7 +45,7 @@
   (%compute-scheme-stem lctx paren)
   (let* ((stem     (linectx-completion-stem lctx))
          (stem-len (charspan-length stem)))
-    ; (debugf "sh-autocomplete-scheme paren=~s stem=~s" paren stem)
+    ; (debugf "> sh-autocomplete-scheme paren=~s stem=~s" paren stem)
     (if (eqv? #\" (paren-start-token paren))
        ; list contents of some directory
        (let ((slash-pos (charspan-index-right stem #\/)))
@@ -89,7 +91,7 @@
            (stem-len  (charspan-length stem))
            (slash-pos (and stem? (not dollar?) (charspan-index-right stem #\/))))
 
-      ;; (debugf "sh-autocomplete-shell stem ~s, stem-is-first-word? ~s, offset ~s, slash-pos ~s" stem stem-is-first-word? offset slash-pos)
+      ;; (debugf "> sh-autocomplete-shell stem ~s, stem-is-first-word? ~s, offset ~s, slash-pos ~s" stem stem-is-first-word? offset slash-pos)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
@@ -144,12 +146,12 @@
                      (and (fx=? y ymin) (fx>=? x xmin)))
                (vscreen-char-before-xy screen x y)
                (values #f #f #f)))))
-    ; (debugf "%compute-shell-stem paren=~s, xmin=~s, ymin=~s" (paren->list paren) xmin ymin)
+    ; (debugf "> %compute-shell-stem paren=~s, xmin=~s, ymin=~s" (paren->list paren) xmin ymin)
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))
       (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
-        ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s" x y x1 y1 ch)
+        ; (debugf "> %vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s" x y x1 y1 ch)
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              (values #t x y))
@@ -209,12 +211,12 @@
                      (and (fx=? y ymin) (fx>=? x xmin)))
                (vscreen-char-before-xy screen x y)
                (values #f #f #f)))))
-    ; (debugf "%compute-scheme-stem paren=~s, xmin=~s, ymin=~s" (paren->list paren) xmin ymin)
+    ; (debugf "> %compute-scheme-stem paren=~s, xmin=~s, ymin=~s" (paren->list paren) xmin ymin)
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))
       (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
-        ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s" x y x1 y1 ch)
+        ; (debugf "> %vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s" x y x1 y1 ch)
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              (values #t x y))
@@ -252,7 +254,10 @@
     (or (char<=? #\a ch #\z)
         (char<=? #\@ ch #\Z)  ; i.e. one of @ A ... Z
         (char<=? #\+ ch #\:)  ; i.e. one of + , - . / 0 ... 9 :
-        (memv ch '(#\% #\= #\\ #\^ #\_ #\~)))))
+        (memv ch '(#\% #\= #\\ #\^ #\_ #\~))
+        ;; characters >= 128 are shell identifiers if they have display-width > 0
+        (and (char>=? ch #\x128)
+             (not (fxzero? (char-display-width ch)))))))
 
 
 (define (%char-is-shell-squote-special? ch)
@@ -267,7 +272,7 @@
 
 (define (%stem-is-after-shell-separator? screen x y)
   (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-    ; (debugf "%stem-is-after-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s" x y x1 y1 ch)
+    ; (debugf "> %stem-is-after-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s" x y x1 y1 ch)
     (cond
       ((not (and x1 y1 ch))  #f)
       ((memv ch '(#\; #\newline #\! #\& #\|)) #t)
@@ -440,19 +445,21 @@
 
 
 (define (%list-directory dir prefix slash? quote-func completions)
-  ;; (debugf "lineedit-shell-list/directory dir ~s, prefix ~s, quote-func ~s" dir prefix quote-func)
+  ;; (debugf "> lineedit-shell-list/directory dir ~s, prefix ~s, quote-func ~s" dir prefix quote-func)
   (let* ((dir?       (and slash? (not (string-null? dir))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
-         (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (for-list ((elem (directory-sort! (directory-list-type dir (list 'prefix prefix 'bytes 'catch)))))
-      (let ((name (string->charspan* (utf8b->string (car elem)))))
+         (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0))))
+         (dir-alist   (directory-sort! (directory-list-type dir (list 'prefix prefix 'catch)))))
+    ;; (debugf ". lineedit-shell-list/directory dir ~s, prefix ~s, alist ~s" dir prefix dir-alist)
+    (for-list ((pair dir-alist))
+      (let ((name (string->charspan* (car pair))))
         (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
           (charspan-delete-left! name prefix-len)
-          (when (eq? 'dir (cdr elem))
+          (when (eq? 'dir (cdr pair))
             (charspan-insert-right! name #\/))
           (span-insert-right! completions (quote-func name))))))
-  ;; (debugf "lineedit-shell-list/directory completions ~s" completions)
+  ;; (debugf "< lineedit-shell-list/directory completions ~s" completions)
   )
 
 
@@ -519,9 +526,10 @@
          (dirs       (string-split $path #\:))
          (prefix-len (string-length prefix)))
     (for-list ((dir dirs))
-      (for-list ((elem (directory-list-type dir (list 'prefix prefix 'catch)))) ; no need to sort directory list
-        (when (eq? 'file (cdr elem))
-          (set! l (cons (car elem) l))))))
+      ;; no need to sort directory list, caller will sort it
+      (for-list ((pair (directory-list-type dir (list 'prefix prefix 'catch))))
+        (when (eq? 'file (cdr pair))
+          (set! l (cons (car pair) l))))))
   l)
 
 ;; return the correct autocompletion function for specified parser name,
